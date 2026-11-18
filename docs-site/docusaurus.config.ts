@@ -16,6 +16,7 @@ const config: Config = {
     hooks: { onBrokenMarkdownLinks: 'throw' },
   },
   themes: ['@docusaurus/theme-mermaid'],
+  clientModules: ['./src/fonts.ts'],
   i18n: { defaultLocale: 'en', locales: ['en'] },
   presets: [
     [
@@ -31,7 +32,8 @@ const config: Config = {
     ],
   ],
   themeConfig: {
-    colorMode: { defaultMode: 'dark', respectPrefersColorScheme: true },
+    colorMode: { defaultMode: 'dark', respectPrefersColorScheme: false },
+    mermaid: { theme: { light: 'neutral', dark: 'dark' } },
     navbar: {
       title: 'ARGUS',
       logo: { alt: 'Argus', src: 'img/favicon.svg' },

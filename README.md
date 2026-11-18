@@ -12,7 +12,9 @@
   <a href="https://github.com/twillislabs/argus/actions/workflows/ci.yml"><img src="https://github.com/twillislabs/argus/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
----
+<p align="center">
+  <img src="docs/assets/screenshot-dark.png" alt="Argus: the default dark map with live events" width="900">
+</p>
 
 Argus is a self-hosted visualizer for open-source intelligence (OSINT). It brings conflict and
 protest reports, earthquakes, fires and the news onto one 3D globe, and will add aircraft, ships,
@@ -22,8 +24,9 @@ keys.
 
 What it does today:
 
-- **A 3D globe and 2D world map** (CesiumJS) that opens at your home location, with NASA imagery
-  and no third-party map account.
+- **A 3D globe and 2D world map** (CesiumJS) that opens at your home location. The default dark
+  map draws countries from bundled Natural Earth data. **Satellite** and **Hybrid** go down to
+  street level, like Google Maps.
 - **Live events**:
   - earthquakes from USGS every minute
   - conflict and protest reports from GDELT every 15 minutes
@@ -46,6 +49,17 @@ What's coming is in the [plan](docs/PLAN.md): aircraft and ships, satellites wit
 street-level imagery, airspace and GPS-jamming, weather, news and traffic video, wall mode for a
 watch-floor screen, balanced news coverage, alerts, and optional AI (Anthropic, OpenAI or a local
 model).
+
+<table>
+  <tr>
+    <td><img src="docs/assets/screenshot-city.png" alt="Dark map at city level" width="440"></td>
+    <td><img src="docs/assets/screenshot-satellite.png" alt="Satellite view at street level" width="440"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Dark map, city level</sub></td>
+    <td align="center"><sub>Satellite, street level</sub></td>
+  </tr>
+</table>
 
 ## Quick start
 
@@ -130,11 +144,15 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
 
 ## Data and credits
 
-- **Imagery:** NASA GIBS (Blue Marble).
+- **Maps and imagery:** Natural Earth (public domain), NASA GIBS (Blue Marble), and Esri (Dark
+  Gray Canvas, World Imagery and reference layers; © Esri and its data providers).
 - **Earthquakes:** USGS (public domain).
 - **Events:** the GDELT Project.
 - **Fires:** NASA FIRMS.
 - **Places:** [GeoNames](https://www.geonames.org/) (CC BY 4.0).
-- **Globe:** CesiumJS (Apache 2.0).
+- **Globe:** [CesiumJS](https://cesium.com/platform/cesiumjs/) (Apache 2.0). Argus uses the
+  open-source engine only, not the Cesium ion service.
+- **Ideas:** [God's Eye View](https://github.com/bilawalsidhu/gods-eye-view) (MIT), for several
+  planned features.
 - **News headlines:** each outlet's own feed. Argus stores only the headline, a short excerpt and
   the link, and always links to the original.

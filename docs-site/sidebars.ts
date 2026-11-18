@@ -11,6 +11,12 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Using Argus',
+      collapsed: false,
+      items: ['using/map'],
+    },
+    {
+      type: 'category',
       label: 'Administration',
       items: ['admin/security', 'admin/configuration'],
     },
