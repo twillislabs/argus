@@ -209,3 +209,22 @@ class Article(Base):
     summary: Mapped[str] = mapped_column(Text, default="")
     published_at: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
     fetched_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+# --- Milestone 2: server-wide settings --------------------------------------
+
+
+class ServerSetting(Base):
+    """One server-wide setting (set by an admin, used by every user).
+
+    Secrets inside value (API keys) are encrypted with argus.secrets.
+    """
+
+    __tablename__ = "server_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )

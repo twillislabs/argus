@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import AppHeader from '../components/AppHeader';
 import HomePicker from '../components/HomePicker';
+import ImageryCard from '../components/ImageryCard';
 import { type Home, type Me, savePreferences } from '../lib/api';
 
 interface Props {
@@ -92,6 +93,7 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
             </label>
           </div>
         </section>
+        {me.user.role === 'admin' && <ImageryCard />}
       </main>
     </div>
   );

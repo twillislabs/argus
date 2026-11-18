@@ -20,6 +20,7 @@ import {
   type EventType,
   getAircraft,
   getEvents,
+  getMapConfig,
   getSummary,
   type Me,
   savePreferences,
@@ -28,7 +29,7 @@ import {
 } from '../lib/api';
 import { connectLive, type LiveState } from '../lib/live';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
-import Globe, { type Basemap, BASEMAPS, type GlobeHandle } from '../map/Globe';
+import Globe, { type Basemap, BASEMAPS, type GlobeHandle, type Imagery, PHOTO_3D } from '../map/Globe';
 
 const REFRESH_MS = 60_000;
 const CIVIL_MS = 15_000;
@@ -62,10 +63,21 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const globe = useRef<GlobeHandle>(null);
   const [mode, setMode] = useState<'3d' | '2d'>('3d');
   const [basemap, setBasemap] = useState<Basemap>(() =>
-    BASEMAPS.some((b) => b.id === me.preferences.basemap)
+    [...BASEMAPS, PHOTO_3D].some((b) => b.id === me.preferences.basemap)
       ? (me.preferences.basemap as Basemap)
       : 'dark',
   );
+  const [imagery, setImagery] = useState<Imagery | null>(null);
+  useEffect(() => {
+    getMapConfig()
+      .then((c) => setImagery(c.imagery))
+      .catch(() => setImagery(null));
+  }, []);
+  const basemaps = imagery?.google_3d ? [...BASEMAPS, PHOTO_3D] : BASEMAPS;
+  // 3D was saved but an admin has since turned it off.
+  useEffect(() => {
+    if (imagery && basemap === 'photo3d' && !imagery.google_3d) setBasemap('satellite');
+  }, [imagery, basemap]);
   const [leftOpen, setLeftOpen] = useState(me.preferences.left_open !== false);
   const [rightOpen, setRightOpen] = useState(me.preferences.right_open !== false);
   const [filters, setFilters] = useState<LayerFilters>(() => initialFilters(me));
@@ -407,6 +419,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
           <Globe
             ref={globe}
             basemap={basemap}
+            imagery={imagery}
             home={home}
             events={shown}
             selectedId={selected}
@@ -434,7 +447,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               ))}
             </div>
             <div className="seg" role="group" aria-label="Base map">
-              {BASEMAPS.map((b) => (
+              {basemaps.map((b) => (
                 <button
                   key={b.id}
                   aria-pressed={basemap === b.id}

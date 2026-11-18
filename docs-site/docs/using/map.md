@@ -14,6 +14,10 @@ left of the map. Your choice is remembered.
 | **Dark** (default) | Graphite countries, borders and a faint graticule on a near-black ocean. Below about 3,000 km a dark street map with labels fades in, down to street level. | Natural Earth shapes bundled with Argus. Zoomed in: the self-hosted street map inside the installed region, Esri Dark Gray Canvas elsewhere |
 | **Satellite** | Aerial and satellite imagery down to about 0.3 m per pixel in many cities, like Google Maps. | Esri World Imagery over NASA Blue Marble |
 | **Hybrid** | Satellite with roads, borders and place names on top. | Esri World Imagery and reference layers |
+| **3D** (when enabled) | Google's photorealistic 3D buildings and terrain. | Google Map Tiles API |
+
+If an administrator added a Google key, **Satellite** and **Hybrid** use
+Google's imagery instead of Esri's, and the **3D** button may appear.
 
 The Esri services are hosted and need no key for light personal use.
 

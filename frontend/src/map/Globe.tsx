@@ -13,10 +13,14 @@ import {
 // for its Viewer widgets, which needs `eval` and breaks our strict CSP.
 import {
   CallbackProperty,
+  type Cesium3DTileset,
   CesiumWidget,
+  createGooglePhotorealistic3DTileset,
+  Google2DImageryProvider,
   Credit,
   GeographicTilingScheme,
   ImageryLayer,
+  type ImageryProvider,
   Ion,
   LabelStyle,
   type PointPrimitive,
@@ -31,7 +35,7 @@ import {
 } from '@cesium/engine';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
-import type { Aircraft, Bbox, EventItem, Home } from '../lib/api';
+import type { Aircraft, Bbox, EventItem, Home, MapConfig } from '../lib/api';
 import { SEVERITY_COLOR } from '../lib/format';
 import { type AircraftCamera, type CameraMode, createAircraftCamera } from './aircraftCamera';
 import { addAircraftLayer, type AircraftLayer } from './aircraftLayer';
@@ -66,7 +70,8 @@ const reduceMotion =
   typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-export type Basemap = 'dark' | 'satellite' | 'hybrid';
+export type Basemap = 'dark' | 'satellite' | 'hybrid' | 'photo3d';
+export type Imagery = MapConfig['imagery'];
 
 export const BASEMAPS: { id: Basemap; label: string }[] = [
   { id: 'dark', label: 'Dark' },
@@ -125,9 +130,35 @@ function tintLayer(): ImageryLayer {
   return layer;
 }
 
+// Google's photorealistic 3D cities, when an admin turned them on.
+export const PHOTO_3D: { id: Basemap; label: string } = { id: 'photo3d', label: '3D' };
+
+// Cesium's typings disagree with themselves on getTileCredits; the
+// provider is a normal ImageryProvider at runtime.
+function google2d(options: Parameters<typeof Google2DImageryProvider.fromUrl>[0]) {
+  return Google2DImageryProvider.fromUrl(options) as unknown as Promise<ImageryProvider>;
+}
+
+// Google Map Tiles (the admin's key): satellite, plus a roads and labels
+// overlay for Hybrid.
+function googleLayers(id: Basemap, key: string): ImageryLayer[] {
+  const base = [
+    new ImageryLayer(blueMarble()),
+    ImageryLayer.fromProviderAsync(google2d({ key, mapType: 'satellite' })),
+  ];
+  if (id !== 'hybrid') return base;
+  return [
+    ...base,
+    ImageryLayer.fromProviderAsync(google2d({ key, overlayLayerType: 'layerRoadmap' })),
+  ];
+}
+
 // Hosted Esri tiles for street detail and imagery (no key needed for light
-// use); milestone 2 adds self-hosted vector tiles and a provider key.
-function basemapLayers(id: Basemap): ImageryLayer[] {
+// use), or Google's for Satellite and Hybrid when an admin set a key.
+function basemapLayers(id: Basemap, imagery: Imagery | null): ImageryLayer[] {
+  if (id !== 'dark' && imagery?.provider === 'google' && imagery.google_key) {
+    return googleLayers(id, imagery.google_key);
+  }
   if (id === 'dark') {
     // Esri's dark grey is lighter and flatter than Argus Dark; darken it
     // and add contrast so zooming in keeps the same near-black look.
@@ -141,10 +172,10 @@ function basemapLayers(id: Basemap): ImageryLayer[] {
       new ImageryLayer(esri('Canvas/World_Dark_Gray_Reference', 16), { brightness: 1.15 }),
     ];
   }
-  const imagery = new ImageryLayer(
+  const esriImagery = new ImageryLayer(
     esri('World_Imagery', 19, 'Esri, Maxar, Earthstar Geographics'),
   );
-  const base = [new ImageryLayer(blueMarble()), imagery];
+  const base = [new ImageryLayer(blueMarble()), esriImagery];
   if (id === 'satellite') return base;
   return [
     ...base,
@@ -201,6 +232,7 @@ function viewBbox(v: CesiumWidget): Bbox | null {
 
 interface Props {
   basemap: Basemap;
+  imagery: Imagery | null;
   home: Home | null;
   events: EventItem[];
   selectedId: string | null;
@@ -216,6 +248,7 @@ interface Props {
 const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   {
     basemap,
+    imagery,
     home,
     events,
     selectedId,
@@ -236,6 +269,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const dark = useRef<DarkMap | null>(null);
   const air = useRef<AircraftLayer | null>(null);
   const tracker = useRef<AircraftCamera | null>(null);
+  const photo3d = useRef<Cesium3DTileset | null>(null);
   const onViewRef = useRef(onView);
   onViewRef.current = onView;
   const tiles = useRef<ImageryLayer[]>([]);
@@ -394,15 +428,40 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   }, []);
 
   // Base map: swap imagery layers; atmosphere only for imagery maps.
+  const imageryKey = imagery ? [imagery.provider, imagery.google_key, imagery.google_3d].join('|') : '';
   useEffect(() => {
     const v = viewer.current;
     if (!v) return;
+    let stale = false;
     v.scene.imageryLayers.removeAll();
-    tiles.current = basemapLayers(basemap);
+    tiles.current = basemapLayers(basemap, imagery);
+    // Photorealistic 3D replaces the globe surface with Google's tiles.
+    if (photo3d.current) {
+      if (!v.isDestroyed() && v.scene.primitives.contains(photo3d.current)) {
+        v.scene.primitives.remove(photo3d.current);
+      }
+      photo3d.current = null;
+    }
+    const wants3d = basemap === 'photo3d' && Boolean(imagery?.google_3d && imagery.google_key);
+    v.scene.globe.show = !wants3d;
+    if (wants3d && imagery?.google_key) {
+      createGooglePhotorealistic3DTileset({ key: imagery.google_key })
+        .then((tileset) => {
+          if (stale || v.isDestroyed()) {
+            tileset.destroy();
+            return;
+          }
+          photo3d.current = tileset;
+          v.scene.primitives.add(tileset);
+        })
+        .catch((err) => {
+          console.error('Google 3D tiles failed to load', err);
+          if (!stale && !v.isDestroyed()) v.scene.globe.show = true;
+        });
+    }
     for (const layer of tiles.current) v.scene.imageryLayers.add(layer);
     // Inside the installed region, the self-hosted street map draws over
     // Esri; outside it, Esri shows as before.
-    let stale = false;
     if (basemap === 'dark') {
       void localStreetBounds().then((bounds) => {
         if (stale || !bounds || v.isDestroyed()) return;
@@ -426,7 +485,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     return () => {
       stale = true;
     };
-  }, [basemap]);
+    // imageryKey stands for imagery's contents.
+  }, [basemap, imageryKey]);
 
   // Event markers: colour and size by severity, larger when selected.
   useEffect(() => {

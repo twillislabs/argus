@@ -14,6 +14,10 @@ parts connect.
   - `aviation.py`: airports/airlines, adsb.lol + adsbdb client, live
     military picture (`LiveAir`). The worker polls `/v2/mil` and publishes
     on NATS `argus.air`; civil traffic is fetched by the API per view.
+  - `api/admin.py`: server-wide settings (admins) and `/api/map/config`
+    (everyone). Settings live in the `server_settings` table; secrets in
+    them go through `argus/secrets.py` (Fernet, keyed from
+    ARGUS_SECRET_KEY) and are never returned to admins in full.
   - `search.py`: universal search; `decode()` is pure, `resolve()` looks
     things up. New query kinds go in both, with tests in
     `tests/test_aviation.py`.
@@ -46,6 +50,9 @@ parts connect.
   Import from core when the console warns.
 - Mermaid in the docs: `;` ends a statement, so never use it inside diagram
   text. The docs build doesn't catch diagram errors; check the page.
+- The Google key is sent to signed-in browsers (Cesium fetches Google
+  tiles directly). New external tile hosts must be added to the CSP in
+  `frontend/nginx.conf` (img-src and connect-src).
 - nginx uses `absolute_redirect off` so redirects keep the host port.
 - After editing `streetmap/styles/argus-dark.json`, bump
   `STREET_STYLE_VERSION` in `Globe.tsx` (tiles are cached by nginx and

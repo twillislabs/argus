@@ -281,3 +281,25 @@ export interface SearchResult {
 
 export const search = (q: string) =>
   api<{ query: string; results: SearchResult[] }>('/api/search?q=' + encodeURIComponent(q));
+
+// --- Server-wide imagery (admins set it; every user's map uses it) ----------
+
+export interface MapConfig {
+  imagery: { provider: 'esri' | 'google'; google_key: string | null; google_3d: boolean };
+}
+
+export interface ImagerySettings {
+  provider: 'esri' | 'google';
+  google_key_set: boolean;
+  google_key_hint: string | null;
+  google_key_unreadable: boolean;
+  google_3d: boolean;
+}
+
+export const getMapConfig = () => api<MapConfig>('/api/map/config');
+export const getImagerySettings = () => api<ImagerySettings>('/api/admin/imagery');
+export const saveImagerySettings = (body: {
+  provider: 'esri' | 'google';
+  google_key?: string;
+  google_3d: boolean;
+}) => api<ImagerySettings>('/api/admin/imagery', { method: 'PUT', body });

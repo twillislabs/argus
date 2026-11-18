@@ -8,7 +8,7 @@ All settings are environment variables, usually set in `.env`.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ARGUS_SECRET_KEY` | (must set) | Encrypts stored keys in later milestones |
+| `ARGUS_SECRET_KEY` | (must set) | Signs sessions and encrypts stored API keys (the Google key). Changing it means entering those keys again |
 | `POSTGRES_PASSWORD` | (must set) | Database password |
 | `ARGUS_HTTP_PORT` | `8080` | Port the web container listens on |
 | `ARGUS_COOKIE_SECURE` | `true` | Set `false` only for plain-HTTP local use |
@@ -64,3 +64,34 @@ tile is drawn once. The street map is a server-wide setting: every user
 sees the installed region.
 
 Data © OpenStreetMap contributors (ODbL), credited on the map.
+
+## Map imagery (Google)
+
+**Settings → Map imagery** (administrators only) chooses where **Satellite**
+and **Hybrid** imagery comes from, for every user:
+
+- **Esri** (default): no key, fine for light use.
+- **Google**: Google Maps Platform's Map Tiles API with your key. Hybrid adds
+  Google's roads and labels. Turn on **Photorealistic 3D** to add a **3D**
+  base map with Google's 3D buildings and terrain where Google has them.
+
+The Dark map and the self-hosted street map are not affected.
+
+To set it up:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), enable
+   the **Map Tiles API** for a project with billing, and create an API key.
+2. Restrict the key: API restriction to the Map Tiles API, and an HTTP
+   referrer (website) restriction to the address you open Argus at.
+3. Paste it in **Settings → Map imagery**, choose **Google** and save.
+   Argus checks the key with Google before saving it.
+
+How the key is handled:
+
+- It's stored encrypted with `ARGUS_SECRET_KEY` and shown to admins only as
+  its last four characters.
+- Signed-in browsers receive it, because they load Google's tiles directly
+  from Google; that's why the referrer restriction matters.
+- Google bills tile use beyond its free monthly allowance to the key's
+  project, and using Google tiles means following the Map Tiles API terms.
+- Changes are recorded in the audit log (`settings.imagery`), without the key.

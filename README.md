@@ -156,6 +156,8 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
 - **Street map:** © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
   (ODbL), via the [Protomaps](https://protomaps.com/) daily build, rendered with
   [tileserver-gl](https://github.com/maptiler/tileserver-gl) (BSD); Noto Sans fonts (OFL).
+- **Optional Google imagery:** with an admin's Google Maps Platform key, Satellite and Hybrid
+  use Google's Map Tiles API, plus optional photorealistic 3D cities.
 - **Maps and imagery:** Natural Earth (public domain), NASA GIBS (Blue Marble), and Esri (Dark
   Gray Canvas, World Imagery and reference layers; © Esri and its data providers).
 - **Earthquakes:** USGS (public domain).
