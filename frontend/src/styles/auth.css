@@ -1,0 +1,27 @@
+/* Sign-in and first-run setup pages. */
+.auth {
+  flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+}
+.auth-art { position: relative; overflow: hidden; background: #070a0e; border-right: 1px solid var(--line); min-height: 260px; }
+.auth-globe {
+  position: absolute; inset: 8% 6% auto; aspect-ratio: 1; max-width: 88%; margin: auto; border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(91, 155, 255, 0.18), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(120, 140, 170, 0.08) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, rgba(120, 140, 170, 0.08) 0 1px, transparent 1px 28px),
+    #0a0f16;
+  box-shadow: 0 0 0 1px rgba(91, 155, 255, 0.35), 0 0 80px rgba(91, 155, 255, 0.12);
+}
+.auth-art .claim { position: absolute; left: 28px; right: 28px; bottom: 28px; }
+.auth-art .claim b { display: block; font: 600 30px/1.1 var(--f-head); letter-spacing: 0.04em; }
+.auth-form { padding: 36px clamp(16px, 5vw, 56px); display: grid; gap: 16px; align-content: center; max-width: 540px; width: 100%; justify-self: center; }
+.steps { display: flex; gap: 6px; flex-wrap: wrap; }
+.steps span { font: 600 10.5px/1 var(--f-mono); letter-spacing: 0.06em; padding: 5px 8px; border-radius: 3px; background: var(--surface-2); color: var(--dim); }
+.steps span.on { background: var(--accent-soft); color: var(--accent); }
+.steps span.done { color: var(--ok); }
+
+@media (max-width: 860px) {
+  .auth { grid-template-columns: minmax(0, 1fr); }
+  .auth-art { display: none; }
+}

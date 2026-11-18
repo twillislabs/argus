@@ -1,0 +1,52 @@
+name: argus
+
+services:
+  db:
+    image: timescale/timescaledb-ha:pg17
+    environment:
+      POSTGRES_USER: argus
+      POSTGRES_DB: argus
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db-data:/home/postgres/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argus -d argus"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-sd", "/data", "-m", "8222"]
+    volumes:
+      - nats-data:/data
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    environment:
+      ARGUS_DATABASE_URL: postgresql+asyncpg://argus:${POSTGRES_PASSWORD}@db:5432/argus
+      ARGUS_SECRET_KEY: ${ARGUS_SECRET_KEY:?Set ARGUS_SECRET_KEY in .env}
+      ARGUS_COOKIE_SECURE: ${ARGUS_COOKIE_SECURE:-true}
+      ARGUS_LOG_LEVEL: ${ARGUS_LOG_LEVEL:-INFO}
+      ARGUS_SETUP_TOKEN: ${ARGUS_SETUP_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "${ARGUS_HTTP_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  nats-data:

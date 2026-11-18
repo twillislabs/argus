@@ -1,0 +1,24 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.db
+
+# Node
+node_modules/
+frontend/dist/
+docs-site/build/
+docs-site/.docusaurus/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Built design mock (regenerate with docs/mockup/build.py)
+docs/mockup/argus-mock.html

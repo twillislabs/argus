@@ -1,0 +1,50 @@
+/* App frame: banner, command bar, navigation, clocks, account menu. */
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+}
+.banner {
+  margin: 0 calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  background: var(--banner);
+  color: #fff;
+  text-align: center;
+  font: 600 10.5px/18px var(--f-mono);
+  letter-spacing: 0.18em;
+}
+
+.cmdbar { display: flex; align-items: center; gap: 18px; padding-block: 10px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 9px; }
+.brand svg { width: 22px; height: 22px; }
+.brand b { font: 600 19px/1 var(--f-head); letter-spacing: 0.3em; }
+.nav { display: flex; gap: 2px; }
+.nav a {
+  font: 600 13px/1 var(--f-head); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); text-decoration: none; padding: 8px 12px; border-radius: 4px;
+}
+.nav a:hover { color: var(--text); background: var(--surface-2); }
+.nav a[aria-current='page'] { color: var(--text); background: var(--surface-3); box-shadow: inset 0 -2px 0 var(--accent); }
+.clocks { margin-left: auto; display: flex; gap: 16px; align-items: center; }
+.clock { display: grid; text-align: right; }
+.clock .mono { font-size: 14px; }
+.clock small { font-size: 10px; color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; }
+
+.umenu { position: relative; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--line-2); font: 600 11px/1 var(--f-mono); cursor: pointer; }
+.umenu ul {
+  position: absolute; right: 0; top: 36px; z-index: 30; list-style: none; margin: 0; padding: 4px;
+  background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 6px; min-width: 200px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.umenu li a, .umenu li button {
+  display: block; width: 100%; text-align: left; padding: 7px 10px; border-radius: 4px;
+  color: var(--text); text-decoration: none; background: none; border: 0; cursor: pointer; font-size: 12.5px;
+}
+.umenu li a:hover, .umenu li button:hover { background: var(--accent-soft); }
+.umenu .who { padding: 8px 10px; border-bottom: 1px solid var(--line); margin-bottom: 4px; font-size: 12px; color: var(--muted); }
+.umenu .who b { color: var(--text); }
+
+@media (max-width: 860px) {
+  .clocks .clock:nth-child(2) { display: none; }
+}

@@ -1,0 +1,40 @@
+:root {
+  --ifm-color-primary: #3a7bea;
+  --ifm-color-primary-dark: #2a6ad8;
+  --ifm-color-primary-darker: #2864cc;
+  --ifm-color-primary-darkest: #2152a8;
+  --ifm-color-primary-light: #548dee;
+  --ifm-color-primary-lighter: #6297ef;
+  --ifm-color-primary-lightest: #89b0f3;
+  --ifm-font-family-base: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  --ifm-code-font-size: 92%;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #5b9bff;
+  --ifm-color-primary-dark: #3d88ff;
+  --ifm-color-primary-darker: #2e7eff;
+  --ifm-color-primary-darkest: #0062ff;
+  --ifm-color-primary-light: #79aeff;
+  --ifm-color-primary-lighter: #88b8ff;
+  --ifm-color-primary-lightest: #b5d3ff;
+  --ifm-background-color: #0b0e13;
+  --ifm-background-surface-color: #10141a;
+  --ifm-navbar-background-color: #10141a;
+  --ifm-footer-background-color: #10141a;
+  --ifm-toc-border-color: #20262f;
+  --ifm-color-emphasis-300: #2c343f;
+}
+
+.navbar__title {
+  letter-spacing: 0.3em;
+  font-weight: 600;
+}
+
+/* Scrollbars matching the Argus theme. */
+* { scrollbar-width: thin; scrollbar-color: #2c343f transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2c343f; border: 3px solid transparent; border-radius: 6px; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: #3a4452; }

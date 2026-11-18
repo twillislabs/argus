@@ -1,0 +1,38 @@
+/* Reset, typography, utilities and themed scrollbars. */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+h1 { margin: 0 0 6px; font: 600 26px/1.1 var(--f-head); letter-spacing: 0.03em; }
+p { margin: 0; color: var(--muted); }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.hint { font-size: 11px; color: var(--dim); }
+.hint.pad { padding: 8px 10px; }
+.eyebrow { font: 600 12px/1 var(--f-head); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+
+.boot { height: 100%; display: grid; place-content: center; gap: 12px; color: var(--muted); text-align: center; }
+
+/* Scrollbars: thin graphite thumbs that brighten on hover. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+*:hover { scrollbar-color: #3a4452 transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: #3a4452; }
+::-webkit-scrollbar-thumb:active { background-color: var(--accent); }
+::-webkit-scrollbar-corner { background: transparent; }

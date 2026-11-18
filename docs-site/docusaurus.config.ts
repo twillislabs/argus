@@ -1,0 +1,51 @@
+import type * as Preset from '@docusaurus/preset-classic';
+import type { Config } from '@docusaurus/types';
+import { themes as prismThemes } from 'prism-react-renderer';
+
+// Served by the Argus web container at /docs/. For GitHub Pages, CI
+// overrides url and baseUrl with DOCS_URL and DOCS_BASE_URL.
+const config: Config = {
+  title: 'Argus',
+  tagline: 'Self-hosted OSINT visualizer',
+  favicon: 'img/favicon.svg',
+  url: process.env.DOCS_URL ?? 'http://localhost',
+  baseUrl: process.env.DOCS_BASE_URL ?? '/docs/',
+  onBrokenLinks: 'throw',
+  markdown: {
+    mermaid: true,
+    hooks: { onBrokenMarkdownLinks: 'throw' },
+  },
+  themes: ['@docusaurus/theme-mermaid'],
+  i18n: { defaultLocale: 'en', locales: ['en'] },
+  presets: [
+    [
+      'classic',
+      {
+        docs: {
+          routeBasePath: '/',
+          sidebarPath: './sidebars.ts',
+        },
+        blog: false,
+        theme: { customCss: './src/css/custom.css' },
+      } satisfies Preset.Options,
+    ],
+  ],
+  themeConfig: {
+    colorMode: { defaultMode: 'dark', respectPrefersColorScheme: true },
+    navbar: {
+      title: 'ARGUS',
+      logo: { alt: 'Argus', src: 'img/favicon.svg' },
+      items: [
+        { type: 'docSidebar', sidebarId: 'docs', position: 'left', label: 'Docs' },
+        { href: '/', label: 'Open Argus', position: 'right', target: '_self' },
+      ],
+    },
+    footer: {
+      style: 'dark',
+      copyright: 'Argus · self-hosted OSINT visualizer',
+    },
+    prism: { theme: prismThemes.github, darkTheme: prismThemes.dracula },
+  } satisfies Preset.ThemeConfig,
+};
+
+export default config;
