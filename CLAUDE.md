@@ -45,7 +45,17 @@ parts connect.
   text. The docs build doesn't catch diagram errors; check the page.
 - nginx uses `absolute_redirect off` so redirects keep the host port.
 - adsb.lol's routeset endpoint is unusable (202, empty); routes come from
-  adsbdb.
+  adsbdb, which goes stale when flight numbers are reused
+  (`route_progress` flags implausible routes).
+- adsb.lol rate-limits per IP (429), shared by every Argus stack on this
+  machine. All calls go through `AirClient._adsb_get` (spacing, pause on
+  429, stale cache). Don't add direct calls.
+- Map markers use `disableDepthTestDistance` = horizon distance (infinite
+  in 2D), set in `Globe.tsx`; otherwise the dark map's land and border
+  shapes clip them. New primitive collections need the same.
+- Aircraft camera views live in `map/aircraftCamera.ts`: they keep the
+  camera offset in the aircraft's ENU frame (`lookAtTransform`) and
+  dead-reckon between reports. Call `release()` before any `flyTo`.
 
 ## Rules
 
@@ -67,3 +77,5 @@ parts connect.
   `docker compose -p argus-e2e`) on another port and remove it with
   `down -v`. Don't reset the main stack on :8080; it holds real accounts.
 - Don't print the setup token; point to `make token`.
+- After each chunk passes CI, rebuild the main stack
+  (`docker compose up -d --build`, data kept) so the user can try it.

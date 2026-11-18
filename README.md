@@ -80,7 +80,7 @@ make token     # prints the one-time setup token
 1. Open **http://localhost:8080** and enter the setup token.
 2. Create the admin account and pick your home location (any town of 15,000+ people, or
    coordinates).
-3. Events start arriving within a minute. Select **Docs** in the header for the rest.
+3. Events start arriving within a minute. **Documentation** in the account menu (top right) has the rest.
 
 Cookies are `Secure` by default, so plain HTTP needs `ARGUS_COOKIE_SECURE=false` in `.env`. That's
 fine on localhost; anywhere else, put Argus behind a TLS reverse proxy such as Caddy. Fire

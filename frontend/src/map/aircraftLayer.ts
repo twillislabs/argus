@@ -83,8 +83,43 @@ export function aircraftPosition(a: Aircraft): Cartesian3 {
   return Cartesian3.fromDegrees(a.lon, a.lat, Math.max(0, (a.alt_ft ?? 0) * FT_TO_M));
 }
 
+const EARTH_M = 6_371_000;
+const KT_TO_MS = 0.514444;
+// Don't project further than this past the last report.
+const MAX_PROJECT_S = 90;
+
+// Dead reckoning: where the aircraft should be dt seconds after its last
+// report, from its ground speed, track and vertical rate.
+export function extrapolate(a: Aircraft, dt: number): { lon: number; lat: number; altM: number } {
+  const t = Math.max(0, Math.min(MAX_PROJECT_S, dt));
+  const altFt = (a.alt_ft ?? 0) + ((a.vrate ?? 0) / 60) * t;
+  const altM = Math.max(0, altFt * FT_TO_M);
+  if (a.ground || !a.gs_kt || a.track === null) return { lon: a.lon, lat: a.lat, altM };
+  const delta = (a.gs_kt * KT_TO_MS * t) / EARTH_M;
+  const theta = a.track * DEG;
+  const phi1 = a.lat * DEG;
+  const lambda1 = a.lon * DEG;
+  const phi2 = Math.asin(
+    Math.sin(phi1) * Math.cos(delta) + Math.cos(phi1) * Math.sin(delta) * Math.cos(theta),
+  );
+  const lambda2 =
+    lambda1 +
+    Math.atan2(
+      Math.sin(theta) * Math.sin(delta) * Math.cos(phi1),
+      Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2),
+    );
+  const lon = ((((lambda2 / DEG + 540) % 360) + 360) % 360) - 180;
+  return { lon, lat: phi2 / DEG, altM };
+}
+
 export interface AircraftLayer {
   update: (list: Aircraft[], selectedHex: string | null) => void;
+  // Move one aircraft between reports (dead reckoning for the selected one).
+  moveTo: (hex: string, position: Cartesian3) => void;
+  // Hide one aircraft, for the cockpit view.
+  setHidden: (hex: string | null) => void;
+  // See Globe: depth testing only beyond this distance from the camera.
+  setDepthDistance: (metres: number) => void;
   setTrail: (points: number[][] | null) => void;
   setVisible: (visible: boolean) => void;
   destroy: () => void;
@@ -101,9 +136,11 @@ export function addAircraftLayer(scene: Scene): AircraftLayer {
 
   const byHex = new Map<string, { bb: Billboard; label: Label | null }>();
   const scale = new NearFarScalar(1.5e5, 1.0, 1.5e7, 0.45);
-  const labelRange = new DistanceDisplayCondition(0, 2.5e6);
+  const labelRange = new DistanceDisplayCondition(0, 1.2e6);
   const always = new DistanceDisplayCondition(0, Number.MAX_VALUE);
   let trail: Polyline | null = null;
+  let hidden: string | null = null;
+  let depthDistance = 0;
 
   function labelFor(a: Aircraft, selected: boolean): string | null {
     if (!selected && !a.mil && !a.emergency) return null;
@@ -133,6 +170,7 @@ export function addAircraftLayer(scene: Scene): AircraftLayer {
               height: size,
               color,
               scaleByDistance: scale,
+              disableDepthTestDistance: depthDistance,
             }),
             label: null,
           };
@@ -144,6 +182,7 @@ export function addAircraftLayer(scene: Scene): AircraftLayer {
           item.bb.width = size;
           item.bb.height = size;
         }
+        item.bb.show = a.hex !== hidden;
         const text = labelFor(a, selected);
         if (text && !item.label) {
           item.label = labels.add({
@@ -159,6 +198,7 @@ export function addAircraftLayer(scene: Scene): AircraftLayer {
             verticalOrigin: VerticalOrigin.CENTER,
             pixelOffset: new Cartesian2(13, 0),
             distanceDisplayCondition: selected ? always : labelRange,
+            disableDepthTestDistance: depthDistance,
           });
         } else if (text && item.label) {
           item.label.position = position;
@@ -171,12 +211,34 @@ export function addAircraftLayer(scene: Scene): AircraftLayer {
           labels.remove(item.label);
           item.label = null;
         }
+        if (item.label) item.label.show = a.hex !== hidden;
       }
       for (const [hex, item] of byHex) {
         if (seen.has(hex)) continue;
         billboards.remove(item.bb);
         if (item.label) labels.remove(item.label);
         byHex.delete(hex);
+      }
+    },
+    moveTo(hex, position) {
+      const item = byHex.get(hex);
+      if (!item) return;
+      item.bb.position = position;
+      if (item.label) item.label.position = position;
+    },
+    setHidden(hex) {
+      hidden = hex;
+      for (const [h, item] of byHex) {
+        item.bb.show = h !== hex;
+        if (item.label) item.label.show = h !== hex;
+      }
+    },
+    setDepthDistance(metres) {
+      if (metres === depthDistance) return;
+      depthDistance = metres;
+      for (const item of byHex.values()) {
+        item.bb.disableDepthTestDistance = metres;
+        if (item.label) item.label.disableDepthTestDistance = metres;
       }
     },
     setTrail(points) {

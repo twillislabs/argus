@@ -5,12 +5,14 @@ import {
   Cartesian3,
   Color,
   Math as CesiumMath,
+  Matrix4,
   NearFarScalar,
   Rectangle,
 } from '@cesium/core';
 // The core engine only: the full `cesium` package also bundles Knockout
 // for its Viewer widgets, which needs `eval` and breaks our strict CSP.
 import {
+  CallbackProperty,
   CesiumWidget,
   Credit,
   GeographicTilingScheme,
@@ -30,6 +32,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import type { Aircraft, Bbox, EventItem, Home } from '../lib/api';
 import { SEVERITY_COLOR } from '../lib/format';
+import { type AircraftCamera, type CameraMode, createAircraftCamera } from './aircraftCamera';
 import { addAircraftLayer, type AircraftLayer } from './aircraftLayer';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
 
@@ -41,6 +44,19 @@ const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
 
 export const HOME_HEIGHT_M = 2_500_000;
 const WORLD_VIEW = { lon: -30, lat: 25, height: 18_000_000 };
+const EARTH_RADIUS_M = 6_378_137;
+
+// Markers sit on (or just above) the surface and the dark map's land and
+// border shapes, so with normal depth testing they get cut by them,
+// especially in 2D and near the horizon. Turn depth testing off out to the
+// horizon distance: everything nearer is on the visible side of the
+// globe, and everything on the far side stays hidden by it.
+function depthDistance(v: CesiumWidget): number {
+  if (v.scene.mode !== SceneMode.SCENE3D) return Number.POSITIVE_INFINITY;
+  const h = Math.max(0, v.camera.positionCartographic.height);
+  return Math.sqrt(h * h + 2 * EARTH_RADIUS_M * h);
+}
+
 // Argus Dark shows vector countries above FADE_TOP and street tiles below
 // FADE_BOTTOM, cross-fading in between.
 const FADE_TOP = 3_200_000;
@@ -93,9 +109,15 @@ function esri(service: string, maximumLevel: number, credit?: string) {
 // use); milestone 2 adds self-hosted vector tiles and a provider key.
 function basemapLayers(id: Basemap): ImageryLayer[] {
   if (id === 'dark') {
+    // Esri's dark grey is lighter and flatter than Argus Dark; darken it
+    // and add contrast so zooming in keeps the same near-black look.
     return [
-      new ImageryLayer(esri('Canvas/World_Dark_Gray_Base', 16, 'Esri, HERE, Garmin, © OpenStreetMap')),
-      new ImageryLayer(esri('Canvas/World_Dark_Gray_Reference', 16)),
+      new ImageryLayer(esri('Canvas/World_Dark_Gray_Base', 16, 'Esri, HERE, Garmin, © OpenStreetMap'), {
+        brightness: 0.62,
+        contrast: 1.35,
+        gamma: 1.1,
+      }),
+      new ImageryLayer(esri('Canvas/World_Dark_Gray_Reference', 16), { brightness: 1.15 }),
     ];
   }
   const imagery = new ImageryLayer(
@@ -132,11 +154,12 @@ interface Props {
   events: EventItem[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  onFocus?: (id: string) => void;
   aircraft: Aircraft[];
   selectedHex: string | null;
   trail: number[][] | null;
-  follow: boolean;
-  onView?: (bbox: Bbox | null, height: number) => void;
+  camera: CameraMode;
+  onView?: (bbox: Bbox | null, height: number, passive?: boolean) => void;
 }
 
 const Globe = forwardRef<GlobeHandle, Props>(function Globe(
@@ -146,10 +169,11 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     events,
     selectedId,
     onSelect,
+    onFocus,
     aircraft,
     selectedHex,
     trail,
-    follow,
+    camera,
     onView,
   },
   ref,
@@ -160,6 +184,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const rings = useRef<PointPrimitiveCollection | null>(null);
   const dark = useRef<DarkMap | null>(null);
   const air = useRef<AircraftLayer | null>(null);
+  const tracker = useRef<AircraftCamera | null>(null);
   const onViewRef = useRef(onView);
   onViewRef.current = onView;
   const tiles = useRef<ImageryLayer[]>([]);
@@ -167,6 +192,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   basemapRef.current = basemap;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const onFocusRef = useRef(onFocus);
+  onFocusRef.current = onFocus;
 
   useEffect(() => {
     if (!container.current) return;
@@ -185,6 +212,19 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     points.current = collection;
     rings.current = ringCollection;
     air.current = addAircraftLayer(scene);
+    const aircraftCamera = createAircraftCamera(v, () => air.current);
+    tracker.current = aircraftCamera;
+    // While the camera rides along, report the view every few seconds so
+    // civil traffic keeps loading around the aircraft.
+    let lastViewReport = 0;
+    const removeTracking = scene.preRender.addEventListener(() => {
+      aircraftCamera.tick();
+      const now = performance.now();
+      if (!Matrix4.equals(v.camera.transform, Matrix4.IDENTITY) && now - lastViewReport > 5000) {
+        lastViewReport = now;
+        onViewRef.current?.(viewBbox(v), v.camera.positionCartographic.height, true);
+      }
+    });
 
     let disposed = false;
     void addDarkMap(scene).then((m) => {
@@ -205,8 +245,29 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       if (isDark) dark.current?.setFade(1 - t);
       for (const layer of tiles.current) layer.alpha = isDark ? t : 1;
     }
+    let depthNow = -1;
+    function applyDepth() {
+      const d = depthDistance(v);
+      if (Math.abs(d - depthNow) < Math.max(1, depthNow * 0.01)) return;
+      depthNow = d;
+      for (const c of [collection, ringCollection]) {
+        for (let i = 0; i < c.length; i++) c.get(i).disableDepthTestDistance = d;
+      }
+      air.current?.setDepthDistance(d);
+    }
+    (v as unknown as { applyDepth: () => void }).applyDepth = () => {
+      depthNow = -1;
+      applyDepth();
+    };
     v.camera.percentageChanged = 0.02;
-    const removeCamera = v.camera.changed.addEventListener(applyFade);
+    const removeCamera = v.camera.changed.addEventListener(() => {
+      applyFade();
+      applyDepth();
+    });
+    const removeMorph = scene.morphComplete.addEventListener(() => {
+      depthNow = -1;
+      applyDepth();
+    });
     const removeMoveEnd = v.camera.moveEnd.addEventListener(() => {
       onViewRef.current?.(viewBbox(v), v.camera.positionCartographic.height);
     });
@@ -229,6 +290,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       const id = picked && typeof picked.id === 'string' ? picked.id : null;
       onSelectRef.current(id);
     }, ScreenSpaceEventType.LEFT_CLICK);
+    handler.setInputAction((e: { position: Cartesian2 }) => {
+      const picked = scene.pick(e.position);
+      if (picked && typeof picked.id === 'string') onFocusRef.current?.(picked.id);
+    }, ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
     handler.setInputAction((e: { endPosition: Cartesian2 }) => {
       const picked = scene.pick(e.endPosition);
       scene.canvas.style.cursor = picked && typeof picked.id === 'string' ? 'pointer' : '';
@@ -251,6 +316,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       const steps: [string, () => void][] = [
         ['camera listener', removeCamera],
         ['move listener', removeMoveEnd],
+        ['morph listener', removeMorph],
+        ['tracking', removeTracking],
         ['aircraft', () => air.current?.destroy()],
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
@@ -265,6 +332,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       }
       dark.current = null;
       air.current = null;
+      tracker.current = null;
       viewer.current = null;
       points.current = null;
       rings.current = null;
@@ -327,21 +395,20 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ring._base = size;
       }
     });
+    (viewer.current as unknown as { applyDepth?: () => void } | null)?.applyDepth?.();
   }, [events, selectedId]);
 
-  // Aircraft: update in place; keep the selected one centred when following.
+  // Aircraft: update in place; the tracker moves the selected one between
+  // reports and drives the camera views.
   useEffect(() => {
     air.current?.update(aircraft, selectedHex);
-    const v = viewer.current;
-    if (!v || !follow || !selectedHex) return;
-    const a = aircraft.find((x) => x.hex === selectedHex);
-    if (!a) return;
-    const height = Math.min(v.camera.positionCartographic.height, 600_000);
-    v.camera.flyTo({
-      destination: Cartesian3.fromDegrees(a.lon, a.lat, height),
-      duration: reduceMotion ? 0 : 1.2,
-    });
-  }, [aircraft, selectedHex, follow]);
+    (viewer.current as unknown as { applyDepth?: () => void } | null)?.applyDepth?.();
+    tracker.current?.setTarget(aircraft.find((x) => x.hex === selectedHex) ?? null);
+  }, [aircraft, selectedHex]);
+
+  useEffect(() => {
+    tracker.current?.setMode(camera);
+  }, [camera]);
 
   useEffect(() => {
     air.current?.setTrail(trail);
@@ -363,15 +430,17 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           color: Color.fromCssColorString('#5b9bff'),
           outlineColor: Color.fromCssColorString('#0b0e13'),
           outlineWidth: 2,
+          disableDepthTestDistance: new CallbackProperty(() => depthDistance(v), false),
         },
         label: {
-          text: 'HOME · ' + home.name.toUpperCase(),
+          text: /^home$/i.test(home.name.trim()) ? 'HOME' : 'HOME · ' + home.name.toUpperCase(),
           font: '500 12px "JetBrains Mono", monospace',
           fillColor: Color.fromCssColorString('#8fb8ff'),
           outlineColor: Color.fromCssColorString('#05080e'),
           outlineWidth: 3,
           style: LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: VerticalOrigin.BOTTOM,
+          disableDepthTestDistance: new CallbackProperty(() => depthDistance(v), false),
           pixelOffset: new Cartesian2(0, -10),
         },
       });
@@ -386,6 +455,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     ref,
     () => ({
       flyHome() {
+        tracker.current?.release();
         const t = home ? { lon: home.lon, lat: home.lat, height: HOME_HEIGHT_M } : WORLD_VIEW;
         viewer.current?.camera.flyTo({
           destination: Cartesian3.fromDegrees(t.lon, t.lat, t.height),
@@ -393,6 +463,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         });
       },
       flyWorld() {
+        tracker.current?.release();
         // Centre the world view on home's longitude when there is one.
         const lon = home ? home.lon : WORLD_VIEW.lon;
         viewer.current?.camera.flyTo({
@@ -401,6 +472,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         });
       },
       flyTo(lat, lon, height = 1_500_000) {
+        tracker.current?.release();
         viewer.current?.camera.flyTo({
           destination: Cartesian3.fromDegrees(lon, lat, height),
           duration: 1.4,

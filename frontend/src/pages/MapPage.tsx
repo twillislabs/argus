@@ -25,11 +25,20 @@ import {
   type Summary,
 } from '../lib/api';
 import { connectLive, type LiveState } from '../lib/live';
+import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import Globe, { type Basemap, BASEMAPS, type GlobeHandle } from '../map/Globe';
 
 const REFRESH_MS = 60_000;
 const CIVIL_MS = 15_000;
 const TRAIL_POINTS = 240;
+// Camera height when double-clicking an event: close enough to see the
+// area, wide enough to keep its surroundings.
+const FOCUS_HEIGHT: Record<string, number> = {
+  quake: 400_000,
+  fire: 120_000,
+  conflict: 150_000,
+  unrest: 60_000,
+};
 
 function initialFilters(me: Me): LayerFilters {
   const saved = me.preferences.layers as Partial<Record<EventType, boolean>> | undefined;
@@ -62,7 +71,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [summary, setSummary] = useState<Summary | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedHex, setSelectedHex] = useState<string | null>(null);
-  const [follow, setFollow] = useState(false);
+  const [camera, setCamera] = useState<CameraMode>('free');
   const [military, setMilitary] = useState<Aircraft[]>([]);
   const [civil, setCivil] = useState<Aircraft[]>([]);
   const [civilStatus, setCivilStatus] = useState<CivilStatus>('zoom');
@@ -143,9 +152,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }, [loadCivil, filters.air.civil]);
 
   const viewTimer = useRef<number | undefined>(undefined);
+  // passive: reported while the camera rides along with an aircraft; the
+  // regular civil refresh picks the new area up, so don't fetch now.
   const onView = useCallback(
-    (bbox: Bbox | null) => {
+    (bbox: Bbox | null, _height: number, passive = false) => {
       viewRef.current = bbox;
+      if (passive) return;
       window.clearTimeout(viewTimer.current);
       viewTimer.current = window.setTimeout(() => void loadCivil(), 400);
     },
@@ -191,10 +203,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (air.civil) for (const a of civil) if (matchesFocus(a, air.focus)) byHex.set(a.hex, a);
     if (air.military) for (const a of military) if (matchesFocus(a, air.focus)) byHex.set(a.hex, a);
     if (selectedHex) {
+      // The inspector polls the selected aircraft every 10 s, so its copy
+      // is usually the freshest.
       const latest =
+        (tracked?.hex === selectedHex ? tracked : undefined) ??
         military.find((a) => a.hex === selectedHex) ??
-        civil.find((a) => a.hex === selectedHex) ??
-        (tracked?.hex === selectedHex ? tracked : undefined);
+        civil.find((a) => a.hex === selectedHex);
       if (latest) byHex.set(latest.hex, latest);
     }
     return [...byHex.values()];
@@ -227,23 +241,31 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const clearSelection = useCallback(() => {
     setSelected(null);
     setSelectedHex(null);
-    setFollow(false);
+    setCamera('free');
     setTracked(null);
     setTrail(null);
   }, []);
 
-  // [ and ] toggle the panels, Esc clears the selection.
+  // [ and ] toggle the panels, V cycles the aircraft views, Esc leaves the
+  // view first and then clears the selection.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (document.activeElement?.tagName ?? '').toUpperCase();
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === '[') togglePanel('L');
       else if (e.key === ']') togglePanel('R');
-      else if (e.key === 'Escape') clearSelection();
+      else if ((e.key === 'v' || e.key === 'V') && selectedHex) {
+        const i = CAMERA_MODES.findIndex((m) => m.id === camera);
+        setCamera(CAMERA_MODES[(i + 1) % CAMERA_MODES.length].id);
+      } else if (e.key === 'Escape') {
+        if (camera !== 'free') setCamera('free');
+        else clearSelection();
+      }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [togglePanel, clearSelection]);
+  }, [togglePanel, clearSelection, camera, selectedHex]);
 
   useEffect(() => {
     if (!notice) return;
@@ -266,15 +288,27 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (id) openRight();
   }
 
-  function selectAircraft(hex: string, follow = false) {
+  function selectAircraft(hex: string, view: CameraMode = 'free') {
     setSelected(null);
     if (hex !== selectedHex) {
       setTrail(null);
       setTracked(null);
     }
     setSelectedHex(hex);
-    setFollow(follow);
+    setCamera(view);
     openRight();
+  }
+
+  // Double-click: an event zooms in on its area, an aircraft is followed.
+  function focus(id: string) {
+    if (id.startsWith('ac:')) {
+      selectAircraft(id.slice(3), 'follow');
+      return;
+    }
+    const e = events.find((x) => x.id === id);
+    if (!e) return;
+    select(id);
+    globe.current?.flyTo(e.lat, e.lon, FOCUS_HEIGHT[e.type] ?? 250_000);
   }
 
   function selectAndFly(id: string) {
@@ -331,13 +365,13 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
           air: { ...air, focus: '', military: air.military || Boolean(r.mil), civil: air.civil || !r.mil },
         });
       }
-      selectAircraft(r.hex, true);
+      selectAircraft(r.hex, 'follow');
     } else if (r.kind === 'event' && r.id) {
       clearSelection();
       setSelected(r.id);
       openRight();
     }
-    if (r.lat !== undefined && r.lon !== undefined) {
+    if (r.kind !== 'aircraft' && r.lat !== undefined && r.lon !== undefined) {
       globe.current?.flyTo(r.lat, r.lon, r.height_m);
     }
   }
@@ -363,10 +397,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             events={shown}
             selectedId={selected}
             onSelect={select}
+            onFocus={focus}
             aircraft={aircraft}
             selectedHex={selectedHex}
             trail={trail}
-            follow={follow}
+            camera={camera}
             onView={onView}
           />
           <div className="mc tl">
@@ -407,7 +442,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               className="iconbtn"
               title={home ? 'Fly home' : 'Reset view'}
               aria-label="Fly home"
-              onClick={() => globe.current?.flyHome()}
+              onClick={() => {
+                setCamera('free');
+                globe.current?.flyHome();
+              }}
             >
               ⌂
             </button>
@@ -415,7 +453,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               className="iconbtn"
               title="World view"
               aria-label="World view"
-              onClick={() => globe.current?.flyWorld()}
+              onClick={() => {
+                setCamera('free');
+                globe.current?.flyWorld();
+              }}
             >
               ◎
             </button>
@@ -437,16 +478,30 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             {rightOpen ? '›' : '‹'}
           </button>
           {(loadError || notice) && <div className="notice">{loadError || notice}</div>}
+          {camera !== 'free' && tracked && (
+            <div className="camhud" role="status">
+              <b>{CAMERA_MODES.find((m) => m.id === camera)?.label}</b>
+              <span className="mono">{tracked.callsign || tracked.reg || tracked.hex.toUpperCase()}</span>
+              {tracked.alt_ft !== null && (
+                <span className="mono">{tracked.ground ? 'GND' : tracked.alt_ft.toLocaleString() + ' ft'}</span>
+              )}
+              {tracked.gs_kt !== null && <span className="mono">{Math.round(tracked.gs_kt)} kt</span>}
+              <small>V next view · Esc exit</small>
+            </div>
+          )}
         </section>
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
             {selectedHex ? (
               <AircraftInspector
                 hex={selectedHex}
-                following={follow}
+                camera={camera}
                 onBack={clearSelection}
-                onFollow={setFollow}
-                onFly={(lat, lon) => globe.current?.flyTo(lat, lon, 150_000)}
+                onCamera={setCamera}
+                onFly={(lat, lon) => {
+                  setCamera('free');
+                  globe.current?.flyTo(lat, lon, 150_000);
+                }}
                 onUpdate={onAircraftUpdate}
               />
             ) : selected ? (

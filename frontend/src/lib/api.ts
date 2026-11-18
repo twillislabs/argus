@@ -245,12 +245,12 @@ export interface AircraftDetail {
     origin: RouteAirport | null;
     destination: RouteAirport | null;
   } | null;
-  progress: { total_km: number; remaining_km: number; fraction: number } | null;
+  progress: { total_km: number; remaining_km: number; fraction: number; plausible: boolean } | null;
   // [lon, lat, alt_ft, unix seconds]
   trail: number[][];
 }
 
-export type CivilStatus = 'ok' | 'zoom' | 'off' | 'error';
+export type CivilStatus = 'ok' | 'zoom' | 'off' | 'error' | 'limited';
 
 export type Bbox = [number, number, number, number];
 

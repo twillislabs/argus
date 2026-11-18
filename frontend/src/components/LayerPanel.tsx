@@ -52,6 +52,7 @@ const CIVIL_HINT: Record<CivilStatus, string> = {
   zoom: 'Zoom in to a region to load',
   off: 'adsb.lol · area in view',
   error: 'adsb.lol unavailable, retrying',
+  limited: 'adsb.lol is busy; showing recent positions',
 };
 
 export default function LayerPanel({ filters, counts, airCounts, civilStatus, onChange }: Props) {
@@ -117,11 +118,11 @@ export default function LayerPanel({ filters, counts, airCounts, civilStatus, on
           <span className="sw plane" style={{ background: AIR_COLOR.civil }} />
           <span className="lname">
             <span>Civil aircraft</span>
-            <small className={civilStatus === 'error' ? 'warn' : undefined}>
+            <small className={civilStatus === 'error' || civilStatus === 'limited' ? 'warn' : undefined}>
               {CIVIL_HINT[air.civil ? civilStatus : 'off']}
             </small>
           </span>
-          <span className="lcount mono">{air.civil && civilStatus === 'ok' ? airCounts.civil : '–'}</span>
+          <span className="lcount mono">{air.civil && (civilStatus === 'ok' || civilStatus === 'limited') ? airCounts.civil : '–'}</span>
         </label>
         <div className="field pad">
           <label htmlFor="f-air">Show</label>

@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 
 from argus import search
 from argus.api.deps import DbDep, SessionDep
-from argus.aviation import radius_for_bbox, route_progress
+from argus.aviation import RateLimited, radius_for_bbox, route_progress
 from argus.events import parse_bbox
 
 router = APIRouter(tags=["aircraft"])
@@ -46,6 +46,8 @@ async def list_aircraft(
                 # The live military picture wins for aircraft in both.
                 out = inside | out
                 civil_status = "ok"
+            except RateLimited:
+                civil_status = "limited"
             except Exception as exc:  # noqa: BLE001 - military still shown
                 log.warning("Civil aircraft fetch failed: {0}".format(exc))
                 civil_status = "error"
@@ -80,7 +82,7 @@ async def get_aircraft(request: Request, session: SessionDep, hex_id: str):
         raise HTTPException(422, "Use the 6-character ICAO hex address.")
     air = request.app.state.air
     client = request.app.state.air_client
-    aircraft = air.aircraft.get(hex_id)
+    aircraft = air.aircraft.get(hex_id) or client.seen_recently(hex_id)
     if aircraft is None:
         try:
             hits = await client.lookup("hex", hex_id)

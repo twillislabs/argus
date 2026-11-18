@@ -2,21 +2,22 @@ import { useEffect, useState } from 'react';
 
 import { type Aircraft, type AircraftDetail, getAircraftDetail, type RouteAirport } from '../lib/api';
 import { latLon } from '../lib/format';
+import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import { AIR_COLOR, aircraftColor } from '../map/aircraftLayer';
 
 const POLL_MS = 10_000;
 
 interface Props {
   hex: string;
-  following: boolean;
+  camera: CameraMode;
   onBack: () => void;
-  onFollow: (follow: boolean) => void;
+  onCamera: (mode: CameraMode) => void;
   onFly: (lat: number, lon: number) => void;
   // Fresh position and server trail, for the map.
   onUpdate: (aircraft: Aircraft, trail: number[][]) => void;
 }
 
-export default function AircraftInspector({ hex, following, onBack, onFollow, onFly, onUpdate }: Props) {
+export default function AircraftInspector({ hex, camera, onBack, onCamera, onFly, onUpdate }: Props) {
   const [d, setD] = useState<AircraftDetail | null>(null);
   const [error, setError] = useState('');
 
@@ -53,7 +54,7 @@ export default function AircraftInspector({ hex, following, onBack, onFollow, on
       </div>
       {error && !d && <p className="err pad">{error}</p>}
       {!d && !error && <p className="quiet pad">Loading…</p>}
-      {d && <Detail d={d} following={following} onFollow={onFollow} onFly={onFly} stale={Boolean(error)} />}
+      {d && <Detail d={d} camera={camera} onCamera={onCamera} onFly={onFly} stale={Boolean(error)} />}
     </div>
   );
 }
@@ -65,14 +66,14 @@ function airportLine(a: RouteAirport | null): { code: string; name: string } {
 
 function Detail({
   d,
-  following,
-  onFollow,
+  camera,
+  onCamera,
   onFly,
   stale,
 }: {
   d: AircraftDetail;
-  following: boolean;
-  onFollow: (follow: boolean) => void;
+  camera: CameraMode;
+  onCamera: (mode: CameraMode) => void;
   onFly: (lat: number, lon: number) => void;
   stale: boolean;
 }) {
@@ -81,7 +82,8 @@ function Detail({
   const typeName = [d.detail?.manufacturer, d.detail?.type].filter(Boolean).join(' ') || a.type;
   const from = airportLine(d.route?.origin ?? null);
   const to = airportLine(d.route?.destination ?? null);
-  const pct = d.progress ? Math.round(d.progress.fraction * 100) : null;
+  const plausible = d.progress?.plausible !== false;
+  const pct = d.progress && plausible ? Math.round(d.progress.fraction * 100) : null;
   return (
     <>
       <section className="isec">
@@ -108,11 +110,20 @@ function Detail({
         <div className="sub">
           {[d.route?.airline, typeName, a.reg].filter(Boolean).join(' · ') || 'Unknown aircraft'}
         </div>
-        <div className="actions">
-          <button className={'btn' + (following ? ' primary' : '')} onClick={() => onFollow(!following)}>
-            {following ? 'Following' : 'Follow'}
-          </button>
-          <button className="btn" onClick={() => onFly(a.lat, a.lon)}>
+        <div className="views">
+          <div className="seg" role="group" aria-label="Camera view">
+            {CAMERA_MODES.map((m) => (
+              <button
+                key={m.id}
+                aria-pressed={camera === m.id}
+                title={m.hint}
+                onClick={() => onCamera(m.id)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <button className="btn small" onClick={() => onFly(a.lat, a.lon)}>
             Fly to
           </button>
         </div>
@@ -143,7 +154,11 @@ function Detail({
               </div>
             </>
           )}
-          <p className="quiet small">Planned route from adsbdb; the aircraft may divert.</p>
+          <p className="quiet small">
+            {plausible
+              ? 'Planned route from adsbdb; the aircraft may divert.'
+              : "The route on file doesn't match where this aircraft is, so it's probably out of date for this flight number."}
+          </p>
         </section>
       )}
       <section className="isec">

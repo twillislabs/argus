@@ -1,11 +1,19 @@
-from argus import search
+import time
+
+import httpx
+import pytest
+
+from argus import aviation, search
 from argus.aviation import (
+    AirClient,
     LiveAir,
+    RateLimited,
     airlines,
     airports,
     normalise,
     radius_for_bbox,
     route_progress,
+    snap_area,
 )
 
 
@@ -51,6 +59,9 @@ class FakeClient:
 
     async def detail(self, hex_id):
         return {"type": "757 351/W", "manufacturer": "Boeing"}
+
+    def seen_recently(self, hex_id, max_age_s=30):
+        return None
 
     async def close(self):
         pass
@@ -114,7 +125,50 @@ def test_radius_and_progress():
     }
     p = route_progress(route, 34.9, -85.5)
     assert 0.3 < p["fraction"] < 0.7
+    assert p["plausible"]
+    # Over Tennessee "on" a Las Vegas to Los Angeles route: not this flight.
+    stale = {
+        "origin": {"lat": 36.08, "lon": -115.15},
+        "destination": {"lat": 33.94, "lon": -118.41},
+    }
+    assert not route_progress(stale, 35.9, -88.0)["plausible"]
     assert route_progress({"origin": None}, 0, 0) is None
+
+
+def test_snap_area():
+    assert snap_area(36.13, -86.71, 221) == (36.25, -86.75, 250)
+    assert snap_area(36.13, -86.71, 30) == (36.25, -86.75, 50)
+
+
+async def test_area_backs_off_and_serves_cache(monkeypatch):
+    monkeypatch.setattr(aviation, "MIN_GAP_S", 0)
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        if len(calls) == 1:
+            return httpx.Response(200, json={"ac": [raw(dbFlags=0)]})
+        return httpx.Response(429, headers={"Retry-After": "60"})
+
+    client = AirClient("test")
+    client.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    first = await client.area(36.1, -86.7, 100)
+    assert [a["hex"] for a in first] == ["ae1234"]
+    assert client.seen_recently("ae1234")["callsign"] == "RCH123"
+    # Fresh cache: no request at all.
+    assert await client.area(36.12, -86.72, 90) == first
+    # Expire it: adsb.lol says 429, the stale answer is served.
+    client.areas.items = {
+        k: (time.time() - 60, v) for k, (_, v) in client.areas.items.items()
+    }
+    assert await client.area(36.1, -86.7, 100) == first
+    assert client.limited()
+    # Paused: no further requests, and nothing cached elsewhere raises.
+    with pytest.raises(RateLimited):
+        await client.area(10.0, 10.0, 100)
+    assert len(calls) == 2
+    assert await client.lookup("hex", "abcdef") == []
+    await client.close()
 
 
 def test_reference_data():

@@ -62,7 +62,6 @@ export default function AppHeader({ me, onSignedOut, live }: Props) {
           <Link to="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}>
             Settings
           </Link>
-          <a href="/docs/">Docs</a>
         </nav>
         <div className="clocks">
           {live && (

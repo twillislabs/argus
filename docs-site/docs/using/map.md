@@ -26,7 +26,10 @@ for milestone 2.
 - **⌂** flies home. **◎** shows the whole world centred on your longitude.
 - **3D Globe / 2D World** switches between the globe and a flat map.
 - **[** and **]** collapse the layer panel and the situation panel.
-- **Esc** closes an event or aircraft and returns to the situation panel.
+- **Double-click** an event to zoom in on its area, or an aircraft to follow
+  it.
+- **Esc** leaves an aircraft view, then closes the event or aircraft and
+  returns to the situation panel.
 - **/** jumps to the search box.
 
 ## Search
@@ -60,8 +63,32 @@ box.
   role.
 
 Click an aircraft for its route (origin, destination and progress), altitude,
-speed, track, squawk and type. **Follow** keeps it centred as it moves, and a
-trail shows where it has been. Aircraft squawking an emergency are red.
+speed, track, squawk and type. A trail shows where it has been. Aircraft
+squawking an emergency are red. If the route on file doesn't match where the
+aircraft actually is (airlines reuse flight numbers), Argus says so instead of
+showing progress.
+
+### Camera views
+
+Pick a view in the aircraft panel, or press **V** to cycle through them:
+
+| View | What it does |
+|---|---|
+| **Free** | You move the map; the aircraft just stays selected |
+| **Follow** | Top-down, centred on the aircraft. Zoom and tilt still work |
+| **Chase** | Behind and a little above, turning with the aircraft. Scroll to move closer or further |
+| **Orbit** | Circles the aircraft slowly. Zoom still works |
+| **Cockpit** | From the aircraft, looking along its track. Try it on **Satellite** |
+
+Positions arrive every 10 to 15 seconds; in between, Argus moves the aircraft
+along its speed, track and climb rate so the camera glides. A bar at the
+bottom of the map shows the view, callsign, altitude and speed. **Esc**
+returns to Free, as do **⌂**, **◎** and **Fly to**.
+
+adsb.lol limits how often each address can ask. Argus spaces its requests,
+shares answers between everyone looking at the same area, and pauses after a
+limit. While paused, the panel says *adsb.lol is busy* and shows the most
+recent positions.
 
 Positions come from adsb.lol, a community ADS-B network (ODbL). Routes and
 types come from adsbdb and are the *planned* route. Aircraft whose owners

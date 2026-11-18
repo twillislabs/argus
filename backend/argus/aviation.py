@@ -14,7 +14,9 @@ are dropped unless they are military, and registered owner names are
 never stored or returned.
 """
 
+import asyncio
 import gzip
+import logging
 import os
 import time
 from collections import deque
@@ -25,6 +27,8 @@ from typing import Any
 import httpx
 
 from argus.geo import distance_km
+
+log = logging.getLogger("argus.aviation")
 
 DATA = os.path.join(os.path.dirname(__file__), "data")
 ADSB_LOL = "https://api.adsb.lol/v2/"
@@ -278,8 +282,34 @@ class TTLCache:
         self.items[key] = (time.time(), value)
 
 
+class RateLimited(Exception):
+    """adsb.lol asked us to slow down and there's nothing cached."""
+
+
+# Area queries snap to these radii (nm) and a 0.25 degree grid, so small
+# pans and zooms reuse one cached answer.
+RADIUS_STEPS = (25, 50, 100, 150, 200, 250)
+AREA_TTL_S = 15
+# How long an area answer may be served when adsb.lol is limiting us.
+AREA_STALE_S = 120
+# Spacing between adsb.lol requests from this API, and the pause after
+# a 429 when the server doesn't say how long to wait.
+MIN_GAP_S = 1.0
+BACKOFF_S = 30.0
+
+
+def snap_area(lat: float, lon: float, radius_nm: int) -> tuple:
+    radius = next((r for r in RADIUS_STEPS if r >= radius_nm), 250)
+    return round(lat * 4) / 4, round(lon * 4) / 4, radius
+
+
 class AirClient:
-    """adsb.lol area queries and adsbdb lookups, with caches."""
+    """adsb.lol area queries and adsbdb lookups, with caches.
+
+    adsb.lol is a free community service with rate limits shared by
+    everyone on this IP address, so requests are spaced out, a 429 pauses
+    them, and recent answers are served while paused.
+    """
 
     def __init__(self, user_agent: str) -> None:
         self.client = httpx.AsyncClient(
@@ -287,41 +317,85 @@ class AirClient:
             headers={"User-Agent": user_agent},
             follow_redirects=True,
         )
-        self.areas = TTLCache(10)
+        self.areas = TTLCache(AREA_STALE_S, max_items=200)
         self.routes = TTLCache(6 * 3600)
         self.details = TTLCache(24 * 3600)
+        # hex -> (time seen, aircraft), from any area answer.
+        self.recent: dict[str, tuple[float, dict]] = {}
+        self.lock = asyncio.Lock()
+        self.next_request = 0.0
+        self.paused_until = 0.0
 
     async def close(self) -> None:
         await self.client.aclose()
 
+    def limited(self) -> bool:
+        return time.monotonic() < self.paused_until
+
+    async def _adsb_get(self, path: str) -> httpx.Response:
+        """GET from adsb.lol, spaced out and paused after a 429."""
+        if self.limited():
+            raise RateLimited()
+        async with self.lock:
+            wait = self.next_request - time.monotonic()
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self.next_request = time.monotonic() + MIN_GAP_S
+            response = await self.client.get(ADSB_LOL + path)
+        if response.status_code == 429:
+            try:
+                pause = float(response.headers.get("Retry-After", BACKOFF_S))
+            except ValueError:
+                pause = BACKOFF_S
+            self.paused_until = time.monotonic() + max(5.0, pause)
+            log.warning("adsb.lol rate limit; pausing {0:.0f} s".format(pause))
+            raise RateLimited()
+        response.raise_for_status()
+        return response
+
     async def area(self, lat: float, lon: float, radius_nm: int) -> list[dict]:
         """Civil and military aircraft within radius_nm (max 250)."""
-        radius_nm = max(5, min(250, radius_nm))
-        # Snap the centre so nearby views share a cache entry.
-        key = "{0:.1f},{1:.1f},{2}".format(lat, lon, radius_nm)
-        cached = self.areas.get(key)
-        if cached is not None:
-            return cached
-        url = "{0}point/{1:.3f}/{2:.3f}/{3}".format(
-            ADSB_LOL, round(lat, 1), round(lon, 1), radius_nm
-        )
-        response = await self.client.get(url)
-        response.raise_for_status()
+        lat, lon, radius = snap_area(lat, lon, radius_nm)
+        key = "{0:.2f},{1:.2f},{2}".format(lat, lon, radius)
+        hit = self.areas.items.get(key)
+        if hit and time.time() - hit[0] < AREA_TTL_S:
+            return hit[1]
+        try:
+            response = await self._adsb_get(
+                "point/{0:.2f}/{1:.2f}/{2}".format(lat, lon, radius)
+            )
+        except (RateLimited, httpx.HTTPError):
+            if hit and time.time() - hit[0] < AREA_STALE_S:
+                return hit[1]
+            raise
         out = [
             a
             for a in (normalise(x) for x in response.json().get("ac", []))
             if a is not None
         ]
         self.areas.put(key, out)
+        now = time.time()
+        for a in out:
+            self.recent[a["hex"]] = (now, a)
+        if len(self.recent) > 20000:
+            cutoff = now - AREA_STALE_S
+            self.recent = {
+                h: v for h, v in self.recent.items() if v[0] > cutoff
+            }
         return out
 
+    def seen_recently(self, hex_id: str, max_age_s: float = 30) -> dict | None:
+        hit = self.recent.get(hex_id)
+        if hit and time.time() - hit[0] < max_age_s:
+            return hit[1]
+        return None
+
     async def lookup(self, kind: str, value: str) -> list[dict]:
-        """adsb.lol by callsign, hex or reg (for search)."""
+        """adsb.lol by callsign, hex or reg (for search and selection)."""
         path = {"callsign": "callsign", "hex": "hex", "reg": "reg"}[kind]
-        response = await self.client.get(
-            "{0}{1}/{2}".format(ADSB_LOL, path, value)
-        )
-        if response.status_code != 200:
+        try:
+            response = await self._adsb_get("{0}/{1}".format(path, value))
+        except (RateLimited, httpx.HTTPStatusError):
             return []
         return [
             a
@@ -401,11 +475,17 @@ def route_progress(route: dict, lat: float, lon: float) -> dict | None:
     remaining = distance_km(lat, lon, d["lat"], d["lon"])
     if total <= 0:
         return None
+    flown = distance_km(o["lat"], o["lon"], lat, lon)
+    # Route databases go stale when airlines reuse flight numbers. If the
+    # aircraft is well off the line between the two airports, the route
+    # on file isn't this flight's.
+    plausible = flown + remaining <= total * 1.3 + 150
     done = max(0.0, min(1.0, 1 - remaining / total))
     return {
         "total_km": round(total),
         "remaining_km": round(remaining),
         "fraction": round(done, 3),
+        "plausible": plausible,
     }
 
 
