@@ -19,6 +19,9 @@ export interface Home {
 export interface Preferences {
   home?: Home;
   basemap?: string;
+  show_banner?: boolean;
+  left_open?: boolean;
+  right_open?: boolean;
   [key: string]: unknown;
 }
 

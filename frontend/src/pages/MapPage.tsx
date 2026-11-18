@@ -14,7 +14,7 @@ import {
   type Summary,
 } from '../lib/api';
 import { connectLive, type LiveState } from '../lib/live';
-import Globe, { type GlobeHandle } from '../map/Globe';
+import Globe, { type Basemap, BASEMAPS, type GlobeHandle } from '../map/Globe';
 
 const REFRESH_MS = 60_000;
 
@@ -26,6 +26,11 @@ function initialFilters(me: Me): LayerFilters {
 export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () => Promise<void> }) {
   const globe = useRef<GlobeHandle>(null);
   const [mode, setMode] = useState<'3d' | '2d'>('3d');
+  const [basemap, setBasemap] = useState<Basemap>(() =>
+    BASEMAPS.some((b) => b.id === me.preferences.basemap)
+      ? (me.preferences.basemap as Basemap)
+      : 'dark',
+  );
   const [leftOpen, setLeftOpen] = useState(me.preferences.left_open !== false);
   const [rightOpen, setRightOpen] = useState(me.preferences.right_open !== false);
   const [filters, setFilters] = useState<LayerFilters>(() => initialFilters(me));
@@ -140,7 +145,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       <main className={'ws' + (leftOpen ? '' : ' noL') + (rightOpen ? '' : ' noR')}>
         {leftOpen && <LayerPanel filters={filters} counts={counts} onChange={changeFilters} />}
         <section className="mapcell">
-          <Globe ref={globe} home={home} events={shown} selectedId={selected} onSelect={select} />
+          <Globe
+            ref={globe}
+            basemap={basemap}
+            home={home}
+            events={shown}
+            selectedId={selected}
+            onSelect={select}
+          />
           <div className="mc tl">
             <div className="seg" role="group" aria-label="Projection">
               {(['3d', '2d'] as const).map((m) => (
@@ -153,6 +165,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                   }}
                 >
                   {m === '3d' ? '3D Globe' : '2D World'}
+                </button>
+              ))}
+            </div>
+            <div className="seg" role="group" aria-label="Base map">
+              {BASEMAPS.map((b) => (
+                <button
+                  key={b.id}
+                  aria-pressed={basemap === b.id}
+                  onClick={() => {
+                    setBasemap(b.id);
+                    void savePreferences({ basemap: b.id }).catch(() => undefined);
+                  }}
+                >
+                  {b.label}
                 </button>
               ))}
             </div>

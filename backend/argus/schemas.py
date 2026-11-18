@@ -72,6 +72,7 @@ class Preferences(BaseModel):
     left_open: bool | None = None
     right_open: bool | None = None
     layers: dict[str, bool] | None = None
+    show_banner: bool | None = None
 
 
 class MeOut(BaseModel):

@@ -5,7 +5,6 @@ import Brand from './Brand';
 export default function AuthShell({ children }: { children: ReactNode }) {
   return (
     <div className="app">
-      <div className="banner">UNCLASSIFIED // OPEN SOURCE</div>
       <header className="cmdbar">
         <Brand />
       </header>

@@ -145,3 +145,6 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 @media (prefers-reduced-motion: reduce) {
   .livepill.live i { animation: none; }
 }
+
+.lrow.flat { padding-inline: 0; }
+.lrow.flat:hover { background: none; }

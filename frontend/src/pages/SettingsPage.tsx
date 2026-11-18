@@ -15,6 +15,17 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   const [home, setHome] = useState<Home | null>(current);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [banner, setBanner] = useState(me.preferences.show_banner === true);
+
+  async function toggleBanner(next: boolean) {
+    setBanner(next);
+    try {
+      await savePreferences({ show_banner: next });
+      await onSaved();
+    } catch {
+      setBanner(!next);
+    }
+  }
 
   async function save() {
     if (!home) {
@@ -59,6 +70,26 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
                 {message.text}
               </div>
             )}
+          </div>
+        </section>
+        <section className="card">
+          <div className="ph">
+            <h2>Display</h2>
+          </div>
+          <div className="cbody">
+            <label className="lrow flat">
+              <input
+                type="checkbox"
+                checked={banner}
+                onChange={(e) => void toggleBanner(e.target.checked)}
+              />
+              <span className="tog" />
+              <span />
+              <span className="lname">
+                <span>Classification line</span>
+                <small>Shows “UNCLASSIFIED // OPEN SOURCE” in a thin strip above the header</small>
+              </span>
+            </label>
           </div>
         </section>
       </main>
