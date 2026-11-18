@@ -63,6 +63,9 @@ class FakeClient:
     def seen_recently(self, hex_id, max_age_s=30):
         return None
 
+    def find_recent(self, query, max_age_s=60):
+        return []
+
     async def close(self):
         pass
 
@@ -155,6 +158,7 @@ async def test_area_backs_off_and_serves_cache(monkeypatch):
     first = await client.area(36.1, -86.7, 100)
     assert [a["hex"] for a in first] == ["ae1234"]
     assert client.seen_recently("ae1234")["callsign"] == "RCH123"
+    assert client.find_recent("rch123")[0]["hex"] == "ae1234"
     # Fresh cache: no request at all.
     assert await client.area(36.12, -86.72, 90) == first
     # Expire it: adsb.lol says 429, the stale answer is served.

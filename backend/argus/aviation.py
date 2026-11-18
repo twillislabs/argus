@@ -384,6 +384,19 @@ class AirClient:
             }
         return out
 
+    def find_recent(self, query: str, max_age_s: float = 60) -> list[dict]:
+        """Aircraft from recent area answers matching a callsign, hex or
+        registration, so search works while adsb.lol is limiting us."""
+        q = query.strip().upper()
+        cutoff = time.time() - max_age_s
+        return [
+            a
+            for seen, a in self.recent.values()
+            if seen > cutoff
+            and q
+            in (a["callsign"].upper(), a["hex"].upper(), a["reg"].upper())
+        ]
+
     def seen_recently(self, hex_id: str, max_age_s: float = 30) -> dict | None:
         hit = self.recent.get(hex_id)
         if hit and time.time() - hit[0] < max_age_s:

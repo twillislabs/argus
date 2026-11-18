@@ -210,6 +210,8 @@ async def _aircraft(
 ) -> list[dict]:
     hits = air.find(reading.value)
     if not hits and client is not None:
+        hits = client.find_recent(reading.value)
+    if not hits and client is not None:
         kind = "callsign" if reading.kind == "flight" else reading.kind
         try:
             hits = await client.lookup(kind, reading.value)
