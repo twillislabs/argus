@@ -41,7 +41,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Developers',
-      items: ['dev/architecture', 'dev/local-development'],
+      items: ['dev/architecture', 'dev/local-development', 'dev/git-workflow'],
     },
   ],
 };
