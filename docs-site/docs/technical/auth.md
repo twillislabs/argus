@@ -26,7 +26,7 @@ sequenceDiagram
   B->>A: POST /api/setup {token, username, password, home}
   A->>D: users still 0? token hash matches an unused, unexpired row? (row locked)
   A->>A: password policy (12+ chars, not the username, not trivial)
-  A->>D: insert admin user (Argon2id hash), preferences {home}, session; mark token used; audit
+  A->>D: insert admin user (Argon2id hash), preferences {home}, session, mark token used, audit
   A-->>B: 201 + Set-Cookie argus_session (HttpOnly) + argus_csrf
   B->>A: GET /api/me → map opens at home
 ```
