@@ -19,8 +19,6 @@ flowchart LR
 | `backend/migrations/` | Alembic migrations, applied on API start |
 | `frontend/src/` | React app: `pages/`, `map/` (Cesium), `components/`, `lib/` |
 | `docs-site/` | This documentation (Docusaurus 3) |
-| `docs/PLAN.md` | Project plan and milestones |
-| `docs/mockup/` | Interactive design mock |
 
 ## Frontend layout
 

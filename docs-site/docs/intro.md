@@ -10,9 +10,9 @@ aircraft, ships, satellites, events, airspace, infrastructure, weather and live
 video on one map that zooms from the whole globe to street level.
 
 :::info Status
-Argus is at **milestone 0**: the Compose stack, first-run setup, sign-in and a
-3D globe that opens at your home location. Data layers arrive from milestone 1.
-See the [project plan](https://github.com/) in `docs/PLAN.md`.
+Argus has live events (earthquakes, conflict and protest reports, fires),
+news headlines, and dark, satellite and hybrid base maps down to street
+level. Air traffic and search come next.
 :::
 
 ## Principles

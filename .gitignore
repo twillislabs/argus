@@ -20,5 +20,7 @@ docs-site/.docusaurus/
 .idea/
 .vscode/
 
-# Built design mock (regenerate with docs/mockup/build.py)
-docs/mockup/argus-mock.html
+
+# Local planning material: never pushed
+docs/PLAN.md
+docs/mockup/
