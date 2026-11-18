@@ -154,7 +154,7 @@ def search(query: str, limit: int = 10) -> list[Place]:
             rank = 0
         elif p.key.startswith(name_q):
             rank = 1
-        elif (" " + name_q) in (" " + p.key):
+        elif " {0}".format(name_q) in " {0}".format(p.key):
             rank = 2
         elif name_q in p.key:
             rank = 3

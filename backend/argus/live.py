@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import json
 import logging
 
 from fastapi import WebSocket
@@ -9,6 +10,7 @@ from fastapi import WebSocket
 log = logging.getLogger("argus.live")
 
 SUBJECT = "argus.events"
+AIR_SUBJECT = "argus.air"
 
 
 class Hub:
@@ -25,8 +27,12 @@ class Hub:
                 self.clients.discard(ws)
 
 
-async def subscribe_forever(url: str, hub: Hub) -> None:
-    """Keep a NATS subscription alive, retrying while the bus is down."""
+async def subscribe_forever(url: str, hub: Hub, air=None) -> None:
+    """Keep NATS subscriptions alive, retrying while the bus is down.
+
+    Event changes are forwarded to browsers as-is. Aircraft snapshots
+    also update the API's LiveAir picture, when one is given.
+    """
     import nats
 
     while True:
@@ -42,8 +48,19 @@ async def subscribe_forever(url: str, hub: Hub) -> None:
             async def handler(msg) -> None:
                 await hub.broadcast(msg.data.decode("utf-8"))
 
+            async def air_handler(msg) -> None:
+                text = msg.data.decode("utf-8")
+                if air is not None:
+                    try:
+                        air.apply(json.loads(text).get("aircraft", []))
+                    except (ValueError, KeyError, TypeError) as exc:
+                        log.warning("Bad aircraft message: {0}".format(exc))
+                        return
+                await hub.broadcast(text)
+
             await nc.subscribe(SUBJECT, cb=handler)
-            log.info("Subscribed to {0} on {1}".format(SUBJECT, url))
+            await nc.subscribe(AIR_SUBJECT, cb=air_handler)
+            log.info("Subscribed to argus.* on {0}".format(url))
             while nc.is_connected or nc.is_reconnecting:
                 await asyncio.sleep(5)
         except asyncio.CancelledError:

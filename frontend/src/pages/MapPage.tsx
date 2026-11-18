@@ -1,26 +1,50 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import AircraftInspector from '../components/AircraftInspector';
 import AppHeader from '../components/AppHeader';
 import EventInspector from '../components/EventInspector';
-import LayerPanel, { DEFAULT_FILTERS, type LayerFilters } from '../components/LayerPanel';
+import LayerPanel, {
+  type AirFilters,
+  DEFAULT_FILTERS,
+  type LayerFilters,
+} from '../components/LayerPanel';
+import SearchBox from '../components/SearchBox';
 import SituationPanel from '../components/SituationPanel';
 import {
+  type Aircraft,
+  type Bbox,
+  type CivilStatus,
   type EventItem,
   type EventType,
+  getAircraft,
   getEvents,
   getSummary,
   type Me,
   savePreferences,
+  type SearchResult,
   type Summary,
 } from '../lib/api';
 import { connectLive, type LiveState } from '../lib/live';
 import Globe, { type Basemap, BASEMAPS, type GlobeHandle } from '../map/Globe';
 
 const REFRESH_MS = 60_000;
+const CIVIL_MS = 15_000;
+const TRAIL_POINTS = 240;
 
 function initialFilters(me: Me): LayerFilters {
   const saved = me.preferences.layers as Partial<Record<EventType, boolean>> | undefined;
-  return saved ? { ...DEFAULT_FILTERS, types: { ...DEFAULT_FILTERS.types, ...saved } } : DEFAULT_FILTERS;
+  const air = me.preferences.air as Partial<AirFilters> | undefined;
+  return {
+    ...DEFAULT_FILTERS,
+    types: { ...DEFAULT_FILTERS.types, ...(saved ?? {}) },
+    air: { ...DEFAULT_FILTERS.air, ...(air ?? {}) },
+  };
+}
+
+function matchesFocus(a: Aircraft, focus: string): boolean {
+  if (!focus) return true;
+  if (focus === 'emergency') return a.emergency;
+  return a.mil && a.role === focus;
 }
 
 export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () => Promise<void> }) {
@@ -37,11 +61,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [events, setEvents] = useState<EventItem[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [selectedHex, setSelectedHex] = useState<string | null>(null);
+  const [follow, setFollow] = useState(false);
+  const [military, setMilitary] = useState<Aircraft[]>([]);
+  const [civil, setCivil] = useState<Aircraft[]>([]);
+  const [civilStatus, setCivilStatus] = useState<CivilStatus>('zoom');
+  const [tracked, setTracked] = useState<Aircraft | null>(null);
+  const [trail, setTrail] = useState<number[][] | null>(null);
   const [live, setLive] = useState<LiveState>('connecting');
   const [loadError, setLoadError] = useState('');
+  const [notice, setNotice] = useState('');
   const home = me.preferences.home ?? null;
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
+  const viewRef = useRef<Bbox | null>(null);
 
   const load = useCallback(async () => {
     const f = filtersRef.current;
@@ -58,33 +91,88 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     }
   }, []);
 
+  // Military aircraft: the live socket pushes snapshots; this is the
+  // first load and the fallback when the socket is quiet.
+  const loadMilitary = useCallback(async () => {
+    try {
+      const r = await getAircraft(null, false);
+      setMilitary(r.aircraft.filter((a) => a.mil));
+    } catch {
+      // The next live snapshot or refresh fills it in.
+    }
+  }, []);
+
+  // Civil aircraft for the area in view, when the view is regional.
+  const loadCivil = useCallback(async () => {
+    if (!filtersRef.current.air.civil) {
+      setCivil([]);
+      return;
+    }
+    const bbox = viewRef.current;
+    if (!bbox) {
+      setCivil([]);
+      setCivilStatus('zoom');
+      return;
+    }
+    try {
+      const r = await getAircraft(bbox, true);
+      setCivilStatus(r.civil_status);
+      setCivil(r.civil_status === 'ok' ? r.aircraft.filter((a) => !a.mil) : []);
+    } catch {
+      setCivilStatus('error');
+    }
+  }, []);
+
   // Reload when server-side filters change, and on a slow timer as a
   // fallback for missed live messages.
   useEffect(() => {
     void load();
   }, [load, filters.hours, filters.candidates, filters.minSeverity]);
   useEffect(() => {
-    const id = window.setInterval(() => void load(), REFRESH_MS);
+    void loadMilitary();
+    const id = window.setInterval(() => {
+      void load();
+      void loadMilitary();
+    }, REFRESH_MS);
     return () => window.clearInterval(id);
-  }, [load]);
+  }, [load, loadMilitary]);
+  useEffect(() => {
+    void loadCivil();
+    const id = window.setInterval(() => void loadCivil(), CIVIL_MS);
+    return () => window.clearInterval(id);
+  }, [loadCivil, filters.air.civil]);
 
-  // Live updates: merge changed events into the list.
+  const viewTimer = useRef<number | undefined>(undefined);
+  const onView = useCallback(
+    (bbox: Bbox | null) => {
+      viewRef.current = bbox;
+      window.clearTimeout(viewTimer.current);
+      viewTimer.current = window.setTimeout(() => void loadCivil(), 400);
+    },
+    [loadCivil],
+  );
+
+  // Live updates: merge changed events, replace the military picture.
   useEffect(
     () =>
-      connectLive((changed) => {
-        const f = filtersRef.current;
-        setEvents((current) => {
-          const byId = new Map(current.map((e) => [e.id, e]));
-          for (const e of changed) {
-            const visible =
-              e.severity >= f.minSeverity &&
-              (e.status === 'active' || (f.candidates && e.status === 'candidate'));
-            if (visible) byId.set(e.id, e);
-            else byId.delete(e.id);
-          }
-          return [...byId.values()];
-        });
-      }, setLive),
+      connectLive(
+        (changed) => {
+          const f = filtersRef.current;
+          setEvents((current) => {
+            const byId = new Map(current.map((e) => [e.id, e]));
+            for (const e of changed) {
+              const visible =
+                e.severity >= f.minSeverity &&
+                (e.status === 'active' || (f.candidates && e.status === 'candidate'));
+              if (visible) byId.set(e.id, e);
+              else byId.delete(e.id);
+            }
+            return [...byId.values()];
+          });
+        },
+        setLive,
+        (snapshot) => setMilitary(snapshot),
+      ),
     [],
   );
 
@@ -95,9 +183,30 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     return c;
   }, [events]);
 
+  // Aircraft on the map: the chosen layers and focus, and always the one
+  // being tracked (with its freshest position).
+  const aircraft = useMemo(() => {
+    const air = filters.air;
+    const byHex = new Map<string, Aircraft>();
+    if (air.civil) for (const a of civil) if (matchesFocus(a, air.focus)) byHex.set(a.hex, a);
+    if (air.military) for (const a of military) if (matchesFocus(a, air.focus)) byHex.set(a.hex, a);
+    if (selectedHex) {
+      const latest =
+        military.find((a) => a.hex === selectedHex) ??
+        civil.find((a) => a.hex === selectedHex) ??
+        (tracked?.hex === selectedHex ? tracked : undefined);
+      if (latest) byHex.set(latest.hex, latest);
+    }
+    return [...byHex.values()];
+  }, [military, civil, filters.air, selectedHex, tracked]);
+  const airCounts = useMemo(
+    () => ({ military: military.length, civil: civil.length }),
+    [military, civil],
+  );
+
   function changeFilters(next: LayerFilters) {
     setFilters(next);
-    void savePreferences({ layers: next.types }).catch(() => undefined);
+    void savePreferences({ layers: next.types, air: next.air }).catch(() => undefined);
   }
 
   const togglePanel = useCallback(
@@ -115,6 +224,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     [leftOpen, rightOpen],
   );
 
+  const clearSelection = useCallback(() => {
+    setSelected(null);
+    setSelectedHex(null);
+    setFollow(false);
+    setTracked(null);
+    setTrail(null);
+  }, []);
+
   // [ and ] toggle the panels, Esc clears the selection.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -122,15 +239,42 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       if (e.key === '[') togglePanel('L');
       else if (e.key === ']') togglePanel('R');
-      else if (e.key === 'Escape') setSelected(null);
+      else if (e.key === 'Escape') clearSelection();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [togglePanel]);
+  }, [togglePanel, clearSelection]);
 
+  useEffect(() => {
+    if (!notice) return;
+    const id = window.setTimeout(() => setNotice(''), 5000);
+    return () => window.clearTimeout(id);
+  }, [notice]);
+
+  function openRight() {
+    if (!rightOpen) setRightOpen(true);
+  }
+
+  // Map clicks: event ids, or "ac:<hex>" for aircraft.
   function select(id: string | null) {
+    if (id && id.startsWith('ac:')) {
+      selectAircraft(id.slice(3));
+      return;
+    }
+    clearSelection();
     setSelected(id);
-    if (id && !rightOpen) setRightOpen(true);
+    if (id) openRight();
+  }
+
+  function selectAircraft(hex: string, follow = false) {
+    setSelected(null);
+    if (hex !== selectedHex) {
+      setTrail(null);
+      setTracked(null);
+    }
+    setSelectedHex(hex);
+    setFollow(follow);
+    openRight();
   }
 
   function selectAndFly(id: string) {
@@ -139,11 +283,78 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (e) globe.current?.flyTo(e.lat, e.lon);
   }
 
+  // Inspector polls: keep the tracked aircraft's position and grow its
+  // trail (the server keeps trails for military aircraft only).
+  const onAircraftUpdate = useCallback((a: Aircraft, serverTrail: number[][]) => {
+    setTracked(a);
+    setTrail((current) => {
+      if (serverTrail.length >= 2) return serverTrail;
+      const points = current ?? [];
+      const last = points[points.length - 1];
+      if (last && last[0] === a.lon && last[1] === a.lat) return points;
+      return [...points, [a.lon, a.lat, a.alt_ft ?? 0, Date.now() / 1000]].slice(-TRAIL_POINTS);
+    });
+  }, []);
+
+  function applyAirFilter(mode: string) {
+    const air: AirFilters =
+      mode === 'military'
+        ? { military: true, civil: false, focus: '' }
+        : mode === 'all'
+          ? { military: true, civil: true, focus: '' }
+          : mode === 'emergency'
+            ? { military: true, civil: true, focus: 'emergency' }
+            : { military: true, civil: false, focus: mode };
+    changeFilters({ ...filters, air });
+  }
+
+  function onSearch(r: SearchResult) {
+    if (r.kind === 'filter' && r.filter) {
+      if (r.filter.events) {
+        const types = { conflict: false, unrest: false, quake: false, fire: false };
+        for (const t of r.filter.events) types[t] = true;
+        changeFilters({ ...filters, types });
+      }
+      if (r.filter.aircraft) applyAirFilter(r.filter.aircraft);
+      return;
+    }
+    if (r.kind === 'flight') {
+      setNotice(r.label + ' is not airborne or not being seen right now.');
+      return;
+    }
+    if (r.kind === 'aircraft' && r.hex) {
+      // Make sure the layer it belongs to is on.
+      const air = filters.air;
+      if ((r.mil && !air.military) || (!r.mil && !air.civil) || air.focus) {
+        changeFilters({
+          ...filters,
+          air: { ...air, focus: '', military: air.military || Boolean(r.mil), civil: air.civil || !r.mil },
+        });
+      }
+      selectAircraft(r.hex, true);
+    } else if (r.kind === 'event' && r.id) {
+      clearSelection();
+      setSelected(r.id);
+      openRight();
+    }
+    if (r.lat !== undefined && r.lon !== undefined) {
+      globe.current?.flyTo(r.lat, r.lon, r.height_m);
+    }
+  }
+
   return (
     <div className="app">
       <AppHeader me={me} onSignedOut={onSignedOut} live={live} />
       <main className={'ws' + (leftOpen ? '' : ' noL') + (rightOpen ? '' : ' noR')}>
-        {leftOpen && <LayerPanel filters={filters} counts={counts} onChange={changeFilters} />}
+        {leftOpen && (
+          <LayerPanel
+            filters={filters}
+            counts={counts}
+            airCounts={airCounts}
+            civilStatus={civilStatus}
+            onChange={changeFilters}
+          />
+        )}
         <section className="mapcell">
           <Globe
             ref={globe}
@@ -152,6 +363,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             events={shown}
             selectedId={selected}
             onSelect={select}
+            aircraft={aircraft}
+            selectedHex={selectedHex}
+            trail={trail}
+            follow={follow}
+            onView={onView}
           />
           <div className="mc tl">
             <div className="seg" role="group" aria-label="Projection">
@@ -182,6 +398,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 </button>
               ))}
             </div>
+          </div>
+          <div className="mc tc">
+            <SearchBox onPick={onSearch} />
           </div>
           <div className="mc tr">
             <button
@@ -217,11 +436,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
           >
             {rightOpen ? '›' : '‹'}
           </button>
-          {loadError && <div className="notice">{loadError}</div>}
+          {(loadError || notice) && <div className="notice">{loadError || notice}</div>}
         </section>
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
-            {selected ? (
+            {selectedHex ? (
+              <AircraftInspector
+                hex={selectedHex}
+                following={follow}
+                onBack={clearSelection}
+                onFollow={setFollow}
+                onFly={(lat, lon) => globe.current?.flyTo(lat, lon, 150_000)}
+                onUpdate={onAircraftUpdate}
+              />
+            ) : selected ? (
               <EventInspector
                 id={selected}
                 onBack={() => setSelected(null)}

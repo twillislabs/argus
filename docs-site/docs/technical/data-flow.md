@@ -20,6 +20,15 @@ M2–M3), patterns and alerts.
 | `gdelt` | 5 min (files every 15 min) | Conflict and protest reports, clustered within 25 km and 2 h |
 | `rss` | 10 min | Headlines in the `articles` table (15 outlets by default) |
 | `firms` | 3 h | Fire clusters (0.25 degree cells with 8+ detections); needs a key |
+| aircraft (`adsb_mil`) | 15 s | A snapshot of every military aircraft from adsb.lol, published on `argus.air`; not stored |
+
+**Aircraft** take a lighter path than events. The worker polls adsb.lol's
+military feed and publishes each snapshot on NATS. The API keeps the latest
+positions and short trails in memory (`LiveAir`) and forwards the snapshot to
+browsers over `/ws/live`. Civil traffic isn't collected at all: when the
+browser's view is regional, the API asks adsb.lol for that area (cached for
+10 s, so many browsers looking at the same place cost one request).
+Privacy-flagged aircraft are dropped before anything is kept.
 
 **Fusion rules (v0):**
 - **Severity (1–5):** quakes by magnitude (M7+ is critical, M8+ catastrophic), bumped by a PAGER

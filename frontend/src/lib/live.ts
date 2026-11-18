@@ -1,12 +1,14 @@
-// Live event updates over /ws/live, with automatic reconnect.
+// Live updates over /ws/live (events and military aircraft), with
+// automatic reconnect.
 
-import type { EventItem } from './api';
+import type { Aircraft, EventItem } from './api';
 
 export type LiveState = 'connecting' | 'live' | 'offline';
 
 export function connectLive(
   onEvents: (events: EventItem[]) => void,
   onState: (state: LiveState) => void,
+  onAircraft?: (aircraft: Aircraft[]) => void,
 ): () => void {
   let ws: WebSocket | null = null;
   let closed = false;
@@ -25,6 +27,7 @@ export function connectLive(
       try {
         const data = JSON.parse(String(msg.data));
         if (data.type === 'events' && Array.isArray(data.events)) onEvents(data.events);
+        else if (data.type === 'aircraft' && Array.isArray(data.aircraft)) onAircraft?.(data.aircraft);
       } catch {
         // Ignore malformed messages.
       }

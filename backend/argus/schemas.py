@@ -62,6 +62,14 @@ class UserOut(BaseModel):
     role: str
 
 
+class AirPreferences(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    military: bool = True
+    civil: bool = True
+    focus: str = Field(default="", max_length=24)
+
+
 class Preferences(BaseModel):
     """Per-user settings. Unknown keys are rejected to keep this small."""
 
@@ -72,6 +80,7 @@ class Preferences(BaseModel):
     left_open: bool | None = None
     right_open: bool | None = None
     layers: dict[str, bool] | None = None
+    air: AirPreferences | None = None
     show_banner: bool | None = None
 
 

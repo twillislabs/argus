@@ -9,8 +9,9 @@ from datetime import timedelta
 from fastapi import FastAPI, Request
 
 from argus import __version__
-from argus.api import auth, events, health, me, setup
+from argus.api import air, auth, events, health, me, setup
 from argus.api.deps import RateLimiter
+from argus.aviation import AirClient, LiveAir
 from argus.config import DEFAULT_SECRET, Settings, get_settings
 from argus.db import Database
 from argus.live import Hub, subscribe_forever
@@ -45,16 +46,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         async with db.sessionmaker() as session:
             await ensure_setup_token(session, settings)
         app.state.hub = Hub()
+        app.state.air = LiveAir()
+        app.state.air_client = AirClient(settings.user_agent)
         live_task = None
         if settings.nats_url:
             live_task = asyncio.create_task(
-                subscribe_forever(settings.nats_url, app.state.hub)
+                subscribe_forever(
+                    settings.nats_url, app.state.hub, app.state.air
+                )
             )
         yield
         if live_task is not None:
             live_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await live_task
+        await app.state.air_client.close()
         await db.dispose()
 
     app = FastAPI(
@@ -94,6 +100,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         auth.router,
         me.router,
         events.router,
+        air.router,
     ):
         app.include_router(router)
     return app

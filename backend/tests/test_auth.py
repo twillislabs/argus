@@ -92,6 +92,15 @@ async def test_preferences_merge_and_clear(admin_client):
     )
     assert "home" not in response.json()["preferences"]
 
+    air = {"military": True, "civil": False, "focus": "Tanker"}
+    response = await admin_client.patch(
+        "/api/me/preferences",
+        json={"air": air, "layers": {"quake": False}},
+        headers=csrf(admin_client),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["preferences"]["air"] == air
+
     response = await admin_client.patch(
         "/api/me/preferences",
         json={"unknown": 1},

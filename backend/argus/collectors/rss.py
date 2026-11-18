@@ -73,7 +73,7 @@ def clean(text: str | None, limit: int = 400) -> str:
         return ""
     plain = _WS.sub(" ", html.unescape(_TAG.sub(" ", text))).strip()
     if len(plain) > limit:
-        plain = plain[: limit - 1].rsplit(" ", 1)[0] + "…"
+        plain = "{0}…".format(plain[: limit - 1].rsplit(" ", 1)[0])
     return plain
 
 

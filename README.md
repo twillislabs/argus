@@ -13,11 +13,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshot-dark.png" alt="Argus: the default dark map with live events" width="900">
+  <img src="docs/assets/screenshot-dark.png" alt="Argus: the default dark globe with live events and military aircraft" width="900">
 </p>
 
 Argus is a self-hosted visualizer for open-source intelligence (OSINT). It brings conflict and
-protest reports, earthquakes, fires and the news onto one 3D globe, and will add aircraft, ships,
+protest reports, earthquakes, fires, aircraft and the news onto one 3D globe, and will add ships,
 satellites, airspace, infrastructure, weather and live video. Every marker shows where it came from
 and how sure Argus is about it, and the whole thing runs from one `docker compose up` with no paid
 keys.
@@ -33,6 +33,11 @@ What it does today:
   - satellite fire detections from NASA FIRMS (with a free key)
 
   Events are merged across sources and pushed to the browser as they happen.
+- **Aircraft.** Military aircraft worldwide every 15 seconds, with their role (tanker, ISR,
+  airlift and so on), and civil traffic for whatever region you're looking at. Click one for its
+  route and progress, then **Follow** it.
+- **Universal search.** Type a flight number (`AA100`), a hex or tail number, an airport, a
+  place, coordinates, an event or a word like `tankers`, and Argus works out what you meant.
 - **Corroboration before it hits the map.** Machine-coded GDELT reports start as *unconfirmed* and
   only become events when several independent outlets report them.
 - **News from across the spectrum.** Headlines from fifteen outlets, US and international, left
@@ -45,18 +50,18 @@ What it does today:
   - Lockout and rate limiting, plus an audit log
 - **Built-in documentation** at `/docs/`, including how every part connects.
 
-What's coming is in the [plan](docs/PLAN.md): aircraft and ships, satellites with live orbits,
+Coming next: ships, satellites with live orbits,
 street-level imagery, airspace and GPS-jamming, weather, news and traffic video, wall mode for a
 watch-floor screen, balanced news coverage, alerts, and optional AI (Anthropic, OpenAI or a local
 model).
 
 <table>
   <tr>
-    <td><img src="docs/assets/screenshot-city.png" alt="Dark map at city level" width="440"></td>
+    <td><img src="docs/assets/screenshot-aircraft.png" alt="Following a flight with its route and progress" width="440"></td>
     <td><img src="docs/assets/screenshot-satellite.png" alt="Satellite view at street level" width="440"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Dark map, city level</sub></td>
+    <td align="center"><sub>Aircraft: search, follow, route</sub></td>
     <td align="center"><sub>Satellite, street level</sub></td>
   </tr>
 </table>
@@ -96,7 +101,7 @@ make           # every target
 | --- | --- |
 | `web` | nginx: serves the app and the docs, proxies `/api` and `/ws`, sets the security headers |
 | `api` | FastAPI: accounts, sessions, events, live WebSocket; runs migrations on start |
-| `worker` | Collectors (USGS, GDELT, RSS, FIRMS) and event fusion; publishes changes to NATS |
+| `worker` | Collectors (USGS, GDELT, RSS, FIRMS, adsb.lol) and event fusion; publishes changes to NATS |
 | `db` | PostgreSQL 17 with TimescaleDB and PostGIS |
 | `nats` | NATS JetStream message bus between the worker and the API |
 
@@ -130,11 +135,11 @@ make ci        # everything GitHub Actions runs, locally
 | `backend/argus/collectors/` | One module per data source (USGS, GDELT, RSS, FIRMS) |
 | `backend/argus/fusion.py` | Raw records into events: clustering, severity, promotion |
 | `backend/argus/worker.py` | The collector scheduler and NATS publisher |
+| `backend/argus/aviation.py` | Airports, airlines, the live aircraft picture and the adsb.lol client |
+| `backend/argus/search.py` | The universal search decoder |
 | `backend/migrations/` | Alembic migrations, applied when the API starts |
 | `frontend/src/` | The web app: React, TypeScript and CesiumJS (`pages/`, `components/`, `map/`, `lib/`, `styles/`) |
 | `docs-site/` | The documentation (Docusaurus), served at `/docs/` |
-| `docs/PLAN.md` | The plan and milestones |
-| `docs/mockup/` | The interactive design mock (`python3 build.py` builds it) |
 | `scripts/ci.sh` | The CI checks, runnable locally |
 
 API docs are at `/api/docs` while Argus is running.
@@ -150,6 +155,10 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
 - **Events:** the GDELT Project.
 - **Fires:** NASA FIRMS.
 - **Places:** [GeoNames](https://www.geonames.org/) (CC BY 4.0).
+- **Aircraft:** [adsb.lol](https://adsb.lol/) (ODbL 1.0) for positions, [adsbdb](https://www.adsbdb.com/)
+  for routes and types, [OurAirports](https://ourairports.com/data/) (public domain) and
+  [OpenFlights](https://openflights.org/data) airlines (ODbL 1.0). Aircraft whose owners opted out
+  (PIA, LADD) are hidden unless military, and owner names are never shown.
 - **Globe:** [CesiumJS](https://cesium.com/platform/cesiumjs/) (Apache 2.0). Argus uses the
   open-source engine only, not the Cesium ion service.
 - **Ideas:** [God's Eye View](https://github.com/bilawalsidhu/gods-eye-view) (MIT), for several

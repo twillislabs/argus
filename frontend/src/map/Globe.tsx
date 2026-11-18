@@ -1,6 +1,13 @@
 import '@cesium/engine/Source/Widget/CesiumWidget.css';
 
-import { Cartesian2, Cartesian3, Color, NearFarScalar, Rectangle } from '@cesium/core';
+import {
+  Cartesian2,
+  Cartesian3,
+  Color,
+  Math as CesiumMath,
+  NearFarScalar,
+  Rectangle,
+} from '@cesium/core';
 // The core engine only: the full `cesium` package also bundles Knockout
 // for its Viewer widgets, which needs `eval` and breaks our strict CSP.
 import {
@@ -21,8 +28,9 @@ import {
 } from '@cesium/engine';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
-import type { EventItem, Home } from '../lib/api';
+import type { Aircraft, Bbox, EventItem, Home } from '../lib/api';
 import { SEVERITY_COLOR } from '../lib/format';
+import { addAircraftLayer, type AircraftLayer } from './aircraftLayer';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
 
 // No Cesium ion: every tile comes from a source we configure.
@@ -107,6 +115,15 @@ export interface GlobeHandle {
   flyWorld: () => void;
   flyTo: (lat: number, lon: number, height?: number) => void;
   setMode: (mode: '3d' | '2d') => void;
+  view: () => { bbox: Bbox | null; height: number } | null;
+}
+
+// The visible area, or null when the view includes the sky or a pole.
+function viewBbox(v: CesiumWidget): Bbox | null {
+  const rect = v.camera.computeViewRectangle(v.scene.globe.ellipsoid);
+  if (!rect) return null;
+  const d = CesiumMath.toDegrees;
+  return [d(rect.west), d(rect.south), d(rect.east), d(rect.north)];
 }
 
 interface Props {
@@ -115,10 +132,26 @@ interface Props {
   events: EventItem[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  aircraft: Aircraft[];
+  selectedHex: string | null;
+  trail: number[][] | null;
+  follow: boolean;
+  onView?: (bbox: Bbox | null, height: number) => void;
 }
 
 const Globe = forwardRef<GlobeHandle, Props>(function Globe(
-  { basemap, home, events, selectedId, onSelect },
+  {
+    basemap,
+    home,
+    events,
+    selectedId,
+    onSelect,
+    aircraft,
+    selectedHex,
+    trail,
+    follow,
+    onView,
+  },
   ref,
 ) {
   const container = useRef<HTMLDivElement>(null);
@@ -126,6 +159,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const points = useRef<PointPrimitiveCollection | null>(null);
   const rings = useRef<PointPrimitiveCollection | null>(null);
   const dark = useRef<DarkMap | null>(null);
+  const air = useRef<AircraftLayer | null>(null);
+  const onViewRef = useRef(onView);
+  onViewRef.current = onView;
   const tiles = useRef<ImageryLayer[]>([]);
   const basemapRef = useRef(basemap);
   basemapRef.current = basemap;
@@ -148,6 +184,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     scene.primitives.add(collection);
     points.current = collection;
     rings.current = ringCollection;
+    air.current = addAircraftLayer(scene);
 
     let disposed = false;
     void addDarkMap(scene).then((m) => {
@@ -170,6 +207,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     }
     v.camera.percentageChanged = 0.02;
     const removeCamera = v.camera.changed.addEventListener(applyFade);
+    const removeMoveEnd = v.camera.moveEnd.addEventListener(() => {
+      onViewRef.current?.(viewBbox(v), v.camera.positionCartographic.height);
+    });
     (v as unknown as { applyFade: () => void }).applyFade = applyFade;
 
     // Pulsing rings on high-severity events.
@@ -210,6 +250,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       // Each step guarded: a failure here must not break navigation.
       const steps: [string, () => void][] = [
         ['camera listener', removeCamera],
+        ['move listener', removeMoveEnd],
+        ['aircraft', () => air.current?.destroy()],
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
         ['widget', () => v.destroy()],
@@ -222,6 +264,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         }
       }
       dark.current = null;
+      air.current = null;
       viewer.current = null;
       points.current = null;
       rings.current = null;
@@ -237,7 +280,14 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     for (const layer of tiles.current) v.scene.imageryLayers.add(layer);
     const isDark = basemap === 'dark';
     v.scene.globe.showGroundAtmosphere = !isDark;
-    if (v.scene.skyAtmosphere) v.scene.skyAtmosphere.show = !isDark;
+    const sky = v.scene.skyAtmosphere;
+    if (sky) {
+      // Dark map: a thin, dim blue rim instead of the bright daylight sky.
+      sky.show = true;
+      sky.hueShift = isDark ? -0.04 : 0;
+      sky.saturationShift = isDark ? -0.35 : 0;
+      sky.brightnessShift = isDark ? -0.62 : 0;
+    }
     (v as unknown as { applyFade?: () => void }).applyFade?.();
   }, [basemap]);
 
@@ -278,6 +328,24 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       }
     });
   }, [events, selectedId]);
+
+  // Aircraft: update in place; keep the selected one centred when following.
+  useEffect(() => {
+    air.current?.update(aircraft, selectedHex);
+    const v = viewer.current;
+    if (!v || !follow || !selectedHex) return;
+    const a = aircraft.find((x) => x.hex === selectedHex);
+    if (!a) return;
+    const height = Math.min(v.camera.positionCartographic.height, 600_000);
+    v.camera.flyTo({
+      destination: Cartesian3.fromDegrees(a.lon, a.lat, height),
+      duration: reduceMotion ? 0 : 1.2,
+    });
+  }, [aircraft, selectedHex, follow]);
+
+  useEffect(() => {
+    air.current?.setTrail(trail);
+  }, [trail]);
 
   // Home marker and start view. Keyed on the values, not the object, so
   // reloading preferences doesn't yank the camera back home.
@@ -337,6 +405,11 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           destination: Cartesian3.fromDegrees(lon, lat, height),
           duration: 1.4,
         });
+      },
+      view() {
+        const v = viewer.current;
+        if (!v) return null;
+        return { bbox: viewBbox(v), height: v.camera.positionCartographic.height };
       },
       setMode(mode) {
         const v = viewer.current;

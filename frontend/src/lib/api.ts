@@ -198,3 +198,86 @@ export const nearestPlace = (lat: number, lon: number) =>
   );
 export const savePreferences = (prefs: Partial<Preferences> & Record<string, unknown>) =>
   api<Me>('/api/me/preferences', { method: 'PATCH', body: prefs });
+
+// --- Milestone 2: aircraft and universal search -----------------------------
+
+export interface Aircraft {
+  hex: string;
+  callsign: string;
+  reg: string;
+  type: string;
+  mil: boolean;
+  role: string | null;
+  lat: number;
+  lon: number;
+  alt_ft: number | null;
+  ground: boolean;
+  gs_kt: number | null;
+  track: number | null;
+  vrate: number | null;
+  squawk: string | null;
+  emergency: boolean;
+  seen: number | null;
+}
+
+export interface RouteAirport {
+  iata: string | null;
+  icao: string | null;
+  name: string | null;
+  city: string | null;
+  lat: number | null;
+  lon: number | null;
+}
+
+export interface AircraftDetail {
+  aircraft: Aircraft;
+  detail: {
+    type: string | null;
+    icao_type: string | null;
+    manufacturer: string | null;
+    registration: string | null;
+    country: string | null;
+  } | null;
+  route: {
+    callsign: string;
+    flight: string | null;
+    airline: string | null;
+    origin: RouteAirport | null;
+    destination: RouteAirport | null;
+  } | null;
+  progress: { total_km: number; remaining_km: number; fraction: number } | null;
+  // [lon, lat, alt_ft, unix seconds]
+  trail: number[][];
+}
+
+export type CivilStatus = 'ok' | 'zoom' | 'off' | 'error';
+
+export type Bbox = [number, number, number, number];
+
+export function getAircraft(bbox: Bbox | null, civil: boolean) {
+  const params = new URLSearchParams({ civil: String(civil) });
+  if (bbox) params.set('bbox', bbox.map((v) => v.toFixed(3)).join(','));
+  return api<{ aircraft: Aircraft[]; civil_status: CivilStatus; updated: number }>(
+    '/api/aircraft?' + params.toString(),
+  );
+}
+
+export const getAircraftDetail = (hex: string) =>
+  api<AircraftDetail>('/api/aircraft/' + encodeURIComponent(hex));
+
+export interface SearchResult {
+  kind: 'coords' | 'aircraft' | 'flight' | 'airport' | 'place' | 'event' | 'filter';
+  label: string;
+  detail: string;
+  lat?: number;
+  lon?: number;
+  height_m?: number;
+  hex?: string;
+  mil?: boolean;
+  id?: string;
+  callsign?: string;
+  filter?: { events?: EventType[]; aircraft?: string };
+}
+
+export const search = (q: string) =>
+  api<{ query: string; results: SearchResult[] }>('/api/search?q=' + encodeURIComponent(q));

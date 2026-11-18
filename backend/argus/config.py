@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     firms_map_key: str | None = None
     # Optional JSON file overriding the default RSS feed list.
     rss_feeds_file: str | None = None
+    # Military aircraft from adsb.lol, polled by the worker. Civil
+    # aircraft are fetched by the API for the area in view.
+    air_enabled: bool = True
+    air_interval_s: int = 15
     raw_retention_days: int = 30
     event_retention_days: int = 30
 

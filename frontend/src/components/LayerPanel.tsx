@@ -1,11 +1,20 @@
-import type { EventType } from '../lib/api';
+import type { CivilStatus, EventType } from '../lib/api';
 import { EVENT_TYPES, SEVERITY_NAME, TYPE_INFO } from '../lib/format';
+import { AIR_COLOR } from '../map/aircraftLayer';
+
+export interface AirFilters {
+  military: boolean;
+  civil: boolean;
+  // '' for every aircraft shown, 'emergency', or a military role.
+  focus: string;
+}
 
 export interface LayerFilters {
   types: Record<EventType, boolean>;
   minSeverity: number;
   candidates: boolean;
   hours: number;
+  air: AirFilters;
 }
 
 export const DEFAULT_FILTERS: LayerFilters = {
@@ -13,15 +22,41 @@ export const DEFAULT_FILTERS: LayerFilters = {
   minSeverity: 1,
   candidates: false,
   hours: 24,
+  air: { military: true, civil: true, focus: '' },
 };
+
+export const AIR_FOCUS = [
+  ['', 'All shown aircraft'],
+  ['emergency', 'Emergencies (7500/7600/7700)'],
+  ['Tanker', 'Tankers'],
+  ['ISR', 'ISR and surveillance'],
+  ['AEW&C', 'Airborne early warning'],
+  ['Patrol', 'Maritime patrol'],
+  ['Airlift', 'Airlift'],
+  ['Bomber', 'Bombers'],
+  ['Fighter', 'Fighters'],
+  ['Helicopter', 'Helicopters'],
+  ['VIP', 'VIP transport'],
+] as const;
 
 interface Props {
   filters: LayerFilters;
   counts: Partial<Record<EventType, number>>;
+  airCounts: { military: number; civil: number };
+  civilStatus: CivilStatus;
   onChange: (f: LayerFilters) => void;
 }
 
-export default function LayerPanel({ filters, counts, onChange }: Props) {
+const CIVIL_HINT: Record<CivilStatus, string> = {
+  ok: 'adsb.lol · area in view',
+  zoom: 'Zoom in to a region to load',
+  off: 'adsb.lol · area in view',
+  error: 'adsb.lol unavailable, retrying',
+};
+
+export default function LayerPanel({ filters, counts, airCounts, civilStatus, onChange }: Props) {
+  const air = filters.air;
+  const setAir = (next: Partial<AirFilters>) => onChange({ ...filters, air: { ...air, ...next } });
   const isDefault = JSON.stringify(filters) === JSON.stringify(DEFAULT_FILTERS);
   return (
     <aside className="side left" aria-label="Layers">
@@ -55,6 +90,49 @@ export default function LayerPanel({ filters, counts, onChange }: Props) {
             <span className="lcount mono">{counts[t] ?? 0}</span>
           </label>
         ))}
+      </div>
+      <div className="group">
+        <div className="gtitle">Air</div>
+        <label className="lrow">
+          <input
+            type="checkbox"
+            checked={air.military}
+            onChange={(e) => setAir({ military: e.target.checked })}
+          />
+          <span className="tog" />
+          <span className="sw plane" style={{ background: AIR_COLOR.military }} />
+          <span className="lname">
+            <span>Military aircraft</span>
+            <small>adsb.lol · worldwide</small>
+          </span>
+          <span className="lcount mono">{airCounts.military}</span>
+        </label>
+        <label className="lrow">
+          <input
+            type="checkbox"
+            checked={air.civil}
+            onChange={(e) => setAir({ civil: e.target.checked })}
+          />
+          <span className="tog" />
+          <span className="sw plane" style={{ background: AIR_COLOR.civil }} />
+          <span className="lname">
+            <span>Civil aircraft</span>
+            <small className={civilStatus === 'error' ? 'warn' : undefined}>
+              {CIVIL_HINT[air.civil ? civilStatus : 'off']}
+            </small>
+          </span>
+          <span className="lcount mono">{air.civil && civilStatus === 'ok' ? airCounts.civil : '–'}</span>
+        </label>
+        <div className="field pad">
+          <label htmlFor="f-air">Show</label>
+          <select id="f-air" value={air.focus} onChange={(e) => setAir({ focus: e.target.value })}>
+            {AIR_FOCUS.map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <div className="group">
         <div className="gtitle">Filters</div>

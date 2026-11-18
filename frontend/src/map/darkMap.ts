@@ -24,9 +24,9 @@ import type { GeometryCollection, Topology } from 'topojson-specification';
 export const DARK = {
   ocean: '#0a0f16',
   land: '#171c23',
-  border: 'rgba(120,135,155,0.45)',
-  coast: 'rgba(120,140,170,0.40)',
-  graticule: 'rgba(120,140,170,0.10)',
+  border: 'rgba(120,135,155,0.38)',
+  coast: 'rgba(120,140,170,0.32)',
+  graticule: 'rgba(120,140,170,0.08)',
   background: '#070a0e',
 };
 

@@ -40,7 +40,7 @@ UPDATABLE_KINDS = {"quake", "fire_cluster"}
 
 
 def new_event_id() -> str:
-    return "E" + secrets.token_hex(5).upper()
+    return "E{0}".format(secrets.token_hex(5).upper())
 
 
 def country_from_place(place: str) -> str:
@@ -204,7 +204,7 @@ async def fuse_quake(db: AsyncSession, row: RawRecord) -> Event:
         summary += " A tsunami message has been issued; check NOAA / PTWC."
     return await _upsert_keyed(
         db,
-        "usgs:" + row.external_id,
+        "usgs:{0}".format(row.external_id),
         row,
         {
             "type": "quake",
@@ -233,10 +233,10 @@ async def fuse_quake(db: AsyncSession, row: RawRecord) -> Event:
 async def fuse_fire(db: AsyncSession, row: RawRecord) -> Event:
     p = row.payload
     near = places.nearest(row.lat, row.lon, max_km=100)
-    place = "near " + near.label() if near else "remote area"
+    place = "near {0}".format(near.label()) if near else "remote area"
     return await _upsert_keyed(
         db,
-        "firms:" + row.external_id,
+        "firms:{0}".format(row.external_id),
         row,
         {
             "type": "fire",

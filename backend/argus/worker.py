@@ -14,6 +14,7 @@ import httpx
 from sqlalchemy import select
 
 from argus import __version__
+from argus.aviation import ADSB_LOL, normalise
 from argus.collectors import REGISTRY, Collector
 from argus.config import Settings, get_settings
 from argus.db import Database, utcnow
@@ -25,6 +26,8 @@ from argus.models import Event, Source
 log = logging.getLogger("argus.worker")
 
 SUBJECT = "argus.events"
+AIR_SUBJECT = "argus.air"
+AIR_SOURCE = "adsb_mil"
 TICK_S = 5
 HOUSEKEEPING_S = 3600
 RETRY_S = 300
@@ -55,13 +58,13 @@ class Publisher:
             self.nc = None
             log.warning("NATS unavailable ({0}); will retry".format(exc))
 
-    async def publish(self, message: dict) -> None:
+    async def publish(self, message: dict, subject: str = SUBJECT) -> None:
         await self.ensure()
         if self.nc is None:
             return
         try:
             await self.nc.publish(
-                SUBJECT, json.dumps(message, default=str).encode("utf-8")
+                subject, json.dumps(message, default=str).encode("utf-8")
             )
         except Exception as exc:  # noqa: BLE001
             log.warning("NATS publish failed: {0}".format(exc))
@@ -86,6 +89,72 @@ async def register_sources(db: Database, collectors: list[Collector]) -> None:
         await session.commit()
 
 
+async def poll_military(
+    client: httpx.AsyncClient, publisher: Publisher
+) -> int:
+    """One adsb.lol /v2/mil poll, published as a full snapshot."""
+    response = await client.get("{0}mil".format(ADSB_LOL))
+    response.raise_for_status()
+    snapshot = [
+        a
+        for a in (
+            normalise(x, military=True) for x in response.json().get("ac", [])
+        )
+        if a is not None
+    ]
+    await publisher.publish(
+        {"type": "aircraft", "aircraft": snapshot}, AIR_SUBJECT
+    )
+    return len(snapshot)
+
+
+async def air_loop(
+    db: Database,
+    settings: Settings,
+    client: httpx.AsyncClient,
+    publisher: Publisher,
+) -> None:
+    """Poll military aircraft forever, recording health in sources."""
+    async with db.sessionmaker() as session:
+        row = await session.get(Source, AIR_SOURCE)
+        if row is None:
+            row = Source(name=AIR_SOURCE, last_count=0)
+            session.add(row)
+        row.label = "adsb.lol military aircraft"
+        row.interval_s = settings.air_interval_s
+        row.enabled = True
+        await session.commit()
+    last_saved = None
+    while True:
+        started = utcnow()
+        error, count = None, 0
+        try:
+            count = await poll_military(client, publisher)
+        except Exception as exc:  # noqa: BLE001 - keep polling
+            error = "{0}: {1}".format(type(exc).__name__, str(exc)[:400])
+            log.warning("adsb.lol military poll failed: {0}".format(error))
+        # Health is written at most once a minute, or at once on errors.
+        if (
+            error
+            or last_saved is None
+            or (started - last_saved) >= timedelta(seconds=60)
+        ):
+            async with db.sessionmaker() as session:
+                row = await session.get(Source, AIR_SOURCE)
+                row.last_run_at = started
+                if error:
+                    row.last_error = error
+                else:
+                    row.last_success_at = utcnow()
+                    row.last_count = count
+                    row.last_error = None
+                await session.commit()
+            last_saved = started
+        await asyncio.sleep(
+            settings.air_interval_s if not error else RETRY_S / 5
+        )
+
+
 async def run_collector(
     db: Database,
     collector: Collector,
@@ -106,7 +175,7 @@ async def run_collector(
             source.last_success_at = utcnow()
             source.last_count = len(result.records)
             source.last_error = (
-                "Failed: " + ", ".join(result.failures)
+                "Failed: {0}".format(", ".join(result.failures))
                 if result.failures
                 else None
             )
@@ -164,6 +233,11 @@ async def run(settings: Settings) -> None:
         headers={"User-Agent": settings.user_agent},
         follow_redirects=True,
     ) as client:
+        air_task = None
+        if settings.air_enabled:
+            air_task = asyncio.create_task(
+                air_loop(db, settings, client, publisher)
+            )
         try:
             while True:
                 now = utcnow()
@@ -196,6 +270,8 @@ async def run(settings: Settings) -> None:
                     next_housekeeping = now + timedelta(seconds=HOUSEKEEPING_S)
                 await asyncio.sleep(TICK_S)
         finally:
+            if air_task is not None:
+                air_task.cancel()
             await publisher.close()
             await db.dispose()
 

@@ -25,7 +25,13 @@ flowchart TB
     setup[setup.py]
     auth[auth.py]
     me[me.py]
+    events[events.py]
+    air[air.py]
   end
+  aviation["aviation.py<br/>airports, airlines, LiveAir,<br/>adsb.lol + adsbdb client"]
+  search["search.py<br/>decode() + resolve()"]
+  air --> aviation & search
+  search --> aviation
   main --> config & db & api
   setup & auth & me --> deps & schemas & services
   services --> models & security
@@ -43,6 +49,8 @@ flowchart TB
 | `security.py` | Password hashing and verification, token generation and hashing, and the password policy. |
 | `services.py` | Database operations used by several routes: user count, setup token, session create/load, audit. |
 | `api/deps.py` | FastAPI dependencies: DB session per request, current session with CSRF check, cookie helpers, the in-memory IP rate limiter. |
+| `aviation.py` | Bundled airports and airlines; `LiveAir`, the in-memory military picture (latest positions and a 30-minute trail per aircraft); `AirClient` for adsb.lol area queries and adsbdb routes and types, with caches. |
+| `search.py` | Universal search. `decode()` reads a query into every plausible meaning (coordinates, flight, hex, registration, squawk, airport, filter word); `resolve()` turns those into results using live aircraft, adsb.lol, places and events. |
 | `api/*.py` | One router per area. Handlers stay thin and call into services. |
 
 ## Endpoints (M0)
@@ -55,7 +63,10 @@ flowchart TB
 | POST | `/api/auth/login` | — | Sign in |
 | POST | `/api/auth/logout` | session + CSRF | Sign out |
 | GET | `/api/me` | session | User and preferences |
-| PATCH | `/api/me/preferences` | session + CSRF | Merge preference keys (`home`, `basemap`, ...); `null` clears a key |
+| PATCH | `/api/me/preferences` | session + CSRF | Merge preference keys (`home`, `basemap`, `layers`, `air`, ...); `null` clears a key |
+| GET | `/api/aircraft?bbox=&civil=` | session | Military aircraft (in the bbox, or all), plus civil traffic when the bbox fits a 250 nm radius; `civil_status` is `ok`, `zoom` or `error` |
+| GET | `/api/aircraft/{hex}` | session | One aircraft with type details, planned route, progress and trail |
+| GET | `/api/search?q=` | session | Universal search results, each with what the map should do |
 
 The full schema is at `/api/openapi.json`, and interactive docs are at
 `/api/docs`.
