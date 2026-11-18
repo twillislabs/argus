@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import AircraftInspector from '../components/AircraftInspector';
 import AppHeader from '../components/AppHeader';
+import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
 import LayerPanel, {
   type AirFilters,
@@ -12,6 +13,7 @@ import SearchBox from '../components/SearchBox';
 import SituationPanel from '../components/SituationPanel';
 import {
   type Aircraft,
+  type AircraftDetail,
   type Bbox,
   type CivilStatus,
   type EventItem,
@@ -76,6 +78,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [civil, setCivil] = useState<Aircraft[]>([]);
   const [civilStatus, setCivilStatus] = useState<CivilStatus>('zoom');
   const [tracked, setTracked] = useState<Aircraft | null>(null);
+  const [trackedAt, setTrackedAt] = useState(0);
+  const trackedRef = useRef<Aircraft | null>(null);
+  const [trackedRoute, setTrackedRoute] = useState<AircraftDetail['route']>(null);
   const [trail, setTrail] = useState<number[][] | null>(null);
   const [live, setLive] = useState<LiveState>('connecting');
   const [loadError, setLoadError] = useState('');
@@ -243,6 +248,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     setSelectedHex(null);
     setCamera('free');
     setTracked(null);
+    trackedRef.current = null;
+    setTrackedRoute(null);
     setTrail(null);
   }, []);
 
@@ -319,8 +326,15 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   // Inspector polls: keep the tracked aircraft's position and grow its
   // trail (the server keeps trails for military aircraft only).
-  const onAircraftUpdate = useCallback((a: Aircraft, serverTrail: number[][]) => {
+  const onAircraftUpdate = useCallback((a: Aircraft, serverTrail: number[][], d: AircraftDetail) => {
+    const prev = trackedRef.current;
+    if (!prev || prev.hex !== a.hex || prev.lat !== a.lat || prev.lon !== a.lon) {
+      setTrackedAt(performance.now() - Math.max(0, a.seen ?? 0) * 1000);
+    }
+    trackedRef.current = a;
     setTracked(a);
+    // Only a route that matches the aircraft's position is worth showing.
+    setTrackedRoute(d.progress?.plausible === false ? null : d.route);
     setTrail((current) => {
       if (serverTrail.length >= 2) return serverTrail;
       const points = current ?? [];
@@ -478,7 +492,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             {rightOpen ? '›' : '‹'}
           </button>
           {(loadError || notice) && <div className="notice">{loadError || notice}</div>}
-          {camera !== 'free' && tracked && (
+          {camera === 'cockpit' && tracked && (
+            <CockpitHud aircraft={tracked} reportedAt={trackedAt} destination={trackedRoute?.destination ?? null} />
+          )}
+          {camera !== 'free' && camera !== 'cockpit' && tracked && (
             <div className="camhud" role="status">
               <b>{CAMERA_MODES.find((m) => m.id === camera)?.label}</b>
               <span className="mono">{tracked.callsign || tracked.reg || tracked.hex.toUpperCase()}</span>

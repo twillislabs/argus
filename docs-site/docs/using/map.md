@@ -11,13 +11,20 @@ left of the map. Your choice is remembered.
 
 | Base map | What you see | Source |
 |---|---|---|
-| **Dark** (default) | Graphite countries, borders and a faint graticule on a near-black ocean. Below about 3,000 km a dark street map with labels fades in, down to street level. | Natural Earth shapes bundled with Argus; Esri Dark Gray Canvas tiles when zoomed in |
+| **Dark** (default) | Graphite countries, borders and a faint graticule on a near-black ocean. Below about 3,000 km a dark street map with labels fades in, down to street level. | Natural Earth shapes bundled with Argus. Zoomed in: the self-hosted street map inside the installed region, Esri Dark Gray Canvas elsewhere |
 | **Satellite** | Aerial and satellite imagery down to about 0.3 m per pixel in many cities, like Google Maps. | Esri World Imagery over NASA Blue Marble |
 | **Hybrid** | Satellite with roads, borders and place names on top. | Esri World Imagery and reference layers |
 
-The Esri services are hosted and need no key for light personal use. A
-self-hosted street map and an imagery-provider key in Settings are planned
-for milestone 2.
+The Esri services are hosted and need no key for light personal use.
+
+### The self-hosted street map
+
+Inside the region your administrator installed (see
+[Configuration](../admin/configuration.md#street-map)), the Dark map draws
+streets, buildings and labels from OpenStreetMap data on your own server, in
+Argus colours and sharp down to street level. Outside that region it falls
+back to Esri's dark map, toned to match. The street map is server-wide:
+every user sees the same installed region.
 
 ## Moving around
 
@@ -78,7 +85,13 @@ Pick a view in the aircraft panel, or press **V** to cycle through them:
 | **Follow** | Top-down, centred on the aircraft. Zoom and tilt still work |
 | **Chase** | Behind and a little above, turning with the aircraft. Scroll to move closer or further |
 | **Orbit** | Circles the aircraft slowly. Zoom still works |
-| **Cockpit** | From the aircraft, looking along its track. Try it on **Satellite** |
+| **Cockpit** | From the aircraft, looking along its track, with a head-up display. Try it on **Satellite** |
+
+The cockpit **head-up display** shows the heading tape (with a magenta bug
+pointing at the destination), ground speed and altitude tapes, vertical
+speed, and the distance, bearing and time to the destination. ADS-B carries
+no pitch or roll, so the horizon line stays level where the camera sees the
+real horizon.
 
 Positions arrive every 10 to 15 seconds; in between, Argus moves the aircraft
 along its speed, track and climb rate so the camera glides. A bar at the

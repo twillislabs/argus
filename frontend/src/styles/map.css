@@ -74,3 +74,43 @@
 }
 .camhud b { font: 600 11.5px/1 var(--f-head); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
 .camhud small { color: var(--dim); font-size: 10.5px; }
+
+/* Cockpit head-up display. */
+.hud {
+  --hud: #7dffb2;
+  position: absolute; inset: 0; z-index: 3; pointer-events: none; color: var(--hud);
+  font: 600 12px/1 var(--f-mono); text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+}
+.hud svg { position: absolute; overflow: visible; }
+.hud svg line, .hud svg path { stroke: var(--hud); stroke-width: 1.5; fill: none; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9)); }
+.hud svg text { fill: var(--hud); font: 600 11px var(--f-mono); text-anchor: middle; }
+.hud-horizon { left: 0; top: 0; }
+.hud-horizon line { stroke-dasharray: 14 6; opacity: 0.8; }
+.hud-heading { top: 150px; }
+.hud-heading .box { fill: rgba(5, 10, 8, 0.7); }
+.hud-heading text.big { font-size: 13px; }
+.hud-heading .bug { fill: #ff66d4; stroke: #ff66d4; }
+.hud-tape { position: absolute; }
+.hud-tape.left { left: 18%; }
+.hud-tape.right { right: 18%; }
+.hud-tape svg { position: static; }
+.hud-tape small { position: absolute; top: -20px; font-size: 10px; letter-spacing: 0.15em; opacity: 0.8; }
+.hud-tape.left small { right: 0; }
+.hud-tape .readout {
+  position: absolute; top: 50%; transform: translateY(-50%); border: 1.5px solid var(--hud); background: rgba(5, 10, 8, 0.85);
+  padding: 4px 8px; font-size: 14px; min-width: 64px; text-align: center;
+}
+.hud-tape.left .readout { right: 44px; }
+.hud-tape.right .readout { left: 40px; }
+.hud-tape .vs { position: absolute; top: calc(100% + 8px); left: 0; white-space: nowrap; font-size: 11px; }
+.hud-tape .vs.level { opacity: 0.6; }
+.hud-info {
+  position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); display: flex; gap: 16px; align-items: baseline;
+  background: rgba(5, 10, 8, 0.55); border: 1px solid rgba(125, 255, 178, 0.35); border-radius: 3px; padding: 6px 12px; white-space: nowrap;
+}
+.hud-info .warn { color: var(--crit); }
+.hud-info small { color: rgba(125, 255, 178, 0.6); font-size: 10px; }
+@media (max-width: 860px) {
+  .hud-tape.left { left: 4%; }
+  .hud-tape.right { right: 4%; }
+}

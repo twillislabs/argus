@@ -35,7 +35,7 @@ export const CAMERA_MODES: { id: CameraMode; label: string; hint: string }[] = [
 const ORBIT_PERIOD_S = 90;
 const CHASE_PITCH = -0.22;
 const ORBIT_PITCH = -0.5;
-const COCKPIT_PITCH = -0.06;
+export const COCKPIT_PITCH = -0.06;
 
 export interface AircraftCamera {
   setMode: (mode: CameraMode) => void;

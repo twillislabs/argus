@@ -13,8 +13,8 @@ interface Props {
   onBack: () => void;
   onCamera: (mode: CameraMode) => void;
   onFly: (lat: number, lon: number) => void;
-  // Fresh position and server trail, for the map.
-  onUpdate: (aircraft: Aircraft, trail: number[][]) => void;
+  // Fresh position, server trail and route, for the map.
+  onUpdate: (aircraft: Aircraft, trail: number[][], detail: AircraftDetail) => void;
 }
 
 export default function AircraftInspector({ hex, camera, onBack, onCamera, onFly, onUpdate }: Props) {
@@ -31,7 +31,7 @@ export default function AircraftInspector({ hex, camera, onBack, onCamera, onFly
         if (cancelled) return;
         setD(next);
         setError('');
-        onUpdate(next.aircraft, next.trail);
+        onUpdate(next.aircraft, next.trail, next);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the aircraft.');
       }
