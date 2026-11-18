@@ -1,150 +1,210 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import Brand from '../components/Brand';
-import { logout, type Me } from '../lib/api';
+import AppHeader from '../components/AppHeader';
+import EventInspector from '../components/EventInspector';
+import LayerPanel, { DEFAULT_FILTERS, type LayerFilters } from '../components/LayerPanel';
+import SituationPanel from '../components/SituationPanel';
+import {
+  type EventItem,
+  type EventType,
+  getEvents,
+  getSummary,
+  type Me,
+  savePreferences,
+  type Summary,
+} from '../lib/api';
+import { connectLive, type LiveState } from '../lib/live';
 import Globe, { type GlobeHandle } from '../map/Globe';
 
-function zoneTime(tz: string): string {
-  try {
-    return new Intl.DateTimeFormat('en-GB', {
-      timeZone: tz,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    }).format(new Date());
-  } catch {
-    return '--:--:--';
-  }
+const REFRESH_MS = 60_000;
+
+function initialFilters(me: Me): LayerFilters {
+  const saved = me.preferences.layers as Partial<Record<EventType, boolean>> | undefined;
+  return saved ? { ...DEFAULT_FILTERS, types: { ...DEFAULT_FILTERS.types, ...saved } } : DEFAULT_FILTERS;
 }
 
-function useClock(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-  return now;
-}
-
-export default function MapPage({
-  me,
-  onSignedOut,
-}: {
-  me: Me;
-  onSignedOut: () => Promise<void>;
-}) {
-  const now = useClock();
+export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () => Promise<void> }) {
   const globe = useRef<GlobeHandle>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [mode, setMode] = useState<'3d' | '2d'>('3d');
+  const [leftOpen, setLeftOpen] = useState(me.preferences.left_open !== false);
+  const [rightOpen, setRightOpen] = useState(me.preferences.right_open !== false);
+  const [filters, setFilters] = useState<LayerFilters>(() => initialFilters(me));
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [live, setLive] = useState<LiveState>('connecting');
+  const [loadError, setLoadError] = useState('');
   const home = me.preferences.home ?? null;
-  const initials = me.user.display_name
-    .split(/\s+/)
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
 
-  async function signOut() {
+  const load = useCallback(async () => {
+    const f = filtersRef.current;
     try {
-      await logout();
-    } finally {
-      await onSignedOut();
+      const [ev, sum] = await Promise.all([
+        getEvents({ hours: f.hours, candidates: f.candidates, minSeverity: f.minSeverity }),
+        getSummary(),
+      ]);
+      setEvents(ev.events);
+      setSummary(sum);
+      setLoadError('');
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Could not load events.');
     }
+  }, []);
+
+  // Reload when server-side filters change, and on a slow timer as a
+  // fallback for missed live messages.
+  useEffect(() => {
+    void load();
+  }, [load, filters.hours, filters.candidates, filters.minSeverity]);
+  useEffect(() => {
+    const id = window.setInterval(() => void load(), REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, [load]);
+
+  // Live updates: merge changed events into the list.
+  useEffect(
+    () =>
+      connectLive((changed) => {
+        const f = filtersRef.current;
+        setEvents((current) => {
+          const byId = new Map(current.map((e) => [e.id, e]));
+          for (const e of changed) {
+            const visible =
+              e.severity >= f.minSeverity &&
+              (e.status === 'active' || (f.candidates && e.status === 'candidate'));
+            if (visible) byId.set(e.id, e);
+            else byId.delete(e.id);
+          }
+          return [...byId.values()];
+        });
+      }, setLive),
+    [],
+  );
+
+  const shown = useMemo(() => events.filter((e) => filters.types[e.type]), [events, filters.types]);
+  const counts = useMemo(() => {
+    const c: Partial<Record<EventType, number>> = {};
+    for (const e of events) c[e.type] = (c[e.type] ?? 0) + 1;
+    return c;
+  }, [events]);
+
+  function changeFilters(next: LayerFilters) {
+    setFilters(next);
+    void savePreferences({ layers: next.types }).catch(() => undefined);
+  }
+
+  const togglePanel = useCallback(
+    (side: 'L' | 'R') => {
+      if (side === 'L') {
+        const v = !leftOpen;
+        setLeftOpen(v);
+        void savePreferences({ left_open: v }).catch(() => undefined);
+      } else {
+        const v = !rightOpen;
+        setRightOpen(v);
+        void savePreferences({ right_open: v }).catch(() => undefined);
+      }
+    },
+    [leftOpen, rightOpen],
+  );
+
+  // [ and ] toggle the panels, Esc clears the selection.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (document.activeElement?.tagName ?? '').toUpperCase();
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      if (e.key === '[') togglePanel('L');
+      else if (e.key === ']') togglePanel('R');
+      else if (e.key === 'Escape') setSelected(null);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [togglePanel]);
+
+  function select(id: string | null) {
+    setSelected(id);
+    if (id && !rightOpen) setRightOpen(true);
+  }
+
+  function selectAndFly(id: string) {
+    select(id);
+    const e = events.find((x) => x.id === id);
+    if (e) globe.current?.flyTo(e.lat, e.lon);
   }
 
   return (
     <div className="app">
-      <div className="banner">UNCLASSIFIED // OPEN SOURCE</div>
-      <header className="cmdbar">
-        <Brand />
-        <nav className="nav" aria-label="Pages">
-          <a href="/" aria-current="page">
-            Map
-          </a>
-          <a href="/docs/">Docs</a>
-        </nav>
-        <div className="clocks">
-          <div className="clock">
-            <span className="mono">{now.toISOString().slice(11, 19)}Z</span>
-            <small>UTC</small>
-          </div>
-          {home && (
-            <div className="clock">
-              <span className="mono">{zoneTime(home.tz)}</span>
-              <small>Home</small>
+      <AppHeader me={me} onSignedOut={onSignedOut} live={live} />
+      <main className={'ws' + (leftOpen ? '' : ' noL') + (rightOpen ? '' : ' noR')}>
+        {leftOpen && <LayerPanel filters={filters} counts={counts} onChange={changeFilters} />}
+        <section className="mapcell">
+          <Globe ref={globe} home={home} events={shown} selectedId={selected} onSelect={select} />
+          <div className="mc tl">
+            <div className="seg" role="group" aria-label="Projection">
+              {(['3d', '2d'] as const).map((m) => (
+                <button
+                  key={m}
+                  aria-pressed={mode === m}
+                  onClick={() => {
+                    setMode(m);
+                    globe.current?.setMode(m);
+                  }}
+                >
+                  {m === '3d' ? '3D Globe' : '2D World'}
+                </button>
+              ))}
             </div>
-          )}
-          <div className="umenu">
+          </div>
+          <div className="mc tr">
             <button
-              className="avatar"
-              aria-haspopup="true"
-              aria-expanded={menuOpen}
-              aria-label="Account menu"
-              onClick={() => setMenuOpen(!menuOpen)}
+              className="iconbtn"
+              title={home ? 'Fly home' : 'Reset view'}
+              aria-label="Fly home"
+              onClick={() => globe.current?.flyHome()}
             >
-              {initials}
+              ⌂
             </button>
-            {menuOpen && (
-              <ul>
-                <li className="who">
-                  <b>{me.user.display_name}</b>
-                  <br />
-                  {me.user.username} · {me.user.role}
-                </li>
-                <li>
-                  <a href="/docs/">Documentation</a>
-                </li>
-                <li>
-                  <button onClick={() => void signOut()}>Sign out</button>
-                </li>
-              </ul>
-            )}
+            <button
+              className="iconbtn"
+              title="World view"
+              aria-label="World view"
+              onClick={() => globe.current?.flyWorld()}
+            >
+              ◎
+            </button>
           </div>
-        </div>
-      </header>
-      <main className="mapcell">
-        <Globe ref={globe} home={home} />
-        <div className="mc tl">
-          <div className="seg" role="group" aria-label="Projection">
-            {(['3d', '2d'] as const).map((m) => (
-              <button
-                key={m}
-                aria-pressed={mode === m}
-                onClick={() => {
-                  setMode(m);
-                  globe.current?.setMode(m);
-                }}
-              >
-                {m === '3d' ? '3D Globe' : '2D World'}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="mc tr">
           <button
-            className="iconbtn"
-            title={home ? 'Fly home' : 'Reset view'}
-            aria-label="Fly home"
-            onClick={() => globe.current?.flyHome()}
+            className="edge l"
+            aria-label="Toggle layer panel"
+            title="Layers ( [ )"
+            onClick={() => togglePanel('L')}
           >
-            ⌂
+            {leftOpen ? '‹' : '›'}
           </button>
-        </div>
-        {home && (
-          <div className="mc bl">
-            <div className="readout">
-              <span>HOME</span>
-              <b>{home.name}</b>
-              <span>LAT/LON</span>
-              <b>
-                {home.lat.toFixed(4)}, {home.lon.toFixed(4)}
-              </b>
-              <span>RADIUS</span>
-              <b>{home.radius_km} km</b>
-            </div>
-          </div>
+          <button
+            className="edge r"
+            aria-label="Toggle situation panel"
+            title="Situation ( ] )"
+            onClick={() => togglePanel('R')}
+          >
+            {rightOpen ? '›' : '‹'}
+          </button>
+          {loadError && <div className="notice">{loadError}</div>}
+        </section>
+        {rightOpen && (
+          <aside className="side right" aria-label="Inspector">
+            {selected ? (
+              <EventInspector
+                id={selected}
+                onBack={() => setSelected(null)}
+                onFly={(lat, lon) => globe.current?.flyTo(lat, lon)}
+              />
+            ) : (
+              <SituationPanel summary={summary} events={shown} home={home} onSelect={selectAndFly} />
+            )}
+          </aside>
         )}
       </main>
     </div>

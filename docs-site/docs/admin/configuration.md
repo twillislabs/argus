@@ -20,3 +20,10 @@ All settings are environment variables, usually set in `.env`.
 | `ARGUS_SESSION_REMEMBER_DAYS` | `30` | Lifetime with "keep me signed in" |
 | `ARGUS_LOGIN_MAX_FAILURES` | `5` | Failed sign-ins before lockout |
 | `ARGUS_LOGIN_LOCKOUT_MINUTES` | `15` | Lockout duration |
+| `ARGUS_COLLECTORS` | `usgs,gdelt,rss,firms` | Collectors the worker runs |
+| `ARGUS_FIRMS_MAP_KEY` | (empty) | NASA FIRMS key; fires are off without it ([get one](https://firms.modaps.eosdis.nasa.gov/api/map_key/)) |
+| `ARGUS_RSS_FEEDS_FILE` | (built-in list) | JSON file of `[{"outlet": "...", "url": "..."}]` replacing the default feeds |
+| `ARGUS_USER_AGENT` | `Argus/0.1 (...)` | User-Agent sent to data sources |
+| `ARGUS_NATS_URL` | `nats://nats:4222` | Message bus; empty turns live push off |
+| `ARGUS_RAW_RETENTION_DAYS` | `30` | How long raw records and articles are kept |
+| `ARGUS_EVENT_RETENTION_DAYS` | `30` | How long expired events are kept |

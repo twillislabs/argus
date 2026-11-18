@@ -16,6 +16,7 @@ def settings(tmp_path) -> Settings:
     return Settings(
         database_url="sqlite+aiosqlite:///{0}".format(tmp_path / "test.db"),
         cookie_secure=False,
+        nats_url="",
         setup_token=SETUP_TOKEN,
         login_max_failures=3,
         login_ip_limit=50,

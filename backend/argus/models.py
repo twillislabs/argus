@@ -6,9 +6,13 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     Boolean,
+    Float,
     ForeignKey,
+    Index,
     Integer,
     String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -101,3 +105,107 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(64), index=True)
     ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
     detail: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+# --- Milestone 1: sources, raw records, events, articles -------------------
+
+EVENT_TYPES = ("conflict", "unrest", "quake", "fire")
+EVENT_STATUSES = ("candidate", "active", "expired")
+
+
+class Source(Base):
+    """One row per collector: schedule state and health."""
+
+    __tablename__ = "sources"
+
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)
+    label: Mapped[str] = mapped_column(String(80))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    interval_s: Mapped[int] = mapped_column(Integer)
+    last_run_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime, nullable=True
+    )
+    last_success_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime, nullable=True
+    )
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Collector-specific progress marker, e.g. the last GDELT file stamp.
+    cursor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+class RawRecord(Base):
+    """A record exactly as a source returned it (trimmed to useful fields)."""
+
+    __tablename__ = "raw_records"
+    __table_args__ = (
+        UniqueConstraint("source", "external_id", name="uq_raw_source_ext"),
+        Index("ix_raw_records_observed_at", "observed_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(32))
+    external_id: Mapped[str] = mapped_column(String(160))
+    kind: Mapped[str] = mapped_column(String(16))
+    fetched_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    observed_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class Event(Base):
+    """A fused event shown on the map."""
+
+    __tablename__ = "events"
+    __table_args__ = (
+        Index("ix_events_latlon", "lat", "lon"),
+        Index("ix_events_last_updated", "last_updated"),
+        Index("ix_events_type_status", "type", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(16), primary_key=True)
+    # Stable key for one-to-one sources (e.g. "usgs:us7000tz37").
+    key: Mapped[str | None] = mapped_column(
+        String(160), unique=True, nullable=True
+    )
+    type: Mapped[str] = mapped_column(String(16))
+    severity: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(12), default="candidate")
+    title: Mapped[str] = mapped_column(String(300))
+    summary: Mapped[str] = mapped_column(Text, default="")
+    place: Mapped[str] = mapped_column(String(200), default="")
+    country: Mapped[str] = mapped_column(String(80), default="")
+    lat: Mapped[float] = mapped_column(Float)
+    lon: Mapped[float] = mapped_column(Float)
+    first_seen: Mapped[datetime] = mapped_column(UTCDateTime)
+    last_updated: Mapped[datetime] = mapped_column(UTCDateTime)
+    confidence: Mapped[float] = mapped_column(Float, default=0.5)
+    source_count: Mapped[int] = mapped_column(Integer, default=1)
+    article_count: Mapped[int] = mapped_column(Integer, default=0)
+    data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class EventSource(Base):
+    __tablename__ = "event_sources"
+
+    event_id: Mapped[str] = mapped_column(
+        ForeignKey("events.id", ondelete="CASCADE"), primary_key=True
+    )
+    raw_record_id: Mapped[int] = mapped_column(
+        ForeignKey("raw_records.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+class Article(Base):
+    """A news article from an RSS / Atom feed."""
+
+    __tablename__ = "articles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    outlet: Mapped[str] = mapped_column(String(80))
+    url: Mapped[str] = mapped_column(String(1000), unique=True)
+    title: Mapped[str] = mapped_column(String(500))
+    summary: Mapped[str] = mapped_column(Text, default="")
+    published_at: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
+    fetched_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

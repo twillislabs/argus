@@ -1,5 +1,7 @@
 """FastAPI application factory."""
 
+import asyncio
+import contextlib
 import logging
 from contextlib import asynccontextmanager
 from datetime import timedelta
@@ -7,10 +9,11 @@ from datetime import timedelta
 from fastapi import FastAPI, Request
 
 from argus import __version__
-from argus.api import auth, health, me, setup
+from argus.api import auth, events, health, me, setup
 from argus.api.deps import RateLimiter
 from argus.config import DEFAULT_SECRET, Settings, get_settings
 from argus.db import Database
+from argus.live import Hub, subscribe_forever
 from argus.services import ensure_setup_token
 
 log = logging.getLogger("argus")
@@ -22,6 +25,8 @@ def configure_logging(level: str) -> None:
         format="{asctime} {levelname:<7} {name}: {message}",
         style="{",
     )
+    # httpx logs every request at INFO; keep those for debugging only.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -39,7 +44,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         async with db.sessionmaker() as session:
             await ensure_setup_token(session, settings)
+        app.state.hub = Hub()
+        live_task = None
+        if settings.nats_url:
+            live_task = asyncio.create_task(
+                subscribe_forever(settings.nats_url, app.state.hub)
+            )
         yield
+        if live_task is not None:
+            live_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await live_task
         await db.dispose()
 
     app = FastAPI(
@@ -73,7 +88,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         return response
 
-    for router in (health.router, setup.router, auth.router, me.router):
+    for router in (
+        health.router,
+        setup.router,
+        auth.router,
+        me.router,
+        events.router,
+    ):
         app.include_router(router)
     return app
 

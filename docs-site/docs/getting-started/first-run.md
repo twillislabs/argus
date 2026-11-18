@@ -30,7 +30,13 @@ hashed with Argon2id and never stored in plain text.
 
 ## 3. Home location
 
-Pick a city or enter coordinates. Argus opens the globe there, shows a home
-clock, and later uses the alert radius to flag nearby events.
+Search for your town or enter coordinates. The search runs on your server
+over GeoNames' list of every place with 15,000+ people (about 34,000 places),
+so it works offline. You can qualify a name: `Goodlettsville, TN`,
+`Springfield, Illinois`, `Paris, France`. For anywhere smaller, type the
+coordinates; the time zone comes from the nearest listed place.
+
+Argus opens the globe there, shows a home clock, and lists events within the
+alert radius under **Near home**. Change it any time in **Settings**.
 
 After setup you are signed in and the setup page disappears for good.

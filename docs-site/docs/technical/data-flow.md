@@ -1,14 +1,37 @@
 ---
-title: Data pipeline (planned)
+title: Data pipeline
 sidebar_position: 7
 ---
 
 # Data pipeline
 
-:::note Planned
-This is the design for milestones 1–6. Today only the account and preference
-paths exist. This page is kept up to date as each part lands.
+:::note Status
+**Built (M1):** the worker with the USGS, GDELT, RSS and FIRMS collectors,
+fusion v0, NATS publishing, and the API's `/ws/live` push. **Planned:** the
+live-state and persister services for high-rate positions (aircraft, ships,
+M2–M3), patterns and alerts.
 :::
+
+## What runs today
+
+| Collector | Every | Becomes |
+|---|---|---|
+| `usgs` | 1 min | One event per quake (M2.5+, past day), updated when USGS revises it |
+| `gdelt` | 5 min (files every 15 min) | Conflict and protest reports, clustered within 25 km and 2 h |
+| `rss` | 10 min | Headlines in the `articles` table (15 outlets by default) |
+| `firms` | 3 h | Fire clusters (0.25 degree cells with 8+ detections); needs a key |
+
+**Fusion rules (v0):**
+- **Severity (1–5):** quakes by magnitude (M7+ is critical, M8+ catastrophic), bumped by a PAGER
+  alert or tsunami flag. GDELT by event code, for example artillery or aerial attack is critical.
+  Fires by detections and radiative power.
+- **GDELT corroboration:** only lead-paragraph ("root") events count. A cluster stays
+  *unconfirmed* until 3 independent outlets and 10 articles report it. Clusters made only of
+  GDELT's catch-all codes (military force, occupation, small arms) need 20 articles. Unconfirmed
+  reports are hidden unless you turn them on.
+- **Expiry:** events expire after 24 h without updates (72 h for quakes) and are deleted after
+  the retention period.
+- **Coverage:** an event's articles are headlines naming its place or country within 18 h.
 
 ```mermaid
 flowchart LR

@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import type { Home } from '../lib/api';
-import { CITIES, nearestTimeZone } from '../lib/cities';
+import { type Home, nearestPlace, type Place, searchPlaces } from '../lib/api';
+import { browserTimeZone } from '../lib/format';
 
 interface Props {
   value: Home | null;
@@ -10,83 +10,111 @@ interface Props {
 
 const RADII = [100, 250, 500, 1000, 2000];
 
+// Search the bundled GeoNames list (cities of 15,000+ people) through the
+// API, or type coordinates; the time zone comes from the nearest place.
 export default function HomePicker({ value, onChange }: Props) {
   const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Place[]>([]);
+  const [searching, setSearching] = useState(false);
   const [lat, setLat] = useState(value ? String(value.lat) : '');
   const [lon, setLon] = useState(value ? String(value.lon) : '');
   const [name, setName] = useState(value?.name ?? '');
   const [radius, setRadius] = useState(value?.radius_km ?? 500);
-  const [tz, setTz] = useState<string | null>(value?.tz ?? null);
+  const [tz, setTz] = useState<string>(value?.tz ?? browserTimeZone());
+  const [picked, setPicked] = useState<string | null>(null);
+  const tzRequest = useRef(0);
 
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return CITIES.filter(
-      (c) => !q || (c.name + ' ' + c.country).toLowerCase().includes(q),
-    ).slice(0, q ? 8 : 6);
+  // Debounced place search.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+    setSearching(true);
+    const id = window.setTimeout(() => {
+      searchPlaces(q)
+        .then((r) => setResults(r.places))
+        .catch(() => setResults([]))
+        .finally(() => setSearching(false));
+    }, 200);
+    return () => window.clearTimeout(id);
   }, [query]);
 
-  function emit(next: {
-    lat?: string;
-    lon?: string;
-    name?: string;
-    radius?: number;
-    tz?: string | null;
-  }) {
+  function emit(next: { lat?: string; lon?: string; name?: string; radius?: number; tz?: string }) {
     const la = parseFloat(next.lat ?? lat);
     const lo = parseFloat(next.lon ?? lon);
-    const label = (next.name ?? name).trim() || 'Home';
     if (!Number.isFinite(la) || !Number.isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) {
       onChange(null);
       return;
     }
-    const zone = (next.tz !== undefined ? next.tz : tz) ?? nearestTimeZone(la, lo);
     onChange({
-      name: label.slice(0, 60),
-      lat: Math.round(la * 1e4) / 1e4,
-      lon: Math.round(lo * 1e4) / 1e4,
+      name: ((next.name ?? name).trim() || 'Home').slice(0, 60),
+      lat: Math.round(la * 1e5) / 1e5,
+      lon: Math.round(lo * 1e5) / 1e5,
       radius_km: next.radius ?? radius,
-      tz: zone,
+      tz: next.tz ?? tz,
     });
+  }
+
+  // When coordinates are typed by hand, look up the time zone.
+  function coordsChanged(nextLat: string, nextLon: string) {
+    setPicked(null);
+    emit({ lat: nextLat, lon: nextLon });
+    const la = parseFloat(nextLat);
+    const lo = parseFloat(nextLon);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) return;
+    const req = ++tzRequest.current;
+    nearestPlace(la, lo)
+      .then((r) => {
+        if (req !== tzRequest.current || !r.place) return;
+        setTz(r.place.tz);
+        emit({ lat: nextLat, lon: nextLon, tz: r.place.tz });
+      })
+      .catch(() => undefined);
+  }
+
+  function pick(p: Place) {
+    setLat(String(p.lat));
+    setLon(String(p.lon));
+    setName(p.name);
+    setTz(p.tz);
+    setPicked(p.label);
+    emit({ lat: String(p.lat), lon: String(p.lon), name: p.name, tz: p.tz });
   }
 
   return (
     <div className="stack">
       <div className="field">
-        <label htmlFor="hp-q">Search for a city</label>
+        <label htmlFor="hp-q">Search for a city or town</label>
         <input
           id="hp-q"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g. Nashville, Warsaw, Tokyo"
+          placeholder="e.g. Goodlettsville, TN or Warsaw"
           autoComplete="off"
         />
-        <ul className="citylist">
-          {matches.map((c) => (
-            <li key={c.name}>
-              <button
-                type="button"
-                aria-pressed={value?.name === c.name}
-                onClick={() => {
-                  setLat(String(c.lat));
-                  setLon(String(c.lon));
-                  setName(c.name);
-                  setTz(c.tz);
-                  emit({ lat: String(c.lat), lon: String(c.lon), name: c.name, tz: c.tz });
-                }}
-              >
-                <span>
-                  {c.name}, {c.country}
-                </span>
-                <small>
-                  {c.lat.toFixed(2)}, {c.lon.toFixed(2)}
-                </small>
-              </button>
-            </li>
-          ))}
-          {matches.length === 0 && (
-            <li className="hint pad">No match. Enter coordinates below.</li>
-          )}
-        </ul>
+        {(results.length > 0 || (query.trim().length >= 2 && !searching)) && (
+          <ul className="citylist">
+            {results.map((p) => (
+              <li key={p.label + p.lat}>
+                <button type="button" aria-pressed={picked === p.label} onClick={() => pick(p)}>
+                  <span>{p.label}</span>
+                  <small>
+                    {p.lat.toFixed(2)}, {p.lon.toFixed(2)}
+                  </small>
+                </button>
+              </li>
+            ))}
+            {results.length === 0 && (
+              <li className="hint pad">
+                No match. Places with 15,000+ people are listed; for anywhere else enter
+                coordinates below.
+              </li>
+            )}
+          </ul>
+        )}
+        <span className="hint">Place data: GeoNames (CC BY 4.0), searched on your server.</span>
       </div>
       <div className="row2">
         <div className="field">
@@ -97,8 +125,7 @@ export default function HomePicker({ value, onChange }: Props) {
             value={lat}
             onChange={(e) => {
               setLat(e.target.value);
-              setTz(null);
-              emit({ lat: e.target.value, tz: null });
+              coordsChanged(e.target.value, lon);
             }}
           />
         </div>
@@ -110,8 +137,7 @@ export default function HomePicker({ value, onChange }: Props) {
             value={lon}
             onChange={(e) => {
               setLon(e.target.value);
-              setTz(null);
-              emit({ lon: e.target.value, tz: null });
+              coordsChanged(lat, e.target.value);
             }}
           />
         </div>
@@ -148,9 +174,7 @@ export default function HomePicker({ value, onChange }: Props) {
           </select>
         </div>
       </div>
-      <span className="hint">
-        {value ? 'Time zone: ' + value.tz : 'The time zone comes from the nearest city.'}
-      </span>
+      <span className="hint">Time zone: {tz}</span>
     </div>
   );
 }

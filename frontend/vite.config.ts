@@ -23,7 +23,7 @@ function assetDir(name: string): string {
 function vendorChunk(id: string): string | undefined {
   if (!id.includes('node_modules')) return undefined;
   if (id.includes('/@cesium/') || id.includes('/cesium/')) return 'vendor-cesium';
-  if (/\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) {
+  if (/\/(react|react-dom|react-router|react-router-dom|scheduler|@remix-run)\//.test(id)) {
     return 'vendor-react';
   }
   return 'vendor';

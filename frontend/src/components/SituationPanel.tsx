@@ -1,0 +1,137 @@
+import type { EventItem, Home, Summary } from '../lib/api';
+import { ago, EVENT_TYPES, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
+
+interface Props {
+  summary: Summary | null;
+  events: EventItem[];
+  home: Home | null;
+  onSelect: (id: string) => void;
+}
+
+function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number) {
+  const r = Math.PI / 180;
+  const h =
+    Math.sin(((bLat - aLat) * r) / 2) ** 2 +
+    Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin(((bLon - aLon) * r) / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+export function FeedItem({ e, onSelect, extra }: { e: EventItem; onSelect: (id: string) => void; extra?: string }) {
+  return (
+    <li>
+      <button className="fi" style={{ ['--c' as string]: SEVERITY_COLOR[e.severity] }} onClick={() => onSelect(e.id)}>
+        <span className="bar" />
+        <span className="fbody">
+          <span className="t">{e.title}</span>
+          <span className="m">
+            {TYPE_INFO[e.type].label}
+            {e.status === 'candidate' ? ' · unconfirmed' : ''}
+          </span>
+        </span>
+        <span className="ago mono">{extra ?? ago(e.last_updated)}</span>
+      </button>
+    </li>
+  );
+}
+
+export default function SituationPanel({ summary, events, home, onSelect }: Props) {
+  const latest = [...events]
+    .sort((a, b) => Date.parse(b.last_updated) - Date.parse(a.last_updated))
+    .slice(0, 40);
+  const near = home
+    ? events
+        .map((e) => ({ e, km: distanceKm(home.lat, home.lon, e.lat, e.lon) }))
+        .filter((x) => x.km <= home.radius_km)
+        .sort((a, b) => a.km - b.km)
+    : [];
+  const sources = summary?.sources ?? [];
+  return (
+    <div className="inspector-body">
+      <div className="ph">
+        <h2>Situation</h2>
+        <span className="mono">last {summary?.hours ?? 24}h</span>
+      </div>
+      <section className="isec">
+        <div className="tiles">
+          <div className="tile">
+            <small>Events</small>
+            <span className="mono big">{summary?.total ?? '—'}</span>
+          </div>
+          {EVENT_TYPES.map((t) => (
+            <div className="tile" key={t}>
+              <small>
+                <i className="dot" style={{ background: TYPE_INFO[t].color }} /> {TYPE_INFO[t].label}
+              </small>
+              <span className="mono">{summary?.by_type[t] ?? 0}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+      {home && (
+        <section className="isec">
+          <h3>
+            Near home · {home.name} · {home.radius_km} km
+          </h3>
+          {near.length ? (
+            <ul className="feed">
+              {near.slice(0, 5).map(({ e, km }) => (
+                <FeedItem key={e.id} e={e} onSelect={onSelect} extra={Math.round(km) + ' km'} />
+              ))}
+            </ul>
+          ) : (
+            <p className="quiet">Nothing within {home.radius_km} km in this time window.</p>
+          )}
+        </section>
+      )}
+      <section className="isec">
+        <h3>Live feed · {events.length}</h3>
+        {latest.length ? (
+          <ul className="feed">
+            {latest.map((e) => (
+              <FeedItem key={e.id} e={e} onSelect={onSelect} />
+            ))}
+          </ul>
+        ) : (
+          <p className="quiet">
+            No events yet. The worker fetches USGS every minute and GDELT every 5 minutes;
+            the first results appear shortly after it starts.
+          </p>
+        )}
+      </section>
+      <section className="isec">
+        <h3>Headlines</h3>
+        {summary?.news.length ? (
+          <ul className="news">
+            {summary.news.slice(0, 12).map((a) => (
+              <li key={a.id}>
+                <a href={a.url} target="_blank" rel="noopener noreferrer">
+                  {a.title}
+                </a>
+                <span className="m">
+                  {a.outlet} · {ago(a.published_at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="quiet">No headlines yet.</p>
+        )}
+      </section>
+      <section className="isec">
+        <h3>Sources</h3>
+        <ul className="sources">
+          {sources.map((s) => (
+            <li key={s.name} title={s.last_error ?? undefined}>
+              <i className={'sdot ' + (!s.enabled ? 'off' : s.last_error ? 'warn' : 'ok')} />
+              <span>{s.label}</span>
+              <span className="mono">
+                {!s.enabled ? 'off' : s.last_success_at ? ago(s.last_success_at) : 'waiting'}
+              </span>
+            </li>
+          ))}
+          {sources.length === 0 && <li className="quiet">The worker hasn't reported yet.</li>}
+        </ul>
+      </section>
+    </div>
+  );
+}

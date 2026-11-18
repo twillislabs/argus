@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { ApiError, getMe, getSetupStatus, type Me } from './lib/api';
 import LoginPage from './pages/LoginPage';
 import MapPage from './pages/MapPage';
+import SettingsPage from './pages/SettingsPage';
 import SetupPage from './pages/SetupPage';
 
 type Boot =
@@ -76,6 +77,14 @@ export default function App() {
         element={
           boot.state === 'signedIn' ? (
             <MapPage me={boot.me} onSignedOut={refresh} />
+          ) : null
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          boot.state === 'signedIn' ? (
+            <SettingsPage me={boot.me} onSaved={refresh} onSignedOut={refresh} />
           ) : null
         }
       />

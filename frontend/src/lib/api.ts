@@ -88,3 +88,110 @@ export const getSetupStatus = () =>
   api<{ needs_setup: boolean }>('/api/setup/status');
 export const getMe = () => api<Me>('/api/me');
 export const logout = () => api<void>('/api/auth/logout', { method: 'POST' });
+
+// --- Milestone 1: events, summary, news, places -----------------------------
+
+export type EventType = 'conflict' | 'unrest' | 'quake' | 'fire';
+
+export interface EventItem {
+  id: string;
+  type: EventType;
+  severity: number;
+  severity_name: string;
+  status: 'active' | 'candidate' | 'expired';
+  title: string;
+  summary: string;
+  place: string;
+  country: string;
+  lat: number;
+  lon: number;
+  first_seen: string;
+  last_updated: string;
+  confidence: number;
+  source_count: number;
+  article_count: number;
+  data: Record<string, unknown>;
+}
+
+export interface Article {
+  id: number;
+  outlet: string;
+  url: string;
+  title: string;
+  summary: string;
+  published_at: string;
+}
+
+export interface SourceStatus {
+  name: string;
+  label: string;
+  enabled: boolean;
+  interval_s: number;
+  last_run_at: string | null;
+  last_success_at: string | null;
+  last_error: string | null;
+  last_count: number;
+}
+
+export interface Summary {
+  hours: number;
+  total: number;
+  by_type: Partial<Record<EventType, number>>;
+  by_severity: Record<string, number>;
+  latest: EventItem[];
+  top: EventItem[];
+  news: Article[];
+  sources: SourceStatus[];
+}
+
+export interface EventDetail {
+  event: EventItem;
+  sources: {
+    source: string;
+    observed_at: string;
+    url: string | null;
+    label: string;
+    articles: number | null;
+    external_id: string;
+  }[];
+  articles: Article[];
+}
+
+export interface Place {
+  name: string;
+  label: string;
+  region: string;
+  country: string;
+  cc: string;
+  lat: number;
+  lon: number;
+  population: number;
+  tz: string;
+}
+
+export interface EventQuery {
+  hours?: number;
+  candidates?: boolean;
+  minSeverity?: number;
+}
+
+export function getEvents(q: EventQuery = {}) {
+  const params = new URLSearchParams({
+    hours: String(q.hours ?? 24),
+    min_severity: String(q.minSeverity ?? 1),
+    candidates: String(Boolean(q.candidates)),
+  });
+  return api<{ events: EventItem[] }>('/api/events?' + params.toString());
+}
+
+export const getEvent = (id: string) =>
+  api<EventDetail>('/api/events/' + encodeURIComponent(id));
+export const getSummary = () => api<Summary>('/api/summary');
+export const searchPlaces = (q: string) =>
+  api<{ places: Place[] }>('/api/places?q=' + encodeURIComponent(q));
+export const nearestPlace = (lat: number, lon: number) =>
+  api<{ place: { name: string; label: string; tz: string } | null }>(
+    '/api/places/nearest?lat=' + lat + '&lon=' + lon,
+  );
+export const savePreferences = (prefs: Partial<Preferences> & Record<string, unknown>) =>
+  api<Me>('/api/me/preferences', { method: 'PATCH', body: prefs });

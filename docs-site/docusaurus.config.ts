@@ -37,7 +37,13 @@ const config: Config = {
       logo: { alt: 'Argus', src: 'img/favicon.svg' },
       items: [
         { type: 'docSidebar', sidebarId: 'docs', position: 'left', label: 'Docs' },
-        { href: '/', label: 'Open Argus', position: 'right', target: '_self' },
+        // Raw HTML so Docusaurus doesn't prefix the base URL (/docs/):
+        // this link leaves the docs and opens the Argus app at /.
+        {
+          type: 'html',
+          position: 'right',
+          value: '<a class="navbar__item navbar__link" href="/">Open Argus</a>',
+        },
       ],
     },
     footer: {

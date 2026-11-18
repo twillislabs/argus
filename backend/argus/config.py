@@ -31,6 +31,19 @@ class Settings(BaseSettings):
     setup_token: str | None = None
     setup_token_hours: int = 24
 
+    # Message bus. Empty disables live push (the API then only serves
+    # polled data).
+    nats_url: str = "nats://nats:4222"
+
+    # Collectors (worker process).
+    collectors: str = "usgs,gdelt,rss,firms"
+    user_agent: str = "Argus/0.1 (self-hosted OSINT visualizer)"
+    firms_map_key: str | None = None
+    # Optional JSON file overriding the default RSS feed list.
+    rss_feeds_file: str | None = None
+    raw_retention_days: int = 30
+    event_retention_days: int = 30
+
     login_max_failures: int = 5
     login_lockout_minutes: int = 15
     login_ip_limit: int = 20
