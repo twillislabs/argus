@@ -24,6 +24,9 @@ parts connect.
   `map/`, `lib/`, `styles/`). Build output keeps JS, CSS, fonts, images and
   vendor files in their own folders (`vite.config.ts`).
 - `docs-site/`: Docusaurus, served at `/docs/`.
+- `streetmap/`: tileserver-gl config and the Argus Dark street style
+  (Protomaps v4 schema). Data lives in `data/streetmap/` (gitignored),
+  downloaded by `scripts/streetmap.sh` / `make streetmap`.
 - `docker-compose.yml`: db (PostgreSQL 17 + TimescaleDB + PostGIS), nats,
   api, worker, web (nginx with the CSP).
 
@@ -44,6 +47,12 @@ parts connect.
 - Mermaid in the docs: `;` ends a statement, so never use it inside diagram
   text. The docs build doesn't catch diagram errors; check the page.
 - nginx uses `absolute_redirect off` so redirects keep the host port.
+- After editing `streetmap/styles/argus-dark.json`, bump
+  `STREET_STYLE_VERSION` in `Globe.tsx` (tiles are cached by nginx and
+  browsers) and `docker compose restart tiles`. Style expressions can't be
+  data-driven in `symbol-placement`; tileserver logs invalid styles at start.
+- nginx only exposes `/tiles/styles/argus-dark/256/...png` and
+  `/tiles/data/protomaps.json`; anything else under `/tiles/` is 404.
 - adsb.lol's routeset endpoint is unusable (202, empty); routes come from
   adsbdb, which goes stale when flight numbers are reused
   (`route_progress` flags implausible routes).

@@ -50,10 +50,15 @@ lint: ## ruff, format check and the TypeScript check
 	cd backend && uv run ruff check . && uv run ruff format --check .
 	cd frontend && npm run typecheck
 
+streetmap: ## Download the street map for REGION (default tennessee)
+	scripts/streetmap.sh $(or $(REGION),tennessee)
+	$(COMPOSE) up -d tiles
+	$(COMPOSE) restart tiles
+
 ci: ## Everything CI runs, locally (scripts/ci.sh)
 	scripts/ci.sh
 
 ci-quick: ## CI without the migration job, reusing node_modules
 	scripts/ci.sh --quick
 
-.PHONY: help env up down logs token status install dev-api dev-web docs-dev test lint ci ci-quick
+.PHONY: help env up down logs token status install dev-api dev-web docs-dev test lint streetmap ci ci-quick

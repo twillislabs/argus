@@ -29,3 +29,38 @@ All settings are environment variables, usually set in `.env`.
 | `ARGUS_NATS_URL` | `nats://nats:4222` | Message bus; empty turns live push off |
 | `ARGUS_RAW_RETENTION_DAYS` | `30` | How long raw records and articles are kept |
 | `ARGUS_EVENT_RETENTION_DAYS` | `30` | How long expired events are kept |
+
+## Street map
+
+The Dark map's street detail can come from your own server instead of Esri.
+Argus downloads OpenStreetMap data for a region (from the daily
+[Protomaps](https://protomaps.com/) build, transferring only that region)
+and the `tiles` container renders it in the Argus Dark style. Outside the
+region, Esri is used as before.
+
+```bash
+make streetmap                    # Tennessee (the default)
+make streetmap REGION=southeast   # or tennessee, conus, planet
+scripts/streetmap.sh custom -88.1,34.9,-81.6,36.7   # any W,S,E,N box
+scripts/streetmap.sh conus --dry-run                # size only
+```
+
+| Region | Download |
+|---|---|
+| `tennessee` | 376 MB (measured) |
+| `southeast` | a few GB |
+| `conus` | tens of GB |
+| `planet` | about 140 GB |
+
+`--dry-run` prints the exact size for any region before downloading.
+
+Data goes to `data/streetmap/` next to `docker-compose.yml` (fonts are
+fetched once, about 14 MB). Run the same command again to update to the
+latest build. Without data, the `tiles` container idles and nothing
+changes.
+
+Rendered tiles are cached by nginx (up to 2 GB, kept 30 days), so each
+tile is drawn once. The street map is a server-wide setting: every user
+sees the installed region.
+
+Data © OpenStreetMap contributors (ODbL), credited on the map.

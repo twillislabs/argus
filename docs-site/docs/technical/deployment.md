@@ -13,6 +13,7 @@ sidebar_position: 8
 | `api:8000` | uvicorn | no |
 | `db:5432` | PostgreSQL | no |
 | `nats:4222`, `nats:8222` | NATS client, monitoring | no |
+| `tiles:8080` | tileserver-gl (street map) | no; nginx serves `/tiles/` |
 
 To reach the database from the host while developing, add a temporary
 `ports:` entry or use `docker compose exec db psql -U argus`.
@@ -37,6 +38,10 @@ browsers reach Argus over HTTPS.
 |---|---|
 | `argus_db-data` | PostgreSQL data directory |
 | `argus_nats-data` | JetStream storage (safe to lose; it is a buffer) |
+| `./data/streetmap/` (bind mount) | Street map region and fonts; re-download with `make streetmap` |
+
+nginx's rendered-tile cache lives inside the `web` container and refills on
+its own after a rebuild.
 
 Back up the database with:
 

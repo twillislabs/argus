@@ -1,0 +1,27 @@
+{
+  "options": {
+    "paths": {
+      "root": "/data",
+      "fonts": "fonts",
+      "styles": "/config/styles",
+      "pmtiles": "/data"
+    },
+    "serveAllFonts": false,
+    "maxScaleFactor": 2,
+    "formatOptions": {
+      "png": {
+        "compressionLevel": 6
+      }
+    }
+  },
+  "styles": {
+    "argus-dark": {
+      "style": "argus-dark.json"
+    }
+  },
+  "data": {
+    "protomaps": {
+      "pmtiles": "region.pmtiles"
+    }
+  }
+}

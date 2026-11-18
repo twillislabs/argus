@@ -24,6 +24,7 @@ import {
   SceneMode,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
+  SingleTileImageryProvider,
   UrlTemplateImageryProvider,
   VerticalOrigin,
   WebMapTileServiceImageryProvider,
@@ -105,6 +106,25 @@ function esri(service: string, maximumLevel: number, credit?: string) {
   });
 }
 
+// Esri's grey is neutral and Argus Dark is slightly blue. A faint blue
+// wash over it makes the two meet without a visible edge around the
+// self-hosted street map region.
+const TINT_ALPHA = 0.3;
+function tintLayer(): ImageryLayer {
+  const c = document.createElement('canvas');
+  c.width = c.height = 1;
+  const ctx = c.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#13233a';
+    ctx.fillRect(0, 0, 1, 1);
+  }
+  const layer = new ImageryLayer(
+    new SingleTileImageryProvider({ url: c.toDataURL(), tileWidth: 1, tileHeight: 1 }),
+  );
+  (layer as ImageryLayer & { argusAlpha?: number }).argusAlpha = TINT_ALPHA;
+  return layer;
+}
+
 // Hosted Esri tiles for street detail and imagery (no key needed for light
 // use); milestone 2 adds self-hosted vector tiles and a provider key.
 function basemapLayers(id: Basemap): ImageryLayer[] {
@@ -117,6 +137,7 @@ function basemapLayers(id: Basemap): ImageryLayer[] {
         contrast: 1.35,
         gamma: 1.1,
       }),
+      tintLayer(),
       new ImageryLayer(esri('Canvas/World_Dark_Gray_Reference', 16), { brightness: 1.15 }),
     ];
   }
@@ -130,6 +151,36 @@ function basemapLayers(id: Basemap): ImageryLayer[] {
     new ImageryLayer(esri('Reference/World_Transportation', 19)),
     new ImageryLayer(esri('Reference/World_Boundaries_and_Places', 19)),
   ];
+}
+
+// Bump when streetmap/styles/argus-dark.json changes: tiles are cached by
+// nginx and browsers, and this makes them redraw.
+const STREET_STYLE_VERSION = 2;
+
+// The self-hosted street map, when a region is installed (make streetmap).
+// Resolves to its bounds in degrees, or null to use Esri everywhere.
+let localStreets: Promise<number[] | null> | null = null;
+function localStreetBounds(): Promise<number[] | null> {
+  localStreets ??= fetch('/tiles/data/protomaps.json')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j: { bounds?: number[] } | null) =>
+      j && Array.isArray(j.bounds) && j.bounds.length === 4 ? j.bounds : null,
+    )
+    .catch(() => null);
+  return localStreets;
+}
+
+function localStreetLayer(bounds: number[]): ImageryLayer {
+  const [w, s, e, n] = bounds;
+  return new ImageryLayer(
+    new UrlTemplateImageryProvider({
+      // 256 px tiles drawn at 2x, so labels stay sharp on any screen.
+      url: '/tiles/styles/argus-dark/256/{z}/{x}/{y}@2x.png?v=' + STREET_STYLE_VERSION,
+      rectangle: Rectangle.fromDegrees(w, s, e, n),
+      maximumLevel: 19,
+      credit: new Credit('© OpenStreetMap contributors'),
+    }),
+  );
 }
 
 export interface GlobeHandle {
@@ -243,7 +294,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       const isDark = basemapRef.current === 'dark';
       dark.current?.setVisible(isDark);
       if (isDark) dark.current?.setFade(1 - t);
-      for (const layer of tiles.current) layer.alpha = isDark ? t : 1;
+      for (const layer of tiles.current) {
+        const base = (layer as ImageryLayer & { argusAlpha?: number }).argusAlpha ?? 1;
+        layer.alpha = (isDark ? t : 1) * base;
+      }
     }
     let depthNow = -1;
     function applyDepth() {
@@ -346,6 +400,18 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     v.scene.imageryLayers.removeAll();
     tiles.current = basemapLayers(basemap);
     for (const layer of tiles.current) v.scene.imageryLayers.add(layer);
+    // Inside the installed region, the self-hosted street map draws over
+    // Esri; outside it, Esri shows as before.
+    let stale = false;
+    if (basemap === 'dark') {
+      void localStreetBounds().then((bounds) => {
+        if (stale || !bounds || v.isDestroyed()) return;
+        const layer = localStreetLayer(bounds);
+        v.scene.imageryLayers.add(layer);
+        tiles.current = [...tiles.current, layer];
+        (v as unknown as { applyFade?: () => void }).applyFade?.();
+      });
+    }
     const isDark = basemap === 'dark';
     v.scene.globe.showGroundAtmosphere = !isDark;
     const sky = v.scene.skyAtmosphere;
@@ -357,6 +423,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       sky.brightnessShift = isDark ? -0.62 : 0;
     }
     (v as unknown as { applyFade?: () => void }).applyFade?.();
+    return () => {
+      stale = true;
+    };
   }, [basemap]);
 
   // Event markers: colour and size by severity, larger when selected.

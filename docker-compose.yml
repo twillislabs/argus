@@ -67,6 +67,24 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Self-hosted street map (OpenStreetMap). Renders data/streetmap/ with
+  # streetmap/styles/argus-dark.json; `make streetmap` downloads a region.
+  # Without data it idles and the map uses Esri tiles instead.
+  tiles:
+    image: maptiler/tileserver-gl:v5.7.0
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >-
+        if [ -f /data/region.pmtiles ]; then
+        exec /usr/src/app/docker-entrypoint.sh --config /config/config.json
+        --public_url /tiles/;
+        else echo "No street map data: run make streetmap"; exec sleep infinity;
+        fi
+    volumes:
+      - ./data/streetmap:/data:ro
+      - ./streetmap:/config:ro
+    restart: unless-stopped
+
 volumes:
   db-data:
   nats-data:

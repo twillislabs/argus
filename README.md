@@ -25,8 +25,10 @@ keys.
 What it does today:
 
 - **A 3D globe and 2D world map** (CesiumJS) that opens at your home location. The default dark
-  map draws countries from bundled Natural Earth data. **Satellite** and **Hybrid** go down to
-  street level, like Google Maps.
+  map draws countries from bundled Natural Earth data. A **self-hosted street map**
+  (OpenStreetMap, rendered on your server) takes over at street level inside
+  the region you install. **Satellite** and **Hybrid** go down to street level, like Google
+  Maps.
 - **Live events**:
   - earthquakes from USGS every minute
   - conflict and protest reports from GDELT every 15 minutes
@@ -35,7 +37,8 @@ What it does today:
   Events are merged across sources and pushed to the browser as they happen.
 - **Aircraft.** Military aircraft worldwide every 15 seconds, with their role (tanker, ISR,
   airlift and so on), and civil traffic for whatever region you're looking at. Click one for its
-  route and progress, then **Follow** it.
+  route and progress, then ride along in **Follow**, **Chase**, **Orbit** or **Cockpit**
+  view (with a head-up display).
 - **Universal search.** Type a flight number (`AA100`), a hex or tail number, an airport, a
   place, coordinates, an event or a word like `tankers`, and Argus works out what you meant.
 - **Corroboration before it hits the map.** Machine-coded GDELT reports start as *unconfirmed* and
@@ -104,6 +107,7 @@ make           # every target
 | `worker` | Collectors (USGS, GDELT, RSS, FIRMS, adsb.lol) and event fusion; publishes changes to NATS |
 | `db` | PostgreSQL 17 with TimescaleDB and PostGIS |
 | `nats` | NATS JetStream message bus between the worker and the API |
+| `tiles` | tileserver-gl: renders the self-hosted street map (`make streetmap` installs a region) |
 
 Only `web` is published to the host (port `ARGUS_HTTP_PORT`, default 8080).
 
@@ -149,6 +153,9 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
 
 ## Data and credits
 
+- **Street map:** © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
+  (ODbL), via the [Protomaps](https://protomaps.com/) daily build, rendered with
+  [tileserver-gl](https://github.com/maptiler/tileserver-gl) (BSD); Noto Sans fonts (OFL).
 - **Maps and imagery:** Natural Earth (public domain), NASA GIBS (Blue Marble), and Esri (Dark
   Gray Canvas, World Imagery and reference layers; © Esri and its data providers).
 - **Earthquakes:** USGS (public domain).

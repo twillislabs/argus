@@ -24,3 +24,6 @@ docs-site/.docusaurus/
 # Local planning material: never pushed
 docs/PLAN.md
 docs/mockup/
+
+# Street map data downloaded by make streetmap
+data/
