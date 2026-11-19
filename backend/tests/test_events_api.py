@@ -129,3 +129,33 @@ async def test_nearest_place(client):
     assert r.json()["place"]["name"] == "Goodlettsville"
     r = await client.get("/api/places/nearest?lat=0&lon=-140")
     assert r.json()["place"] is None
+
+
+async def test_coverage_needs_place_and_topic(admin_client, app):
+    from argus.events import related_articles
+    from argus.models import Event
+
+    await seed(app)
+    async with app.state.db.sessionmaker() as db:
+        off_topic = RawIn(
+            source="rss",
+            external_id="https://example.com/x",
+            kind="article",
+            observed_at=utcnow(),
+            payload={
+                "outlet": "Example News",
+                "url": "https://example.com/x",
+                "title": "Ishinomaki festival draws record crowds",
+                "summary": "Japan's tourism board is pleased.",
+            },
+        )
+        rows = await store_raw(db, [off_topic])
+        await fuse(db, rows)
+        await db.commit()
+        quake_event = (
+            await db.execute(Event.__table__.select().limit(1))
+        ).first()
+        event = await db.get(Event, quake_event.id)
+        titles = [a.title for a in await related_articles(db, event)]
+    # The festival names the town but isn't about the quake.
+    assert titles == ["Strong quake rattles Ishinomaki"]

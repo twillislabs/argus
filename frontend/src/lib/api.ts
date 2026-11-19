@@ -97,8 +97,8 @@ export interface LiveVideo {
   status: 'live' | 'offline' | 'error';
   video_id: string | null;
 }
-export const getLiveVideo = (channel: string) =>
-  api<LiveVideo>('/api/news/live/' + encodeURIComponent(channel));
+export const getLiveVideo = (channel: string, platform = 'youtube') =>
+  api<LiveVideo>('/api/news/live/' + encodeURIComponent(channel) + '?platform=' + platform);
 
 export const getSetupStatus = () =>
   api<{ needs_setup: boolean }>('/api/setup/status');
@@ -231,6 +231,8 @@ export interface Aircraft {
   squawk: string | null;
   emergency: boolean;
   seen: number | null;
+  // ADS-B emitter category (A1 light ... A5 heavy, A7 rotorcraft).
+  category?: string | null;
 }
 
 export interface RouteAirport {
@@ -452,9 +454,11 @@ export function getAirspaceStructure(bbox: Bbox) {
 export const getAirspace = () => api<{ items: AirspaceItem[] }>('/api/airspace');
 
 export interface GpsCell {
+  id: string;
+  // Centre and radius (degrees of latitude) of the hexagon.
   lat: number;
   lon: number;
-  size: number;
+  r: number;
   aircraft: number;
   bad: number;
   share: number;
@@ -466,3 +470,31 @@ export const getGps = () => api<{ cells: GpsCell[]; window_s: number }>('/api/gp
 export const getReceivers = () => api<{ adsb_url: string | null; ais_url: string | null }>('/api/admin/receivers');
 export const saveReceivers = (body: { adsb_url: string; ais_url: string }) =>
   api<{ adsb_url: string | null; ais_url: string | null }>('/api/admin/receivers', { method: 'PUT', body });
+
+export interface TensionArea {
+  key: string;
+  name: string;
+  level: number;
+  band: 'normal' | 'elevated' | 'high' | 'severe';
+  raw: number;
+  baseline: number | null;
+  change_24h: number;
+  top: { id: string; title: string; type: string; severity: number; status: string; weight: number }[];
+}
+export interface TensionCountry extends TensionArea {
+  events: Record<string, number>;
+  theatre: string | null;
+}
+export interface TensionTheatre extends TensionArea {
+  bbox: [number, number, number, number];
+  countries: string[];
+}
+export interface Tension {
+  updated: string;
+  baseline_days: number;
+  baseline_ready: boolean;
+  world: TensionArea;
+  theatres: TensionTheatre[];
+  countries: TensionCountry[];
+}
+export const getTension = () => api<Tension>('/api/tension');

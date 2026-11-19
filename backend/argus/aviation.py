@@ -206,6 +206,8 @@ def normalise(ac: dict, military: bool | None = None) -> dict[str, Any] | None:
         "emergency": squawk in ("7500", "7600", "7700")
         or (ac.get("emergency") not in (None, "none")),
         "seen": ac.get("seen_pos", ac.get("seen")),
+        # ADS-B emitter category: A1 light ... A5 heavy, A7 rotorcraft.
+        "category": ac.get("category"),
         # Navigation accuracy, for GPS interference (NACp < 8 means the
         # aircraft's own position is degraded).
         "nac_p": ac.get("nac_p"),
@@ -213,20 +215,56 @@ def normalise(ac: dict, military: bool | None = None) -> dict[str, Any] | None:
     }
 
 
+HEX_R_DEG = 0.5
+
+
+def _hex_row_width(row: int, r: float) -> tuple[float, float]:
+    """Centre latitude of a hex row and its column spacing in degrees of
+    longitude (wider towards the poles, so cells stay about the same
+    size on the ground)."""
+    lat = max(-89.0, min(89.0, row * 1.5 * r))
+    return lat, math.sqrt(3) * r / max(0.05, math.cos(math.radians(lat)))
+
+
+def hex_centre(
+    row: int, col: int, r: float = HEX_R_DEG
+) -> tuple[float, float]:
+    lat, width = _hex_row_width(row, r)
+    return lat, (col + 0.5 * (row & 1)) * width
+
+
+def hex_cell(lat: float, lon: float, r: float = HEX_R_DEG) -> tuple[int, int]:
+    """The pointy-top hexagon (row, col) a position falls in: the nearest
+    centre among the two rows around it."""
+    best, key = None, (0, 0)
+    base = math.floor(lat / (1.5 * r))
+    for row in (base, base + 1):
+        row_lat, width = _hex_row_width(row, r)
+        col = round(lon / width - 0.5 * (row & 1))
+        for c in (col - 1, col, col + 1):
+            clat, clon = hex_centre(row, c, r)
+            d = ((lon - clon) * math.cos(math.radians(lat))) ** 2 + (
+                lat - clat
+            ) ** 2
+            if best is None or d < best:
+                best, key = d, (row, c)
+    return key
+
+
 class GpsGrid:
     """GPS interference from ADS-B, the method gpsjam.org uses: in each
-    grid cell, the share of aircraft reporting a degraded position
-    (NACp below 8) over the last hour. Only cells with enough aircraft
-    count, and Argus sees only the aircraft it fetches (military
-    worldwide, civil where someone is looking, your own receiver).
+    hexagonal cell (about 55 km across), the share of aircraft reporting
+    a degraded position (NACp below 8) over the last hour. Only cells
+    with enough aircraft count, and Argus sees only the aircraft it
+    fetches (military worldwide, civil where someone is looking, your
+    own receiver).
     """
 
-    CELL_DEG = 1.0
     WINDOW_S = 3600
     MIN_AIRCRAFT = 8
 
     def __init__(self) -> None:
-        # (cell) -> {hex: (bad, time)}
+        # (row, col) -> {hex: (bad, time)}
         self.cells: dict[tuple[int, int], dict[str, tuple[bool, float]]] = {}
 
     def observe(self, aircraft: list[dict], now: float | None = None) -> None:
@@ -235,10 +273,7 @@ class GpsGrid:
             nac = a.get("nac_p")
             if nac is None or a.get("ground") or a.get("lat") is None:
                 continue
-            key = (
-                math.floor(a["lat"] / self.CELL_DEG),
-                math.floor(a["lon"] / self.CELL_DEG),
-            )
+            key = hex_cell(a["lat"], a["lon"])
             self.cells.setdefault(key, {})[a["hex"]] = (nac < 8, now)
 
     def summary(self, now: float | None = None) -> list[dict]:
@@ -258,11 +293,13 @@ class GpsGrid:
                 continue
             bad = sum(1 for b, _ in seen.values() if b)
             share = bad / len(seen)
+            lat, lon = hex_centre(*key)
             out.append(
                 {
-                    "lat": key[0] * self.CELL_DEG,
-                    "lon": key[1] * self.CELL_DEG,
-                    "size": self.CELL_DEG,
+                    "id": "{0}:{1}".format(*key),
+                    "lat": round(lat, 4),
+                    "lon": round(lon, 4),
+                    "r": HEX_R_DEG,
                     "aircraft": len(seen),
                     "bad": bad,
                     "share": round(share, 3),

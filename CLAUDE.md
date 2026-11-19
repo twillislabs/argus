@@ -103,7 +103,22 @@ parts connect.
   channel ID with `https://www.youtube.com/feeds/videos.xml?channel_id=`.
   YouTube no longer plays `embed/live_stream?channel=`; the API resolves
   the live video ID from the channel's `/live` page (`argus/youtube.py`,
-  cached) and the player embeds `/embed/<video id>`.
+  cached) and the player embeds `/embed/<video id>`. Channels not on
+  YouTube use Rumble (`platform: 'rumble'`, resolved from the channel's
+  livestreams JSON plus oEmbed); new embed hosts go in the CSP frame-src.
+- Tension index: `argus/tension.py` (pure scoring + `tension_daily`
+  hourly samples from the worker's `tension_loop`; `backfill` rebuilds
+  history from stored events once). `/api/tension` is cached a minute.
+  Country names are GDELT/GeoNames style; `map/tensionLayer.ts` maps
+  them to Natural Earth's short names (`NE_NAME`) for the tint.
+- GPS interference cells are hexagons (`aviation.hex_cell`), not squares.
+- Labels: Argus labels down to `TILE_LABELS_BELOW` (overlays.ts); below
+  it the basemap's label tiles (`LABEL_LAYERS` in Globe.tsx) and the
+  self-hosted street map fade in. Mark any new label-carrying imagery
+  layer with `labelLayer()`, or names double up.
+- 3D models: one per kind (`build_models.py`), chosen by
+  `aircraftModel`/`shipModel` in `map/closeModels.ts` and loaded on
+  first use.
 - Hazards (GDACS, EONET, tsunami) and NGA warnings are keyed events
   (`fuse_hazard`, `fuse_navwarn`) whose raw records update in place
   (`UPDATABLE_KINDS`).

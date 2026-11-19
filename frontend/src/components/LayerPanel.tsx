@@ -5,6 +5,7 @@ import { AIRSPACE_COLOR, type AirspaceFilters, DEFAULT_AIRSPACE } from '../map/a
 import { BASE_COLOR, DEFAULT_INFRA, FUEL_COLOR, type InfraFilters } from '../map/infraLayer';
 import { DEFAULT_REFERENCE, type ReferenceLayers } from '../map/overlays';
 import { DEFAULT_SPACE, SAT_COLOR, type SpaceFilters } from '../map/satellites';
+import { TENSION_COLOR } from '../map/tensionLayer';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 
 export interface AirFilters {
@@ -25,6 +26,7 @@ export interface LayerFilters {
   sea: SeaFilters;
   airspace: AirspaceFilters;
   infra: InfraFilters;
+  tension: boolean;
 }
 
 export const DEFAULT_FILTERS: LayerFilters = {
@@ -38,6 +40,7 @@ export const DEFAULT_FILTERS: LayerFilters = {
   sea: { ...DEFAULT_SEA, cargo: false, tanker: false, passenger: false, fishing: false, military: false },
   airspace: DEFAULT_AIRSPACE,
   infra: DEFAULT_INFRA,
+  tension: true,
 };
 
 const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color: string }[] = [
@@ -81,7 +84,8 @@ const SPACE_ROWS: { id: keyof SpaceFilters; label: string; source: string; color
 const REFERENCE_ROWS: { id: keyof ReferenceLayers; label: string; source: string }[] = [
   { id: 'borders', label: 'Country borders', source: 'Natural Earth 50m' },
   { id: 'states', label: 'State / province borders', source: 'Natural Earth 10m' },
-  { id: 'labels', label: 'Place labels', source: 'Countries, cities of 200k+' },
+  { id: 'labels', label: 'Place labels', source: 'Argus · countries, cities of 200k+' },
+  { id: 'basemapLabels', label: 'Basemap labels', source: 'Names and roads in the map tiles' },
   { id: 'airports', label: 'Airports', source: 'OurAirports, large airports' },
   { id: 'ports', label: 'Ports', source: 'UN/LOCODE, sea and inland' },
 ];
@@ -103,6 +107,8 @@ export const AIR_FOCUS = [
 interface Props {
   filters: LayerFilters;
   counts: Partial<Record<EventType, number>>;
+  // Countries tinted (above their normal level).
+  tensionCount?: number;
   airCounts: { military: number; civil: number };
   civilStatus: CivilStatus;
   satCounts: Partial<Record<keyof SpaceFilters, number>>;
@@ -124,6 +130,7 @@ const CIVIL_HINT: Record<CivilStatus, string> = {
 export default function LayerPanel({
   filters,
   counts,
+  tensionCount,
   airCounts,
   civilStatus,
   satCounts,
@@ -169,6 +176,20 @@ export default function LayerPanel({
             <span className="lcount mono">{counts[t] ?? 0}</span>
           </label>
         ))}
+        <label className="lrow">
+          <input
+            type="checkbox"
+            checked={filters.tension}
+            onChange={(e) => onChange({ ...filters, tension: e.target.checked })}
+          />
+          <span className="tog" />
+          <span className="sw area" style={{ background: TENSION_COLOR }} />
+          <span className="lname">
+            <span>Country tension</span>
+            <small>Argus index · against each country&apos;s normal</small>
+          </span>
+          <span className="lcount mono">{tensionCount ?? '–'}</span>
+        </label>
       </div>
       <div className="group">
         <div className="gtitle">Air</div>

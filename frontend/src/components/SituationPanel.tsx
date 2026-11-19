@@ -1,4 +1,4 @@
-import type { Aircraft, EventItem, Home, Summary } from '../lib/api';
+import type { Aircraft, Bbox, EventItem, Home, Summary, Tension } from '../lib/api';
 import { aircraftColor } from '../map/aircraftLayer';
 import { ago, EVENT_TYPES, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
 
@@ -9,6 +9,9 @@ interface Props {
   onSelect: (id: string) => void;
   aircraft: Aircraft[];
   onSelectAircraft: (hex: string) => void;
+  tension: Tension | null;
+  // The area on screen when zoomed in; events there are listed.
+  view: Bbox | null;
 }
 
 function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number) {
@@ -37,7 +40,77 @@ export function FeedItem({ e, onSelect, extra }: { e: EventItem; onSelect: (id: 
   );
 }
 
-export default function SituationPanel({ summary, events, home, onSelect, aircraft, onSelectAircraft }: Props) {
+const BAND_LABEL = { normal: 'Normal', elevated: 'Elevated', high: 'High', severe: 'Severe' } as const;
+
+function Delta({ v }: { v: number }) {
+  if (!v) return <span className="tdelta mono">±0 24h</span>;
+  return (
+    <span className={'tdelta mono ' + (v > 0 ? 'up' : 'down')}>
+      {v > 0 ? '▲ ' : '▼ '}
+      {Math.abs(v)} 24h
+    </span>
+  );
+}
+
+// World tension: the index for the world, then the countries furthest
+// above their own normal.
+export function TensionSection({ tension }: { tension: Tension | null }) {
+  if (!tension) return null;
+  const w = tension.world;
+  return (
+    <section className="isec">
+      <h3>World tension</h3>
+      <div className="tgauge">
+        <span className="mono tnum">{w.level}</span>
+        <span className={'tband b-' + w.band}>{BAND_LABEL[w.band]}</span>
+        <Delta v={w.change_24h} />
+      </div>
+      <div className="tbar">
+        <i style={{ left: w.level + '%' }} />
+      </div>
+      <ul className="tlist">
+        {tension.countries.slice(0, 5).map((c) => (
+          <li key={c.key} title={c.top.map((t) => t.title).join('\n')}>
+            <span className="tname">{c.name}</span>
+            <span className="tmeter">
+              <i className={'b-' + c.band} style={{ width: c.level + '%' }} />
+            </span>
+            <span className="mono tval">{c.level}</span>
+          </li>
+        ))}
+      </ul>
+      {!tension.baseline_ready && (
+        <p className="quiet small">
+          Learning what&apos;s normal: {tension.baseline_days} of 7 days of history so far. Until then each
+          country is compared with what history there is, or with a typical country today.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function inBox(b: Bbox, lat: number, lon: number): boolean {
+  const [w, s, e, n] = b;
+  if (lat < s || lat > n) return false;
+  return w <= e ? lon >= w && lon <= e : lon >= w || lon <= e;
+}
+
+export default function SituationPanel({
+  summary,
+  events,
+  home,
+  onSelect,
+  aircraft,
+  onSelectAircraft,
+  tension,
+  view,
+}: Props) {
+  // Events in the area on screen: most severe first, then newest.
+  const inView = view
+    ? events
+        .filter((e) => inBox(view, e.lat, e.lon))
+        .sort((a, b) => b.severity - a.severity || Date.parse(b.last_updated) - Date.parse(a.last_updated))
+    : [];
   const latest = [...events]
     .sort((a, b) => Date.parse(b.last_updated) - Date.parse(a.last_updated))
     .slice(0, 40);
@@ -62,6 +135,7 @@ export default function SituationPanel({ summary, events, home, onSelect, aircra
         <h2>Situation</h2>
         <span className="mono">last {summary?.hours ?? 24}h</span>
       </div>
+      <TensionSection tension={tension} />
       <section className="isec">
         <div className="tiles">
           <div className="tile">
@@ -78,6 +152,20 @@ export default function SituationPanel({ summary, events, home, onSelect, aircra
           ))}
         </div>
       </section>
+      {view && (
+        <section className="isec">
+          <h3>In view · {inView.length}</h3>
+          {inView.length ? (
+            <ul className="feed">
+              {inView.slice(0, 6).map((e) => (
+                <FeedItem key={e.id} e={e} onSelect={onSelect} />
+              ))}
+            </ul>
+          ) : (
+            <p className="quiet">No events in this area for the layers and time window shown.</p>
+          )}
+        </section>
+      )}
       {home && (
         <section className="isec">
           <h3>

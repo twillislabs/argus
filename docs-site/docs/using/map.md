@@ -60,9 +60,30 @@ The **Reference** group in the layer panel draws over any base map:
 |---|---|---|
 | **Country borders** | Natural Earth 50m borders, light over imagery | on |
 | **State / province borders** | First-level divisions (states, provinces, oblasts), below about 6,000 km | off |
-| **Place labels** | Country names on wide views; cities of 200,000+ as you zoom in, larger cities first | on |
+| **Place labels** | Argus's own names: countries on wide views, cities of 200,000+ as you zoom in, larger cities first | on |
+| **Basemap labels** | The map tiles' own names and roads, which fade in below about 450 km and take over from Argus's labels there. Turn off for Argus's labels only, at every height | on |
 | **Airports** | Large airports with their IATA code, below about 1,200 km | off |
 | **Ports** | UN/LOCODE ports: sea ports (near the coast) below about 1,500 km, named when close; river and inland ports only close in | off |
+
+## World tension
+
+**World tension** at the top of the Situation panel scores how tense the
+world is now against its own recent past, 0 to 100: 50 is normal, 67 is
+twice normal, 80 and up is severe. Below it are the five countries furthest
+above their normal. **Country tension** (in Events) tints those countries
+red on wide views, deeper the higher the score; it fades out as you zoom in.
+
+The score counts armed conflict, civil unrest and maritime-security
+events: severity × confidence, halving every 12 hours, with unconfirmed
+reports at half weight. The worker samples it hourly, and the baseline is
+the average of those samples over the last 90 days. A new install builds
+its first baseline from the events already stored; until there's a week of
+history the panel says it's still learning.
+
+## In view
+
+When you zoom in to a region, **In view** in the Situation panel lists the
+events in the area on screen, most severe first, and updates as you move.
 
 ## Near home
 
@@ -119,6 +140,12 @@ Pick a view in the aircraft panel, or press **V** to cycle through them:
 | **Orbit** | Circles the aircraft slowly. Zoom still works |
 | **Cockpit** | From the aircraft, looking along its track, with a head-up display. Try it on **Satellite** |
 
+Up close, the aircraft or ship is drawn as a 3D model of its kind:
+airliner, widebody, business jet, light aircraft, helicopter, fighter or
+military transport; container ship, tanker, passenger ship, fishing boat,
+warship or small boat. Argus picks one from the aircraft type and emitter
+category, or the ship's AIS category and length.
+
 The cockpit **head-up display** shows the heading tape (with a magenta bug
 pointing at the destination), ground speed and altitude tapes, vertical
 speed, and the distance, bearing and time to the destination. ADS-B carries
@@ -154,7 +181,7 @@ Click one for its details and the source text.
 | **Flight restrictions (TFRs)** | US temporary flight restrictions: VIP movements, security, space launches, hazards | FAA (tfr.faa.gov) |
 | **SIGMETs** | Thunderstorms, turbulence, icing, volcanic ash, tropical cyclones, coloured by hazard, with base and top | aviationweather.gov |
 | **Conflict zone bulletins** | EASA's warnings to airlines about conflict airspace, shown by tinting the countries they cover | EASA |
-| **GPS interference** | 1° cells where 2–10% (yellow) or over 10% (red) of aircraft report a degraded position, over the last hour | Argus, from ADS-B |
+| **GPS interference** | Hexagons about 55 km across where over 2% of aircraft report a degraded position over the last hour, deeper pink the higher the share (over 10% is high) | Argus, from ADS-B |
 | **Restricted areas, CTRs, TMAs** | Restricted, prohibited and danger areas, control zones, terminal and control areas, military training areas, with lower and upper limits. Loads for a regional view; needs an openAIP key | openAIP |
 
 GPS interference uses the method gpsjam.org uses, but only from the
@@ -181,17 +208,23 @@ coverage varies by country.
 
 **TV** in the map controls opens a floating live player. It starts muted;
 unmute it in the player. Drag it by its title bar and resize it from the
-corner. Tabs switch channel; **⋯** chooses which channels have tabs:
+corner. Tabs switch channel; **⋯** chooses which channels have tabs;
+**+** adds another player (up to four, each with its own channel and
+place); **⧉** opens the channel in its own window, for another screen.
 
-- **US:** LiveNOW from FOX, Fox News, Newsmax, NBC News, CBS News, MS NOW
-- **International:** Sky News, GB News, BBC News, Al Jazeera English, DW,
-  France 24, i24NEWS, TRT World, WION, NHK World
+- **US:** LiveNOW from FOX, Fox News, Newsmax, NBC News, CBS News, MS NOW,
+  ABC News, NewsNation, Alex Jones Live
+- **International:** Sky News, GB News, News24 (formerly Sky News
+  Australia), Euronews, CNA, BBC News, Al Jazeera English, DW, France 24,
+  i24NEWS, TRT World, WION, NHK World
 - **Business:** Reuters, Bloomberg
-- **Weather:** Ryan Hall, Y'all
+- **Weather:** Ryan Hall, Y'all, FOX Weather
 
 Each tab plays the channel's current live stream: Argus looks up the
-live video from the channel's page (checked every few minutes) and plays
-it through YouTube's embed. If a channel isn't live, the player says so.
+live video from the channel's page (checked every few minutes, once for
+everyone) and plays it through YouTube's embed, or Rumble's for Alex
+Jones Live, which isn't on YouTube. If a channel isn't live, the player
+says so.
 
 ## Ships
 
@@ -260,7 +293,11 @@ like `1998-067A`) to see:
 Markers are coloured by severity (info, elevated, high, critical,
 catastrophic). High and above pulse. Faded markers are unconfirmed reports,
 hidden unless **Unconfirmed reports** is on. Click a marker or a feed item
-to open its sources, matching headlines and raw record.
+to open its sources, matching headlines and raw record. **Coverage**
+lists headlines from your news feeds that name the event's place (its
+town or city, not just the country) and say what happened (for an
+earthquake, words like "quake" or "tremor"); GDELT events use the same
+test that confirms them.
 
 The small **Data attribution** link at the bottom left lists the imagery
 providers, who require credit on the map.

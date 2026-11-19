@@ -1,5 +1,6 @@
 """Event queries and serialisation shared by the API and the worker."""
 
+import re
 from datetime import timedelta
 from typing import Any
 
@@ -7,6 +8,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from argus.db import utcnow
+from argus.fusion import corroborating_articles
 from argus.models import Article, Event, EventSource, RawRecord, Source
 
 SEVERITY_NAMES = {
@@ -120,30 +122,50 @@ async def event_sources(db: AsyncSession, event_id: str) -> list[dict]:
     return out
 
 
+TOPIC_WORDS = {
+    "quake": r"earthquakes?|quakes?|tremors?|seismic|aftershocks?|magnitude",
+    "fire": r"fires?|wildfires?|blazes?|burn(s|ing|ed)?|bushfires?",
+    "maritime": (
+        r"ships?|vessels?|tankers?|navy|naval|maritime|port|piracy|pirates?|"
+        r"seized|boarded|strait|coast ?guard|houthis?|mines?"
+    ),
+    "hazard": (
+        r"floods?|flooding|cyclones?|hurricanes?|typhoons?|storms?|"
+        r"volcan(o|oes|ic)|erupt(s|ed|ion)?|droughts?|tsunamis?|landslides?|"
+        r"wildfires?|fires?|heat ?wave|blizzards?|snow|dust ?storms?|ash"
+    ),
+}
+
+
 def _match_terms(event: Event) -> list[str]:
-    terms = []
-    first = (event.place or "").split(",")[0].strip()
+    """Place names a related headline must mention: the town or city
+    (not the country, which alone matches far too much), or the country
+    for an event placed at country level."""
+    parts = [p.strip() for p in (event.place or "").split(",") if p.strip()]
+    first = parts[0] if parts else ""
     # Drop USGS distance prefixes like "12 km SW of ".
     if " of " in first:
         first = first.rsplit(" of ", 1)[-1].strip()
-    if len(first) >= 4:
-        terms.append(first)
+    if len(first) >= 4 and first != event.country:
+        return [first]
     if event.country and len(event.country) >= 4:
-        terms.append(event.country)
-    return terms
+        return [event.country]
+    return []
 
 
 async def related_articles(
     db: AsyncSession, event: Event, limit: int = 12
 ) -> list[Article]:
-    """Articles that name the event's place (or country) around its time.
-
-    A first, simple matcher. Story clustering with entities and text
-    similarity replaces it in the news-coverage milestone.
-    """
+    """Headlines about this event: they name its place and use words for
+    that kind of event in the headline itself. GDELT events use the same
+    rule that confirms them (fusion.corroborating_articles)."""
+    if event.type in ("conflict", "unrest"):
+        return (await corroborating_articles(db, event))[:limit]
     terms = _match_terms(event)
-    if not terms:
+    pattern = TOPIC_WORDS.get(event.type)
+    if not terms or not pattern:
         return []
+    words = re.compile(r"\b({0})\b".format(pattern), re.IGNORECASE)
     window = timedelta(hours=18)
     conditions = []
     for term in terms:
@@ -158,9 +180,9 @@ async def related_articles(
             or_(*conditions),
         )
         .order_by(Article.published_at.desc())
-        .limit(limit)
+        .limit(100)
     )
-    return list(rows.scalars())
+    return [a for a in rows.scalars() if words.search(a.title)][:limit]
 
 
 async def summary(db: AsyncSession, hours: int = 24) -> dict[str, Any]:

@@ -62,6 +62,11 @@ erDiagram
 
 All timestamps are stored as `timestamptz` in UTC.
 
+`tension_daily` (day, area, total, samples) holds the tension index's
+hourly samples summed per day: `area` is a country name, `theatre:<id>`
+or `world`. The baseline is `sum(total) / sum(world samples)` over the 90
+days before today; rows older than that are pruned.
+
 ## Planned tables
 
 | Table | Milestone | Purpose |
@@ -71,5 +76,5 @@ All timestamps are stored as `timestamptz` in UTC.
 | `raw_record` | M1 | Every record a source returned, kept for 30 days |
 | `event`, `event_source` | M1 | Fused events and their source records |
 | `media`, `article` | M5 | Event media and news coverage |
-| `pattern`, `score` | M5 | Detected behaviour, tension index |
+| `pattern` | M5 | Detected behaviour |
 | `geofence`, `watch`, `alert_rule`, `alert` | M6 | Alerting |

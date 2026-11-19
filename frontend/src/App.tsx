@@ -9,6 +9,7 @@ stashShareLink();
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import LoginPage from './pages/LoginPage';
 import MapPage from './pages/MapPage';
+import NewsPage from './pages/NewsPage';
 import SettingsPage from './pages/SettingsPage';
 import SetupPage from './pages/SetupPage';
 
@@ -98,6 +99,7 @@ export default function App() {
           ) : null
         }
       />
+      <Route path="/news" element={boot.state === 'signedIn' ? <NewsPage /> : null} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

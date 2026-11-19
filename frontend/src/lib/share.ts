@@ -41,6 +41,7 @@ export function enabledLayers(f: LayerFilters): string[] {
   for (const r of SEA_LAYERS) if (f.sea[r]) on.push('sea-' + r);
   for (const r of AIRSPACE_LAYERS) if (f.airspace[r]) on.push(r);
   for (const r of INFRA_LAYERS) if (f.infra[r]) on.push(r);
+  if (f.tension) on.push('tension');
   return on;
 }
 
@@ -63,6 +64,8 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
       labels: has('labels'),
       airports: has('airports'),
       ports: has('ports'),
+      // A look preference, not part of the shared picture: keep yours.
+      basemapLabels: f.reference.basemapLabels,
     },
     space: { leo: has('leo'), meo: has('meo'), geo: has('geo'), heo: has('heo'), starlink: has('starlink') },
     sea: {
@@ -81,6 +84,7 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
       structure: has('structure'),
     },
     infra: { nuclear: has('nuclear'), power: has('power'), cables: has('cables'), bases: has('bases') },
+    tension: has('tension'),
   };
 }
 

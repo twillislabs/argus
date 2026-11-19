@@ -140,6 +140,7 @@ class Preferences(BaseModel):
     airspace: dict[str, bool] | None = None
     infra: dict[str, bool] | None = None
     news: dict[str, Any] | None = None
+    tension: bool | None = None
     show_banner: bool | None = None
 
 

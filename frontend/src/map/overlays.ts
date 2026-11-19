@@ -31,6 +31,8 @@ export interface ReferenceLayers {
   labels: boolean;
   airports: boolean;
   ports: boolean;
+  // The basemap's own names and roads (Esri / Google reference tiles).
+  basemapLabels: boolean;
 }
 
 export const DEFAULT_REFERENCE: ReferenceLayers = {
@@ -39,6 +41,7 @@ export const DEFAULT_REFERENCE: ReferenceLayers = {
   labels: true,
   airports: false,
   ports: false,
+  basemapLabels: true,
 };
 
 // Line colours differ over imagery (light) and the dark map (muted).
@@ -130,11 +133,11 @@ function countryRange(areaDeg2: number): DistanceDisplayCondition {
 
 export type LabelMode = 'dark' | 'satellite' | 'hybrid';
 
-// Below this height the Dark and Hybrid maps' own tiles carry place names,
-// so Argus's city labels step aside instead of doubling them.
-const TILE_LABELS_BELOW = 2.6e6;
-// The tiles name countries from about here down.
-const COUNTRY_TILES_BELOW = 3.2e6;
+// Argus names places down to this height. Below it the Dark and Hybrid
+// maps' own label tiles fade in (Globe.tsx) and Argus's labels step
+// aside, so names are never doubled. With Basemap labels off, Argus
+// labels all the way down.
+export const TILE_LABELS_BELOW = 3.0e5;
 
 export interface Overlays {
   setLayers: (layers: ReferenceLayers) => void;
@@ -306,6 +309,26 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   }
 
   let layers = DEFAULT_REFERENCE;
+  let mode: LabelMode = 'dark';
+  // Satellite has no names of its own, and Basemap labels can be off:
+  // then Argus shows every label. Otherwise only above the height where
+  // the tiles' own names take over.
+  function placeLabels() {
+    const tiles = mode !== 'satellite' && layers.basemapLabels;
+    for (const { label, pop } of cityLabels) {
+      const range = cityRange(pop);
+      const near = tiles ? TILE_LABELS_BELOW : range.near;
+      // Cesium throws unless far > near: hide labels with nothing left.
+      label.show = range.far > near;
+      if (label.show) label.distanceDisplayCondition = new DistanceDisplayCondition(near, range.far);
+    }
+    for (const { label, area } of countryLabels) {
+      const range = countryRange(area);
+      const near = tiles ? Math.max(range.near, TILE_LABELS_BELOW) : range.near;
+      label.show = range.far > near;
+      if (label.show) label.distanceDisplayCondition = new DistanceDisplayCondition(near, range.far);
+    }
+  }
   function apply() {
     borders.show = layers.borders;
     states.show = layers.states;
@@ -321,32 +344,11 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     setLayers(next) {
       layers = next;
       apply();
+      placeLabels();
     },
-    setImagery(mode) {
-      // Satellite has no names of its own: show every city label.
-      // Dark and Hybrid: only from heights where the tiles don't label.
-      for (const { label, pop } of cityLabels) {
-        const range = cityRange(pop);
-        if (mode === 'satellite') {
-          label.distanceDisplayCondition = range;
-          label.show = true;
-        } else if (range.far > TILE_LABELS_BELOW) {
-          label.distanceDisplayCondition = new DistanceDisplayCondition(TILE_LABELS_BELOW, range.far);
-          label.show = true;
-        } else {
-          // Only ever shown below the tiles' own labels: leave it to them.
-          // (A condition needs far > near, so hide it instead.)
-          label.show = false;
-        }
-      }
-      // Country names too: the tiles carry them once they fade in.
-      for (const { label, area } of countryLabels) {
-        const range = countryRange(area);
-        const near = mode === 'satellite' ? range.near : Math.max(range.near, COUNTRY_TILES_BELOW);
-        // Cesium throws unless far > near: hide labels with nothing left.
-        label.show = range.far > near;
-        if (label.show) label.distanceDisplayCondition = new DistanceDisplayCondition(near, range.far);
-      }
+    setImagery(nextMode) {
+      mode = nextMode;
+      placeLabels();
       const next = mode === 'dark' ? STYLE.dark : STYLE.imagery;
       if (next === style) return;
       style = next;

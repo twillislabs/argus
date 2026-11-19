@@ -1,8 +1,12 @@
 """Generate the low-poly 3D models Argus shows up close.
 
-Writes frontend/public/models/aircraft.glb and ship.glb: simple
-flat-shaded shapes in one white material, so the map can tint them. They
-are made here rather than downloaded, so there's nothing to license.
+Writes frontend/public/models/*.glb: simple flat-shaded shapes in one
+white material, so the map can tint them. They are made here rather than
+downloaded, so there's nothing to license.
+
+Aircraft: airliner, widebody, bizjet, light, helicopter, fighter,
+airlifter. Ships: container, tanker, passenger, fishing, warship, boat.
+frontend/src/map/closeModels.ts picks one from the type or category.
 
     python scripts/build_models.py
 
@@ -69,25 +73,173 @@ def fin(points: list[Vec], thickness: float) -> list[list[Vec]]:
     return faces
 
 
-def aircraft() -> list[list[Vec]]:
+def mirror(points: list[Vec]) -> list[Vec]:
+    return [(-x, y, z) for x, y, z in reversed(points)]
+
+
+def wings(points: list[Vec], thickness: float) -> list[list[Vec]]:
+    """A left wing (negative x) and its mirror image."""
+    return wedge(points, thickness) + wedge(mirror(points), thickness)
+
+
+def airliner() -> list[list[Vec]]:
+    """Narrowbody twin-jet (A320 / 737 class)."""
     faces = []
     faces += box(0, 0, 0, 4.2, 4.2, 30)  # cabin
     faces += box(0, 0, 18.5, 4.2, 4.2, 7, taper_front=0.25)  # nose
-    faces += box(0, 0.4, -20, 4.2, 3.4, 10, taper_front=1.0)  # rear body
+    faces += box(0, 0.4, -20, 4.2, 3.4, 10)  # rear body
     faces += box(0, 0.9, -27, 1.6, 1.6, 4)  # tail cone
-    wing = [(-2, -0.8, 4), (-19, -0.2, -6), (-19, -0.2, -9), (-2, -0.8, -5)]
-    faces += wedge(wing, 0.6)
-    faces += wedge([(-x, y, z) for x, y, z in reversed(wing)], 0.6)
-    stab = [(-1, 1.2, -22), (-7, 1.4, -26.5), (-7, 1.4, -28.5), (-1, 1.2, -27)]
-    faces += wedge(stab, 0.4)
-    faces += wedge([(-x, y, z) for x, y, z in reversed(stab)], 0.4)
+    faces += wings(
+        [(-2, -0.8, 4), (-19, -0.2, -6), (-19, -0.2, -9), (-2, -0.8, -5)], 0.6
+    )
+    faces += wings(
+        [(-1, 1.2, -22), (-7, 1.4, -26.5), (-7, 1.4, -28.5), (-1, 1.2, -27)],
+        0.4,
+    )
     faces += fin([(0, 2, -21), (0, 9, -26.5), (0, 9, -28.5), (0, 2, -28)], 0.5)
     for side in (-1, 1):  # engines under the wings
         faces += box(side * 7, -2.2, 0.5, 2.2, 2.2, 5)
     return faces
 
 
-def ship() -> list[list[Vec]]:
+def widebody() -> list[list[Vec]]:
+    """Four-engine widebody (747 / A340 class); also tankers, AWACS."""
+    faces = []
+    faces += box(0, 0, 0, 6.4, 6.4, 46)
+    faces += box(0, 0.6, 27, 6.4, 7.6, 8, taper_front=0.3)  # nose, hump
+    faces += box(0, 0.6, -29, 6.4, 5, 12)
+    faces += box(0, 1.4, -38, 2.2, 2.2, 6)
+    faces += wings(
+        [(-3, -1.4, 8), (-32, -0.4, -10), (-32, -0.4, -14), (-3, -1.4, -8)],
+        0.9,
+    )
+    faces += wings(
+        [(-1.5, 2, -31), (-11, 2.2, -37), (-11, 2.2, -40), (-1.5, 2, -38)],
+        0.5,
+    )
+    faces += fin([(0, 3, -29), (0, 14, -37), (0, 14, -40), (0, 3, -39)], 0.7)
+    for x in (-10, -18, 10, 18):
+        faces += box(x, -3, 1 - abs(x) * 0.35, 2.8, 2.8, 6.5)
+    return faces
+
+
+def bizjet() -> list[list[Vec]]:
+    """Business jet: slim body, rear engines, T-tail."""
+    faces = []
+    faces += box(0, 0, 0, 2.2, 2.2, 12)
+    faces += box(0, 0, 8.5, 2.2, 2.2, 5, taper_front=0.2)
+    faces += box(0, 0.3, -8, 2.2, 1.8, 4)
+    faces += wings(
+        [(-1, -0.6, 1), (-8, -0.3, -2.5), (-8, -0.3, -4), (-1, -0.6, -3)], 0.3
+    )
+    faces += fin([(0, 1, -7), (0, 5, -10), (0, 5, -11.5), (0, 1, -10)], 0.3)
+    faces += wedge(
+        [(-3.2, 5, -9.6), (3.2, 5, -9.6), (3.2, 5, -11), (-3.2, 5, -11)], 0.2
+    )
+    for side in (-1, 1):
+        faces += box(side * 1.9, 0.6, -6.5, 1.1, 1.1, 3)
+    return faces
+
+
+def light() -> list[list[Vec]]:
+    """Single-engine high-wing light aircraft (Cessna class)."""
+    faces = []
+    faces += box(0, 0, 0, 1.3, 1.5, 4.2)
+    faces += box(0, -0.1, 2.8, 1.2, 1.2, 1.4, taper_front=0.6)  # engine
+    faces += box(0, 0.1, -3.5, 0.6, 0.8, 3, taper_front=1.0)  # tail boom
+    faces += box(0, -0.1, 3.6, 0.2, 1.9, 0.1)  # propeller
+    faces += wedge(
+        [
+            (-5.5, 0.95, 0.9),
+            (5.5, 0.95, 0.9),
+            (5.5, 0.95, -0.6),
+            (-5.5, 0.95, -0.6),
+        ],
+        0.15,
+    )
+    faces += wedge(
+        [(-1.7, 0.3, -4.4), (1.7, 0.3, -4.4), (1.7, 0.3, -5), (-1.7, 0.3, -5)],
+        0.1,
+    )
+    faces += fin(
+        [(0, 0.4, -4.2), (0, 1.8, -4.8), (0, 1.8, -5.2), (0, 0.4, -5)], 0.1
+    )
+    return faces
+
+
+def helicopter() -> list[list[Vec]]:
+    faces = []
+    faces += box(0, 0, 0.5, 2.2, 2.2, 5, taper_front=0.7)  # cabin
+    faces += box(0, 0.4, -5, 0.5, 0.6, 7)  # tail boom
+    faces += fin(
+        [(0, 0.4, -7.8), (0, 2.2, -8.6), (0, 2.2, -9), (0, 0.4, -8.6)], 0.15
+    )
+    faces += box(0, 1.5, 0.5, 0.6, 0.8, 0.6)  # rotor mast
+    for angle in (0, 90):  # main rotor blades
+        a = math.radians(angle)
+        dx, dz = math.sin(a) * 5.5, math.cos(a) * 5.5
+        px, pz = math.cos(a) * 0.25, -math.sin(a) * 0.25
+        faces += wedge(
+            [
+                (-dx - px, 2.0, -dz - pz),
+                (dx - px, 2.0, dz - pz),
+                (dx + px, 2.0, dz + pz),
+                (-dx + px, 2.0, -dz + pz),
+            ],
+            0.08,
+        )
+    for side in (-1, 1):  # skids
+        faces += box(side * 1.1, -1.5, 0.5, 0.15, 0.15, 4.5)
+    return faces
+
+
+def fighter() -> list[list[Vec]]:
+    """Fast jet: pointed nose, swept delta, twin fins."""
+    faces = []
+    faces += box(0, 0, 0, 2.2, 1.8, 11)
+    faces += box(0, 0, 8, 2.2, 1.8, 5, taper_front=0.1)
+    faces += box(0, 0.6, 3.5, 0.9, 0.7, 3, taper_front=0.5)  # canopy
+    faces += box(0, -0.1, -7, 2.6, 1.4, 3)  # engines
+    faces += wings(
+        [(-1, -0.2, 3), (-5.5, -0.1, -3.5), (-5.5, -0.1, -5), (-1, -0.2, -5)],
+        0.25,
+    )
+    faces += wings(
+        [(-1, 0, -6.2), (-3.2, 0, -7.6), (-3.2, 0, -8.6), (-1, 0, -8.4)], 0.15
+    )
+    for side in (-1, 1):
+        faces += [
+            [(x + side * 1.1, y, z) for x, y, z in quad]
+            for quad in fin(
+                [(0, 0.6, -5), (0, 3.2, -7.5), (0, 3.2, -8.3), (0, 0.6, -8)],
+                0.15,
+            )
+        ]
+    return faces
+
+
+def airlifter() -> list[list[Vec]]:
+    """Military transport: high wing, T-tail, four engines (C-17 class)."""
+    faces = []
+    faces += box(0, 0, 0, 6.8, 6.8, 36)
+    faces += box(0, -0.4, 21, 6.8, 6, 6, taper_front=0.35)
+    faces += box(0, 1, -23, 6.8, 4.6, 10, taper_front=1.0)
+    faces += wings(
+        [(-3, 3.6, 5), (-25, 2.6, -2), (-25, 2.6, -5.5), (-3, 3.6, -3)], 0.9
+    )
+    faces += fin(
+        [(0, 3.4, -22), (0, 13, -27), (0, 13, -30), (0, 3.4, -28)], 0.7
+    )
+    faces += wedge(
+        [(-9, 13, -27.5), (9, 13, -27.5), (9, 13, -30.5), (-9, 13, -30.5)],
+        0.4,
+    )
+    for x in (-8, -15, 8, 15):
+        faces += box(x, 1.4, 4 - abs(x) * 0.2, 2.4, 2.4, 5)
+    return faces
+
+
+def container() -> list[list[Vec]]:
     faces = []
     faces += box(0, 0, -10, 32, 14, 230)  # hull
     faces += box(0, 0, 112, 32, 14, 14, taper_front=0.15)  # bow
@@ -97,6 +249,95 @@ def ship() -> list[list[Vec]]:
     for i in range(6):  # container stacks
         faces += box(0, 10, -60 + i * 28, 28, 6 + (i % 3) * 2, 24)
     return faces
+
+
+def tanker() -> list[list[Vec]]:
+    """Crude or product tanker: low flat deck, pipe run, bridge aft."""
+    faces = []
+    faces += box(0, 0, -5, 44, 18, 220)
+    faces += box(0, 0, 112, 44, 18, 14, taper_front=0.2)
+    faces += box(0, 11, 20, 3, 2, 160)  # pipe run along the deck
+    for i in range(5):  # manifolds
+        faces += box(0, 11, -40 + i * 30, 30, 1.2, 2)
+    faces += box(0, 18, -98, 34, 18, 16)
+    faces += box(0, 30, -100, 18, 6, 10)
+    faces += box(0, 32, -108, 5, 12, 5)
+    return faces
+
+
+def passenger() -> list[list[Vec]]:
+    """Cruise ship or ferry: tall stepped superstructure."""
+    faces = []
+    faces += box(0, 0, -5, 32, 14, 230)
+    faces += box(0, 0, 113, 32, 14, 16, taper_front=0.2)
+    for i, (w, ln, z) in enumerate(
+        (
+            (30, 200, -12),
+            (28, 180, -18),
+            (26, 160, -22),
+            (22, 130, -26),
+            (18, 90, -30),
+        )
+    ):
+        faces += box(0, 11 + i * 6, z, w, 6, ln)
+    faces += box(0, 44, -60, 8, 10, 14)  # funnel
+    return faces
+
+
+def fishing() -> list[list[Vec]]:
+    """Trawler: bridge forward, open aft deck, gantry and mast."""
+    faces = []
+    faces += box(0, 0, -2, 8, 4.5, 28)
+    faces += box(0, 0, 14, 8, 4.5, 6, taper_front=0.2)
+    faces += box(0, 4.5, 7, 6.5, 4.5, 7)  # bridge
+    faces += box(0, 9, 8, 0.4, 7, 0.4)  # mast
+    faces += box(0, 6, -13, 7.5, 0.5, 0.6)  # gantry top
+    for side in (-1, 1):
+        faces += box(side * 3.5, 4, -13, 0.4, 4, 0.4)
+    return faces
+
+
+def warship() -> list[list[Vec]]:
+    """Destroyer or frigate: sleek hull, angular superstructure, gun."""
+    faces = []
+    faces += box(0, 0, -5, 18, 9, 130)
+    faces += box(0, 0, 68, 18, 9, 16, taper_front=0.05)
+    faces += box(0, 8, 8, 14, 8, 30, taper_front=0.8)  # forward block
+    faces += box(0, 15, 10, 8, 8, 10, taper_front=0.6)  # mast base
+    faces += box(0, 23, 10, 1, 10, 1)  # mast
+    faces += box(0, 7, -25, 12, 6, 28, taper_front=0.85)  # aft block
+    faces += box(0, 13, -22, 5, 6, 6)  # funnel
+    faces += box(0, 6, 44, 4, 2.5, 4)  # gun mount
+    faces += box(0, 6.5, 49, 0.5, 0.5, 6)  # gun barrel
+    faces += box(0, 6, -55, 14, 1, 16)  # flight deck
+    return faces
+
+
+def boat() -> list[list[Vec]]:
+    """Tug, workboat or pleasure craft."""
+    faces = []
+    faces += box(0, 0, -1, 7, 3, 20)
+    faces += box(0, 0, 11, 7, 3, 5, taper_front=0.2)
+    faces += box(0, 3.5, 3, 5, 3.5, 7)
+    faces += box(0, 7, 2, 0.4, 4, 0.4)
+    return faces
+
+
+MODELS = {
+    "airliner": airliner,
+    "widebody": widebody,
+    "bizjet": bizjet,
+    "light": light,
+    "helicopter": helicopter,
+    "fighter": fighter,
+    "airlifter": airlifter,
+    "container": container,
+    "tanker": tanker,
+    "passenger": passenger,
+    "fishing": fishing,
+    "warship": warship,
+    "boat": boat,
+}
 
 
 def triangles(faces: list[list[Vec]]):
@@ -198,5 +439,10 @@ def write_glb(path: str, faces: list[list[Vec]]) -> None:
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
-    write_glb(os.path.join(OUT, "aircraft.glb"), aircraft())
-    write_glb(os.path.join(OUT, "ship.glb"), ship())
+    for name, build in MODELS.items():
+        write_glb(os.path.join(OUT, name + ".glb"), build())
+    # The first models, by their old names.
+    for old in ("aircraft.glb", "ship.glb"):
+        path = os.path.join(OUT, old)
+        if os.path.exists(path):
+            os.remove(path)

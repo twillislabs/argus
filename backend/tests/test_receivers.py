@@ -3,7 +3,7 @@ import asyncio
 import httpx
 
 from argus import sea, worker
-from argus.aviation import GpsGrid
+from argus.aviation import GpsGrid, hex_cell, hex_centre
 from argus.models import ServerSetting
 from tests.conftest import csrf
 from tests.test_aviation import FakeClient
@@ -35,10 +35,23 @@ def test_gps_grid_levels():
     cells = grid.summary(now=now)
     assert len(cells) == 1
     c = cells[0]
-    assert (c["lat"], c["lon"]) == (55.0, 20.0)
+    # The centre of the hexagon the aircraft are in, within one radius.
+    assert abs(c["lat"] - 55.5) <= 0.5 and abs(c["lon"] - 20.5) <= 1.0
     assert c["aircraft"] == 10 and c["bad"] == 3 and c["level"] == "high"
     # An hour later it has aged out.
     assert grid.summary(now=now + 3601) == []
+
+
+def test_hex_cells_tile_the_map():
+    # Every point belongs to the cell whose centre is nearest, and the
+    # centre maps back to its own cell.
+    for lat, lon in ((0.1, 0.1), (55.5, 20.5), (-33.9, 151.2), (64, -150)):
+        row, col = hex_cell(lat, lon)
+        clat, clon = hex_centre(row, col)
+        assert hex_cell(clat, clon) == (row, col)
+        assert abs(clat - lat) <= 0.5
+    # Neighbouring points a cell apart land in different cells.
+    assert hex_cell(40.0, 10.0) != hex_cell(40.0, 11.5)
 
 
 def test_parse_aiscatcher():

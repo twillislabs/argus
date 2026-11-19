@@ -1,11 +1,12 @@
 """ORM models for accounts, sessions, setup and audit."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     Float,
     ForeignKey,
     Index,
@@ -256,3 +257,14 @@ class Satellite(Base):
     epoch: Mapped[datetime] = mapped_column(UTCDateTime)
     omm: Mapped[dict[str, Any]] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class TensionDaily(Base):
+    """Hourly tension samples per area, summed by day (see tension.py)."""
+
+    __tablename__ = "tension_daily"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    area: Mapped[str] = mapped_column(String(80), primary_key=True)
+    total: Mapped[float] = mapped_column(Float, default=0.0)
+    samples: Mapped[int] = mapped_column(Integer, default=0)

@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 import httpx
 from sqlalchemy import select
 
-from argus import __version__, sea, secrets, space
+from argus import __version__, sea, secrets, space, tension
 from argus.aviation import ADSB_LOL, normalise
 from argus.collectors import REGISTRY, Collector
 from argus.config import Settings, get_settings
@@ -327,6 +327,42 @@ async def cables_loop(db: Database, client: httpx.AsyncClient) -> None:
         await asyncio.sleep(6 * 3600)
 
 
+async def tension_once(db: Database) -> bool:
+    """Sample the tension index once per clock hour. The hour sampled is
+    kept in server_settings, so a restart doesn't sample it twice."""
+    hour = utcnow().strftime("%Y-%m-%dT%H")
+    async with db.sessionmaker() as session:
+        row = await session.get(ServerSetting, "tension:last")
+        if row is not None and (row.value or {}).get("hour") == hour:
+            return False
+        backfilled = await tension.backfill(session)
+        if backfilled:
+            log.info("tension: backfilled {0} hours".format(backfilled))
+        areas = await tension.record_sample(session)
+        await tension.prune(session, utcnow().date())
+        if row is None:
+            row = ServerSetting(key="tension:last")
+            session.add(row)
+        row.value = {"hour": hour, "areas": areas}
+        row.updated_at = utcnow()
+        await session.commit()
+    log.info("tension: sampled {0} areas".format(areas))
+    return True
+
+
+async def tension_loop(db: Database) -> None:
+    while True:
+        try:
+            await tension_once(db)
+        except Exception:  # noqa: BLE001 - keep sampling next hour
+            log.exception("tension sample failed")
+        now = utcnow()
+        nxt = (now + timedelta(hours=1)).replace(
+            minute=1, second=0, microsecond=0
+        )
+        await asyncio.sleep(max(60.0, (nxt - now).total_seconds()))
+
+
 LOCAL_AIR_SUBJECT = "argus.local_air"
 RECEIVER_ADSB_S = 2
 RECEIVER_AIS_S = 10
@@ -537,6 +573,7 @@ async def run(settings: Settings) -> None:
             receivers_loop(db, client, publisher)
         )
         cables_task = asyncio.create_task(cables_loop(db, client))
+        tension_task = asyncio.create_task(tension_loop(db))
         if settings.sea_enabled:
             sea_task = asyncio.create_task(sea_loop(db, settings, publisher))
         if settings.space_enabled:
@@ -583,6 +620,7 @@ async def run(settings: Settings) -> None:
                 sea_task,
                 receivers_task,
                 cables_task,
+                tension_task,
             ):
                 if task is not None:
                     task.cancel()

@@ -1,14 +1,18 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 
-import { CHANNELS, DEFAULT_TABS, embedUrl } from '../config/newsChannels';
-import { getLiveVideo, type LiveVideo } from '../lib/api';
+import { CHANNELS, DEFAULT_TABS } from '../config/newsChannels';
+import LiveFrame from './LiveFrame';
 
 interface Props {
+  // Which player this is (0 is the first); each remembers its own place.
+  index: number;
   channel: string;
   tabs: string[];
   onChannel: (id: string) => void;
   onTabs: (ids: string[]) => void;
   onClose: () => void;
+  // Another player on the map, and this channel in its own window.
+  onAdd?: () => void;
 }
 
 const POS_KEY = 'argus-news-pos';
@@ -19,9 +23,11 @@ interface Box {
   w: number;
 }
 
-function loadBox(): Box | null {
+const posKey = (index: number) => (index ? POS_KEY + '-' + index : POS_KEY);
+
+function loadBox(index: number): Box | null {
   try {
-    const raw = localStorage.getItem(POS_KEY);
+    const raw = localStorage.getItem(posKey(index));
     return raw ? (JSON.parse(raw) as Box) : null;
   } catch {
     return null;
@@ -30,12 +36,11 @@ function loadBox(): Box | null {
 
 // A floating live news player over the map: channel tabs, drag by the
 // header, resize from the corner. Muted until you unmute in the player.
-export default function NewsPlayer({ channel, tabs, onChannel, onTabs, onClose }: Props) {
+export default function NewsPlayer({ index, channel, tabs, onChannel, onTabs, onClose, onAdd }: Props) {
   const panel = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState<Box | null>(loadBox);
+  const [box, setBox] = useState<Box | null>(() => loadBox(index));
   const [picking, setPicking] = useState(false);
   const drag = useRef<{ dx: number; dy: number } | null>(null);
-  const [live, setLive] = useState<(LiveVideo & { channel: string }) | null>(null);
   const current = CHANNELS.find((c) => c.id === channel) ?? CHANNELS[0];
   const shown = (tabs.length ? tabs : DEFAULT_TABS)
     .map((id) => CHANNELS.find((c) => c.id === id))
@@ -44,7 +49,7 @@ export default function NewsPlayer({ channel, tabs, onChannel, onTabs, onClose }
   function save(next: Box) {
     setBox(next);
     try {
-      localStorage.setItem(POS_KEY, JSON.stringify(next));
+      localStorage.setItem(posKey(index), JSON.stringify(next));
     } catch {
       // Storage blocked: position resets next time.
     }
@@ -71,22 +76,6 @@ export default function NewsPlayer({ channel, tabs, onChannel, onTabs, onClose }
     drag.current = null;
   }
 
-  // Look up the channel's current live video (cached by the API).
-  useEffect(() => {
-    let cancelled = false;
-    setLive(null);
-    getLiveVideo(current.id)
-      .then((v) => {
-        if (!cancelled) setLive({ ...v, channel: current.id });
-      })
-      .catch(() => {
-        if (!cancelled) setLive({ status: 'error', video_id: null, channel: current.id });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [current.id]);
-
   // Remember the size after a corner resize.
   useEffect(() => {
     const el = panel.current;
@@ -98,7 +87,11 @@ export default function NewsPlayer({ channel, tabs, onChannel, onTabs, onClose }
     return () => ro.disconnect();
   });
 
-  const style = box ? { left: box.x, top: box.y, width: box.w, right: 'auto', bottom: 'auto' } : undefined;
+  const style = box
+    ? { left: box.x, top: box.y, width: box.w, right: 'auto', bottom: 'auto' }
+    : index
+      ? { right: 12 + index * 28, bottom: 40 + index * 28 }
+      : undefined;
   return (
     <div ref={panel} className="newsplayer" style={style} role="dialog" aria-label="Live news">
       <div className="np-head" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
@@ -106,6 +99,21 @@ export default function NewsPlayer({ channel, tabs, onChannel, onTabs, onClose }
           <i /> LIVE
         </span>
         <b>{current.name}</b>
+        {onAdd && (
+          <button className="np-btn" title="Add another player" aria-label="Add another news player" onClick={onAdd}>
+            +
+          </button>
+        )}
+        <button
+          className="np-btn"
+          title="Open in its own window"
+          aria-label="Pop out"
+          onClick={() =>
+            window.open('/news?c=' + encodeURIComponent(current.id), 'argus-news-' + current.id, 'popup,width=960,height=600')
+          }
+        >
+          ⧉
+        </button>
         <button className="np-btn" title="Choose channels" onClick={() => setPicking(!picking)}>
           ⋯
         </button>
@@ -144,28 +152,9 @@ export default function NewsPlayer({ channel, tabs, onChannel, onTabs, onClose }
           ))}
         </div>
       ) : (
-        <div className="np-video">
-          {live?.channel === current.id && live.video_id ? (
-            <iframe
-              key={live.video_id}
-              src={embedUrl(live.video_id)}
-              title={current.name + ' live'}
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
-          ) : (
-            <div className="np-msg">
-              {!live || live.channel !== current.id
-                ? 'Finding the live stream…'
-                : live.status === 'offline'
-                  ? current.name + " isn't live right now. Try another channel."
-                  : "Couldn't reach YouTube. Try again in a minute."}
-            </div>
-          )}
-        </div>
+        <LiveFrame channel={current} />
       )}
-      <div className="np-foot">Streams are the channels&apos; own, played through YouTube.</div>
+      <div className="np-foot">Streams are the channels&apos; own, played through {current.platform === 'rumble' ? 'Rumble' : 'YouTube'}.</div>
     </div>
   );
 }

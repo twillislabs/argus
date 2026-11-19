@@ -5,10 +5,12 @@
 // public feed.
 
 export interface Channel {
+  // A YouTube channel ID, or the Rumble channel name for Rumble.
   id: string;
   name: string;
   short: string;
   group: 'US' | 'International' | 'Business' | 'Weather';
+  platform?: 'youtube' | 'rumble';
 }
 
 export const CHANNELS: Channel[] = [
@@ -18,8 +20,16 @@ export const CHANNELS: Channel[] = [
   { id: 'UCeY0bbntWzzVIaj2z3QigXg', name: 'NBC News', short: 'NBC', group: 'US' },
   { id: 'UC8p1vwvWtl6T73JiExfWs1g', name: 'CBS News', short: 'CBS', group: 'US' },
   { id: 'UCaXkIU1QidjPwiAYu6GcHjg', name: 'MS NOW', short: 'MS NOW', group: 'US' },
+  { id: 'UCBi2mrWuNuyYy4gbM6fU18Q', name: 'ABC News', short: 'ABC', group: 'US' },
+  { id: 'UCCjG8NtOig0USdrT5D1FpxQ', name: 'NewsNation', short: 'NewsNation', group: 'US' },
+  // Not on YouTube: the live show streams on Rumble.
+  { id: 'TheAlexJonesShowLive', name: 'Alex Jones Live', short: 'Alex Jones', group: 'US', platform: 'rumble' },
   { id: 'UCoMdktPbSTixAyNGwb-UYkQ', name: 'Sky News', short: 'Sky', group: 'International' },
   { id: 'UC0vn8ISa4LKMunLbzaXLnOQ', name: 'GB News', short: 'GB News', group: 'International' },
+  // Sky News Australia, renamed News24 in 2026 (same channel).
+  { id: 'UCO0akufu9MOzyz3nvGIXAAw', name: 'News24 (Sky News Australia)', short: 'News24 AU', group: 'International' },
+  { id: 'UCSrZ3UV4jOidv8ppoVuvW9Q', name: 'Euronews', short: 'Euronews', group: 'International' },
+  { id: 'UC83jt4dlz1Gjl58fzQrrKZg', name: 'CNA', short: 'CNA', group: 'International' },
   { id: 'UC16niRr50-MSBwiO3YDb3RA', name: 'BBC News', short: 'BBC', group: 'International' },
   { id: 'UCNye-wNBqNL5ZzHSJj3l8Bg', name: 'Al Jazeera English', short: 'Al Jazeera', group: 'International' },
   { id: 'UCknLrEdhRCp1aegoMqRaCZg', name: 'DW News', short: 'DW', group: 'International' },
@@ -31,6 +41,7 @@ export const CHANNELS: Channel[] = [
   { id: 'UChqUTb7kYRX8-EiaN3XFrSQ', name: 'Reuters', short: 'Reuters', group: 'Business' },
   { id: 'UCIALMKvObZNtJ6AmdCLP7Lg', name: 'Bloomberg Television', short: 'Bloomberg', group: 'Business' },
   { id: 'UCJHAT3Uvv-g3I8H3GhHWV7w', name: "Ryan Hall, Y'all", short: 'Ryan Hall', group: 'Weather' },
+  { id: 'UC1FbPiXx59_ltnFVx7IxWow', name: 'FOX Weather', short: 'FOX Weather', group: 'Weather' },
 ];
 
 // The tabs shown by default: a mix of US and international outlets.
@@ -42,7 +53,13 @@ export const DEFAULT_TABS = [
   'UCJHAT3Uvv-g3I8H3GhHWV7w',
 ];
 
-export function embedUrl(videoId: string): string {
+export function embedUrl(platform: Channel['platform'], videoId: string): string {
+  if (platform === 'rumble') {
+    // autoplay=2 starts muted, which browsers allow.
+    return 'https://rumble.com/embed/' + encodeURIComponent(videoId) + '/?autoplay=2';
+  }
   const p = new URLSearchParams({ autoplay: '1', mute: '1', playsinline: '1' });
   return 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(videoId) + '?' + p.toString();
 }
+
+export const channelById = (id: string): Channel => CHANNELS.find((c) => c.id === id) ?? CHANNELS[0];

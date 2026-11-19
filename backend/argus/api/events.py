@@ -1,6 +1,7 @@
 """Events, summary, sources, news, place search and the live socket."""
 
 import asyncio
+import time
 from urllib.parse import urlsplit
 
 from fastapi import (
@@ -14,7 +15,7 @@ from fastapi import (
 from sqlalchemy import or_, select
 
 from argus import events as ev
-from argus import places, youtube
+from argus import places, tension, youtube
 from argus.api.deps import SESSION_COOKIE, DbDep, SessionDep
 from argus.models import Article, Event
 from argus.services import load_session
@@ -73,6 +74,22 @@ async def get_summary(
     return await ev.summary(db, hours)
 
 
+TENSION_CACHE_S = 60
+
+
+@router.get("/api/tension")
+async def get_tension(session: SessionDep, db: DbDep, request: Request):
+    """The tension index, computed at most once a minute for everyone."""
+    state = request.app.state
+    cached = getattr(state, "tension_cache", None)
+    now = time.monotonic()
+    if cached and now - cached[0] < TENSION_CACHE_S:
+        return cached[1]
+    body = await tension.snapshot(db)
+    state.tension_cache = (now, body)
+    return body
+
+
 @router.get("/api/sources")
 async def get_sources(session: SessionDep, db: DbDep):
     return {"sources": await ev.source_status(db)}
@@ -96,11 +113,16 @@ async def get_news(
 
 
 @router.get("/api/news/live/{channel}")
-async def live_video(channel: str, session: SessionDep, request: Request):
-    """The current live video of a YouTube channel, for the news player."""
-    if not youtube.CHANNEL_RE.match(channel):
-        raise HTTPException(422, "Not a YouTube channel ID.")
-    return await request.app.state.youtube.resolve(channel)
+async def live_video(
+    channel: str,
+    session: SessionDep,
+    request: Request,
+    platform: str = Query("youtube", pattern="^(youtube|rumble)$"),
+):
+    """A channel's current live video, for the news player."""
+    if not youtube.valid_channel(platform, channel):
+        raise HTTPException(422, "Not a channel ID for that platform.")
+    return await request.app.state.youtube.resolve(channel, platform)
 
 
 @router.get("/api/places")

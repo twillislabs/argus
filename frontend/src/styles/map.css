@@ -145,3 +145,30 @@
 .np-opt { display: flex; gap: 8px; align-items: center; font-size: 12.5px; padding: 2px 0; }
 .np-foot { padding: 4px 10px 6px; font-size: 10.5px; color: var(--dim); }
 .iconbtn.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/* A news player popped out into its own window. */
+.newspage { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; background: #000; }
+.newspage .np-head { cursor: default; background: var(--bg-1, #0d1117); }
+.newspage select { flex: 1; max-width: 320px; background: transparent; color: var(--text); border: 1px solid var(--line-2); border-radius: 4px; padding: 3px 6px; font-size: 12.5px; }
+.newspage .np-video { aspect-ratio: auto; }
+
+/* World tension (Situation, Brief, Wall). */
+.tgauge { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; }
+.tnum { font-size: 30px; font-weight: 600; line-height: 1; }
+.tband { font: 600 12px/1 var(--f-head); letter-spacing: 0.1em; text-transform: uppercase; }
+.b-normal { color: var(--muted); }
+.b-elevated { color: #e3c04b; }
+.b-high { color: #ff8a3d; }
+.b-severe { color: var(--crit); }
+.tdelta { margin-left: auto; font-size: 11px; color: var(--dim); }
+.tdelta.up { color: var(--crit); }
+.tdelta.down { color: #4fc1b0; }
+.tbar { position: relative; height: 6px; margin: 10px 0 12px; border-radius: 3px; background: linear-gradient(90deg, #2a3442 0 50%, #e3c04b 60%, #ff8a3d 75%, #ff5260 90%); }
+.tbar i { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--text); transform: translateX(-1px); }
+.tlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.tlist li { display: grid; grid-template-columns: 1fr 90px 26px; gap: 8px; align-items: center; font-size: 12.5px; }
+.tname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tmeter { height: 4px; border-radius: 2px; background: var(--line-2); overflow: hidden; }
+.tmeter i { display: block; height: 100%; background: currentColor; }
+.tmeter i.b-normal { background: #4a5668; }
+.tval { text-align: right; color: var(--muted); }

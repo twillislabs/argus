@@ -31,10 +31,12 @@ import {
   getAirspaceStructure,
   getGps,
   type GpsCell,
+  type Tension,
   getMapConfig,
   getSatelliteCatalog,
   getVessels,
   getSummary,
+  getTension,
   type Me,
   savePreferences,
   type SearchResult,
@@ -45,6 +47,7 @@ import {
 import { connectLive, type LiveState } from '../lib/live';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import { DEFAULT_SPACE, type SatCatalog, type SpaceFilters } from '../map/satellites';
+import { TINT_FROM } from '../map/tensionLayer';
 import type { SeaFilters } from '../map/vesselLayer';
 import type { AirspaceFilters } from '../map/airspaceLayer';
 import Globe, { type Basemap, BASEMAPS, type GlobeHandle, type Imagery, PHOTO_3D } from '../map/Globe';
@@ -52,6 +55,7 @@ import { applyLayers, buildShareLink, takeShareLink } from '../lib/share';
 
 const REFRESH_MS = 60_000;
 const CIVIL_MS = 15_000;
+const MAX_NEWS_PLAYERS = 4;
 const TRAIL_POINTS = 240;
 // Camera height when double-clicking an event: close enough to see the
 // area, wide enough to keep its surroundings.
@@ -80,6 +84,7 @@ function initialFilters(me: Me): LayerFilters {
       ...DEFAULT_FILTERS.airspace,
       ...((me.preferences.airspace as Partial<AirspaceFilters> | undefined) ?? {}),
     },
+    tension: me.preferences.tension !== false,
   };
 }
 
@@ -119,15 +124,28 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [vessels, setVessels] = useState<Vessel[]>([]);
   const [seaStatus, setSeaStatus] = useState<SeaStatus>('waiting');
   const [trackedVessel, setTrackedVessel] = useState<Vessel | null>(null);
-  const savedNews = (me.preferences.news ?? {}) as { open?: boolean; channel?: string; tabs?: string[] };
-  const [newsOpen, setNewsOpen] = useState(savedNews.open === true);
-  const [newsChannel, setNewsChannel] = useState(savedNews.channel ?? DEFAULT_TABS[0]);
+  // Live news players on the map: one channel each, sharing the tabs.
+  const savedNews = (me.preferences.news ?? {}) as {
+    open?: boolean;
+    channel?: string;
+    tabs?: string[];
+    players?: string[];
+  };
+  const [newsPlayers, setNewsPlayers] = useState<string[]>(
+    savedNews.players ?? (savedNews.open ? [savedNews.channel ?? DEFAULT_TABS[0]] : []),
+  );
   const [newsTabs, setNewsTabs] = useState<string[]>(savedNews.tabs ?? DEFAULT_TABS);
-  const saveNews = (next: { open: boolean; channel: string; tabs: string[] }) =>
-    void savePreferences({ news: next }).catch(() => undefined);
+  const saveNews = (players: string[], tabs: string[]) => {
+    setNewsPlayers(players);
+    setNewsTabs(tabs);
+    void savePreferences({
+      news: { open: players.length > 0, channel: players[0] ?? savedNews.channel, tabs, players },
+    }).catch(() => undefined);
+  };
   const [airspaceItems, setAirspaceItems] = useState<AirspaceItem[]>([]);
   const [selectedAirspace, setSelectedAirspace] = useState<string | null>(null);
   const [gpsCells, setGpsCells] = useState<GpsCell[]>([]);
+  const [tension, setTension] = useState<Tension | null>(null);
   const [structureItems, setStructureItems] = useState<AirspaceItem[]>([]);
   const [structureStatus, setStructureStatus] = useState<'ok' | 'zoom' | 'nokey' | 'error'>('zoom');
   const [selectedInfra, setSelectedInfra] = useState<string | null>(null);
@@ -233,15 +251,19 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     void load();
   }, [load, filters.hours, filters.candidates, filters.minSeverity]);
   useEffect(() => {
-    void loadMilitary();
-    const id = window.setInterval(() => {
-      void load();
-      void loadMilitary();
-    }, REFRESH_MS);
+    const id = window.setInterval(() => void load(), REFRESH_MS);
     return () => window.clearInterval(id);
-  }, [load, loadMilitary]);
+  }, [load]);
+  // Aircraft are only requested while their layer is on.
+  useEffect(() => {
+    if (!filters.air.military) return;
+    void loadMilitary();
+    const id = window.setInterval(() => void loadMilitary(), REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, [loadMilitary, filters.air.military]);
   useEffect(() => {
     void loadCivil();
+    if (!filters.air.civil) return;
     const id = window.setInterval(() => void loadCivil(), CIVIL_MS);
     return () => window.clearInterval(id);
   }, [loadCivil, filters.air.civil]);
@@ -297,12 +319,15 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }, [satCatalog]);
 
   const viewTimer = useRef<number | undefined>(undefined);
+  // The area on screen when zoomed in to a region (null for wide views).
+  const [viewBox, setViewBox] = useState<Bbox | null>(null);
   // passive: reported while the camera rides along with an aircraft; the
   // regular civil refresh picks the new area up, so don't fetch now.
   const onView = useCallback(
     (bbox: Bbox | null, _height: number, passive = false) => {
       viewRef.current = bbox;
       if (passive) return;
+      setViewBox(bbox);
       window.clearTimeout(viewTimer.current);
       viewTimer.current = window.setTimeout(() => {
         void loadCivil();
@@ -404,6 +429,21 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     };
   }, [aircraft, selectedHex, selectedMmsi, shownVessels]);
 
+  // Tension index: the Situation panel shows it, the map tints with it.
+  useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      getTension()
+        .then((t) => !cancelled && setTension(t))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 300_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
   // Airspace areas, while any airspace layer is on (every 10 minutes).
   const airspaceOn = filters.airspace.tfr || filters.airspace.sigmet || filters.airspace.czib;
   useEffect(() => {
@@ -464,6 +504,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       sea: next.sea,
       airspace: next.airspace,
       infra: next.infra,
+      tension: next.tension,
     }).catch(
       () => undefined,
     );
@@ -751,6 +792,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
           <LayerPanel
             filters={filters}
             counts={counts}
+            tensionCount={tension ? tension.countries.filter((c) => c.level >= TINT_FROM).length : undefined}
             airCounts={airCounts}
             civilStatus={civilStatus}
             satCounts={satCounts}
@@ -778,6 +820,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             airspaceFilters={filters.airspace}
             selectedAirspace={selectedAirspace}
             gpsCells={gpsCells}
+            tensionCountries={tension?.countries ?? []}
+            showTension={filters.tension}
             infra={filters.infra}
             home={home}
             events={shown}
@@ -871,14 +915,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             </button>
             <span className="mc-gap" />
             <button
-              className={'iconbtn small' + (newsOpen ? ' on' : '')}
+              className={'iconbtn small' + (newsPlayers.length ? ' on' : '')}
               title="Live news channels"
               aria-label="Live news"
-              aria-pressed={newsOpen}
-              onClick={() => {
-                setNewsOpen(!newsOpen);
-                saveNews({ open: !newsOpen, channel: newsChannel, tabs: newsTabs });
-              }}
+              aria-pressed={newsPlayers.length > 0}
+              onClick={() => saveNews(newsPlayers.length ? [] : [savedNews.channel ?? newsTabs[0] ?? DEFAULT_TABS[0]], newsTabs)}
             >
               TV
             </button>
@@ -906,24 +947,26 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             {rightOpen ? '›' : '‹'}
           </button>
           {(loadError || notice) && <div className="notice">{loadError || notice}</div>}
-          {newsOpen && (
+          {newsPlayers.map((channel, i) => (
             <NewsPlayer
-              channel={newsChannel}
+              key={i}
+              index={i}
+              channel={channel}
               tabs={newsTabs}
-              onChannel={(id) => {
-                setNewsChannel(id);
-                saveNews({ open: true, channel: id, tabs: newsTabs });
-              }}
-              onTabs={(ids) => {
-                setNewsTabs(ids);
-                saveNews({ open: true, channel: newsChannel, tabs: ids });
-              }}
-              onClose={() => {
-                setNewsOpen(false);
-                saveNews({ open: false, channel: newsChannel, tabs: newsTabs });
-              }}
+              onChannel={(id) => saveNews(newsPlayers.map((c, j) => (j === i ? id : c)), newsTabs)}
+              onTabs={(ids) => saveNews(newsPlayers, ids)}
+              onClose={() => saveNews(newsPlayers.filter((_, j) => j !== i), newsTabs)}
+              onAdd={
+                newsPlayers.length < MAX_NEWS_PLAYERS
+                  ? () => {
+                      // Start the new player on the next tab not already playing.
+                      const next = newsTabs.find((t) => !newsPlayers.includes(t)) ?? channel;
+                      saveNews([...newsPlayers, next], newsTabs);
+                    }
+                  : undefined
+              }
             />
-          )}
+          ))}
           {camera === 'cockpit' && tracked && (
             <CockpitHud aircraft={tracked} reportedAt={trackedAt} destination={trackedRoute?.destination ?? null} />
           )}
@@ -1016,6 +1059,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 onSelect={selectAndFly}
                 aircraft={aircraft}
                 onSelectAircraft={(hex) => selectAircraft(hex, 'follow')}
+                tension={tension}
+                view={viewBox}
               />
             )}
           </aside>

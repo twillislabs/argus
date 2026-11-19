@@ -40,16 +40,17 @@ import {
 } from '@cesium/engine';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
-import type { Aircraft, AirspaceItem, Bbox, EventItem, GpsCell, Home, MapConfig, Vessel } from '../lib/api';
+import type { Aircraft, AirspaceItem, Bbox, EventItem, GpsCell, Home, MapConfig, TensionCountry, Vessel } from '../lib/api';
 import { SEVERITY_COLOR } from '../lib/format';
 import { type AircraftCamera, type CameraMode, createAircraftCamera } from './aircraftCamera';
 import { addAircraftLayer, type AircraftLayer, aircraftColor } from './aircraftLayer';
 import { addAirspaceLayer, type AirspaceFilters, type AirspaceLayer } from './airspaceLayer';
 import { addGpsLayer, type GpsLayer } from './gpsLayer';
+import { addTensionLayer, type TensionLayer } from './tensionLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
-import { addCloseModels, type CloseModels } from './closeModels';
+import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './closeModels';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
-import { addOverlays, type Overlays, type ReferenceLayers } from './overlays';
+import { addOverlays, type Overlays, type ReferenceLayers, TILE_LABELS_BELOW } from './overlays';
 import { addVesselLayer, VESSEL_COLOR, type VesselLayer } from './vesselLayer';
 import {
   addSatelliteLayer,
@@ -152,6 +153,21 @@ function tintLayer(): ImageryLayer {
 // Google's photorealistic 3D cities, when an admin turned them on.
 export const PHOTO_3D: { id: Basemap; label: string } = { id: 'photo3d', label: '3D' };
 
+// The basemap's own name and road layers (Esri reference, Google roads),
+// switched by Layers > Reference > Basemap labels.
+const LABEL_LAYERS = new WeakSet<ImageryLayer>();
+// Street detail (the self-hosted street map) appears with the labels, so
+// its area doesn't show as a patch from higher up.
+const DETAIL_LAYERS = new WeakSet<ImageryLayer>();
+// Label tiles fade in over this band of camera heights; above it Argus's
+// own labels name places (overlays.ts steps aside below the bottom).
+const LABELS_TOP = TILE_LABELS_BELOW * 1.5;
+const LABELS_BOTTOM = TILE_LABELS_BELOW;
+function labelLayer(layer: ImageryLayer): ImageryLayer {
+  LABEL_LAYERS.add(layer);
+  return layer;
+}
+
 // Cesium's typings disagree with themselves on getTileCredits; the
 // provider is a normal ImageryProvider at runtime.
 function google2d(options: Parameters<typeof Google2DImageryProvider.fromUrl>[0]) {
@@ -168,7 +184,7 @@ function googleLayers(id: Basemap, key: string): ImageryLayer[] {
   if (id !== 'hybrid') return base;
   return [
     ...base,
-    ImageryLayer.fromProviderAsync(google2d({ key, overlayLayerType: 'layerRoadmap' })),
+    labelLayer(ImageryLayer.fromProviderAsync(google2d({ key, overlayLayerType: 'layerRoadmap' }))),
   ];
 }
 
@@ -188,7 +204,7 @@ function basemapLayers(id: Basemap, imagery: Imagery | null): ImageryLayer[] {
         gamma: 1.1,
       }),
       tintLayer(),
-      new ImageryLayer(esri('Canvas/World_Dark_Gray_Reference', 16), { brightness: 1.15 }),
+      labelLayer(new ImageryLayer(esri('Canvas/World_Dark_Gray_Reference', 16), { brightness: 1.15 })),
     ];
   }
   const esriImagery = new ImageryLayer(
@@ -198,8 +214,8 @@ function basemapLayers(id: Basemap, imagery: Imagery | null): ImageryLayer[] {
   if (id === 'satellite') return base;
   return [
     ...base,
-    new ImageryLayer(esri('Reference/World_Transportation', 19)),
-    new ImageryLayer(esri('Reference/World_Boundaries_and_Places', 19)),
+    labelLayer(new ImageryLayer(esri('Reference/World_Transportation', 19))),
+    labelLayer(new ImageryLayer(esri('Reference/World_Boundaries_and_Places', 19))),
   ];
 }
 
@@ -323,6 +339,8 @@ interface Props {
   airspaceFilters: AirspaceFilters;
   selectedAirspace: string | null;
   gpsCells: GpsCell[];
+  tensionCountries: TensionCountry[];
+  showTension: boolean;
   infra: InfraFilters;
   home: Home | null;
   events: EventItem[];
@@ -354,6 +372,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     airspaceFilters,
     selectedAirspace,
     gpsCells,
+    tensionCountries,
+    showTension,
     infra,
     home,
     events,
@@ -384,6 +404,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const models = useRef<CloseModels | null>(null);
   const areas = useRef<AirspaceLayer | null>(null);
   const gps = useRef<GpsLayer | null>(null);
+  const tensionLayer = useRef<TensionLayer | null>(null);
   const infraLayer = useRef<InfraLayer | null>(null);
   const vesselsRef = useRef(vessels);
   vesselsRef.current = vessels;
@@ -429,6 +450,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     models.current = addCloseModels(scene);
     areas.current = addAirspaceLayer(scene);
     gps.current = addGpsLayer(scene);
+    tensionLayer.current = addTensionLayer(scene);
     infraLayer.current = addInfraLayer(scene);
     const satLayer = addSatelliteLayer(scene);
     sats.current = satLayer;
@@ -460,7 +482,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       const css = isShip ? VESSEL_COLOR[vessel?.category ?? 'other'] : aircraftColor(target);
       const shown =
         mode !== 'cockpit' &&
-        (models.current?.place(isShip ? 'ship' : 'aircraft', position, target.track ?? 0, css) ?? false);
+        (models.current?.place(isShip ? shipModel(vessel) : aircraftModel(target), position, target.track ?? 0, css) ??
+          false);
       if (mode === 'cockpit') models.current?.hide();
       if (isShip) ships.current?.setHidden(shown ? mmsi : null);
       else if (mode !== 'cockpit') air.current?.setHidden(shown ? target.hex : null);
@@ -503,12 +526,15 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     function applyFade() {
       const h = v.camera.positionCartographic.height;
       const t = Math.min(1, Math.max(0, (FADE_TOP - h) / (FADE_TOP - FADE_BOTTOM)));
+      const lt = Math.min(1, Math.max(0, (LABELS_TOP - h) / (LABELS_TOP - LABELS_BOTTOM)));
+      tensionLayer.current?.setHeight(h);
       const isDark = basemapRef.current === 'dark';
       dark.current?.setVisible(isDark);
       if (isDark) dark.current?.setFade(1 - t);
       for (const layer of tiles.current) {
         const base = (layer as ImageryLayer & { argusAlpha?: number }).argusAlpha ?? 1;
-        layer.alpha = (isDark ? t : 1) * base;
+        const detail = LABEL_LAYERS.has(layer) || DETAIL_LAYERS.has(layer) ? lt : 1;
+        layer.alpha = (isDark ? t : 1) * base * detail;
       }
     }
     let depthNow = -1;
@@ -593,6 +619,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['models', () => models.current?.destroy()],
         ['airspace', () => areas.current?.destroy()],
         ['gps', () => gps.current?.destroy()],
+        ['tension', () => tensionLayer.current?.destroy()],
         ['infrastructure', () => infraLayer.current?.destroy()],
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
@@ -613,6 +640,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       models.current = null;
       areas.current = null;
       gps.current = null;
+      tensionLayer.current = null;
       infraLayer.current = null;
       air.current = null;
       tracker.current = null;
@@ -654,13 +682,17 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           if (!stale && !v.isDestroyed()) v.scene.globe.show = true;
         });
     }
-    for (const layer of tiles.current) v.scene.imageryLayers.add(layer);
+    for (const layer of tiles.current) {
+      if (LABEL_LAYERS.has(layer)) layer.show = referenceRef.current.basemapLabels;
+      v.scene.imageryLayers.add(layer);
+    }
     // Inside the installed region, the self-hosted street map draws over
     // Esri; outside it, Esri shows as before.
     if (basemap === 'dark') {
       void localStreetBounds().then((bounds) => {
         if (stale || !bounds || v.isDestroyed()) return;
         const layer = localStreetLayer(bounds);
+        DETAIL_LAYERS.add(layer);
         v.scene.imageryLayers.add(layer);
         tiles.current = [...tiles.current, layer];
         (v as unknown as { applyFade?: () => void }).applyFade?.();
@@ -774,6 +806,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     gps.current?.update(gpsCells, airspaceFilters.gps);
   }, [gpsCells, airspaceFilters.gps]);
+
+  useEffect(() => {
+    tensionLayer.current?.update(tensionCountries, showTension);
+  }, [tensionCountries, showTension]);
   const infraKey = [infra.nuclear, infra.power, infra.cables, infra.bases].join('');
   const infraRef = useRef(infra);
   infraRef.current = infra;
@@ -818,9 +854,19 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     }
   }, [followSat, selectedNorad]);
 
-  const referenceKey = [reference.borders, reference.states, reference.labels, reference.airports, reference.ports].join('');
+  const referenceKey = [
+    reference.borders,
+    reference.states,
+    reference.labels,
+    reference.airports,
+    reference.ports,
+    reference.basemapLabels,
+  ].join('');
   useEffect(() => {
     overlays.current?.setLayers(referenceRef.current);
+    for (const layer of tiles.current) {
+      if (LABEL_LAYERS.has(layer)) layer.show = referenceRef.current.basemapLabels;
+    }
   }, [referenceKey]);
 
   useEffect(() => {
