@@ -72,6 +72,7 @@ import { addWikiLayer, type WikiLayer } from './wikiLayer';
 import { addAlprLayer, type AlprLayer } from './alprLayer';
 import { addCamLayer, type CamLayer, WEBCAM_COLOR } from './camLayer';
 import { addWxLayer, type WeatherFilters, type WxLayer } from './wxLayer';
+import { addSentinelLayer, type SentinelLayer, type SentinelView } from './sentinelLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
 import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './closeModels';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
@@ -304,6 +305,8 @@ export interface GlobeHandle {
   airport: (index: number) => Airport | null;
   port: (index: number) => Port | null;
   setAirportRings: (colors: Record<string, string>) => void;
+  // Recent imagery over a box, or null to remove it.
+  showSentinel: (view: SentinelView | null) => void;
   cable: (id: string) => { id: string; name: string } | null;
   base: (index: number) => Base | null;
   satPasses: (norad: number, lat: number, lon: number) => Promise<Pass[]>;
@@ -487,6 +490,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const tracker = useRef<AircraftCamera | null>(null);
   const photo3d = useRef<Cesium3DTileset | null>(null);
   const overlays = useRef<Overlays | null>(null);
+  const sentinel = useRef<SentinelLayer | null>(null);
+  const applyFadeRef = useRef<(() => void) | null>(null);
   // Set before the overlays finish loading too; applied when they do.
   const airportRings = useRef<Record<string, string>>({});
   const sats = useRef<SatelliteLayer | null>(null);
@@ -608,6 +613,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       },
     }));
     infraLayer.current = addInfraLayer(scene);
+    sentinel.current = addSentinelLayer(scene);
     const satLayer = addSatelliteLayer(scene);
     sats.current = satLayer;
     // Following a satellite: keep the camera's offset from it, re-anchored
@@ -704,7 +710,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       // Weather imagery lies on the globe under the dark map's land
       // shapes: while clouds or rain are on, keep the land see-through.
       const wxOn = Boolean(weatherRef.current?.clouds || weatherRef.current?.precip);
-      if (isDark) dark.current?.setFade(Math.min(1 - t, wxOn ? WX_LAND_ALPHA : 1));
+      // Sentinel imagery the same, fully see-through.
+      const landMax = sentinel.current?.on() ? 0 : wxOn ? WX_LAND_ALPHA : 1;
+      if (isDark) dark.current?.setFade(Math.min(1 - t, landMax));
       for (const layer of tiles.current) {
         const base = (layer as ImageryLayer & { argusAlpha?: number }).argusAlpha ?? 1;
         const detail = LABEL_LAYERS.has(layer) || DETAIL_LAYERS.has(layer) ? lt : 1;
@@ -731,6 +739,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       depthNow = -1;
       applyDepth();
     };
+    applyFadeRef.current = applyFade;
     v.camera.percentageChanged = 0.02;
     const removeCamera = v.camera.changed.addEventListener(() => {
       applyFade();
@@ -767,6 +776,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     draw.current = createDrawTools(v, {
       onDrawn: (d) => drawCbRef.current?.onDrawn(d),
       onSelectArea: (ring) => drawCbRef.current?.onSelectArea(ring),
+      onImageryArea: (ring) => drawCbRef.current?.onImageryArea?.(ring),
       onDelete: (id) => drawCbRef.current?.onDelete(id),
       onText: (at, screen) => drawCbRef.current?.onText(at, screen),
       onHint: (hint) => drawCbRef.current?.onHint(hint),
@@ -858,6 +868,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['webcams', () => webcamLayer.current?.destroy()],
         ['weather', () => wx.current?.destroy()],
         ['infrastructure', () => infraLayer.current?.destroy()],
+        ['sentinel', () => sentinel.current?.destroy()],
         ['pulse listener', removePulse],
         ['fps counter', () => fpsOff?.()],
         ['input handler', () => handler.destroy()],
@@ -1337,6 +1348,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         },
         port(index) {
           return overlays.current?.port(index) ?? null;
+        },
+        showSentinel(view) {
+          sentinel.current?.show(view);
+          applyFadeRef.current?.();
         },
         setAirportRings(colors) {
           airportRings.current = colors;

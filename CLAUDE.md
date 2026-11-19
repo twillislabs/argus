@@ -197,6 +197,14 @@ parts connect.
   only (`FeedClient.get(..., only=)`), publishing a bare sample
   (`gps_sample`) on NATS `argus.gps`; the API feeds it to `GpsGrid` and
   nothing else (not stored, not pushed). `ARGUS_GPS_SWEEP=false` stops it.
+- Recent imagery: `argus/imagery.py` + `api/imagery.py` (Planetary
+  Computer STAC search, mosaic register, tile proxy cached a week on
+  disk in `ARGUS_IMAGERY_CACHE_DIR`), `map/sentinelLayer.ts` (box-limited
+  ImageryLayer, compare via `scene.splitPosition`),
+  `components/ImageryPanel.tsx` (state kept in MapPage as `sentinel`).
+  Mosaic tile requests need `collection=` as well. Sentinel-1 is the GRD
+  collection: sentinel-1-rtc needs a Planetary Computer account. While
+  imagery is shown the dark map's land is fully see-through.
 - Airports and ports (`map/overlays.ts`) are picked as `apt:<i>` and
   `port:<i>` (index into the bundled JSON); `PlaceInspector` shows them
   with headlines from `/api/news?q=` (`searchTerms` trims "International

@@ -5,6 +5,7 @@ import AirspaceInspector from '../components/AirspaceInspector';
 import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
 import PlaceInspector from '../components/PlaceInspector';
+import ImageryPanel, { type ImageryState, newImagery } from '../components/ImageryPanel';
 import { FAA_COLOR, faaLevel, faaLine, type FaaStatus, getFaaStatus } from '../lib/faa';
 import AlprInspector from '../components/AlprInspector';
 import BridgeHud from '../components/BridgeHud';
@@ -525,10 +526,28 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (t === 'none') setNotePrompt(null);
   }, []);
   const selectInAreaRef = useRef<(ring: [number, number][]) => void>(() => undefined);
+  const imageryAreaRef = useRef<(ring: [number, number][]) => void>(() => undefined);
+  // Recent imagery over a drawn box (ImageryPanel); stays on the map
+  // until removed.
+  const [sentinel, setSentinel] = useState<ImageryState | null>(null);
+  useEffect(() => {
+    globe.current?.showSentinel(
+      sentinel?.tiles
+        ? {
+            box: sentinel.box,
+            tiles: sentinel.tiles,
+            before: sentinel.beforeTiles,
+            alpha: sentinel.alpha,
+            split: sentinel.split,
+          }
+        : null,
+    );
+  }, [sentinel]);
   const drawCallbacks = useMemo<DrawCallbacks>(
     () => ({
       onDrawn: (d) => saveDrawings([...drawingsRef.current, d]),
       onSelectArea: (ring) => selectInAreaRef.current(ring),
+      onImageryArea: (ring) => imageryAreaRef.current(ring),
       onDelete: (id) => saveDrawings(drawingsRef.current.filter((d) => d.id !== id)),
       onText: (at, screen) => setNotePrompt({ at, x: screen.x, y: screen.y }),
       onHint: (hint) => setToolHint(hint),
@@ -1170,6 +1189,16 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   // Double-click: an event zooms in on its area, an aircraft is followed.
   // Select tools: everything on the map inside the drawn area.
+  imageryAreaRef.current = (ring) => {
+    const lons = ring.map((p) => p[0]);
+    const lats = ring.map((p) => p[1]);
+    const box: ImageryState['box'] = [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
+    chooseTool('none');
+    clearSelection();
+    setSentinel(newImagery(box));
+    openRight();
+  };
+
   selectInAreaRef.current = (ring) => {
     const inside = (lat: number, lon: number) => inRing([lon, lat], ring);
     clearSelection();
@@ -1946,6 +1975,16 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 id={selected}
                 onBack={() => setSelected(null)}
                 onFly={(lat, lon) => globe.current?.flyTo(lat, lon)}
+              />
+            ) : sentinel ? (
+              <ImageryPanel
+                state={sentinel}
+                onChange={(next) => setSentinel((s) => (s ? next(s) : s))}
+                onClose={() => setSentinel(null)}
+                onFly={() => {
+                  const [w, s, e, n] = sentinel.box;
+                  globe.current?.flyTo((s + n) / 2, (w + e) / 2, Math.max(15_000, (n - s) * 111_000 * 1.6));
+                }}
               />
             ) : (
               <SituationPanel

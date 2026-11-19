@@ -150,6 +150,13 @@ export default function MapToolbar({ tool, onTool, onCapture, onClear, drawingCo
       <button aria-pressed={tool === 'text'} title="Add a note to the map" onClick={() => toggle('text')}>
         Note
       </button>
+      <button
+        aria-pressed={tool === 'imagery-box'}
+        title="Recent satellite imagery: draw a box (Sentinel-2 and Sentinel-1)"
+        onClick={() => toggle('imagery-box')}
+      >
+        Imagery
+      </button>
       <button title="Save a PNG of the map" onClick={onCapture}>
         Capture
       </button>

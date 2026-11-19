@@ -31,7 +31,7 @@ import { circleRing, densify, distanceKm, type LonLat, pathKm, rectRing, ringAre
 import { distance } from '../lib/units';
 
 export type ShapeKind = 'point' | 'line' | 'polygon' | 'rectangle' | 'circle' | 'text' | 'measure';
-export type Tool = 'none' | ShapeKind | 'delete' | 'select-box' | 'select-polygon' | 'select-circle';
+export type Tool = 'none' | ShapeKind | 'delete' | 'select-box' | 'select-polygon' | 'select-circle' | 'imagery-box';
 
 export interface Drawing {
   id: string;
@@ -71,6 +71,8 @@ export interface DrawCallbacks {
   onDrawn: (d: Drawing) => void;
   // A select tool finished: the area to select inside.
   onSelectArea: (ring: LonLat[]) => void;
+  // The Recent imagery tool finished: the box to fetch imagery for.
+  onImageryArea?: (ring: LonLat[]) => void;
   onDelete: (id: string) => void;
   // The text tool was clicked here: ask for the text.
   onText: (at: LonLat, screen: { x: number; y: number }) => void;
@@ -102,6 +104,8 @@ const HINTS: Record<Tool, string | null> = {
   text: 'Click where the note goes · Esc to stop',
   measure: 'Click to add points · double-click or Enter to finish · Esc cancels',
   delete: 'Click a drawn shape to delete it · Esc to stop',
+  'imagery-box':
+    'Click one corner, then the opposite corner, for recent satellite imagery (up to about 100 km) · Esc cancels',
   'select-box': 'Click one corner, then the opposite corner, to select what’s inside · Esc cancels',
   'select-polygon': 'Click around the area to select · double-click or Enter to finish · Esc cancels',
   'select-circle': 'Click the centre, then the edge, to select what’s inside · Esc cancels',
@@ -237,7 +241,7 @@ export function createDrawTools(v: CesiumWidget, cb: DrawCallbacks): DrawTools {
     let shape: LonLat[] = pts;
     let text = '';
     const kind =
-      tool === 'select-box'
+      tool === 'select-box' || tool === 'imagery-box'
         ? 'rectangle'
         : tool === 'select-circle'
           ? 'circle'
@@ -264,7 +268,13 @@ export function createDrawTools(v: CesiumWidget, cb: DrawCallbacks): DrawTools {
     const t = tool;
     if (t === 'none' || t === 'delete' || t === 'text' || t === 'point') return;
     const kind: ShapeKind =
-      t === 'select-box' ? 'rectangle' : t === 'select-circle' ? 'circle' : t === 'select-polygon' ? 'polygon' : t;
+      t === 'select-box' || t === 'imagery-box'
+        ? 'rectangle'
+        : t === 'select-circle'
+          ? 'circle'
+          : t === 'select-polygon'
+            ? 'polygon'
+            : t;
     const need = kind === 'polygon' ? 3 : 2;
     if (pending.length < need) return;
     const shape: Drawing = { id: Date.now().toString(36), kind, points: [...pending] };
@@ -275,7 +285,10 @@ export function createDrawTools(v: CesiumWidget, cb: DrawCallbacks): DrawTools {
       shape.points = [pending[0], pending[1]];
     }
     reset();
-    if (t.startsWith('select')) {
+    if (t === 'imagery-box') {
+      const ring = shapeRing(shape);
+      if (ring) cb.onImageryArea?.(ring);
+    } else if (t.startsWith('select')) {
       const ring = shapeRing(shape);
       if (ring) cb.onSelectArea(ring);
     } else {
@@ -316,7 +329,12 @@ export function createDrawTools(v: CesiumWidget, cb: DrawCallbacks): DrawTools {
         return true;
       }
       pending.push(at);
-      const twoClick = tool === 'rectangle' || tool === 'circle' || tool === 'select-box' || tool === 'select-circle';
+      const twoClick =
+        tool === 'rectangle' ||
+        tool === 'circle' ||
+        tool === 'select-box' ||
+        tool === 'select-circle' ||
+        tool === 'imagery-box';
       if (twoClick && pending.length === 2) complete();
       else renderPreview();
       return true;

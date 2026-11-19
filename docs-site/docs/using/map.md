@@ -172,12 +172,37 @@ The toolbar under the base map buttons, as in Palantir's Foundry Map:
 | **Draw ▾** | Point, line, polygon, rectangle or circle. Areas show their size and circles their radius |
 | **Measure** | Click points along a route; the running distance follows the cursor |
 | **Note** | Click the map, type a note, press Enter |
+| **Imagery** | Draw a box (up to about 100 km across) for recent satellite imagery of it: see [Recent imagery](#recent-imagery) |
 | **Capture** | Saves a PNG of the map as it is now |
 | **Delete** | **Click to delete** removes drawings and notes one at a time; **Delete all** clears them (after a confirmation) |
 
 Lines and polygons: click to add points, double-click or **Enter** to
 finish, **Backspace** to undo the last point, **Esc** to cancel. Drawings
 are saved to your account.
+
+### Recent imagery
+
+**Imagery** in the toolbar, then click two corners of a box. Argus lists
+the satellite passes over it from the last 60 days and lays the newest
+clear one over the box:
+
+- **Optical** (Sentinel-2): true colour at about 10 m, every 2 to 5 days.
+  Needs daylight and clear skies; each pass shows its cloud cover.
+- **Radar** (Sentinel-1): sees through cloud and at night, about every 6
+  to 12 days. Bright means rough or metal (buildings, ships), dark means
+  smooth (calm water, runways).
+
+Click a pass to show it. **Compare** puts an older pass left of a split
+line with the chosen one on the right; drag **Split** to wipe between
+them (before and after a flood, a fire or a build-up). **Opacity** fades
+the imagery over the map. The imagery shows from city zoom in and stays
+on the map while you look at other things; **← Situation (remove
+imagery)** takes it off.
+
+The imagery comes from Microsoft's Planetary Computer (free, no key).
+Your Argus server fetches the tiles and keeps them a week, so browsers
+never contact Microsoft. Imagery is days old, not live, and commercial
+high-resolution imagery isn't included.
 
 ## Legend
 

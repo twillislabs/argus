@@ -41,6 +41,9 @@ class Settings(BaseSettings):
         "nws,spc"
     )
     user_agent: str = "Argus/0.1 (self-hosted OSINT visualizer)"
+    # Sentinel imagery tiles, kept a week (argus/imagery.py); empty for
+    # argus-imagery in the system temp directory.
+    imagery_cache_dir: str = ""
     firms_map_key: str | None = None
     # Optional JSON file overriding the default RSS feed list.
     rss_feeds_file: str | None = None
