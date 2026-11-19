@@ -44,7 +44,13 @@ export function FeedItem({ e, onSelect, extra }: { e: EventItem; onSelect: (id: 
   );
 }
 
-export const BAND_LABEL = { calm: 'Calm', elevated: 'Elevated', high: 'High', severe: 'Severe' } as const;
+export const BAND_LABEL = {
+  calm: 'Calm',
+  stable: 'Stable',
+  moderate: 'Moderate',
+  high: 'High tension',
+  extreme: 'Extreme',
+} as const;
 
 function Delta({ v }: { v: number }) {
   if (!v) return <span className="tdelta mono">±0 24h</span>;

@@ -88,8 +88,11 @@ The **Reference** group in the layer panel draws over any base map:
 ## World tension
 
 **World tension** at the top of the Situation panel scores organised
-violence on a 0–100 scale: calm (under 35), elevated, high (60+) and
-severe (80+). It's built to line up with conflict indexes that use the
+violence on a 0–100 scale, with the bands
+[World Tension Meter](https://worldtensionmeter.com/) uses: calm (0–39),
+stable (40–54), moderate (55–67), high tension (68–77) and extreme
+(78–100). World Tension Meter also weighs markets and media attention,
+so its number can differ; Argus counts violence only. It's built to line up with conflict indexes that use the
 same kind of data (ACLED, UCDP, the Global Peace Index):
 
 - **Standing level:** deaths from organised violence (wars, fighting
@@ -113,7 +116,7 @@ Under the gauge are four tiles (events in the time window, military
 aircraft, vessels in view, GPS interference cells) with a sparkline of
 recent values, then **Last 60 minutes**, a few plain sentences on what came
 in over the past hour. **Country tension** (in Events) tints countries from
-elevated up on wide views, deeper the higher the score.
+moderate up on wide views, deeper the higher the score.
 
 ## In view
 

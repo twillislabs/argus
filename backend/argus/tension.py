@@ -16,9 +16,10 @@ Two parts:
   Unconfirmed GDELT reports don't count: most are noise from
   English-language coverage.
 
-level = min(100, standing + live). The world is the mean of the 20
-highest countries; a theatre is led by its highest country (60%) with
-the mean of its top three (40%).
+level = min(100, standing + live). Bands follow World Tension Meter:
+calm 0-39, stable 40-54, moderate 55-67, high 68-77, extreme 78-100.
+The world is the mean of the 20 highest countries; a theatre is led
+by its highest country (60%) with the mean of its top three (40%).
 
 Separately, the worker samples raw scores hourly into tension_daily, and
 "vs normal" compares today's live activity with its 90-day average once
@@ -341,14 +342,12 @@ def level(standing_points: float, raw: float) -> int:
     return min(100, round(standing_points + live_points(raw)))
 
 
+# The bands World Tension Meter uses, so the two read alike.
+BANDS = ((78, "extreme"), (68, "high"), (55, "moderate"), (40, "stable"))
+
+
 def band(value: int) -> str:
-    if value >= 80:
-        return "severe"
-    if value >= 60:
-        return "high"
-    if value >= 35:
-        return "elevated"
-    return "calm"
+    return next((name for floor, name in BANDS if value >= floor), "calm")
 
 
 def vs_normal(raw: float, base: float | None) -> int | None:

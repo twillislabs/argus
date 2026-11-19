@@ -73,10 +73,11 @@ def test_standing_and_live_points():
     assert tension.live_points(1000) == 20
     assert tension.level(64.0, 1.0) == 72
     assert tension.level(95.0, 50.0) == 100
-    assert tension.band(20) == "calm"
-    assert tension.band(50) == "elevated"
-    assert tension.band(70) == "high"
-    assert tension.band(85) == "severe"
+    assert tension.band(39) == "calm"
+    assert tension.band(40) == "stable"
+    assert tension.band(55) == "moderate"
+    assert tension.band(68) == "high"
+    assert tension.band(78) == "extreme"
     assert tension.vs_normal(4.0, 2.0) == 100
     assert tension.vs_normal(4.0, None) is None
 
@@ -136,7 +137,7 @@ async def test_samples_and_baseline(app, admin_client):
     assert body["baseline_ready"] is True
     ukraine = next(c for c in body["countries"] if c["name"] == "Ukraine")
     assert ukraine["level"] == 100
-    assert ukraine["band"] == "severe"
+    assert ukraine["band"] == "extreme"
     assert ukraine["raw"] == 4.0
     assert ukraine["vs_normal"] == 100  # twice its usual live activity
     assert ukraine["events"] == {"conflict": 1}

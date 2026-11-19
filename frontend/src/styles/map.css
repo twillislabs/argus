@@ -159,9 +159,10 @@
 /* World tension (Situation, Brief, Wall). */
 .tband { font: 600 12px/1 var(--f-head); letter-spacing: 0.1em; text-transform: uppercase; }
 .b-calm { color: var(--muted); }
-.b-elevated { color: #e3c04b; }
+.b-stable { color: #9fb3c8; }
+.b-moderate { color: #e3c04b; }
 .b-high { color: #ff8a3d; }
-.b-severe { color: var(--crit); }
+.b-extreme { color: var(--crit); }
 .tdelta { font: 11px var(--f-mono); color: var(--dim); }
 .tdelta.up { color: var(--high); }
 .tdelta.down { color: var(--ok); }

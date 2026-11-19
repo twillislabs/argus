@@ -478,7 +478,7 @@ export interface TensionArea {
   key: string;
   name: string;
   level: number;
-  band: 'calm' | 'elevated' | 'high' | 'severe';
+  band: 'calm' | 'stable' | 'moderate' | 'high' | 'extreme';
   change_24h: number;
   top: { id: string; title: string; type: string; severity: number; status: string; weight: number }[];
 }
