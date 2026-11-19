@@ -17,6 +17,7 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/docker/40-argus-real-ip.sh /docker-entrypoint.d/40-argus-real-ip.sh
 COPY --from=app /src/frontend/dist /usr/share/nginx/html
 COPY --from=docs /src/docs-site/build /usr/share/nginx/html/docs
 HEALTHCHECK --interval=15s --timeout=4s --retries=5 \

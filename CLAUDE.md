@@ -67,6 +67,11 @@ parts connect.
   tiles directly). New external tile hosts must be added to the CSP in
   `frontend/nginx.conf` (img-src and connect-src).
 - nginx uses `absolute_redirect off` so redirects keep the host port.
+- Visitor addresses: `frontend/docker/40-argus-real-ip.sh` writes nginx
+  `set_real_ip_from` lines from `ARGUS_TRUSTED_PROXIES` (validated) and
+  `ARGUS_REAL_IP_HEADER`; nginx then sends the API only `$remote_addr`
+  in X-Forwarded-For / X-Real-IP. Never go back to appending
+  (`$proxy_add_x_forwarded_for`): uvicorn trusts the header.
 - After editing `streetmap/styles/argus-dark.json`, bump
   `STREET_STYLE_VERSION` in `Globe.tsx` (tiles are cached by nginx and
   browsers) and `docker compose restart tiles`. Style expressions can't be

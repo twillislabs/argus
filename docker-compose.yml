@@ -64,6 +64,10 @@ services:
       dockerfile: frontend/Dockerfile
     ports:
       - "${ARGUS_HTTP_PORT:-8080}:80"
+    environment:
+      # Reverse proxy in front (see Admin > Configuration > Behind a proxy).
+      ARGUS_TRUSTED_PROXIES: ${ARGUS_TRUSTED_PROXIES:-}
+      ARGUS_REAL_IP_HEADER: ${ARGUS_REAL_IP_HEADER:-X-Forwarded-For}
     depends_on:
       api:
         condition: service_healthy
