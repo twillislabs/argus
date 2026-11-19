@@ -277,7 +277,12 @@ parts connect.
   `server_settings["wall_profiles"]` (`/api/admin/wall-profiles`); a
   screen follows one through its `wall_profile` preference, and
   `/api/me` merges the profile's wall over its own (keeping only its
-  home). `/wall?profile=` previews one.
+  home). `/wall?profile=` previews one. Pushing: walls poll
+  `/api/display/sync` every 10 s (counters per screen and for all, plus
+  a boot id, in API memory; `push_sync`), bumped by saving a screen or
+  profile and by Sync / Reload in Settings. `mode: "tv"` makes the wall
+  live TV only (`tv_channels`, `muted`, `volume`; LiveFrame's `audio`
+  prop applies sound changes through the YouTube player API).
 - Page titles are set per route in `App.tsx` (`pageTitle`); only
   NewsPage sets its own.
 - Weather: NWS alerts (`nws`, raw kind `wxalert`) and SPC outlooks

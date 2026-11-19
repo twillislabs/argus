@@ -187,3 +187,57 @@ async def test_wall_profiles(app, admin_client):
         assert gone.status_code == 200
         me = (await screen.get("/api/me")).json()["preferences"]
         assert "wall_profile" not in me and "wall_profile_name" not in me
+
+
+async def test_sync_now(admin_client, app):
+    import httpx
+
+    from argus.api import displays
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as screen:
+        start = (await screen.post("/api/display/pair/start")).json()
+        ok = await admin_client.post(
+            "/api/admin/displays",
+            json={"code": start["code"], "name": "Ops TV"},
+            headers=csrf(admin_client),
+        )
+        screen_id = ok.json()["id"]
+        await screen.post(
+            "/api/display/pair/poll", json={"token": start["token"]}
+        )
+        first = (await screen.get("/api/display/sync")).json()
+        assert first["boot"] == displays.BOOT_ID
+
+        # Sync now for that screen moves its counter; Reload moves both.
+        await admin_client.post(
+            "/api/admin/displays/{0}/sync".format(screen_id),
+            json={},
+            headers=csrf(admin_client),
+        )
+        after = (await screen.get("/api/display/sync")).json()
+        assert after["sync"] == first["sync"] + 1
+        assert after["reload"] == first["reload"]
+        await admin_client.post(
+            "/api/admin/displays/sync",
+            json={"reload": True},
+            headers=csrf(admin_client),
+        )
+        every = (await screen.get("/api/display/sync")).json()
+        assert every["sync"] == after["sync"] + 1
+        assert every["reload"] == after["reload"] + 1
+        # Saving the screen's settings pushes to it as well.
+        await admin_client.put(
+            "/api/admin/displays/{0}/wall".format(screen_id),
+            json={"wall": {}, "home": None},
+            headers=csrf(admin_client),
+        )
+        saved = (await screen.get("/api/display/sync")).json()
+        assert saved["sync"] == every["sync"] + 1
+        # Only admins push.
+        r = await screen.post(
+            "/api/admin/displays/sync", json={}, headers=csrf(screen)
+        )
+        assert r.status_code == 403

@@ -206,6 +206,13 @@ class WallPrefs(BaseModel):
 
     news: bool | None = None
     channel: str | None = Field(default=None, max_length=40)
+    # "tv": live TV fills the screen (tv_channels: one full screen, or
+    # up to four in a grid) instead of the map.
+    mode: Literal["map", "tv"] | None = None
+    tv_channels: list[str] | None = Field(default=None, max_length=4)
+    # The live TV's sound (the first channel only, in a grid).
+    muted: bool | None = None
+    volume: int | None = Field(default=None, ge=0, le=100)
     zones: list[WallClock] | None = Field(default=None, max_length=4)
     # None: home, then every theatre. One stop pins the screen there.
     stops: list[WallStop] | None = Field(default=None, max_length=30)
@@ -213,6 +220,18 @@ class WallPrefs(BaseModel):
     interrupt: bool | None = None
     layers: dict[str, bool] | None = None
     sections: dict[str, bool] | None = None
+
+    @field_validator("tv_channels")
+    @classmethod
+    def short_ids(cls, value: list[str] | None):
+        if value is not None and any(
+            not c
+            or len(c) > 40
+            or not c.replace("-", "").replace("_", "").isalnum()
+            for c in value
+        ):
+            raise ValueError("tv_channels must be channel ids")
+        return value
 
     @field_validator("sections")
     @classmethod

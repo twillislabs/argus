@@ -6,11 +6,19 @@ import { videoPrefs } from '../lib/video';
 
 // One channel's current live stream: the API looks up the live video
 // (cached server-side), then this embeds it, or says why it can't.
-export default function LiveFrame({ channel }: { channel: Channel }) {
+// audio: the wall's own sound settings; otherwise your video settings.
+export default function LiveFrame({
+  channel,
+  audio,
+}: {
+  channel: Channel;
+  audio?: { muted: boolean; volume: number };
+}) {
   const [live, setLive] = useState<(LiveVideo & { channel: string }) | null>(null);
   const platform = channel.platform ?? 'youtube';
   const frame = useRef<HTMLIFrameElement>(null);
-  const prefs = videoPrefs();
+  const prefs = audio ?? videoPrefs();
+  const loaded = useRef(false);
 
   // YouTube: set the volume (and unmute) through its player API once the
   // player is ready. Browsers may still start muted until you interact.
@@ -24,8 +32,20 @@ export default function LiveFrame({ channel }: { channel: Channel }) {
       win.postMessage(JSON.stringify({ event: 'listening' }), 'https://www.youtube-nocookie.com');
       send('setVolume', [prefs.volume]);
       if (!prefs.muted) send('unMute');
+      loaded.current = true;
     }, 1500);
   }
+
+  // Sound changed (a wall's settings were pushed): apply it to the
+  // playing YouTube player without reloading it.
+  useEffect(() => {
+    const win = frame.current?.contentWindow;
+    if (platform !== 'youtube' || !win || !loaded.current) return;
+    const send = (func: string, args: unknown[] = []) =>
+      win.postMessage(JSON.stringify({ event: 'command', func, args }), 'https://www.youtube-nocookie.com');
+    send('setVolume', [prefs.volume]);
+    send(prefs.muted ? 'mute' : 'unMute');
+  }, [platform, prefs.muted, prefs.volume]);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,7 +67,7 @@ export default function LiveFrame({ channel }: { channel: Channel }) {
     <div className="np-video">
       {ready?.video_id ? (
         <iframe
-          key={ready.video_id}
+          key={ready.video_id + (platform === 'rumble' ? String(prefs.muted) : '')}
           ref={frame}
           src={embedUrl(platform, ready.video_id, prefs.muted)}
           onLoad={onLoad}

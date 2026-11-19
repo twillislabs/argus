@@ -61,6 +61,12 @@ export type WallSection = 'header' | 'clocks' | 'tension' | 'kpis' | 'top' | 'ne
 export interface WallPrefs {
   news?: boolean;
   channel?: string;
+  // 'tv': live TV fills the screen (tv_channels: one, or a grid of up to 4).
+  mode?: 'map' | 'tv';
+  tv_channels?: string[];
+  // The live TV's sound (only the first channel plays sound in a grid).
+  muted?: boolean;
+  volume?: number;
   zones?: { label: string; tz: string }[];
   stops?: WallStop[];
   stop_s?: number;
@@ -126,6 +132,11 @@ export const getWallProfile = (id: string) => api<WallProfile>('/api/wall-profil
 
 export const wallLayerOn = (w: WallPrefs | undefined, id: WallLayer): boolean =>
   w?.layers?.[id] ?? WALL_LAYERS.find((l) => l.id === id)?.on ?? false;
+
+// Pushing changes to screens now (Settings > Displays).
+export const getWallSync = () => api<{ boot: string; sync: number; reload: number }>('/api/display/sync');
+export const syncScreens = (reload: boolean, id?: number) =>
+  api('/api/admin/displays/' + (id !== undefined ? id + '/' : '') + 'sync', { method: 'POST', body: { reload } });
 
 export const getScreenWall = (id: number) =>
   api<{ wall: WallPrefs; home: Home | null; profile: string | null }>('/api/admin/displays/' + id + '/wall');

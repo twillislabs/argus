@@ -140,9 +140,20 @@ Displays (**Wall settings** next to the screen):
   top events, live news, the weather at home (off by default), the
   caption and the ticker. With every side panel hidden the map fills the
   screen.
+- **Layout:** the map wall, or **Live TV only**: one channel filling
+  the screen, or two to four in a grid (**TV channels**). The LIVE pill
+  stays in the corner.
+- **Sound** for the live TV: on or muted, and the volume (in a grid only
+  the first channel plays sound). Browsers block sound until someone
+  touches the page, so a screen meant to play sound by itself needs
+  kiosk mode, for example Chrome started with
+  `--autoplay-policy=no-user-gesture-required`.
 - The news **channel** and up to four extra **clocks**.
 
-Press **Save**; a running screen picks the change up within a minute.
+Press **Save**; the screen picks it up within about 10 seconds.
+
+The wall's header has a **LIVE** pill: it turns **OFFLINE** if the
+screen hasn't heard from Argus for over two and a half minutes.
 
 ### Wall profiles
 

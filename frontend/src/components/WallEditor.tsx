@@ -311,6 +311,82 @@ export default function WallEditor({
           </div>
           <div className="srow">
             <span className="srow-label">
+              <b>Layout</b>
+              <small>The map wall, or live TV filling the screen</small>
+            </span>
+            <select
+              value={wall.mode ?? 'map'}
+              onChange={(e) => change({ mode: e.target.value === 'tv' ? 'tv' : undefined })}
+            >
+              <option value="map">Map wall</option>
+              <option value="tv">Live TV only</option>
+            </select>
+          </div>
+          {wall.mode === 'tv' && (
+            <div className="srow col">
+              <span className="srow-label">
+                <b>TV channels</b>
+                <small>One fills the screen; two to four make a grid (sound from the first)</small>
+              </span>
+              <div className="tvpicks">
+                {[0, 1, 2, 3].map((i) => {
+                  const list = wall.tv_channels ?? [];
+                  if (i > list.length) return null;
+                  return (
+                    <select
+                      key={i}
+                      aria-label={'TV channel ' + (i + 1)}
+                      value={list[i] ?? ''}
+                      onChange={(e) => {
+                        const next = [...list];
+                        if (e.target.value) next[i] = e.target.value;
+                        else next.splice(i, 1);
+                        change({ tv_channels: next.length ? next : undefined });
+                      }}
+                    >
+                      <option value="">{i === 0 ? 'The channel below' : i === list.length ? '+ Add a channel' : 'Remove'}</option>
+                      {CHANNELS.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <div className="srow">
+            <span className="srow-label">
+              <b>Sound</b>
+              <small>
+                Screens can only start with sound in kiosk mode (Chrome: --autoplay-policy=no-user-gesture-required)
+              </small>
+            </span>
+            <span className="soundctl">
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={wall.muted === false}
+                  onChange={(e) => change({ muted: e.target.checked ? false : undefined })}
+                />
+                <span className="tog" />
+                <span>{wall.muted === false ? 'On' : 'Muted'}</span>
+              </label>
+              <input
+                type="range"
+                aria-label="Volume"
+                min={0}
+                max={100}
+                step={5}
+                value={wall.volume ?? 50}
+                onChange={(e) => change({ volume: Number(e.target.value) })}
+              />
+              <span className="mono">{wall.volume ?? 50}%</span>
+            </span>
+          </div>
+          <div className="srow">
+            <span className="srow-label">
               <b>Channel</b>
               <small>Defaults to the first news channel</small>
             </span>

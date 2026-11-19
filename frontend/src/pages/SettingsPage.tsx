@@ -20,6 +20,7 @@ import {
   putScreenWall,
   getWallProfiles,
   createWallProfile,
+  syncScreens,
   type WallProfile,
   type WallPrefs,
   type Home,
@@ -375,6 +376,20 @@ function DisplaysSection() {
     }
   }
 
+  const [syncNote, setSyncNote] = useState('');
+  async function sync(all: boolean, row?: DisplayRow, reload = false) {
+    try {
+      await syncScreens(reload, all ? undefined : row?.id);
+      setSyncNote(
+        (all ? 'Every screen' : (row?.name ?? 'The screen')) +
+          (reload ? ' reloads' : ' syncs') +
+          ' within about 10 seconds.',
+      );
+    } catch (err) {
+      setSyncNote(err instanceof Error ? err.message : 'Could not reach the screens.');
+    }
+  }
+
   async function unpair(row: DisplayRow) {
     if (!window.confirm('Unpair ' + row.name + '? It stops showing the wall straight away.')) return;
     try {
@@ -424,8 +439,26 @@ function DisplaysSection() {
       <section className="card">
         <div className="ph">
           <h2>Paired screens</h2>
-          <span className="mono">{rows.filter((r) => r.active).length}</span>
+          <span className="rowbtns">
+            <button
+              className="btn small"
+              title="Every screen re-reads its settings now (saving does this too)"
+              disabled={!rows.some((r) => r.active)}
+              onClick={() => void sync(true, undefined)}
+            >
+              Sync all now
+            </button>
+            <button
+              className="btn small"
+              title="Every screen reloads the page: after an update, or if one looks stuck"
+              disabled={!rows.some((r) => r.active)}
+              onClick={() => void sync(true, undefined, true)}
+            >
+              Reload all
+            </button>
+          </span>
         </div>
+        {syncNote && <p className="quiet small pad">{syncNote}</p>}
         <div className="cbody tblwrap">
           <table>
             <thead>
@@ -447,6 +480,20 @@ function DisplaysSection() {
                       <span className="rowbtns">
                         <button className="btn small" onClick={() => setOpen(open === r.id ? null : r.id)}>
                           {open === r.id ? 'Close' : 'Wall settings'}
+                        </button>
+                        <button
+                          className="btn small"
+                          title="This screen re-reads its settings now"
+                          onClick={() => void sync(false, r)}
+                        >
+                          Sync
+                        </button>
+                        <button
+                          className="btn small"
+                          title="This screen reloads the page"
+                          onClick={() => void sync(false, r, true)}
+                        >
+                          Reload
                         </button>
                         <button className="btn small" onClick={() => void unpair(r)}>
                           Unpair

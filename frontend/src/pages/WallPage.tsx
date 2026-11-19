@@ -34,6 +34,7 @@ import {
   getSatelliteCatalog,
   getVessels,
   getWallProfile,
+  getWallSync,
   getWeatherNow,
   getWikipedia,
   getWxAlerts,
@@ -196,7 +197,29 @@ export default function WallPage({ me }: { me: Me }) {
     };
     if (profileId) refresh();
     const id = window.setInterval(refresh, 60_000);
-    return () => window.clearInterval(id);
+    // Pushed changes (Settings > Displays: saving, Sync now, Reload):
+    // check every 10 s; the first answer, or one after an API restart
+    // (a new boot id), is just the baseline.
+    let seen: { boot: string; sync: number; reload: number } | null = null;
+    const checkSync = () =>
+      getWallSync()
+        .then((s) => {
+          if (seen && s.boot === seen.boot) {
+            if (s.reload > seen.reload) {
+              window.location.reload();
+              return;
+            }
+            if (s.sync > seen.sync) refresh();
+          }
+          seen = s;
+        })
+        .catch(() => undefined);
+    void checkSync();
+    const syncId = window.setInterval(checkSync, 10_000);
+    return () => {
+      window.clearInterval(id);
+      window.clearInterval(syncId);
+    };
   }, [profileId]);
   const home = prefs.home ?? null;
   const wall = prefs.wall ?? {};
@@ -222,6 +245,9 @@ export default function WallPage({ me }: { me: Me }) {
       .catch(() => setImagery(null));
   }, []);
 
+  // When the wall last heard from Argus: the LIVE pill turns OFFLINE if
+  // that's over two and a half minutes ago (it refreshes every minute).
+  const [lastOk, setLastOk] = useState<number | null>(null);
   const load = useCallback(async () => {
     const [t, e, a, g, s] = await Promise.allSettled([
       getTension(),
@@ -231,7 +257,10 @@ export default function WallPage({ me }: { me: Me }) {
       getAirspace(),
     ]);
     if (t.status === 'fulfilled') setTension(t.value);
-    if (e.status === 'fulfilled') setEvents(e.value.events);
+    if (e.status === 'fulfilled') {
+      setEvents(e.value.events);
+      setLastOk(Date.now());
+    }
     else setEvents((x) => x ?? []);
     if (a.status === 'fulfilled') setAircraft(a.value.aircraft.filter((x) => x.mil));
     if (g.status === 'fulfilled') setGpsCells(g.value.cells);
@@ -393,6 +422,39 @@ export default function WallPage({ me }: { me: Me }) {
   const night = hour >= 22 || hour < 6;
 
   const side = (['tension', 'kpis', 'top', 'weather', 'news'] as const).some((k) => show(k));
+  // The wall's own sound for its live TV: muted at 50% unless set.
+  const audio = { muted: wall.muted !== false, volume: wall.volume ?? 50 };
+  const fresh = lastOk !== null && now.getTime() - lastOk < 150_000;
+  const livePill = (
+    <span
+      className={'livepill wlive ' + (lastOk === null ? 'connecting' : fresh ? 'live' : 'offline')}
+      title="Argus data updates"
+    >
+      <i />
+      {lastOk === null ? 'CONNECTING' : fresh ? 'LIVE' : 'OFFLINE'}
+    </span>
+  );
+
+  // Live TV only: one channel full screen, or a grid of up to four (sound
+  // from the first). Night dimming and drift still apply.
+  if (wall.mode === 'tv') {
+    const tv = (wall.tv_channels?.length ? wall.tv_channels : [channel.id]).slice(0, 4).map(channelById);
+    return (
+      <div
+        className={'walltv n' + tv.length + (night ? ' night' : '')}
+        style={{ transform: 'translate(' + drift.x + 'px,' + drift.y + 'px)' }}
+      >
+        <div className="tvlive">{livePill}</div>
+        {tv.map((c, i) => (
+          <div key={c.id + i} className="tvcell">
+            <LiveFrame channel={c} audio={i === 0 ? audio : { muted: true, volume: 0 }} />
+            <b>{c.name}</b>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div
       className={'wall' + (night ? ' night' : '') + (side ? '' : ' noside')}
@@ -407,6 +469,7 @@ export default function WallPage({ me }: { me: Me }) {
               <small className="mono">UNCLASSIFIED // OPEN SOURCE</small>
             </div>
           )}
+          {livePill}
           {show('clocks') && (
             <div className="wclocks">
               <div>
@@ -581,7 +644,7 @@ export default function WallPage({ me }: { me: Me }) {
           )}
           {show('news') && (
             <div className="wpanel wvideo">
-              <LiveFrame channel={channel} />
+              <LiveFrame channel={channel} audio={audio} />
               <b>{channel.name}</b>
             </div>
           )}

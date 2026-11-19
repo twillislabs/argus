@@ -643,3 +643,18 @@ tr.dimrow td { color: var(--dim); }
   display: block;
   color: var(--muted, #8a94a3);
 }
+
+/* Wall editor: TV channel picks and sound */
+.tvpicks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.soundctl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.soundctl input[type='range'] {
+  width: 140px;
+}

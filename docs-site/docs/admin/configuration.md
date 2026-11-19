@@ -167,7 +167,11 @@ session doesn't time out when idle, and no password is kept on the device.
 home stop, home clock and night dimming), the tour, seconds per stop,
 critical-event interruptions, map layers, sections, news and clocks, or
 a shared [wall profile](../using/map.md#wall-profiles) for screens that
-should show the same thing (see [the Wall](../using/map.md#wall)). The screen picks changes up within a
+should show the same thing (see [the Wall](../using/map.md#wall)).
+Saving pushes the change to the screen within about 10 seconds; **Sync**
+next to a screen (or **Sync all now**) does the same on demand, and
+**Reload** (or **Reload all**) reloads the page, after an update or if a
+screen looks stuck. The screen picks changes up within a
 minute; nothing needs re-pairing. **Unpair** in Settings > Displays signs
 it out at once and disables its account. Codes last ten minutes; the screen fetches a new one when its
 code runs out.

@@ -15,6 +15,13 @@ Each screen's wall settings (tour, layers, news, clocks) are its display
 account's "wall" preference; admins read and set them through
 /api/admin/displays/{id}/wall, and the screen re-reads /api/me each
 minute.
+
+Pushing changes: a screen asks /api/display/sync every 10 seconds.
+Saving a screen's settings or a profile, or Sync now / Reload in
+Settings > Displays, bumps a counter (for one screen or all of them);
+the screen re-reads its settings, or reloads the page, when its counter
+moves. The counters live in API memory with a boot id, so a restart
+just sets a new baseline.
 """
 
 import secrets as pysecrets
@@ -46,6 +53,32 @@ ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I
 CODE_LEN = 6
 PAIR_TTL_S = 600
 MAX_PENDING = 50
+
+
+BOOT_ID = pysecrets.token_hex(6)
+
+
+def _signals(request: Request) -> dict:
+    state = request.app.state
+    if not hasattr(state, "wall_sync"):
+        state.wall_sync = {}
+    return state.wall_sync
+
+
+def push_sync(request: Request, user_id: int | None, reload: bool = False):
+    """Ask one screen (user_id) or every screen (None) to sync now."""
+    sig = _signals(request).setdefault(
+        user_id or "all", {"sync": 0, "reload": 0}
+    )
+    sig["sync"] += 1
+    if reload:
+        sig["reload"] += 1
+
+
+class SyncIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reload: bool = False
 
 
 @dataclass
@@ -305,7 +338,56 @@ async def set_wall(
         display=user.id,
     )
     await db.commit()
+    push_sync(request, user_id)
     return {"wall": wall, "home": home, "profile": body.profile}
+
+
+@router.get("/api/display/sync")
+async def sync_state(request: Request, session: SessionDep):
+    """What a wall polls: counters that move when it should sync."""
+    sig = _signals(request)
+    mine = sig.get(session.user_id) or {}
+    every = sig.get("all") or {}
+    return {
+        "boot": BOOT_ID,
+        "sync": mine.get("sync", 0) + every.get("sync", 0),
+        "reload": mine.get("reload", 0) + every.get("reload", 0),
+    }
+
+
+@router.post("/api/admin/displays/sync")
+async def sync_all(
+    body: SyncIn,
+    request: Request,
+    db: DbDep,
+    session: UserSession = ManageUsers,
+):
+    """Every screen re-reads its settings now (or reloads the page)."""
+    push_sync(request, None, body.reload)
+    await audit(
+        db, "display.sync", user_id=session.user_id,
+        ip=client_ip(request), reload=body.reload,
+    )  # fmt: skip
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/api/admin/displays/{user_id}/sync")
+async def sync_one(
+    user_id: int,
+    body: SyncIn,
+    request: Request,
+    db: DbDep,
+    session: UserSession = ManageUsers,
+):
+    user = await _screen(db, user_id)
+    push_sync(request, user.id, body.reload)
+    await audit(
+        db, "display.sync", user_id=session.user_id,
+        ip=client_ip(request), display=user.id, reload=body.reload,
+    )  # fmt: skip
+    await db.commit()
+    return {"ok": True}
 
 
 # --- Wall profiles: named setups screens can follow -----------------------
@@ -403,6 +485,7 @@ async def update_profile(
                 ip=client_ip(request), profile=profile_id,
             )  # fmt: skip
             await db.commit()
+            push_sync(request, None)
             return items[i]
     raise HTTPException(404, "No wall profile with that id.")
 
@@ -431,6 +514,7 @@ async def delete_profile(
         ip=client_ip(request), profile=profile_id,
     )  # fmt: skip
     await db.commit()
+    push_sync(request, None)
     return {"ok": True}
 
 
