@@ -4,6 +4,7 @@
 
 import { Cartesian2, Cartesian3, Color, DistanceDisplayCondition, NearFarScalar } from '@cesium/core';
 import {
+  BillboardCollection,
   HorizontalOrigin,
   LabelCollection,
   LabelStyle,
@@ -36,7 +37,7 @@ export const BASE_KINDS: Record<string, string> = {
 export type Base = [string, string, number, number, string];
 
 export const FUEL_COLOR: Record<string, string> = {
-  Nuclear: '#d6f04a',
+  Nuclear: '#d0aa6c', // the mock-up's infrastructure tan
   Coal: '#a08070',
   Gas: '#ff9447',
   Oil: '#b8505a',
@@ -56,8 +57,31 @@ export interface InfraLayer {
   destroy: () => void;
 }
 
+// Nuclear plants as in the mock-up: a dark diamond with a tan edge.
+function diamondImage(css: string): HTMLCanvasElement {
+  const px = 32;
+  const c = document.createElement('canvas');
+  c.width = c.height = px;
+  const ctx = c.getContext('2d');
+  if (!ctx) return c;
+  const m = px / 2;
+  const r = m - 3;
+  ctx.beginPath();
+  ctx.moveTo(m, m - r);
+  ctx.lineTo(m + r, m);
+  ctx.lineTo(m, m + r);
+  ctx.lineTo(m - r, m);
+  ctx.closePath();
+  ctx.fillStyle = '#0b0e13';
+  ctx.fill();
+  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = css;
+  ctx.stroke();
+  return c;
+}
+
 export function addInfraLayer(scene: Scene): InfraLayer {
-  const nuclear = new PointPrimitiveCollection();
+  const nuclear = new BillboardCollection({ scene });
   const power = new PointPrimitiveCollection();
   const nuclearLabels = new LabelCollection({ scene });
   const cables = new PolylineCollection();
@@ -75,6 +99,8 @@ export function addInfraLayer(scene: Scene): InfraLayer {
   let filters = DEFAULT_INFRA;
   const dark = Color.fromCssColorString('#05080e');
 
+  const diamond = diamondImage(FUEL_COLOR.Nuclear);
+
   void fetch('/data/power.json')
     .then((r) => r.json())
     .then((rows: Plant[]) => {
@@ -83,17 +109,28 @@ export function addInfraLayer(scene: Scene): InfraLayer {
         const position = Cartesian3.fromDegrees(lon, lat, 1000);
         const color = Color.fromCssColorString(FUEL_COLOR[fuel] ?? FUEL_COLOR.Other);
         const size = Math.max(4, Math.min(11, 3 + Math.sqrt(mw) / 9));
-        const target = fuel === 'Nuclear' ? nuclear : power;
-        target.add({
-          id: 'pp:' + i,
-          position,
-          pixelSize: size,
-          color: color.withAlpha(0.9),
-          outlineColor: dark,
-          outlineWidth: 1,
-          scaleByDistance: new NearFarScalar(2e5, 1.2, 1.2e7, 0.6),
-          distanceDisplayCondition: new DistanceDisplayCondition(0, fuel === 'Nuclear' ? 2.0e7 : 4.0e6),
-        });
+        if (fuel === 'Nuclear') {
+          // 32 px image: about 13-20 px on screen, by capacity.
+          nuclear.add({
+            id: 'pp:' + i,
+            position,
+            image: diamond,
+            scale: Math.max(0.4, Math.min(0.62, 0.3 + Math.sqrt(mw) / 150)),
+            scaleByDistance: new NearFarScalar(2e5, 1.2, 1.2e7, 0.7),
+            distanceDisplayCondition: new DistanceDisplayCondition(0, 2.0e7),
+          });
+        } else {
+          power.add({
+            id: 'pp:' + i,
+            position,
+            pixelSize: size,
+            color: color.withAlpha(0.9),
+            outlineColor: dark,
+            outlineWidth: 1,
+            scaleByDistance: new NearFarScalar(2e5, 1.2, 1.2e7, 0.6),
+            distanceDisplayCondition: new DistanceDisplayCondition(0, 4.0e6),
+          });
+        }
         if (fuel === 'Nuclear') {
           nuclearLabels.add({
             position,

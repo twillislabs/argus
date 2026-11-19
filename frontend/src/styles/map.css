@@ -212,6 +212,7 @@
 .lg-sec li { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .lg-sec li i { flex: none; width: 10px; height: 10px; }
 .lg-dot { border-radius: 50%; background: var(--c); }
+.lg-diamond { background: #0b0e13; border: 1.5px solid var(--c); transform: rotate(45deg) scale(0.8); }
 .lg-area { border-radius: 2px; background: color-mix(in srgb, var(--c) 30%, transparent); border: 1px solid var(--c); }
 .lg-hex { background: var(--c); opacity: 0.6; clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0 50%); }
 .lg-line { height: 2px !important; background: var(--c); }

@@ -346,7 +346,7 @@ home's forecast zone and county, linked to the full alert.
 
 | Layer | Shows |
 |---|---|
-| **Nuclear plants** | Every nuclear power plant, named when you're close |
+| **Nuclear plants** | Every nuclear power plant as a tan diamond, named when you're close |
 | **Power plants (300 MW+)** | Coal, gas, oil, hydro and large renewables, coloured by fuel and sized by capacity |
 | **Submarine cables** | Undersea internet cables in their map colours, with landing points |
 | **Military bases** | Named bases, naval bases and military airfields (from about 3,000 km in, named close up), plus ranges, training areas and barracks closer in |

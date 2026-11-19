@@ -9,7 +9,7 @@ import { VESSEL_COLOR } from '../map/vesselLayer';
 interface Row {
   color: string;
   label: string;
-  shape?: 'dot' | 'area' | 'line' | 'hex';
+  shape?: 'dot' | 'area' | 'line' | 'hex' | 'diamond';
 }
 
 function Section({ title, rows }: { title: string; rows: Row[] }) {
@@ -124,7 +124,11 @@ export default function Legend({ filters, onClose }: { filters: LayerFilters; on
               ...(filters.infra.nuclear || filters.infra.power
                 ? Object.entries(FUEL_COLOR)
                     .filter(([k]) => filters.infra.power || k === 'Nuclear')
-                    .map(([label, color]) => ({ color, label: label + (label === 'Nuclear' ? '' : ' plant') }))
+                    .map(([label, color]) => ({
+                      color,
+                      label: label + (label === 'Nuclear' ? '' : ' plant'),
+                      shape: label === 'Nuclear' ? ('diamond' as const) : ('dot' as const),
+                    }))
                 : []),
               ...(filters.infra.bases ? [{ color: BASE_COLOR, label: 'Military base' }] : []),
               ...(filters.infra.cables ? [{ color: '#7fd1c7', label: 'Submarine cable', shape: 'line' as const }] : []),
