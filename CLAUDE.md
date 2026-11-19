@@ -197,6 +197,11 @@ parts connect.
   only (`FeedClient.get(..., only=)`), publishing a bare sample
   (`gps_sample`) on NATS `argus.gps`; the API feeds it to `GpsGrid` and
   nothing else (not stored, not pushed). `ARGUS_GPS_SWEEP=false` stops it.
+- Address search: `argus/geocode.py` + `/api/geocode` (OpenStreetMap
+  Nominatim). Its policy forbids autocomplete, so the search box only
+  asks on "Find address" (kind `lookup`), never as you type; requests
+  are queued 1.1 s apart server-wide and cached a week.
+  `ARGUS_USER_AGENT` reaches the containers through compose.
 - Patterns: `argus/patterns.py` (military orbits/racetracks from
   LiveAir trails; ships loitering near cables from LiveSea.tracks, a
   sample every 5 min, and `CableIndex`, a grid of cable segments rebuilt

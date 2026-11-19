@@ -67,6 +67,7 @@
 .skind.k-aircraft.mil { color: #8cc8ff; }
 .skind.k-event { color: var(--high); }
 .skind.k-filter { color: var(--accent); }
+.skind.k-address, .skind.k-lookup { color: #7fd1c7; }
 .sempty { padding: 9px 11px; font-size: 12px; color: var(--dim); }
 
 /* Camera view readout while riding along with an aircraft. */

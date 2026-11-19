@@ -1673,6 +1673,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }
 
   function onSearch(r: SearchResult) {
+    globe.current?.showPin(
+      r.kind === 'address' && r.lat !== undefined && r.lon !== undefined
+        ? { lat: r.lat, lon: r.lon, label: r.label }
+        : null,
+    );
     if (r.kind === 'vessel' && r.mmsi) {
       const v = vessels.find((x) => x.mmsi === r.mmsi);
       const cat = v?.category;

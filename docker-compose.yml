@@ -33,6 +33,9 @@ services:
       ARGUS_SETUP_TOKEN: ${ARGUS_SETUP_TOKEN:-}
       # Also stops the API's per-view civil aircraft fetches.
       ARGUS_AIR_ENABLED: ${ARGUS_AIR_ENABLED:-true}
+      # Sent to every outside service; Nominatim and Wikipedia ask for a
+      # contact, e.g. "Argus/0.1 (ops@example.org)".
+      ARGUS_USER_AGENT: ${ARGUS_USER_AGENT:-Argus/0.1 (self-hosted OSINT visualizer)}
     depends_on:
       db:
         condition: service_healthy
@@ -50,6 +53,7 @@ services:
       ARGUS_COLLECTORS: ${ARGUS_COLLECTORS:-usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga,faa_tfr,sigmet,czib}
       ARGUS_FIRMS_MAP_KEY: ${ARGUS_FIRMS_MAP_KEY:-}
       ARGUS_AIR_ENABLED: ${ARGUS_AIR_ENABLED:-true}
+      ARGUS_USER_AGENT: ${ARGUS_USER_AGENT:-Argus/0.1 (self-hosted OSINT visualizer)}
       ARGUS_SPACE_ENABLED: ${ARGUS_SPACE_ENABLED:-true}
     healthcheck:
       disable: true

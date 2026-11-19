@@ -2,9 +2,10 @@
 
 import logging
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query, Request
 
-from argus import search
+from argus import geocode, search
 from argus.api.deps import DbDep, SessionDep
 from argus.aviation import RateLimited, pick_route, radius_for_bbox
 from argus.events import parse_bbox
@@ -146,6 +147,26 @@ async def universal_search(
         ships=request.app.state.sea,
     )
     return {"query": q, "results": results}
+
+
+@router.get("/api/geocode")
+async def find_address(
+    request: Request,
+    session: SessionDep,
+    q: str = Query(..., min_length=3, max_length=200),
+):
+    """Addresses for the search box's "Find address" (Nominatim). Only on
+    request, never as you type: Nominatim's policy forbids autocomplete.
+    """
+    lang = (request.headers.get("accept-language") or "en")[:40]
+    try:
+        found = await request.app.state.geocoder.search(q.strip(), lang)
+    except geocode.Busy as exc:
+        raise HTTPException(429, "Address search is busy; try again.") from exc
+    except httpx.HTTPError as exc:
+        log.warning("Address search failed: {0}".format(exc))
+        raise HTTPException(502, "The address service didn't answer.") from exc
+    return {"results": found, "attribution": geocode.ATTRIBUTION}
 
 
 @router.get("/api/gps")

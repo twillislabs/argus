@@ -35,6 +35,7 @@ from argus.aviation import AirClient, GpsGrid, LiveAir
 from argus.config import DEFAULT_SECRET, Settings, get_settings
 from argus.db import Database
 from argus.faa import FaaStatus
+from argus.geocode import Geocoder
 from argus.imagery import Imagery
 from argus.live import Hub, subscribe_forever
 from argus.openaip import OpenAip
@@ -85,6 +86,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.video = Video(settings.user_agent)
         app.state.faa = FaaStatus(settings.user_agent)
         app.state.spaceweather = SpaceWeather(settings.user_agent)
+        app.state.geocoder = Geocoder(settings.user_agent)
         app.state.imagery = Imagery(
             settings.user_agent, settings.imagery_cache_dir
         )
@@ -112,6 +114,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.video.close()
         await app.state.faa.close()
         await app.state.spaceweather.close()
+        await app.state.geocoder.close()
         await app.state.imagery.close()
         if hasattr(app.state, "weather_http"):
             await app.state.weather_http.aclose()

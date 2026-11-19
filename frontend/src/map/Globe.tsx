@@ -315,6 +315,8 @@ export interface GlobeHandle {
   setAirportRings: (colors: Record<string, string>) => void;
   // Recent imagery over a box, or null to remove it.
   showSentinel: (view: SentinelView | null) => void;
+  // A pin for a searched address, or null to clear it.
+  showPin: (pin: { lat: number; lon: number; label: string } | null) => void;
   cable: (id: string) => { id: string; name: string } | null;
   base: (index: number) => Base | null;
   satPasses: (norad: number, lat: number, lon: number) => Promise<Pass[]>;
@@ -515,6 +517,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const overlays = useRef<Overlays | null>(null);
   const sentinel = useRef<SentinelLayer | null>(null);
   const applyFadeRef = useRef<(() => void) | null>(null);
+  const pinLayer = useRef<LabelCollection | null>(null);
   // Set before the overlays finish loading too; applied when they do.
   const airportRings = useRef<Record<string, string>>({});
   const sats = useRef<SatelliteLayer | null>(null);
@@ -1394,6 +1397,27 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         },
         port(index) {
           return overlays.current?.port(index) ?? null;
+        },
+        showPin(pin) {
+          const v = viewer.current;
+          if (!v) return;
+          if (!pinLayer.current) {
+            pinLayer.current = new LabelCollection({ scene: v.scene });
+            v.scene.primitives.add(pinLayer.current);
+          }
+          pinLayer.current.removeAll();
+          if (!pin) return;
+          pinLayer.current.add({
+            position: Cartesian3.fromDegrees(pin.lon, pin.lat, 10),
+            text: '📍 ' + pin.label.slice(0, 60),
+            font: '600 13px Inter, system-ui, sans-serif',
+            fillColor: Color.fromCssColorString('#7fd1c7'),
+            outlineColor: Color.fromCssColorString('#05080e'),
+            outlineWidth: 4,
+            style: LabelStyle.FILL_AND_OUTLINE,
+            verticalOrigin: VerticalOrigin.BOTTOM,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          });
         },
         showSentinel(view) {
           sentinel.current?.show(view);

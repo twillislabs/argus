@@ -34,7 +34,7 @@ All settings are environment variables, usually set in `.env`.
 | `ARGUS_SEA_ENABLED` | `true` | Stream vessels from AISStream once a key is saved |
 | `ARGUS_FIRMS_MAP_KEY` | (empty) | NASA FIRMS key; fires are off without it ([get one](https://firms.modaps.eosdis.nasa.gov/api/map_key/)) |
 | `ARGUS_RSS_FEEDS_FILE` | (built-in list) | JSON file of `[{"outlet": "...", "url": "..."}]` replacing the default feeds |
-| `ARGUS_USER_AGENT` | `Argus/0.1 (...)` | User-Agent sent to data sources. Wikipedia (and some other public APIs) ask automated clients to include a way to reach the operator and throttle generic ones, so add a URL or email for your server, for example `Argus/0.1 (ops@example.org)` |
+| `ARGUS_USER_AGENT` | `Argus/0.1 (...)` | User-Agent sent to data sources. Wikipedia and OpenStreetMap Nominatim (address search) ask automated clients to include a way to reach the operator and throttle generic ones, so add a URL or email for your server, for example `Argus/0.1 (ops@example.org)` |
 | `ARGUS_NATS_URL` | `nats://nats:4222` | Message bus; empty turns live push off |
 | `ARGUS_RAW_RETENTION_DAYS` | `30` | How long raw records and articles are kept |
 | `ARGUS_EVENT_RETENTION_DAYS` | `30` | How long expired events are kept |

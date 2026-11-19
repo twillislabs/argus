@@ -552,7 +552,20 @@ export const getAircraftDetail = (hex: string) =>
   api<AircraftDetail>('/api/aircraft/' + encodeURIComponent(hex));
 
 export interface SearchResult {
-  kind: 'coords' | 'aircraft' | 'flight' | 'airport' | 'place' | 'event' | 'filter' | 'satellite' | 'vessel';
+  kind:
+    | 'coords'
+    | 'aircraft'
+    | 'flight'
+    | 'airport'
+    | 'place'
+    | 'event'
+    | 'filter'
+    | 'satellite'
+    | 'vessel'
+    // An address from Nominatim (/api/geocode), and the "Find address"
+    // entry that asks for one.
+    | 'address'
+    | 'lookup';
   label: string;
   detail: string;
   lat?: number;
@@ -569,6 +582,10 @@ export interface SearchResult {
 
 export const search = (q: string) =>
   api<{ query: string; results: SearchResult[] }>('/api/search?q=' + encodeURIComponent(q));
+
+// Addresses (OpenStreetMap Nominatim): only when asked, never as you type.
+export const findAddress = (q: string) =>
+  api<{ results: SearchResult[]; attribution: string }>('/api/geocode?q=' + encodeURIComponent(q));
 
 // --- Server-wide imagery (admins set it; every user's map uses it) ----------
 

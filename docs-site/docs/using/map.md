@@ -334,6 +334,7 @@ you typed and offers matches:
 | Airport | `BNA`, `KBNA` | Flies to the airport |
 | Place | `Springfield, IL`, `Kyiv` | Flies to the place (towns of 15,000+) |
 | Coordinates | `36.32, -86.71` | Flies to the point |
+| Address | `1600 Pennsylvania Ave NW, Washington DC`, `10 Downing Street, London` | Pick **Find address** at the bottom of the list (or press Enter when nothing else matched): Argus looks it up in OpenStreetMap, lists the matches, and flies to the one you pick with a pin on it |
 | Event | `Ishinomaki`, `earthquake Japan` | Opens matching events |
 | Layer words | `earthquakes`, `protests`, `military`, `tankers`, `emergencies` | Applies that filter; **Reset filters** undoes it |
 
