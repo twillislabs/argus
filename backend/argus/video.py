@@ -12,6 +12,9 @@
   credit "Webcams provided by windy.com", use only the URLs the API
   gives (free-tier image URLs expire after 10-15 minutes, so answers are
   cached for less than that). Its response fields are read defensively.
+  Its "live" player is only a still linking to Windy's stream page (the
+  stream is the camera owner's, not in the API), so the timelapse
+  players play in the panel and "live" is kept as a link out.
 """
 
 import logging
@@ -74,6 +77,10 @@ def _num(v) -> float | None:
         return None
 
 
+def _https(v) -> bool:
+    return isinstance(v, str) and v.startswith("https://")
+
+
 def parse_windy(doc: dict) -> list[dict]:
     out = []
     for w in doc.get("webcams") or []:
@@ -106,12 +113,12 @@ def parse_windy(doc: dict) -> list[dict]:
                 "player": next(
                     (
                         player[k]
-                        for k in ("live", "day", "month", "lifetime", "year")
-                        if isinstance(player.get(k), str)
-                        and player[k].startswith("https://")
+                        for k in ("day", "month", "year", "lifetime")
+                        if _https(player.get(k))
                     ),
                     None,
                 ),
+                "live": player["live"] if _https(player.get("live")) else None,
                 "page": urls.get("detail")
                 if isinstance(urls.get("detail"), str)
                 else None,

@@ -642,6 +642,9 @@ export interface Webcam {
   status: string | null;
   image: string | null;
   player: string | null;
+  // Windy's live player: a still linking to its stream page, opened in a
+  // new tab.
+  live?: string | null;
   page: string | null;
   updated: string | null;
 }

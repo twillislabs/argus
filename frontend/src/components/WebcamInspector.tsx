@@ -3,11 +3,12 @@ import { useState } from 'react';
 import type { Webcam } from '../lib/api';
 import { WEBCAM_COLOR } from '../map/camLayer';
 
-// A Windy webcam: its latest preview (linked to its Windy page, as
-// Windy's terms ask), and its timelapse player on request.
+// A Windy webcam: its daylight timelapse (Windy's player, playing in the
+// panel), its latest still (linked to its Windy page, as Windy's terms
+// ask), and a link to its live stream on Windy where it has one: Windy's
+// API doesn't give stream URLs, its "live" player only links out.
 export default function WebcamInspector({ cam, onBack }: { cam: Webcam; onBack: () => void }) {
-  // Windy's player (live where the webcam has it, else its timelapse)
-  // opens straight away; the still is a click back.
+  // The timelapse opens straight away; the still is a click back.
   const [player, setPlayer] = useState(Boolean(cam.player));
   const [broken, setBroken] = useState(false);
   return (
@@ -41,6 +42,11 @@ export default function WebcamInspector({ cam, onBack }: { cam: Webcam; onBack: 
             <button className="btn small" onClick={() => setPlayer(!player)}>
               {player ? 'Back to the still' : '▶ Timelapse'}
             </button>
+          )}
+          {cam.live && (
+            <a className="btn small" href={cam.live} target="_blank" rel="noreferrer noopener">
+              Live on Windy ↗
+            </a>
           )}
           {cam.page && (
             <a className="btn small" href={cam.page} target="_blank" rel="noreferrer noopener">

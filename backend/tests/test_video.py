@@ -37,7 +37,8 @@ WINDY = {
                 "current": {"preview": "https://imgproxy.windy.com/x.jpg"}
             },
             "player": {
-                "day": "https://webcams.windy.com/webcams/public/embed/player/1234567890/day"
+                "live": "https://webcams.windy.com/webcams/public/embed/player/1234567890/live",
+                "day": "https://webcams.windy.com/webcams/public/embed/player/1234567890/day",
             },
             "urls": {"detail": "https://www.windy.com/webcams/1234567890"},
         },
@@ -56,6 +57,7 @@ def test_parsers():
     assert c["id"] == "windy-1234567890"
     assert c["place"] == "Nashville, Tennessee, United States"
     assert c["player"].endswith("/day") and c["page"].endswith("1234567890")
+    assert c["live"].endswith("/live")
 
 
 async def test_live_near_caches_and_maps_quota():

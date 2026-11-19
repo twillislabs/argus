@@ -60,10 +60,12 @@ parts connect.
 - `make update` (scripts/update.sh): refuses with local changes, backs
   up, `git pull --ff-only`, rebuilds, waits for health.
 - Video and webcams: `argus/video.py`, `api/video.py`, keys `youtube`
-  and `windy`. YouTube searches only on a button press (tiny quota),
+  and `windy`. Windy's `live` player is a still linking out, so the
+  panel plays the `day` timelapse and links live. YouTube searches only
+  on a button press (tiny quota),
   cached and shared; Windy image URLs expire in ~10 min, so the list is
   refetched every 5 and previews go through `/api/webcams/{id}/image`.
-  Windy's parser is a guess until a key is added (logs first keys).
+  Windy's parser is checked against a live answer (2026-11-19).
 - `make backup` / `make restore FILE=...` (scripts/backup.sh, restore.sh):
   pg_dump plus `.env` in one archive; restore replaces the database and
   adopts the archive's ARGUS_SECRET_KEY. Test with `--project argus-e2e`.

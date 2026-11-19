@@ -197,7 +197,7 @@ is overdue (hover for the error), grey when it isn't collecting.
 | Layer | Shows | Source |
 |---|---|---|
 | **Traffic cameras** | Government road and weather cameras, with a wedge for the way each looks where the agency says. Click one and its live video starts (muted) where the agency streams it (most Caltrans and TDOT cameras), or its latest clip (London's JamCams); video plays straight from the agency's server. Otherwise you get its latest still, refreshed every 30 seconds, fetched by Argus's server; **Back to the still** switches over. Loads for a regional view (zoom in to about a state). Off by default | Caltrans (California), DriveBC (British Columbia), TfL JamCams (London, Powered by TfL Open Data), Fintraffic Digitraffic weather cameras (Finland, CC BY 4.0), no keys needed; TDOT SmartWay (Tennessee) with a TDOT key in Settings › Data sources |
-| **Webcams** | Public webcams (towns, beaches, ski slopes, harbours, city skylines) from windy.com, for a regional view. Click one and Windy's player opens (live where the webcam has it, otherwise its timelapse); the still preview, linked to its Windy page, is a click back. Off by default | windy.com, with a Windy key in Settings › Data sources |
+| **Webcams** | Public webcams (towns, beaches, ski slopes, harbours, city skylines) from windy.com, for a regional view. Click one and its daylight timelapse plays in the panel; the still preview, linked to its Windy page, is a click back. Windy's API doesn't share live streams, so **Live on Windy ↗** opens the stream on windy.com where the webcam has one. Off by default | windy.com, with a Windy key in Settings › Data sources |
 
 ## Live video near the view and about events
 
