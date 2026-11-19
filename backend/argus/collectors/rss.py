@@ -55,6 +55,10 @@ DEFAULT_FEEDS = [
     {"outlet": "CBS News", "url": "https://www.cbsnews.com/latest/rss/world"},
     {"outlet": "New York Post", "url": "https://nypost.com/world-news/feed/"},
     {
+        "outlet": "Alex Jones Live",
+        "url": "https://www.alexjoneslive.com/feed/",
+    },
+    {
         "outlet": "Times of Israel",
         "url": "https://www.timesofisrael.com/feed/",
     },
