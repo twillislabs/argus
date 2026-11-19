@@ -77,7 +77,14 @@ import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './cl
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
 import { setCursor } from '../lib/cursor';
 import { densify } from '../lib/geo';
-import { addOverlays, type Overlays, type ReferenceLayers, TILE_LABELS_BELOW } from './overlays';
+import {
+  addOverlays,
+  type Airport,
+  type Overlays,
+  type Port,
+  type ReferenceLayers,
+  TILE_LABELS_BELOW,
+} from './overlays';
 import { addVesselLayer, VESSEL_COLOR, type VesselLayer } from './vesselLayer';
 import {
   addSatelliteLayer,
@@ -294,6 +301,8 @@ export interface GlobeHandle {
   applyCamera: (s: string) => boolean;
   satOrbit: (norad: number) => Promise<OrbitInfo | null>;
   plant: (index: number) => Plant | null;
+  airport: (index: number) => Airport | null;
+  port: (index: number) => Port | null;
   cable: (id: string) => { id: string; name: string } | null;
   base: (index: number) => Base | null;
   satPasses: (norad: number, lat: number, lon: number) => Promise<Pass[]>;
@@ -1318,6 +1327,12 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         },
         plant(index) {
           return infraLayer.current?.plants()[index] ?? null;
+        },
+        airport(index) {
+          return overlays.current?.airport(index) ?? null;
+        },
+        port(index) {
+          return overlays.current?.port(index) ?? null;
         },
         cable(id) {
           return infraLayer.current?.cable(id) ?? null;

@@ -199,7 +199,15 @@ export type LabelMode = 'dark' | 'satellite' | 'hybrid';
 export const TILE_LABELS_BELOW = 3.0e5;
 const COUNTRY_LABELS_BELOW = 9.0e6;
 
+// [code, name, lon, lat]: OurAirports large airports (IATA code).
+export type Airport = [string, string, number, number];
+// [UN/LOCODE, name, country, lon, lat, sea (1) or inland (0)].
+export type Port = [string, string, string, number, number, number];
+
 export interface Overlays {
+  // Picked as 'apt:<index>' and 'port:<index>'.
+  airport: (index: number) => Airport | null;
+  port: (index: number) => Port | null;
   setLayers: (layers: ReferenceLayers) => void;
   setImagery: (mode: LabelMode) => void;
   setDepthDistance: (metres: number) => void;
@@ -237,8 +245,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     json<Topology>('/data/countries-50m.json'),
     json<number[][]>('/data/admin1-lines.json'),
     json<[string, number, number, number][]>('/data/cities.json'),
-    json<[string, string, number, number][]>('/data/airports.json'),
-    json<[string, string, string, number, number, number][]>('/data/ports.json'),
+    json<Airport[]>('/data/airports.json'),
+    json<Port[]>('/data/ports.json'),
   ]);
 
   if (topo) {
@@ -301,9 +309,10 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   }
 
   if (airports) {
-    for (const [code, , lon, lat] of airports) {
+    airports.forEach(([code, , lon, lat], i) => {
       const position = Cartesian3.fromDegrees(lon, lat, 1200);
       airportDots.add({
+        id: 'apt:' + i,
         position,
         pixelSize: 6,
         color: Color.fromCssColorString('#0b0e13'),
@@ -313,6 +322,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
       });
       airportLabels.add({
         position,
+        id: 'apt:' + i,
         text: code,
         font: '600 10.5px "JetBrains Mono", monospace',
         fillColor: Color.fromCssColorString('#b4c2d4'),
@@ -324,7 +334,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
         pixelOffset: new Cartesian2(7, 0),
         distanceDisplayCondition: AIRPORT_RANGE,
       });
-    }
+    });
   }
 
   if (ports) {
@@ -332,9 +342,10 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     // river and inland ports. Only sea ports get names.
     const teal = Color.fromCssColorString('#4fc1b0');
     const dark = Color.fromCssColorString('#0b0e13');
-    for (const [, name, , lon, lat, sea] of ports) {
+    ports.forEach(([, name, , lon, lat, sea], i) => {
       const position = Cartesian3.fromDegrees(lon, lat, 1000);
       portDots.add({
+        id: 'port:' + i,
         position,
         pixelSize: sea ? 5 : 4,
         color: dark,
@@ -342,8 +353,9 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
         outlineWidth: 1.5,
         distanceDisplayCondition: sea ? SEA_PORT_RANGE : INLAND_PORT_RANGE,
       });
-      if (!sea) continue;
+      if (!sea) return;
       portLabels.add({
+        id: 'port:' + i,
         position,
         text: name,
         font: '500 10.5px Inter, system-ui, sans-serif',
@@ -356,7 +368,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
         pixelOffset: new Cartesian2(7, 0),
         distanceDisplayCondition: PORT_LABEL_RANGE,
       });
-    }
+    });
   }
 
   let layers = DEFAULT_REFERENCE;
@@ -403,6 +415,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   apply();
 
   return {
+    airport: (index) => (layers.airports && airports?.[index]) || null,
+    port: (index) => (layers.ports && ports?.[index]) || null,
     setLayers(next) {
       layers = next;
       apply();

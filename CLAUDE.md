@@ -197,6 +197,10 @@ parts connect.
   only (`FeedClient.get(..., only=)`), publishing a bare sample
   (`gps_sample`) on NATS `argus.gps`; the API feeds it to `GpsGrid` and
   nothing else (not stored, not pushed). `ARGUS_GPS_SWEEP=false` stops it.
+- Airports and ports (`map/overlays.ts`) are picked as `apt:<i>` and
+  `port:<i>` (index into the bundled JSON); `PlaceInspector` shows them
+  with headlines from `/api/news?q=` (`searchTerms` trims "International
+  Airport" and the like).
 - Labels: Argus labels down to `TILE_LABELS_BELOW` (overlays.ts); below
   it the basemap's label tiles (`LABEL_LAYERS` in Globe.tsx) and the
   self-hosted street map fade in. Mark any new label-carrying imagery

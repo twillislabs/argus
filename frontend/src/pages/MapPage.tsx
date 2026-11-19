@@ -4,6 +4,7 @@ import AircraftInspector from '../components/AircraftInspector';
 import AirspaceInspector from '../components/AirspaceInspector';
 import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
+import PlaceInspector from '../components/PlaceInspector';
 import AlprInspector from '../components/AlprInspector';
 import BridgeHud from '../components/BridgeHud';
 import CamInspector from '../components/CamInspector';
@@ -850,6 +851,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const selectedCable = selectedInfra?.startsWith('cable:') ? (globe.current?.cable(selectedInfra.slice(6)) ?? null) : null;
   const selectedBase =
     selectedInfra?.startsWith('mil:') ? (globe.current?.base(Number(selectedInfra.slice(4))) ?? null) : null;
+  const selectedAirport = selectedInfra?.startsWith('apt:')
+    ? (globe.current?.airport(Number(selectedInfra.slice(4))) ?? null)
+    : null;
+  const selectedPort = selectedInfra?.startsWith('port:')
+    ? (globe.current?.port(Number(selectedInfra.slice(5))) ?? null)
+    : null;
 
   const airCounts = useMemo(
     () => ({ military: military.length, civil: civil.length }),
@@ -1039,7 +1046,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       selectVessel(Number(id.slice(5)));
       return;
     }
-    if (id && (id.startsWith('pp:') || id.startsWith('cable:') || id.startsWith('mil:'))) {
+    if (
+      id &&
+      (id.startsWith('pp:') ||
+        id.startsWith('cable:') ||
+        id.startsWith('mil:') ||
+        id.startsWith('apt:') ||
+        id.startsWith('port:'))
+    ) {
       clearSelection();
       setSelectedInfra(id);
       openRight();
@@ -1255,6 +1269,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             title: p[0],
             color: FUEL_COLOR[p[2]] ?? FUEL_COLOR.Other,
             lines: [p[2] + ' · ' + p[3].toLocaleString() + ' MW · ' + p[1]],
+          }
+        : null;
+    }
+    if (id.startsWith('apt:')) {
+      const a = globe.current?.airport(Number(id.slice(4)));
+      return a ? { title: a[1], color: '#b4c2d4', lines: [a[0] + ' · airport'] } : null;
+    }
+    if (id.startsWith('port:')) {
+      const p = globe.current?.port(Number(id.slice(5)));
+      return p
+        ? {
+            title: p[1],
+            color: '#4fc1b0',
+            lines: [(p[5] ? 'Sea port' : 'River or inland port') + ' · ' + p[0]],
           }
         : null;
     }
@@ -1785,6 +1813,31 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                     Math.max(20_000, span * 160_000),
                   );
                 }}
+              />
+            ) : selectedAirport ? (
+              <PlaceInspector
+                place={{
+                  kind: 'airport',
+                  code: selectedAirport[0],
+                  name: selectedAirport[1],
+                  lon: selectedAirport[2],
+                  lat: selectedAirport[3],
+                }}
+                onBack={clearSelection}
+                onFly={() => globe.current?.flyTo(selectedAirport[3], selectedAirport[2], 20_000)}
+              />
+            ) : selectedPort ? (
+              <PlaceInspector
+                place={{
+                  kind: selectedPort[5] ? 'seaport' : 'port',
+                  code: selectedPort[0],
+                  name: selectedPort[1],
+                  country: selectedPort[2],
+                  lon: selectedPort[3],
+                  lat: selectedPort[4],
+                }}
+                onBack={clearSelection}
+                onFly={() => globe.current?.flyTo(selectedPort[4], selectedPort[3], 20_000)}
               />
             ) : selectedBase ? (
               <BaseInspector
