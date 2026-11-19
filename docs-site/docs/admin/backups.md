@@ -5,6 +5,17 @@ sidebar_position: 4
 
 # Backups and moving servers
 
+## Updating
+
+```bash
+make update
+```
+
+backs up first (`make backup`), pulls the latest Argus (fast-forward
+only; it stops if this checkout has local changes), rebuilds and restarts
+the containers, and waits for the API. New database migrations run as
+the API starts. `scripts/update.sh --no-backup` skips the backup.
+
 ## From the web UI
 
 Admins can do both from **Settings › Backups**, after entering their

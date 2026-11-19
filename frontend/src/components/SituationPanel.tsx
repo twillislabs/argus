@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 
 import type { Aircraft, Bbox, EventItem, Home, Summary, Tension, WeatherNow, WxAlert } from '../lib/api';
+import { getLiveNear } from '../lib/api';
 import { aircraftColor } from '../map/aircraftLayer';
 import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
 import { distance, temperature, windSpeed } from '../lib/units';
 import { alertColor } from '../map/wxLayer';
+import VideoList from './VideoList';
 
 interface Props {
   summary: Summary | null;
@@ -381,6 +383,25 @@ export default function SituationPanel({
           ) : (
             <p className="quiet">No events in this area for the layers and time window shown.</p>
           )}
+        </section>
+      )}
+      {view && (
+        <section className="isec">
+          <h3>Live near the view</h3>
+          <VideoList
+            resetKey={view.map((v) => v.toFixed(1)).join(',')}
+            label="Find live streams here"
+            empty="No live streams tagged with a place in this area right now."
+            fetch={() => {
+              const [w, s, e, n] = view;
+              const lat = (s + n) / 2;
+              const radius = Math.min(
+                250,
+                Math.hypot(((e - w) / 2) * 111 * Math.cos((lat * Math.PI) / 180), ((n - s) / 2) * 111),
+              );
+              return getLiveNear(lat, (w + e) / 2, Math.max(10, radius));
+            }}
+          />
         </section>
       )}
       {home && (weatherNow?.status === 'ok' || homeAlerts.length > 0) && (

@@ -544,6 +544,44 @@ export interface AirspaceItem {
   upper?: string | null;
 }
 
+// YouTube search results (/api/video/...), with an admin's key.
+export interface VideoItem {
+  id: string;
+  title: string;
+  channel: string;
+  published: string | null;
+  live: boolean;
+  thumb: string;
+  url: string;
+}
+export interface VideoAnswer {
+  status: 'ok' | 'nokey' | 'quota' | 'error' | 'zoom';
+  items: VideoItem[];
+}
+export const getLiveNear = (lat: number, lon: number, radiusKm: number) =>
+  api<VideoAnswer>(
+    '/api/video/near?lat=' + lat.toFixed(4) + '&lon=' + lon.toFixed(4) + '&radius_km=' + Math.round(radiusKm),
+  );
+export const getEventVideo = (id: string) => api<VideoAnswer>('/api/video/event/' + encodeURIComponent(id));
+
+// Windy webcams in view (/api/webcams), with an admin's key.
+export interface Webcam {
+  id: string;
+  title: string;
+  place: string | null;
+  lat: number;
+  lon: number;
+  status: string | null;
+  image: string | null;
+  player: string | null;
+  page: string | null;
+  updated: string | null;
+}
+export const getWebcams = (bbox: Bbox) =>
+  api<{ status: VideoAnswer['status']; items: Webcam[]; attribution?: string }>(
+    '/api/webcams?bbox=' + bbox.map((v) => v.toFixed(3)).join(','),
+  );
+
 // Government traffic cameras (/api/cams), for a regional view. image is
 // our proxy path; agency URLs never reach the browser.
 export interface TrafficCam {

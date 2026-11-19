@@ -180,6 +180,24 @@ is overdue (hover for the error), grey when it isn't collecting.
 | Layer | Shows | Source |
 |---|---|---|
 | **Traffic cameras** | Government road and weather cameras, with a wedge for the way each looks where the agency says. Click one for its latest still, refreshed every 30 seconds (Argus's server fetches stills, so your browser never contacts the agency for them). Where the agency streams live video (most Caltrans cameras) or keeps a short recent clip (London's JamCams), **Play** shows it; video plays straight from the agency's server. Loads for a regional view (zoom in to about a state). Off by default | Caltrans (California), DriveBC (British Columbia), TfL JamCams (London, Powered by TfL Open Data), Fintraffic Digitraffic weather cameras (Finland, CC BY 4.0), no keys needed; TDOT SmartWay (Tennessee) with a TDOT key in Settings › Data sources |
+| **Webcams** | Public webcams (towns, beaches, ski slopes, harbours, city skylines) from windy.com, for a regional view. Click one for its latest preview (linked to its Windy page) and **Timelapse** for Windy's player. Off by default | windy.com, with a Windy key in Settings › Data sources |
+
+## Live video near the view and about events
+
+With a YouTube Data API key (Settings › Data sources):
+
+- **Live near the view** in the Situation panel (when zoomed in to a
+  region): **Find live streams here** lists YouTube live streams tagged
+  with a place inside the view, most watched first. Click one to play it
+  in the panel.
+- **Video** in an event's panel: **Find video about this event** lists
+  recent videos (since a few hours before the event began) for its place
+  and kind of event, near it where uploads say where they were filmed.
+
+Searches only run when you press the button; the key's free quota
+allows about a hundred a day, and answers are shared between everyone for
+half an hour (an hour for events). Video plays through
+youtube-nocookie.com.
 
 ## Reference layers
 

@@ -23,6 +23,7 @@ from argus.api import (
     me,
     setup,
     users,
+    video,
     weather,
 )
 from argus.api import sea as sea_api
@@ -35,6 +36,7 @@ from argus.live import Hub, subscribe_forever
 from argus.openaip import OpenAip
 from argus.sea import LiveSea
 from argus.services import ensure_setup_token
+from argus.video import Video
 from argus.youtube import LiveIds
 
 log = logging.getLogger("argus")
@@ -75,6 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.openaip = OpenAip(settings.user_agent)
         app.state.alpr = Alpr(settings.user_agent, app.state.db)
         app.state.youtube = LiveIds(settings.user_agent)
+        app.state.video = Video(settings.user_agent)
         live_task = None
         if settings.nats_url:
             live_task = asyncio.create_task(
@@ -96,6 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.openaip.close()
         await app.state.alpr.close()
         await app.state.youtube.close()
+        await app.state.video.close()
         if hasattr(app.state, "weather_http"):
             await app.state.weather_http.aclose()
         await db.dispose()
@@ -133,6 +137,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (
         cams.router,
+        video.router,
         backups.router,
         health.router,
         setup.router,

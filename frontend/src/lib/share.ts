@@ -44,6 +44,7 @@ export function enabledLayers(f: LayerFilters): string[] {
   if (f.tension) on.push('tension');
   if (f.wiki) on.push('wiki');
   if (f.cams.traffic) on.push('cams-traffic');
+  if (f.cams.webcams) on.push('cams-webcams');
   return on;
 }
 
@@ -96,7 +97,7 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
     infra: { nuclear: has('nuclear'), power: has('power'), cables: has('cables'), bases: has('bases'), alpr: has('alpr') },
     tension: has('tension'),
     wiki: has('wiki'),
-    cams: { traffic: has('cams-traffic') },
+    cams: { traffic: has('cams-traffic'), webcams: has('cams-webcams') },
   };
 }
 

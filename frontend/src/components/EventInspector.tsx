@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { type EventDetail, getEvent, ApiError } from '../lib/api';
+import { type EventDetail, getEvent, ApiError, getEventVideo } from '../lib/api';
 import { ago, SEVERITY_COLOR, SEVERITY_NAME, TYPE_INFO, zuluTime } from '../lib/format';
 import CopyCoords from './CopyCoords';
+import VideoList from './VideoList';
 
 interface Props {
   id: string;
@@ -173,6 +174,15 @@ function Detail({
         ) : (
           <p className="quiet">No matching headlines from your news feeds yet.</p>
         )}
+      </section>
+      <section className="isec">
+        <h3>Video</h3>
+        <VideoList
+          resetKey={e.id}
+          label="Find video about this event"
+          empty="No recent videos found for this place and kind of event."
+          fetch={() => getEventVideo(e.id)}
+        />
       </section>
       <section className="isec">
         <button className="backlink" onClick={() => setShowRaw(!showRaw)}>

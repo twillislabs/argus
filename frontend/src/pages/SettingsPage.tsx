@@ -971,6 +971,20 @@ function SourcesSection() {
           for non-commercial use.
         </p>
       </KeyCard>
+ <KeyCard name="youtube" title="YouTube Data API (live streams and event video)" state={keys?.youtube} onSaved={setKeys}>
+        <p>
+          <b>Live near the view</b> (Situation panel) and <b>Video</b> (event panel) search YouTube. Create a project in
+          the Google Cloud console, enable the <b>YouTube Data API v3</b>, create an API key (restrict it to that API),
+          and paste it here. Its free daily quota allows about a hundred searches; Argus searches only when someone
+          asks and shares the answers.
+        </p>
+      </KeyCard>
+      <KeyCard name="windy" title="Windy (webcams)" state={keys?.windy} onSaved={setKeys}>
+        <p>
+          The <b>Webcams</b> layer comes from <b>windy.com</b>. Sign in at api.windy.com, create a free Webcams API key
+          under <b>API keys</b>, and paste it here. Each webcam links to its Windy page, as Windy&apos;s terms ask.
+        </p>
+      </KeyCard>
       <KeyCard name="tdot" title="TDOT (Tennessee traffic cameras)" state={keys?.tdot} onSaved={setKeys}>
         <p>
           Tennessee&apos;s SmartWay cameras come from the <b>TDOT open-data API</b>, which needs a free API key holder

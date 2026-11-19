@@ -7,6 +7,7 @@ import { BaseInspector, CableInspector, PlantInspector } from '../components/Inf
 import AlprInspector from '../components/AlprInspector';
 import BridgeHud from '../components/BridgeHud';
 import CamInspector from '../components/CamInspector';
+import WebcamInspector from '../components/WebcamInspector';
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
 import { CursorReadout, LIVE, type Replay, ScaleBar, Timeline } from '../components/MapFooter';
@@ -44,6 +45,8 @@ import {
   getAlpr,
   getCams,
   type TrafficCam,
+  getWebcams,
+  type Webcam,
   type AlprCamera,
   type AlprStatus,
   getGps,
@@ -78,7 +81,7 @@ import { TINT_FROM } from '../map/tensionLayer';
 import { ADVISORY_COLOR } from '../map/advisoryLayer';
 import { WIKI_COLOR, WIKI_CONFLICT_COLOR } from '../map/wikiLayer';
 import { ALPR_COLOR } from '../map/alprLayer';
-import { CAM_COLOR } from '../map/camLayer';
+import { CAM_COLOR, WEBCAM_COLOR } from '../map/camLayer';
 import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { aircraftColor } from '../map/aircraftLayer';
 import { BASE_KINDS, FUEL_COLOR } from '../map/infraLayer';
@@ -229,6 +232,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [trafficCams, setTrafficCams] = useState<TrafficCam[]>([]);
   const [camStatus, setCamStatus] = useState<'ok' | 'zoom'>('zoom');
   const [selectedCam, setSelectedCam] = useState<TrafficCam | null>(null);
+  const [webcams, setWebcams] = useState<Webcam[]>([]);
+  const [webcamStatus, setWebcamStatus] = useState<string>('zoom');
+  const [selectedWebcam, setSelectedWebcam] = useState<Webcam | null>(null);
   const [alprCameras, setAlprCameras] = useState<AlprCamera[]>([]);
   const [selectedAlpr, setSelectedAlpr] = useState<string | null>(null);
   const [alprStatus, setAlprStatus] = useState<AlprStatus>('zoom');
@@ -324,6 +330,35 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       alprTimer.current = window.setTimeout(() => void loadAlpr(), 5000);
     }
   }, []);
+
+  // Windy webcams for the view (regional views only; image links last a
+  // few minutes, so the list is asked for again every five).
+  const loadWebcams = useCallback(async () => {
+    const bbox = viewRef.current;
+    if (!filtersRef.current.cams.webcams) return;
+    if (!bbox) {
+      setWebcamStatus('zoom');
+      setWebcams([]);
+      return;
+    }
+    try {
+      const r = await getWebcams(bbox);
+      if (viewRef.current !== bbox) return;
+      setWebcamStatus(r.status);
+      setWebcams(r.items);
+    } catch {
+      setWebcamStatus('error');
+    }
+  }, []);
+  useEffect(() => {
+    if (!filters.cams.webcams) {
+      setWebcams([]);
+      return;
+    }
+    void loadWebcams();
+    const id = window.setInterval(() => void loadWebcams(), 300_000);
+    return () => window.clearInterval(id);
+  }, [filters.cams.webcams, loadWebcams]);
 
   // Traffic cameras for the view (regional views only).
   const loadCams = useCallback(async () => {
@@ -528,9 +563,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         void loadStructure();
         void loadAlpr();
         void loadCams();
+        void loadWebcams();
       }, 400);
     },
-    [loadCivil, loadVessels, loadStructure, loadAlpr, loadCams],
+    [loadCivil, loadVessels, loadStructure, loadAlpr, loadCams, loadWebcams],
   );
   useEffect(() => {
     if (filters.airspace.structure) void loadStructure();
@@ -860,6 +896,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     setSelectedAirspace(null);
     setSelectedInfra(null);
     setSelectedCam(null);
+    setSelectedWebcam(null);
     setSelectedAlpr(null);
     setFollowSat(false);
     setCamera('free');
@@ -1009,6 +1046,15 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       openRight();
       return;
     }
+    if (id && id.startsWith('webcam:')) {
+      const cam = webcams.find((c) => 'webcam:' + c.id === id);
+      if (cam) {
+        clearSelection();
+        setSelectedWebcam(cam);
+        openRight();
+      }
+      return;
+    }
     if (id && id.startsWith('cam:')) {
       const cam = trafficCams.find((c) => 'cam:' + c.id === id);
       if (cam) {
@@ -1139,6 +1185,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             lines: [Math.round(c.share * 100) + '% of ' + c.aircraft + ' aircraft degraded · last hour'],
           }
         : null;
+    }
+    if (id.startsWith('webcam:')) {
+      const c = webcams.find((x) => 'webcam:' + x.id === id);
+      return c ? { title: c.title, color: WEBCAM_COLOR, lines: [c.place ?? 'Webcam', 'windy.com'] } : null;
     }
     if (id.startsWith('cam:')) {
       const c = trafficCams.find((x) => 'cam:' + x.id === id);
@@ -1366,6 +1416,16 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             alprCount={filters.infra.alpr && alprStatus !== 'zoom' ? alprCameras.length : undefined}
             alprLoading={filters.infra.alpr && alprStatus === 'partial'}
             camCount={filters.cams.traffic && camStatus !== 'zoom' ? trafficCams.length : undefined}
+            webcamCount={webcamStatus === 'ok' ? webcams.length : undefined}
+            webcamNote={
+              webcamStatus === 'zoom'
+                ? 'zoom in'
+                : webcamStatus === 'nokey'
+                  ? 'no key'
+                  : webcamStatus === 'error'
+                    ? 'error'
+                    : undefined
+            }
             weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
             zoneCount={filters.weather.zones ? wxZoned.length : undefined}
             airCounts={airCounts}
@@ -1403,6 +1463,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             showWiki={filters.wiki}
             alprCameras={alprCameras}
             trafficCams={filters.cams.traffic ? trafficCams : []}
+            webcams={filters.cams.webcams ? webcams : []}
             selectedCam={selectedCam?.id ?? null}
             wxAlerts={wxAlerts}
             wxZoned={wxZoned}
@@ -1656,7 +1717,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         <Timeline events={shown} hours={filters.hours} replay={replay} onReplay={setReplay} />
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
-            {selectedAlpr && alprCameras.some((c) => c.id === selectedAlpr) ? (
+            {selectedWebcam ? (
+              <WebcamInspector cam={selectedWebcam} onBack={() => setSelectedWebcam(null)} />
+            ) : selectedAlpr && alprCameras.some((c) => c.id === selectedAlpr) ? (
               <AlprInspector
                 cam={alprCameras.find((c) => c.id === selectedAlpr) as AlprCamera}
                 inView={alprCameras}

@@ -369,6 +369,17 @@ tr.dimrow td { color: var(--dim); }
 .alprsum li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kv.tags dt { font-size: 11px; }
 .camshot { margin: 10px 0 6px; background: #05080e; border: 1px solid var(--line); border-radius: 4px; min-height: 140px; display: grid; place-items: center; overflow: hidden; }
+.camplayer { display: block; width: 100%; aspect-ratio: 16 / 10; border: 1px solid var(--line); border-radius: 4px; margin: 10px 0 6px; background: #05080e; }
+.vidlist .vids { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.vidlist .vid { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; width: 100%; text-align: left; background: none; border: 0; padding: 4px; border-radius: 4px; cursor: pointer; color: var(--text); font: inherit; }
+.vidlist .vid:hover { background: var(--surface-2); }
+.vidlist .vid img { width: 96px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 3px; background: #05080e; }
+.vidlist .vid b { display: block; font-size: 12px; font-weight: 500; line-height: 1.3; }
+.vidlist .vid small { font-size: 11px; color: var(--muted); }
+.vidlist .livetag { font-style: normal; font-size: 9.5px; font-weight: 700; color: #fff; background: var(--crit); padding: 0 4px; border-radius: 2px; }
+.vidplayer iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 4px; background: #000; }
+.vidplaying { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin: 4px 0 8px; font-size: 12px; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; }
 .camvideo { display: block; width: 100%; margin: 10px 0 6px; background: #05080e; border: 1px solid var(--line); border-radius: 4px; }
 .camshot img { display: block; width: 100%; height: auto; }
 .camshot figcaption { padding: 10px; font-size: 12px; }

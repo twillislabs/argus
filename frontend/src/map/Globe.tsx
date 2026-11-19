@@ -51,6 +51,7 @@ import type {
   AlprCamera,
   GpsCell,
   TrafficCam,
+  Webcam,
   WikiItem,
   Home,
   MapConfig,
@@ -69,7 +70,7 @@ import { addTensionLayer, type TensionLayer } from './tensionLayer';
 import { addAdvisoryLayer, type AdvisoryLayer } from './advisoryLayer';
 import { addWikiLayer, type WikiLayer } from './wikiLayer';
 import { addAlprLayer, type AlprLayer } from './alprLayer';
-import { addCamLayer, type CamLayer } from './camLayer';
+import { addCamLayer, type CamLayer, WEBCAM_COLOR } from './camLayer';
 import { addWxLayer, type WeatherFilters, type WxLayer } from './wxLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
 import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './closeModels';
@@ -381,6 +382,8 @@ interface Props {
   // Traffic cameras for the view (empty when the layer is off).
   trafficCams?: TrafficCam[];
   selectedCam?: string | null;
+  // Windy webcams for the view (empty when the layer is off).
+  webcams?: Webcam[];
   // Weather (map/wxLayer.ts).
   wxAlerts?: WxAlert[];
   wxZoned?: WxAlert[];
@@ -439,6 +442,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     alprCameras,
     trafficCams,
     selectedCam,
+    webcams,
     wxAlerts,
     wxZoned,
     outlook,
@@ -484,6 +488,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const wikiLayer = useRef<WikiLayer | null>(null);
   const alprLayer = useRef<AlprLayer | null>(null);
   const camLayer = useRef<CamLayer | null>(null);
+  const webcamLayer = useRef<CamLayer | null>(null);
   const wx = useRef<WxLayer | null>(null);
   const weatherRef = useRef(weather);
   weatherRef.current = weather;
@@ -583,6 +588,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     wikiLayer.current = addWikiLayer(scene);
     alprLayer.current = addAlprLayer(scene);
     camLayer.current = addCamLayer(scene);
+    webcamLayer.current = addCamLayer(scene, WEBCAM_COLOR, 'webcam:');
     wx.current = addWxLayer(scene, () => ({
       add: (l) => v.scene.imageryLayers.add(l),
       remove: (l) => {
@@ -704,6 +710,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       wikiLayer.current?.setDepthDistance(d);
       alprLayer.current?.setDepthDistance(d);
       camLayer.current?.setDepthDistance(d);
+      webcamLayer.current?.setDepthDistance(d);
       ships.current?.setDepthDistance(d);
       overlays.current?.setDepthDistance(d);
     }
@@ -835,6 +842,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['wikipedia', () => wikiLayer.current?.destroy()],
         ['alpr', () => alprLayer.current?.destroy()],
         ['traffic cameras', () => camLayer.current?.destroy()],
+        ['webcams', () => webcamLayer.current?.destroy()],
         ['weather', () => wx.current?.destroy()],
         ['infrastructure', () => infraLayer.current?.destroy()],
         ['pulse listener', removePulse],
@@ -865,6 +873,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       wikiLayer.current = null;
       alprLayer.current = null;
       camLayer.current = null;
+      webcamLayer.current = null;
       infraLayer.current = null;
       air.current = null;
       tracker.current = null;
@@ -1050,6 +1059,11 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     const list = trafficCams ?? [];
     camLayer.current?.update(list, list.length > 0, selectedCam ?? null);
   }, [trafficCams, selectedCam]);
+
+  useEffect(() => {
+    const list = webcams ?? [];
+    webcamLayer.current?.update(list, list.length > 0, null);
+  }, [webcams]);
 
   useEffect(() => {
     advisoryLayer.current?.update(advisories ?? [], reference.advisories);

@@ -10,7 +10,7 @@ import { DEFAULT_SPACE, SAT_COLOR, type SpaceFilters } from '../map/satellites';
 import { TENSION_COLOR } from '../map/tensionLayer';
 import { WIKI_COLOR } from '../map/wikiLayer';
 import { ALPR_COLOR } from '../map/alprLayer';
-import { CAM_COLOR } from '../map/camLayer';
+import { CAM_COLOR, WEBCAM_COLOR } from '../map/camLayer';
 import { DEFAULT_WEATHER, type WeatherFilters } from '../map/wxLayer';
 import { distance } from '../lib/units';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
@@ -37,7 +37,7 @@ export interface LayerFilters {
   // Wikipedia current events (map/wikiLayer.ts).
   wiki: boolean;
   // Cameras: government traffic cameras (map/camLayer.ts).
-  cams: { traffic: boolean };
+  cams: { traffic: boolean; webcams: boolean };
   weather: WeatherFilters;
 }
 
@@ -54,7 +54,7 @@ export const DEFAULT_FILTERS: LayerFilters = {
   infra: DEFAULT_INFRA,
   tension: true,
   wiki: false,
-  cams: { traffic: false },
+  cams: { traffic: false, webcams: false },
   weather: DEFAULT_WEATHER,
 };
 
@@ -164,6 +164,9 @@ interface Props {
   alprCount?: number;
   alprLoading?: boolean;
   camCount?: number;
+  webcamCount?: number;
+  // "zoom in", "no key" and so on, while there's no count.
+  webcamNote?: string;
   advisoryCount?: number;
   // Storm warnings and zone alerts drawn on the map.
   weatherCount?: number;
@@ -295,6 +298,8 @@ export default function LayerPanel({
   alprCount,
   alprLoading,
   camCount,
+  webcamCount,
+  webcamNote,
   advisoryCount,
   weatherCount,
   zoneCount,
@@ -576,7 +581,7 @@ export default function LayerPanel({
           </label>
         ))}
       </Group>
-      <Group title="Cameras" on={countOn(filters.cams)} total={1} forceOpen={Boolean(q)}>
+      <Group title="Cameras" on={countOn(filters.cams)} total={2} forceOpen={Boolean(q)}>
         <label className="lrow">
           <input
             type="checkbox"
@@ -593,6 +598,20 @@ export default function LayerPanel({
             {filters.cams.traffic ? (camCount ?? 'zoom in') : null}
             <Dot sources={sources} id="trafficcams" />
           </span>
+        </label>
+        <label className="lrow">
+          <input
+            type="checkbox"
+            checked={filters.cams.webcams}
+            onChange={(e) => onChange({ ...filters, cams: { ...filters.cams, webcams: e.target.checked } })}
+          />
+          <span className="tog" />
+          <span className="sw" style={{ background: WEBCAM_COLOR }} />
+          <span className="lname">
+            <span>Webcams</span>
+            <small>windy.com · needs a Windy key</small>
+          </span>
+          <span className="lcount mono">{filters.cams.webcams ? (webcamCount ?? webcamNote ?? '–') : null}</span>
         </label>
       </Group>
       <Group title="Reference" on={countOn(filters.reference)} total={REFERENCE_ROWS.length} forceOpen={Boolean(q)}>
