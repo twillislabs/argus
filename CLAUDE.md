@@ -73,6 +73,9 @@ parts connect.
 - GDELT is noisy: `fusion.review_gdelt` decides active vs candidate from
   outlet agreement on one CAMEO root *and* corroborating RSS headlines
   (`corroborating_articles`). Don't promote GDELT events anywhere else.
+  Titles come from `gdelt_title`: vague codes (`VAGUE_CODES`) read
+  "Violence" until confirmed, and `crime_cluster` (article link words)
+  marks crime/crash/court clusters, which are never promoted.
 - adsb.lol's routeset endpoint is unusable (202, empty); routes come from
   adsbdb, which goes stale when flight numbers are reused
   (`route_progress` flags implausible routes).

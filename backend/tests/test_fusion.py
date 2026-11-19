@@ -2,8 +2,8 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
+from argus import fusion
 from argus.collectors.base import RawIn
-from argus.collectors.gdelt import label_for
 from argus.db import utcnow
 from argus.fusion import (
     expire_and_prune,
@@ -47,6 +47,7 @@ def gdelt(
     url="a.example.com",
     code="194",
     root=True,
+    path="story",
 ):
     return RawIn(
         source="gdelt",
@@ -65,7 +66,7 @@ def gdelt(
             "articles": articles,
             "root_event": root,
             "place": "Kharkiv, Kharkivs'ka Oblast', Ukraine",
-            "url": "https://{0}/story".format(url),
+            "url": "https://{0}/{1}".format(url, path),
         },
     )
 
@@ -215,6 +216,50 @@ async def test_generic_gdelt_code_needs_more(app):
         assert event.status == "candidate"
 
 
+def test_crime_cluster_reads_the_links():
+    crime = [
+        "https://a.example/crime/gunman-pleads-guilty-to-shooting-man",
+        "https://b.example/news/e-bike-rider-24-killed-philadelphia-hit/",
+        "https://c.example/police-officer-injured-alleged-assault",
+        "https://d.example/12345",
+    ]
+    assert fusion.crime_cluster(crime)
+    war = crime + [
+        "https://e.example/israeli-air-strikes-hit-gaza",
+        "https://f.example/troops-advance-near-kharkiv",
+    ]
+    assert not fusion.crime_cluster(war)
+    assert not fusion.crime_cluster(crime[:2])
+
+
+async def test_crime_gdelt_cluster_is_not_military_force(app):
+    paths = [
+        "gunman-pleads-guilty-to-shooting-man",
+        "e-bike-rider-killed-in-hit-and-run",
+        "police-officer-injured-alleged-assault",
+        "man-arrested-over-murder-in-north-london",
+    ]
+    async with app.state.db.sessionmaker() as db:
+        await run(
+            db,
+            [
+                gdelt(
+                    str(i),
+                    url="{0}.example.com".format("abcd"[i]),
+                    articles=8,
+                    code="190",
+                    path=path,
+                )
+                for i, path in enumerate(paths)
+            ],
+        )
+        event = (await db.execute(select(Event))).scalar_one()
+        assert event.title.startswith("Crime or police incident")
+        assert event.data["crime"] is True
+        assert event.data["eligible"] is False
+        assert event.status == "candidate"
+
+
 async def test_articles_stored_once(app):
     rec = RawIn(
         source="rss",
@@ -290,7 +335,8 @@ async def test_political_cluster_is_not_called_fighting(app):
         event = (await db.execute(select(Event))).scalar_one()
         await db.refresh(event)
         assert not event.title.startswith("Artillery")
-        assert event.title.startswith(label_for("190"))
+        # Unconfirmed and only the catch-all code: just "violence".
+        assert event.title.startswith("Violence reported in")
         assert event.severity == gdelt_severity("190", "19")
 
         # Lots of articles from many outlets, still no headline: candidate.

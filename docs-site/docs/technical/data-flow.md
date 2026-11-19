@@ -58,6 +58,12 @@ Privacy-flagged aircraft are dropped before anything is kept.
   GDELT pins national political coverage on seats of government (the White House, the
   Capitol, the Kremlin, Downing Street...), so events there need the place in the headline
   itself, from two different outlets. Events that lose their backing go back to unconfirmed.
+
+  GDELT gives the same violence codes to crime, crash and court stories as to war. An
+  unconfirmed cluster with only its catch-all codes (military force, assault, armed clash,
+  small arms) is titled *Violence reported in …*; the specific label appears once it's
+  confirmed. A cluster whose article links mostly read like police, court or crash stories,
+  and rarely like fighting, is titled *Crime or police incident* and never confirmed.
   Unconfirmed reports are hidden unless you turn them on.
 - **Expiry:** events expire after 24 h without updates (72 h for quakes) and are deleted after
   the retention period.

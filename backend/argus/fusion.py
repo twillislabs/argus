@@ -59,6 +59,60 @@ PROMOTE_ARTICLES = 10
 GENERIC_CODES = {"190", "192", "193"}
 PROMOTE_ARTICLES_GENERIC = 20
 
+# GDELT codes violence (CAMEO 18x assault, 19x fight, 20x mass violence)
+# from crime, crash and court stories as readily as from war. A cluster
+# whose links mostly read like those, and hardly ever like fighting, is
+# a crime or police incident: titled so and never promoted.
+CRIME_SLUG = re.compile(
+    r"\b(police|cops?|officers?|arrest(s|ed)?|court|trial|jury|judge|"
+    r"convicted|guilty|sentenced|charged|suspects?|murder(s|ed|er)?|"
+    r"stabb(ing|ed)|robbery|burglary|abduction|kidnapp(ing|ed)|assault(s|ed)?|"
+    r"shooting|gunman|homicide|crash(es|ed)?|collision|accident|hit|"
+    r"rider|driver|pedestrian|crime|extradition|manslaughter|domestic)\b"
+)
+WAR_SLUG = re.compile(
+    r"\b(military|army|troops|soldiers|air ?strikes?|strikes?|missiles?|"
+    r"drones?|rockets?|shelling|artillery|militants?|insurgents?|war|"
+    r"offensive|ceasefire|frontline|idf|hamas|hezbollah|houthis?|"
+    r"invasion|battle|bombing|bombs?|fighters)\b"
+)
+CRIME_MIN_LINKS = 3
+
+
+def _url_words(url: str) -> str:
+    path = urlsplit(url).path.lower().replace("_", "-")
+    return " ".join(re.findall(r"[a-z]{3,}", path))
+
+
+def crime_cluster(urls: list[str]) -> bool:
+    """Most readable links are about crime, crashes or courts, and at
+    most a third as many are about fighting."""
+    crime = war = 0
+    for url in urls:
+        words = _url_words(url)
+        if not words:
+            continue
+        is_war = bool(WAR_SLUG.search(words))
+        war += is_war
+        crime += bool(CRIME_SLUG.search(words)) and not is_war
+    return crime >= CRIME_MIN_LINKS and crime >= 3 * war
+
+
+# Codes GDELT also uses for crime and accidents: an unconfirmed cluster
+# of these is only "violence", not "military force" or "armed clash".
+VAGUE_CODES = GENERIC_CODES | {"18", "180", "182", "19"}
+
+
+def gdelt_title(top_code: str, place: str, status: str, crime: bool) -> str:
+    if crime:
+        label = "Crime or police incident"
+    elif status != "active" and top_code in VAGUE_CODES:
+        label = "Violence"
+    else:
+        label = label_for(top_code)
+    return "{0} reported in {1}".format(label, place)[:300]
+
+
 UPDATABLE_KINDS = {
     "quake",
     "fire_cluster",
@@ -397,11 +451,12 @@ async def fuse_gdelt(db: AsyncSession, row: RawRecord) -> Event | None:
         articles >= needed and root_articles >= PROMOTE_OUTLETS
     )
     status = event.status
-
     place = event.place or p.get("place", "")
-    event.title = "{0} reported in {1}".format(label_for(top_code), place)[
-        :300
-    ]
+    crime = top_code[:2] in ("18", "19", "20") and crime_cluster(urls)
+    if crime:
+        eligible = False
+        severity = 1
+    event.title = gdelt_title(top_code, place, status, crime)
     event.summary = (
         "Machine-coded by GDELT from {0} articles across {1} outlets. "
         "Single reports can be wrong; open the sources to check."
@@ -419,6 +474,7 @@ async def fuse_gdelt(db: AsyncSession, row: RawRecord) -> Event | None:
         "urls": [u for u in urls if u][:50],
         "actors": actors[:20],
         "eligible": eligible,
+        "crime": crime,
         "corroboration": data.get("corroboration", []),
     }
     db.add(EventSource(event_id=event.id, raw_record_id=row.id))
@@ -643,6 +699,17 @@ async def review_gdelt(db: AsyncSession) -> set[str]:
     changed: set[str] = set()
     for event in rows:
         data = dict(event.data or {})
+        # Clusters fused before the crime check, or that turned into one.
+        codes = data.get("codes") or {}
+        top = max(codes, key=codes.get) if codes else ""
+        is_crime = top[:2] in ("18", "19", "20") and crime_cluster(
+            data.get("urls") or []
+        )
+        if is_crime and not data.get("crime"):
+            data.update(crime=True, eligible=False)
+            event.severity = 1
+            event.data = data
+            changed.add(event.id)
         backing = []
         if data.get("eligible"):
             backing = await corroborating_articles(db, event)
@@ -654,6 +721,12 @@ async def review_gdelt(db: AsyncSession) -> set[str]:
             if data.get("eligible") and corroborated
             else ("candidate")
         )
+        title = gdelt_title(
+            top, event.place or "", status, bool(data.get("crime"))
+        )
+        if top and title != event.title:
+            event.title = title
+            changed.add(event.id)
         ids = [a.id for a in backing[:5]]
         if status != event.status or ids != data.get("corroboration", []):
             data["corroboration"] = ids
