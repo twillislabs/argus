@@ -22,13 +22,31 @@ async def _defaults(db: DbDep) -> dict:
     return dict(row.value or {}) if row else {}
 
 
+async def _with_profile(db: DbDep, data: dict) -> dict:
+    """A screen that follows a wall profile gets the profile's settings as
+    its wall (and the profile's name)."""
+    pid = data.get("wall_profile")
+    if not pid:
+        return data
+    from argus.api.displays import profiles_by_id
+
+    profile = (await profiles_by_id(db)).get(pid)
+    if profile is None:
+        return data
+    return {
+        **data,
+        "wall": profile.get("wall") or {},
+        "wall_profile_name": profile.get("name"),
+    }
+
+
 @router.get("/api/me", response_model=MeOut)
 async def me(session: SessionDep, db: DbDep) -> MeOut:
     user = await db.get(User, session.user_id)
     prefs = await _prefs(db, user)
     return MeOut(
         user=UserOut.model_validate(user),
-        preferences=prefs.data,
+        preferences=await _with_profile(db, prefs.data or {}),
         defaults=await _defaults(db),
     )
 

@@ -446,20 +446,23 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   // The satellite catalogue (about 17,000 objects) loads only once a
   // space layer is on or a satellite is picked, then hourly.
-  const wantSats =
-    filters.space.iss ||
+  // The whole catalogue (about 17,000) only when a satellite layer or a
+  // satellite is chosen; Space stations on its own needs just a few.
+  const fullCatalog =
     filters.space.leo ||
     filters.space.meo ||
     filters.space.geo ||
     filters.space.heo ||
     filters.space.starlink ||
     selectedNorad !== null;
+  const satMode: 'none' | 'stations' | 'all' = fullCatalog ? 'all' : filters.space.iss ? 'stations' : 'none';
+  const wantSats = satMode !== 'none';
   useEffect(() => {
     if (!wantSats) return;
     let cancelled = false;
     async function load() {
       try {
-        const body = await getSatelliteCatalog();
+        const body = await getSatelliteCatalog(satMode === 'stations' ? 'station' : undefined);
         if (cancelled) return;
         setSatCatalog({
           updated: body.updated,
@@ -476,22 +479,24 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         // Retried on the next interval.
       }
     }
-    if (!satCatalog) void load();
+    void load();
     const id = window.setInterval(() => void load(), 3_600_000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
     };
-    // satCatalog is checked once per switch-on; the interval refreshes it.
-  }, [wantSats]);
+    // Loaded again when the mode changes (stations only, or everything);
+    // the interval refreshes it.
+  }, [satMode]);
   const satCounts = useMemo(() => {
     const c: Partial<Record<keyof SpaceFilters, number>> = {};
-    for (const m of satCatalog?.meta ?? []) {
+    // Counts mean something only with the whole catalogue loaded.
+    for (const m of satMode === 'all' ? (satCatalog?.meta ?? []) : []) {
       const k = m.tags.includes('starlink') ? 'starlink' : m.cls;
       c[k] = (c[k] ?? 0) + 1;
     }
     return c;
-  }, [satCatalog]);
+  }, [satCatalog, satMode]);
 
   const viewTimer = useRef<number | undefined>(undefined);
   const [legendOpen, setLegendOpen] = useState(false);

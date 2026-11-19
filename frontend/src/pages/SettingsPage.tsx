@@ -8,6 +8,7 @@ import HomePicker from '../components/HomePicker';
 import ImageryCard from '../components/ImageryCard';
 import UsersCard from '../components/UsersCard';
 import WallEditor from '../components/WallEditor';
+import WallProfiles from '../components/WallProfiles';
 import { CHANNELS, DEFAULT_TABS } from '../config/newsChannels';
 import {
   api,
@@ -17,6 +18,9 @@ import {
   getReceivers,
   getScreenWall,
   putScreenWall,
+  getWallProfiles,
+  createWallProfile,
+  type WallProfile,
   type WallPrefs,
   type Home,
   type KeyState,
@@ -256,31 +260,93 @@ interface DisplayRow {
 // Pair wall screens: the screen opens /pair and shows a code; enter it
 // here with a name. Unpair to cut a screen off.
 // One paired screen's wall settings, loaded when opened.
-function ScreenWall({ row }: { row: DisplayRow }) {
-  const [data, setData] = useState<{ wall: WallPrefs; home: Home | null } | null>(null);
+function ScreenWall({ row, profilesKey }: { row: DisplayRow; profilesKey: number }) {
+  const [data, setData] = useState<{ wall: WallPrefs; home: Home | null; profile: string | null } | null>(null);
+  const [profiles, setProfiles] = useState<WallProfile[]>([]);
   const [error, setError] = useState('');
+  const [note, setNote] = useState('');
   useEffect(() => {
     getScreenWall(row.id)
       .then(setData)
       .catch((err) => setError(err instanceof Error ? err.message : 'Could not load.'));
   }, [row.id]);
+  useEffect(() => {
+    getWallProfiles()
+      .then((r) => setProfiles(r.profiles))
+      .catch(() => setProfiles([]));
+  }, [profilesKey]);
   if (error) return <p className="quiet small pad">{error}</p>;
   if (!data) return <p className="quiet small pad">Loading…</p>;
+  const following = profiles.find((p) => p.id === data.profile) ?? null;
   return (
-    <WallEditor
-      value={data.wall}
-      home={data.home}
-      withHome
-      onSave={async (wall, home) => {
-        setData(await putScreenWall(row.id, wall, home));
-      }}
-    />
+    <>
+      <div className="srows">
+        <div className="srow">
+          <span className="srow-label">
+            <b>Shows</b>
+            <small>A wall profile, or this screen&apos;s own settings</small>
+          </span>
+          <select
+            value={data.profile ?? ''}
+            onChange={async (e) => {
+              setData(await putScreenWall(row.id, data.wall, data.home, e.target.value || null));
+              setNote('Saved. The screen picks this up within a minute.');
+            }}
+          >
+            <option value="">Its own settings</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                Profile: {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {!following && (
+          <div className="srow">
+            <span className="srow-label">
+              <b>Make a profile</b>
+              <small>Save this screen&apos;s settings as a profile other screens can use</small>
+            </span>
+            <button
+              className="btn small"
+              onClick={async () => {
+                const name = window.prompt('Name for the new profile', row.name);
+                if (!name?.trim()) return;
+                const p = await createWallProfile(name.trim(), data.wall);
+                setData(await putScreenWall(row.id, data.wall, data.home, p.id));
+                setProfiles([...profiles, p]);
+                setNote('Made "' + p.name + '"; this screen now follows it.');
+              }}
+            >
+              Save as profile
+            </button>
+          </div>
+        )}
+      </div>
+      {note && <p className="quiet small pad">{note}</p>}
+      {following ? (
+        <p className="quiet small pad">
+          This screen follows <b>{following.name}</b>; edit it under Wall profiles above. Its home stays its own:
+        </p>
+      ) : null}
+      <WallEditor
+        key={data.profile ?? 'own'}
+        value={following ? following.wall : data.wall}
+        home={data.home}
+        withHome
+        homeOnly={Boolean(following)}
+        onSave={async (wall, home) => {
+          setData(await putScreenWall(row.id, following ? data.wall : wall, home, data.profile));
+        }}
+      />
+    </>
   );
 }
 
 function DisplaysSection() {
   const [rows, setRows] = useState<DisplayRow[]>([]);
   const [open, setOpen] = useState<number | null>(null);
+  const [profilesKey, setProfilesKey] = useState(0);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [status, setStatus] = useState('');
@@ -403,6 +469,7 @@ function DisplaysSection() {
           </table>
         </div>
       </section>
+      <WallProfiles onChange={() => setProfilesKey((k) => k + 1)} />
       {rows
         .filter((r) => r.active && r.id === open)
         .map((r) => (
@@ -410,7 +477,7 @@ function DisplaysSection() {
             <div className="ph">
               <h2>Wall settings · {r.name}</h2>
             </div>
-            <ScreenWall row={r} />
+            <ScreenWall row={r} profilesKey={profilesKey} />
           </section>
         ))}
     </>

@@ -6,7 +6,7 @@
 }
 .wall.night { filter: brightness(0.7); }
 body.nocursor, body.nocursor * { cursor: none !important; }
-.whead { grid-column: 1 / -1; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.whead { grid-column: 1 / -1; grid-row: 1; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .wbrand { display: flex; align-items: baseline; gap: 12px; }
 .wbrand .wtitle { font: 600 clamp(18px, 1.6vw, 28px)/1 var(--f-head); letter-spacing: 0.24em; text-transform: uppercase; }
 .wbrand small { font-size: clamp(9px, 0.7vw, 12px); letter-spacing: 0.2em; color: var(--dim); }
@@ -53,3 +53,12 @@ body.nocursor, body.nocursor * { cursor: none !important; }
 .wmove b { margin-right: 8px; font-weight: 500; color: var(--c); }
 @keyframes wtick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .wmove { animation: none; } }
+/* Fixed rows, so hidden sections leave no gaps in the wrong place. */
+.wmap { grid-row: 2; }
+.wside { grid-row: 2; }
+.wticker { grid-row: 3; }
+.wall.noside .wmap { grid-column: 1 / -1; }
+.wweather .wwx { display: grid; gap: 4px; }
+.wweather .wwx b { font-size: clamp(26px, 2.4vw, 44px); font-weight: 500; }
+.wweather .wwx span { color: var(--muted); font-size: clamp(12px, 0.9vw, 16px); }
+.wwxalert { color: var(--high); font-size: clamp(12px, 0.9vw, 16px); }

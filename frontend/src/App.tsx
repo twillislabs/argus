@@ -26,6 +26,28 @@ type Boot =
   | { state: 'signedIn'; me: Me }
   | { state: 'error'; message: string };
 
+// The tab title for each page, set on every navigation (pages that
+// leave nothing behind would otherwise keep the last page's title).
+const PAGE_TITLES: Record<string, string> = {
+  '': 'Argus',
+  settings: 'Settings · Argus',
+  brief: 'Brief · Argus',
+  wall: 'Wall · Argus',
+  pair: 'Pair this screen · Argus',
+  login: 'Sign in · Argus',
+  setup: 'Set up · Argus',
+};
+
+function pageTitle(path: string): string | null {
+  const parts = path.split('/').filter(Boolean);
+  if (parts[0] === 'news') return null; // NewsPage names its channel
+  if (parts[0] === 'settings' && parts[1]) {
+    const section = decodeURIComponent(parts[1]).replace(/-/g, ' ');
+    return section.charAt(0).toUpperCase() + section.slice(1) + ' · Settings · Argus';
+  }
+  return PAGE_TITLES[parts[0] ?? ''] ?? 'Argus';
+}
+
 export default function App() {
   const [boot, setBoot] = useState<Boot>({ state: 'loading' });
   const location = useLocation();
@@ -53,6 +75,11 @@ export default function App() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const title = pageTitle(location.pathname);
+    if (title) document.title = title;
+  }, [location.pathname]);
 
   if (boot.state === 'loading') {
     return <div className="boot">Connecting to Argus…</div>;

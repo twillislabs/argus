@@ -130,14 +130,31 @@ Displays (**Wall settings** next to the screen):
   *Watching*).
 - **Seconds per stop** (10 to 600) and whether **new critical events
   interrupt** the tour.
-- **Map layers:** country tension, events, military aircraft, conflict
-  zone bulletins, GPS interference and nuclear plants are on by default;
-  submarine cables, military bases and SIGMETs are off until you turn
-  them on.
-- **Live news** on or off, its **channel**, and up to four extra
-  **clocks**.
+- **Map layers**, grouped as on the Map: country tension, events,
+  military aircraft, space stations, conflict zone bulletins, GPS
+  interference and nuclear plants are on by default; ships, weather
+  (alerts, alert zones, storm outlooks, clouds, precipitation), travel
+  advisories, Wikipedia current events, power plants, submarine cables,
+  military bases, SIGMETs and TFRs are off until you turn them on.
+- **Sections:** show or hide the header, clocks, tension panel, figures,
+  top events, live news, the weather at home (off by default), the
+  caption and the ticker. With every side panel hidden the map fills the
+  screen.
+- The news **channel** and up to four extra **clocks**.
 
 Press **Save**; a running screen picks the change up within a minute.
+
+### Wall profiles
+
+Admins can save whole wall setups as named **profiles** (Settings >
+Displays > **Wall profiles**), say an *Ops floor* with the tension tour
+and a *Weather desk* with alerts and radar over home. Each paired
+screen's **Shows** setting picks a profile or its own settings; screens
+on a profile keep their own home. Editing a profile updates every screen
+on it within a minute. **Save as profile** turns a screen's current
+settings into a profile it then follows, and **Preview** opens a
+profile at `/wall?profile=…` in any signed-in browser. Deleting a
+profile sends its screens back to their own settings.
 - A ticker of the latest events runs along the bottom, with clocks for UTC
   and home at the top.
 - For long hours on screen: the layout drifts a pixel or two every few

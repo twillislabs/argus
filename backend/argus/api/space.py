@@ -2,7 +2,7 @@
 
 import json
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from sqlalchemy import func, select
 
 from argus import space
@@ -14,20 +14,31 @@ router = APIRouter(tags=["space"])
 
 @router.get("/api/satellites")
 async def list_satellites(
-    request: Request, response: Response, session: SessionDep, db: DbDep
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    db: DbDep,
+    tag: str | None = Query(None, pattern="^[a-z]{2,20}$"),
 ):
-    """Every catalogued satellite as compact arrays (see space.compact).
+    """Every catalogued satellite as compact arrays (see space.compact),
+    or only those with a tag (?tag=station: the crewed stations, a few
+    objects, for the Space stations layer on its own).
 
-    About 17,000 objects; the body is cached in memory until the
+    About 17,000 objects in all; each body is cached in memory until the
     catalogue changes and compresses well (nginx gzips it).
     """
     latest = (
         await db.execute(select(func.max(Satellite.updated_at)))
     ).scalar_one_or_none()
     stamp = latest.isoformat() if latest else ""
-    cache = getattr(request.app.state, "satellite_cache", None)
+    caches = getattr(request.app.state, "satellite_caches", None)
+    if caches is None:
+        caches = request.app.state.satellite_caches = {}
+    cache = caches.get(tag or "")
     if not cache or cache[0] != stamp:
         rows = await space.catalog(db)
+        if tag:
+            rows = [s for s in rows if tag in (s.tags or [])]
         body = json.dumps(
             {
                 "updated": stamp or None,
@@ -53,8 +64,8 @@ async def list_satellites(
             separators=(",", ":"),
         )
         cache = (stamp, body)
-        request.app.state.satellite_cache = cache
-    etag = '"sat-{0}"'.format(stamp)
+        caches[tag or ""] = cache
+    etag = '"sat-{0}-{1}"'.format(tag or "all", stamp)
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers={"ETag": etag})
     return Response(

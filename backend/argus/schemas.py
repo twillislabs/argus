@@ -170,9 +170,32 @@ WALL_LAYERS = (
     "czib",
     "gps",
     "nuclear",
+    "power",
     "cables",
     "bases",
     "sigmet",
+    "tfr",
+    "ships",
+    "wx_alerts",
+    "wx_zones",
+    "wx_outlook",
+    "clouds",
+    "precip",
+    "stations",
+    "advisories",
+    "wiki",
+)
+# Parts of the wall that can be shown or hidden.
+WALL_SECTIONS = (
+    "header",
+    "clocks",
+    "tension",
+    "kpis",
+    "top",
+    "news",
+    "weather",
+    "caption",
+    "ticker",
 )
 
 
@@ -189,6 +212,20 @@ class WallPrefs(BaseModel):
     stop_s: int | None = Field(default=None, ge=10, le=600)
     interrupt: bool | None = None
     layers: dict[str, bool] | None = None
+    sections: dict[str, bool] | None = None
+
+    @field_validator("sections")
+    @classmethod
+    def known_sections(cls, value: dict[str, bool] | None):
+        if value is not None:
+            unknown = set(value) - set(WALL_SECTIONS)
+            if unknown:
+                raise ValueError(
+                    "unknown wall sections: {0}".format(
+                        ", ".join(sorted(unknown))
+                    )
+                )
+        return value
 
     @field_validator("layers")
     @classmethod
@@ -202,6 +239,15 @@ class WallPrefs(BaseModel):
                     )
                 )
         return value
+
+
+class WallProfileIn(BaseModel):
+    """A named wall setup that screens can follow."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=60)
+    wall: WallPrefs
 
 
 class Preferences(BaseModel):
@@ -229,6 +275,8 @@ class Preferences(BaseModel):
     show_route: bool | None = None
     # Wall page (/wall): news, clocks, tour and layers.
     wall: WallPrefs | None = None
+    # A wall profile to follow instead (server_settings wall_profiles).
+    wall_profile: str | None = Field(default=None, max_length=40)
     # Shapes and notes drawn on the map (map/drawTools.ts).
     drawings: list[dict[str, Any]] | None = Field(default=None, max_length=200)
     show_banner: bool | None = None

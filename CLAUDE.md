@@ -217,7 +217,14 @@ parts connect.
   layers, news, channel, zones), edited by `components/WallEditor.tsx`;
   admins set a screen's (and its home) via
   `/api/admin/displays/{id}/wall`. WallPage re-reads `/api/me` each
-  minute. New wall layers go in `WALL_LAYERS` (schemas.py and api.ts).
+  minute. New wall layers go in `WALL_LAYERS` (schemas.py and api.ts),
+  sections in `WALL_SECTIONS`. Wall profiles live in
+  `server_settings["wall_profiles"]` (`/api/admin/wall-profiles`); a
+  screen follows one through its `wall_profile` preference, and
+  `/api/me` merges the profile's wall over its own (keeping only its
+  home). `/wall?profile=` previews one.
+- Page titles are set per route in `App.tsx` (`pageTitle`); only
+  NewsPage sets its own.
 - Weather: NWS alerts (`nws`, raw kind `wxalert`) and SPC outlooks
   (`spc`, kind `outlook`) in `collectors/weather.py`, served by
   `api/weather.py` (also Open-Meteo `/api/weather/now` and the home's NWS

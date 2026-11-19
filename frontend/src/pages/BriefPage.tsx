@@ -143,7 +143,6 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
   }, [wiki, wikiDay]);
 
   useEffect(() => {
-    document.title = 'Brief · Argus';
     let cancelled = false;
     async function load() {
       try {

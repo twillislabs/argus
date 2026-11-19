@@ -46,7 +46,8 @@ export interface SpaceFilters {
 }
 
 export const DEFAULT_SPACE: SpaceFilters = {
-  iss: false,
+  // On by default: on its own it loads only the few crewed stations.
+  iss: true,
   leo: false,
   meo: false,
   geo: false,

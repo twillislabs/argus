@@ -394,3 +394,32 @@ tr.dimrow td { color: var(--dim); }
 .wikilist .srcs a { color: var(--accent); }
 .agree { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; cursor: pointer; margin: 4px 0; }
 .agree input { margin-top: 2px; }
+.wlgroup { display: grid; gap: 4px; margin-top: 6px; }
+.wlgroup > small { font-size: 10.5px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* Settings > Displays > Wall profiles */
+.proflist {
+  list-style: none;
+  margin: 8px 0 12px;
+  padding: 0;
+}
+.proflist li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.proflist li.on {
+  background: var(--panel-2, rgba(255, 255, 255, 0.03));
+}
+.proflist li small {
+  flex: 1;
+}
+.profedit {
+  border-top: 1px solid var(--line);
+}
+.profedit .field.pad {
+  padding: 10px 14px 0;
+  max-width: 360px;
+}

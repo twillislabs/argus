@@ -33,7 +33,29 @@ export interface WallStop {
   height?: number;
 }
 
-export type WallLayer = 'tension' | 'events' | 'aircraft' | 'czib' | 'gps' | 'nuclear' | 'cables' | 'bases' | 'sigmet';
+export type WallLayer =
+  | 'tension'
+  | 'events'
+  | 'aircraft'
+  | 'czib'
+  | 'gps'
+  | 'nuclear'
+  | 'power'
+  | 'cables'
+  | 'bases'
+  | 'sigmet'
+  | 'tfr'
+  | 'ships'
+  | 'wx_alerts'
+  | 'wx_zones'
+  | 'wx_outlook'
+  | 'clouds'
+  | 'precip'
+  | 'stations'
+  | 'advisories'
+  | 'wiki';
+
+export type WallSection = 'header' | 'clocks' | 'tension' | 'kpis' | 'top' | 'news' | 'weather' | 'caption' | 'ticker';
 
 // What the wall shows (backend schemas.WallPrefs). Unset: the built-in wall.
 export interface WallPrefs {
@@ -44,29 +66,73 @@ export interface WallPrefs {
   stop_s?: number;
   interrupt?: boolean;
   layers?: Partial<Record<WallLayer, boolean>>;
+  sections?: Partial<Record<WallSection, boolean>>;
 }
 
-export const WALL_LAYERS: { id: WallLayer; label: string; on: boolean }[] = [
-  { id: 'tension', label: 'Country tension', on: true },
-  { id: 'events', label: 'Events', on: true },
-  { id: 'aircraft', label: 'Military aircraft', on: true },
-  { id: 'czib', label: 'Conflict zone bulletins', on: true },
-  { id: 'gps', label: 'GPS interference', on: true },
-  { id: 'nuclear', label: 'Nuclear plants', on: true },
-  { id: 'cables', label: 'Submarine cables', on: false },
-  { id: 'bases', label: 'Military bases', on: false },
-  { id: 'sigmet', label: 'SIGMETs', on: false },
+export const WALL_LAYERS: { id: WallLayer; label: string; on: boolean; group: string }[] = [
+  { id: 'events', label: 'Events', on: true, group: 'Events' },
+  { id: 'tension', label: 'Country tension', on: true, group: 'Events' },
+  { id: 'wiki', label: 'Wikipedia events', on: false, group: 'Events' },
+  { id: 'aircraft', label: 'Military aircraft', on: true, group: 'Air and sea' },
+  { id: 'ships', label: 'Ships', on: false, group: 'Air and sea' },
+  { id: 'czib', label: 'Conflict zone bulletins', on: true, group: 'Airspace' },
+  { id: 'gps', label: 'GPS interference', on: true, group: 'Airspace' },
+  { id: 'sigmet', label: 'SIGMETs', on: false, group: 'Airspace' },
+  { id: 'tfr', label: 'Flight restrictions (TFRs)', on: false, group: 'Airspace' },
+  { id: 'wx_alerts', label: 'Storm warnings (NWS)', on: false, group: 'Weather' },
+  { id: 'wx_zones', label: 'Watches and advisories (NWS)', on: false, group: 'Weather' },
+  { id: 'wx_outlook', label: 'Severe weather outlook (SPC)', on: false, group: 'Weather' },
+  { id: 'clouds', label: 'Clouds (infrared)', on: false, group: 'Weather' },
+  { id: 'precip', label: 'Precipitation', on: false, group: 'Weather' },
+  { id: 'nuclear', label: 'Nuclear plants', on: true, group: 'Infrastructure' },
+  { id: 'power', label: 'Power plants', on: false, group: 'Infrastructure' },
+  { id: 'cables', label: 'Submarine cables', on: false, group: 'Infrastructure' },
+  { id: 'bases', label: 'Military bases', on: false, group: 'Infrastructure' },
+  { id: 'stations', label: 'Space stations (ISS)', on: true, group: 'Other' },
+  { id: 'advisories', label: 'Travel advisories', on: false, group: 'Other' },
 ];
+
+export const WALL_SECTIONS: { id: WallSection; label: string; on: boolean; hint: string }[] = [
+  { id: 'header', label: 'Title bar', on: true, hint: 'Argus · Watch floor, and the classification line' },
+  { id: 'clocks', label: 'Clocks', on: true, hint: 'UTC, home and any extra clocks' },
+  { id: 'caption', label: 'Tour caption', on: true, hint: 'Where the map is, and the next stop' },
+  { id: 'tension', label: 'World tension', on: true, hint: 'The gauge' },
+  { id: 'kpis', label: 'Counts', on: true, hint: 'Events, aircraft, critical events, GPS cells' },
+  { id: 'top', label: 'Top events', on: true, hint: 'The five most severe' },
+  { id: 'weather', label: 'Weather at home', on: false, hint: 'Conditions and NWS alerts for the home' },
+  { id: 'news', label: 'Live news', on: true, hint: 'A live channel' },
+  { id: 'ticker', label: 'Ticker', on: true, hint: 'The latest events along the bottom' },
+];
+
+export const wallSectionOn = (w: WallPrefs | undefined, id: WallSection): boolean =>
+  id === 'news' && w?.news === false
+    ? false
+    : (w?.sections?.[id] ?? WALL_SECTIONS.find((x) => x.id === id)?.on ?? true);
+
+// Named wall setups screens follow (Settings > Displays).
+export interface WallProfile {
+  id: string;
+  name: string;
+  wall: WallPrefs;
+  screens?: number;
+}
+export const getWallProfiles = () => api<{ profiles: WallProfile[] }>('/api/admin/wall-profiles');
+export const createWallProfile = (name: string, wall: WallPrefs) =>
+  api<WallProfile>('/api/admin/wall-profiles', { method: 'POST', body: { name, wall } });
+export const saveWallProfile = (id: string, name: string, wall: WallPrefs) =>
+  api<WallProfile>('/api/admin/wall-profiles/' + id, { method: 'PUT', body: { name, wall } });
+export const deleteWallProfile = (id: string) => api('/api/admin/wall-profiles/' + id, { method: 'DELETE' });
+export const getWallProfile = (id: string) => api<WallProfile>('/api/wall-profiles/' + encodeURIComponent(id));
 
 export const wallLayerOn = (w: WallPrefs | undefined, id: WallLayer): boolean =>
   w?.layers?.[id] ?? WALL_LAYERS.find((l) => l.id === id)?.on ?? false;
 
 export const getScreenWall = (id: number) =>
-  api<{ wall: WallPrefs; home: Home | null }>('/api/admin/displays/' + id + '/wall');
-export const putScreenWall = (id: number, wall: WallPrefs, home: Home | null) =>
-  api<{ wall: WallPrefs; home: Home | null }>('/api/admin/displays/' + id + '/wall', {
+  api<{ wall: WallPrefs; home: Home | null; profile: string | null }>('/api/admin/displays/' + id + '/wall');
+export const putScreenWall = (id: number, wall: WallPrefs, home: Home | null, profile: string | null = null) =>
+  api<{ wall: WallPrefs; home: Home | null; profile: string | null }>('/api/admin/displays/' + id + '/wall', {
     method: 'PUT',
-    body: { wall, home },
+    body: { wall, home, profile },
   });
 
 // Wikipedia's Current events (/api/wikipedia), newest first.
@@ -466,9 +532,11 @@ export interface SatelliteDetail {
 
 export const getSatellite = (norad: number) => api<SatelliteDetail>('/api/satellites/' + norad);
 
-export async function getSatelliteCatalog() {
+// tag: only satellites with it ('station': the crewed stations, a few
+// objects), for the Space stations layer on its own.
+export async function getSatelliteCatalog(tag?: string) {
   return api<{ updated: string | null; fields: string[]; satellites: (string | number | string[])[][] }>(
-    '/api/satellites',
+    '/api/satellites' + (tag ? '?tag=' + encodeURIComponent(tag) : ''),
   );
 }
 

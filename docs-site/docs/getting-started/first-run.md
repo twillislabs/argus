@@ -46,7 +46,7 @@ Pick what the map shows first:
 
 | Preset | Shows |
 |---|---|
-| **Live picture** | All events, military and civil aircraft, borders and labels |
+| **Live picture** (the default) | All events, military aircraft, space stations, borders and labels; civil traffic is a click away |
 | **Events** | Conflict, unrest, earthquakes and fires, with state borders; no aircraft |
 | **Air picture** | Military and civil aircraft and airports; events off |
 | **Start quiet** | Just borders and labels |

@@ -11,10 +11,10 @@ const PRESETS = [
   {
     id: 'live',
     label: 'Live picture',
-    detail: 'All events, military and civil aircraft, borders and labels',
+    detail: 'All events, military aircraft, space stations, borders and labels',
     prefs: {
       layers: { conflict: true, unrest: true, quake: true, fire: true, hazard: true, maritime: false },
-      air: { military: true, civil: true, focus: '' },
+      air: { military: true, civil: false, focus: '' },
       reference: { borders: true, states: false, labels: true, airports: false, ports: false },
     },
   },
@@ -68,9 +68,7 @@ export default function SetupPage({ onDone }: { onDone: () => Promise<void> }) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [home, setHome] = useState<Home | null>(null);
-  // Aircraft start off (they spend the shared ADS-B quota); the air presets
-  // are a click away.
-  const [preset, setPreset] = useState<(typeof PRESETS)[number]['id']>('events');
+  const [preset, setPreset] = useState<(typeof PRESETS)[number]['id']>('live');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 

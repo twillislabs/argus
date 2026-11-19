@@ -27,14 +27,15 @@ from sqlalchemy import delete, func, select
 
 from argus.api.deps import (
     DbDep,
+    SessionDep,
     SettingsDep,
     client_ip,
     require,
     set_session_cookies,
 )
 from argus.db import utcnow
-from argus.models import User, UserPreferences, UserSession
-from argus.schemas import HomeLocation, WallPrefs
+from argus.models import ServerSetting, User, UserPreferences, UserSession
+from argus.schemas import HomeLocation, WallPrefs, WallProfileIn
 from argus.security import hash_password, new_token, token_digest
 from argus.services import audit, create_session
 
@@ -248,6 +249,8 @@ class ScreenWallIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     wall: WallPrefs
+    # Follow a wall profile instead of the screen's own settings.
+    profile: str | None = Field(default=None, max_length=40)
     # The screen's home: its home tour stop, clock and night dimming.
     home: HomeLocation | None = None
 
@@ -258,7 +261,11 @@ async def get_wall(user_id: int, db: DbDep):
     await _screen(db, user_id)
     prefs = await db.get(UserPreferences, user_id)
     data = (prefs.data or {}) if prefs else {}
-    return {"wall": data.get("wall") or {}, "home": data.get("home")}
+    return {
+        "wall": data.get("wall") or {},
+        "home": data.get("home"),
+        "profile": data.get("wall_profile"),
+    }
 
 
 @router.put("/api/admin/displays/{user_id}/wall")
@@ -277,8 +284,14 @@ async def set_wall(
         db.add(prefs)
     wall = body.wall.model_dump(exclude_none=True)
     home = body.home.model_dump() if body.home else None
+    if body.profile and body.profile not in await profiles_by_id(db):
+        raise HTTPException(404, "No wall profile with that id.")
     data = dict(prefs.data or {})
-    for key, value in (("wall", wall), ("home", home)):
+    for key, value in (
+        ("wall", wall),
+        ("home", home),
+        ("wall_profile", body.profile),
+    ):
         if value:
             data[key] = value
         else:
@@ -292,4 +305,151 @@ async def set_wall(
         display=user.id,
     )
     await db.commit()
-    return {"wall": wall, "home": home}
+    return {"wall": wall, "home": home, "profile": body.profile}
+
+
+# --- Wall profiles: named setups screens can follow -----------------------
+
+PROFILES = "wall_profiles"
+
+
+async def _profiles_row(db) -> ServerSetting:
+    row = await db.get(ServerSetting, PROFILES)
+    if row is None:
+        row = ServerSetting(key=PROFILES, value={"profiles": []})
+        db.add(row)
+    return row
+
+
+async def profiles_by_id(db) -> dict[str, dict]:
+    row = await db.get(ServerSetting, PROFILES)
+    items = ((row.value or {}).get("profiles") or []) if row else []
+    return {p["id"]: p for p in items}
+
+
+async def _following(db) -> dict[str, int]:
+    """How many screens follow each profile."""
+    rows = (
+        await db.execute(
+            select(UserPreferences).join(User).where(User.role == "display")
+        )
+    ).scalars()
+    counts: dict[str, int] = {}
+    for r in rows:
+        pid = (r.data or {}).get("wall_profile")
+        if pid:
+            counts[pid] = counts.get(pid, 0) + 1
+    return counts
+
+
+@router.get("/api/admin/wall-profiles", dependencies=[ManageUsers])
+async def list_profiles(db: DbDep):
+    counts = await _following(db)
+    return {
+        "profiles": [
+            {**p, "screens": counts.get(p["id"], 0)}
+            for p in (await profiles_by_id(db)).values()
+        ]
+    }
+
+
+@router.post("/api/admin/wall-profiles")
+async def create_profile(
+    body: WallProfileIn,
+    request: Request,
+    db: DbDep,
+    session: UserSession = ManageUsers,
+):
+    row = await _profiles_row(db)
+    items = list((row.value or {}).get("profiles") or [])
+    if len(items) >= 50:
+        raise HTTPException(409, "That's the most wall profiles Argus keeps.")
+    profile = {
+        "id": pysecrets.token_hex(4),
+        "name": body.name.strip(),
+        "wall": body.wall.model_dump(exclude_none=True),
+    }
+    row.value = {"profiles": items + [profile]}
+    row.updated_at = utcnow()
+    await audit(
+        db, "wall.profile_created", user_id=session.user_id,
+        ip=client_ip(request), profile=profile["id"],
+    )  # fmt: skip
+    await db.commit()
+    return profile
+
+
+@router.put("/api/admin/wall-profiles/{profile_id}")
+async def update_profile(
+    profile_id: str,
+    body: WallProfileIn,
+    request: Request,
+    db: DbDep,
+    session: UserSession = ManageUsers,
+):
+    row = await _profiles_row(db)
+    items = list((row.value or {}).get("profiles") or [])
+    for i, p in enumerate(items):
+        if p["id"] == profile_id:
+            items[i] = {
+                "id": profile_id,
+                "name": body.name.strip(),
+                "wall": body.wall.model_dump(exclude_none=True),
+            }
+            row.value = {"profiles": items}
+            row.updated_at = utcnow()
+            await audit(
+                db, "wall.profile_updated", user_id=session.user_id,
+                ip=client_ip(request), profile=profile_id,
+            )  # fmt: skip
+            await db.commit()
+            return items[i]
+    raise HTTPException(404, "No wall profile with that id.")
+
+
+@router.delete("/api/admin/wall-profiles/{profile_id}")
+async def delete_profile(
+    profile_id: str,
+    request: Request,
+    db: DbDep,
+    session: UserSession = ManageUsers,
+):
+    """Delete a profile; screens that followed it use their own settings."""
+    row = await _profiles_row(db)
+    items = list((row.value or {}).get("profiles") or [])
+    if not any(p["id"] == profile_id for p in items):
+        raise HTTPException(404, "No wall profile with that id.")
+    row.value = {"profiles": [p for p in items if p["id"] != profile_id]}
+    row.updated_at = utcnow()
+    for prefs in (await db.execute(select(UserPreferences))).scalars():
+        if (prefs.data or {}).get("wall_profile") == profile_id:
+            data = dict(prefs.data)
+            data.pop("wall_profile", None)
+            prefs.data = data
+    await audit(
+        db, "wall.profile_deleted", user_id=session.user_id,
+        ip=client_ip(request), profile=profile_id,
+    )  # fmt: skip
+    await db.commit()
+    return {"ok": True}
+
+
+@router.get("/api/wall-profiles")
+async def profiles_for_everyone(session: SessionDep, db: DbDep):
+    """Names and ids, for opening /wall?profile=..."""
+    return {
+        "profiles": [
+            {"id": p["id"], "name": p["name"]}
+            for p in (await profiles_by_id(db)).values()
+        ]
+    }
+
+
+@router.get("/api/wall-profiles/{profile_id}")
+async def profile_for_everyone(
+    profile_id: str, session: SessionDep, db: DbDep
+):
+    p = (await profiles_by_id(db)).get(profile_id)
+    if p is None:
+        raise HTTPException(404, "No wall profile with that id.")
+    return p

@@ -20,14 +20,31 @@ import {
   type Tension,
   type TensionTheatre,
   wallLayerOn,
+  wallSectionOn,
+  type WallSection,
   type WallStop,
+  type Advisory,
+  type OutlookArea,
+  type Vessel,
+  type WeatherNow,
+  type WikiItem,
+  type WxAlert,
+  getAdvisories,
+  getOutlook,
+  getSatelliteCatalog,
+  getVessels,
+  getWallProfile,
+  getWeatherNow,
+  getWikipedia,
+  getWxAlerts,
 } from '../lib/api';
 import { ago, SEVERITY_COLOR, SEVERITY_NAME, zoneTime } from '../lib/format';
+import { temperature, windSpeed } from '../lib/units';
 import { DEFAULT_AIRSPACE } from '../map/airspaceLayer';
 import Globe, { type GlobeHandle, type Imagery } from '../map/Globe';
 import { DEFAULT_INFRA } from '../map/infraLayer';
 import { DEFAULT_REFERENCE } from '../map/overlays';
-import { DEFAULT_SPACE } from '../map/satellites';
+import { DEFAULT_SPACE, type SatCatalog } from '../map/satellites';
 
 // A tour stop: a place on the map with a caption.
 interface Stop {
@@ -77,7 +94,9 @@ function useNow(ms = 1000): Date {
 function useWakeLock() {
   useEffect(() => {
     let lock: { release: () => Promise<void> } | null = null;
-    const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
+    const nav = navigator as Navigator & {
+      wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> };
+    };
     const take = () => {
       if (document.visibilityState === 'visible' && nav.wakeLock) {
         nav.wakeLock
@@ -143,24 +162,58 @@ export default function WallPage({ me }: { me: Me }) {
   const [aircraft, setAircraft] = useState<Aircraft[]>([]);
   const [gpsCells, setGpsCells] = useState<GpsCell[]>([]);
   const [airspace, setAirspace] = useState<AirspaceItem[]>([]);
+  // Layers a wall profile can add.
+  const [vessels, setVessels] = useState<Vessel[]>([]);
+  const [wx, setWx] = useState<{ alerts: WxAlert[]; zoned: WxAlert[]; local: WxAlert[] }>({
+    alerts: [],
+    zoned: [],
+    local: [],
+  });
+  const [outlook, setOutlook] = useState<OutlookArea[]>([]);
+  const [advisories, setAdvisories] = useState<Advisory[]>([]);
+  const [wiki, setWiki] = useState<WikiItem[]>([]);
+  const [stations, setStations] = useState<SatCatalog | null>(null);
+  const [weatherNow, setWeatherNow] = useState<WeatherNow | null>(null);
   // Settings can change while the screen runs (an admin edits it in
   // Settings > Displays): re-read them every minute.
+  // /wall?profile=<id> shows that wall profile (to preview it, or for a
+  // screen signed in as a person); a paired screen gets its own from
+  // /api/me.
+  const profileId = new URLSearchParams(window.location.search).get('profile');
   const [prefs, setPrefs] = useState(me.preferences);
   useEffect(() => {
-    const id = window.setInterval(() => {
+    const refresh = () => {
       getMe()
-        .then((m) => setPrefs(m.preferences))
+        .then(async (m) => {
+          if (profileId) {
+            const p = await getWallProfile(profileId);
+            setPrefs({ ...m.preferences, wall: p.wall });
+          } else {
+            setPrefs(m.preferences);
+          }
+        })
         .catch(() => undefined);
-    }, 60_000);
+    };
+    if (profileId) refresh();
+    const id = window.setInterval(refresh, 60_000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [profileId]);
   const home = prefs.home ?? null;
   const wall = prefs.wall ?? {};
   const stopS = wall.stop_s ?? STOP_S;
   const interrupts = wall.interrupt !== false;
   const on = (id: Parameters<typeof wallLayerOn>[1]) => wallLayerOn(wall, id);
+  const show = (id: WallSection) => wallSectionOn(wall, id);
+  // Which optional layers to load (a string, so the loader reruns only
+  // when the set changes).
+  const extras = (['ships', 'wx_alerts', 'wx_zones', 'wx_outlook', 'advisories', 'wiki', 'stations'] as const)
+    .filter((k) => on(k))
+    .join(',');
+  const wantWeather = show('weather');
   const zones = (wall.zones ?? []).slice(0, 4);
-  const channel = channelById(wall.channel ?? (prefs.news as { channel?: string } | undefined)?.channel ?? DEFAULT_TABS[0]);
+  const channel = channelById(
+    wall.channel ?? (prefs.news as { channel?: string } | undefined)?.channel ?? DEFAULT_TABS[0],
+  );
 
   useEffect(() => {
     document.title = 'Wall · Argus';
@@ -189,6 +242,69 @@ export default function WallPage({ me }: { me: Me }) {
     const id = window.setInterval(() => void load(), 60_000);
     return () => window.clearInterval(id);
   }, [load]);
+
+  // The optional layers, every two minutes while they're on.
+  useEffect(() => {
+    const want = new Set(extras.split(',').filter(Boolean));
+    let cancelled = false;
+    async function loadExtras() {
+      const jobs: Promise<unknown>[] = [];
+      if (want.has('ships')) jobs.push(getVessels(null).then((r) => !cancelled && setVessels(r.vessels)));
+      else setVessels([]);
+      if (want.has('wx_alerts') || want.has('wx_zones'))
+        jobs.push(getWxAlerts(null, want.has('wx_zones')).then((r) => !cancelled && setWx(r)));
+      if (want.has('wx_outlook')) jobs.push(getOutlook().then((r) => !cancelled && setOutlook(r.areas)));
+      if (want.has('advisories')) jobs.push(getAdvisories().then((r) => !cancelled && setAdvisories(r.countries)));
+      if (want.has('wiki')) jobs.push(getWikipedia().then((r) => !cancelled && setWiki(r.items)));
+      await Promise.allSettled(jobs);
+    }
+    void loadExtras();
+    const id = window.setInterval(() => void loadExtras(), 120_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [extras]);
+
+  // The crewed stations only (a few objects), for the Space stations layer.
+  const wantStations = on('stations');
+  useEffect(() => {
+    if (!wantStations) {
+      setStations(null);
+      return;
+    }
+    getSatelliteCatalog('station')
+      .then((body) =>
+        setStations({
+          updated: body.updated,
+          raw: body.satellites,
+          meta: body.satellites.map((r) => ({
+            norad: Number(r[0]),
+            name: String(r[1]),
+            cospar: String(r[2]),
+            cls: r[3] as SatCatalog['meta'][number]['cls'],
+            tags: (r[4] as string[]) ?? [],
+          })),
+        }),
+      )
+      .catch(() => undefined);
+  }, [wantStations]);
+
+  // Weather at home (a section), every 15 minutes.
+  useEffect(() => {
+    if (!wantWeather || !home) return;
+    const loadWeather = () => {
+      getWeatherNow(home.lat, home.lon)
+        .then(setWeatherNow)
+        .catch(() => undefined);
+      getWxAlerts(home, false)
+        .then((r) => setWx((x) => ({ ...x, local: r.local })))
+        .catch(() => undefined);
+    };
+    loadWeather();
+    const id = window.setInterval(loadWeather, 900_000);
+    return () => window.clearInterval(id);
+  }, [wantWeather, home?.lat, home?.lon]);
 
   // The tour, from the screen's settings; by default home, then each
   // theatre, most tense first.
@@ -260,7 +376,10 @@ export default function WallPage({ me }: { me: Me }) {
   }, [stop?.key, stop?.lat, stop?.lon, stop?.height, interrupt]);
 
   const top = useMemo(
-    () => [...events].sort((a, b) => b.severity - a.severity || Date.parse(b.last_updated) - Date.parse(a.last_updated)).slice(0, 5),
+    () =>
+      [...events]
+        .sort((a, b) => b.severity - a.severity || Date.parse(b.last_updated) - Date.parse(a.last_updated))
+        .slice(0, 5),
     [events],
   );
   const ticker = useMemo(
@@ -273,55 +392,90 @@ export default function WallPage({ me }: { me: Me }) {
   const hour = Number(zoneTime(home?.tz ?? 'UTC').slice(0, 2));
   const night = hour >= 22 || hour < 6;
 
+  const side = (['tension', 'kpis', 'top', 'weather', 'news'] as const).some((k) => show(k));
   return (
-    <div className={'wall' + (night ? ' night' : '')} style={{ transform: 'translate(' + drift.x + 'px,' + drift.y + 'px)' }}>
-      <header className="whead">
-        <div className="wbrand">
-          <Brand />
-          <span className="wtitle">· Watch floor</span>
-          <small className="mono">UNCLASSIFIED // OPEN SOURCE</small>
-        </div>
-        <div className="wclocks">
-          <div>
-            <b className="mono">{now.toISOString().slice(11, 16)}Z</b>
-            <small>UTC</small>
-          </div>
-          {home && (
-            <div>
-              <b className="mono">{zoneTime(home.tz).slice(0, 5)}</b>
-              <small>{home.name}</small>
+    <div
+      className={'wall' + (night ? ' night' : '') + (side ? '' : ' noside')}
+      style={{ transform: 'translate(' + drift.x + 'px,' + drift.y + 'px)' }}
+    >
+      {(show('header') || show('clocks')) && (
+        <header className="whead">
+          {show('header') && (
+            <div className="wbrand">
+              <Brand />
+              <span className="wtitle">· Watch floor</span>
+              <small className="mono">UNCLASSIFIED // OPEN SOURCE</small>
             </div>
           )}
-          {zones.map((z) => (
-            <div key={z.tz + z.label}>
-              <b className="mono">{zoneTime(z.tz).slice(0, 5)}</b>
-              <small>{z.label}</small>
+          {show('clocks') && (
+            <div className="wclocks">
+              <div>
+                <b className="mono">{now.toISOString().slice(11, 16)}Z</b>
+                <small>UTC</small>
+              </div>
+              {home && (
+                <div>
+                  <b className="mono">{zoneTime(home.tz).slice(0, 5)}</b>
+                  <small>{home.name}</small>
+                </div>
+              )}
+              {zones.map((z) => (
+                <div key={z.tz + z.label}>
+                  <b className="mono">{zoneTime(z.tz).slice(0, 5)}</b>
+                  <small>{z.label}</small>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </header>
+          )}
+        </header>
+      )}
       <section className="wmap">
         <Globe
           ref={globe}
           basemap="dark"
           imagery={imagery}
-          reference={{ ...DEFAULT_REFERENCE, labels: true }}
-          satellites={null}
-          space={DEFAULT_SPACE}
+          reference={{ ...DEFAULT_REFERENCE, labels: true, advisories: on('advisories') }}
+          advisories={advisories}
+          wikiItems={wiki}
+          showWiki={on('wiki')}
+          wxAlerts={wx.alerts}
+          wxZoned={wx.zoned}
+          outlook={outlook}
+          weather={{
+            alerts: on('wx_alerts'),
+            zones: on('wx_zones'),
+            outlook: on('wx_outlook'),
+            clouds: on('clouds'),
+            precip: on('precip'),
+          }}
+          satellites={stations}
+          space={{ ...DEFAULT_SPACE, iss: on('stations') }}
           selectedNorad={null}
           followSat={false}
-          vessels={[]}
+          vessels={on('ships') ? vessels : []}
           selectedMmsi={null}
           trackTarget={null}
           airspace={airspace}
           // By default as in the mock-up: closed airspace hatched, GPS
           // hexes and nuclear plants (cables only when a screen asks).
-          airspaceFilters={{ ...DEFAULT_AIRSPACE, czib: on('czib'), gps: on('gps'), sigmet: on('sigmet') }}
+          airspaceFilters={{
+            ...DEFAULT_AIRSPACE,
+            czib: on('czib'),
+            gps: on('gps'),
+            sigmet: on('sigmet'),
+            tfr: on('tfr'),
+          }}
           selectedAirspace={null}
           gpsCells={gpsCells}
           tensionCountries={tension?.countries ?? []}
           showTension={on('tension')}
-          infra={{ ...DEFAULT_INFRA, nuclear: on('nuclear'), cables: on('cables'), bases: on('bases') }}
+          infra={{
+            ...DEFAULT_INFRA,
+            nuclear: on('nuclear'),
+            power: on('power'),
+            cables: on('cables'),
+            bases: on('bases'),
+          }}
           home={home}
           events={on('events') ? events : []}
           selectedId={interrupt?.event.id ?? null}
@@ -331,7 +485,7 @@ export default function WallPage({ me }: { me: Me }) {
           trail={null}
           camera="free"
         />
-        {(interrupt || stop) && (
+        {(interrupt || (stop && show('caption'))) && (
           <div className={'wcaption' + (interrupt ? ' alert' : '')}>
             <small className="mono">
               {interrupt
@@ -347,73 +501,107 @@ export default function WallPage({ me }: { me: Me }) {
           </div>
         )}
       </section>
-      <aside className="wside">
-        <div className="wpanel">
-          <h3>World tension</h3>
-          <div className="wgauge">
-            <span className="mono wbig">{w?.level ?? '—'}</span>
-            {w && <span className={'cap b-' + w.band}>{BAND_LABEL[w.band]}</span>}
-            {w && (
-              <small className="wdelta">
-                {(w.change_24h >= 0 ? '+' : '') + w.change_24h} 24h
-              </small>
-            )}
-          </div>
-          <div className="gbar">
-            <i style={{ left: (w?.level ?? 0) + '%' }} />
-          </div>
-        </div>
-        <div className="wpanel wkpis">
-          <div>
-            <small>Events 24h</small>
-            <b className="mono">{events.length}</b>
-          </div>
-          <div>
-            <small>Military aircraft</small>
-            <b className="mono">{aircraft.length}</b>
-          </div>
-          <div>
-            <small>Critical events</small>
-            <b className="mono">{events.filter((e) => e.severity >= 4).length}</b>
-          </div>
-          <div>
-            <small>GPS jam cells</small>
-            <b className="mono">{gpsCells.filter((c) => c.level !== 'low').length}</b>
-          </div>
-        </div>
-        <div className="wpanel">
-          <h3>Top events</h3>
-          <ul className="wtop">
-            {top.map((e) => (
-              <li key={e.id} style={{ ['--c' as string]: SEVERITY_COLOR[e.severity] }}>
-                <b>{e.title}</b>
-                <span>
-                  {e.place}
-                  <i className="mono">{ago(e.first_seen)}</i>
+      {side && (
+        <aside className="wside">
+          {show('tension') && (
+            <div className="wpanel">
+              <h3>World tension</h3>
+              <div className="wgauge">
+                <span className="mono wbig">{w?.level ?? '—'}</span>
+                {w && <span className={'cap b-' + w.band}>{BAND_LABEL[w.band]}</span>}
+                {w && <small className="wdelta">{(w.change_24h >= 0 ? '+' : '') + w.change_24h} 24h</small>}
+              </div>
+              <div className="gbar">
+                <i style={{ left: (w?.level ?? 0) + '%' }} />
+              </div>
+            </div>
+          )}
+          {show('kpis') && (
+            <div className="wpanel wkpis">
+              <div>
+                <small>Events 24h</small>
+                <b className="mono">{events.length}</b>
+              </div>
+              <div>
+                <small>Military aircraft</small>
+                <b className="mono">{aircraft.length}</b>
+              </div>
+              <div>
+                <small>Critical events</small>
+                <b className="mono">{events.filter((e) => e.severity >= 4).length}</b>
+              </div>
+              <div>
+                <small>GPS jam cells</small>
+                <b className="mono">{gpsCells.filter((c) => c.level !== 'low').length}</b>
+              </div>
+            </div>
+          )}
+          {show('weather') && home && (
+            <div className="wpanel wweather">
+              <h3>Weather · {home.name}</h3>
+              {weatherNow?.status === 'ok' && weatherNow.current ? (
+                <div className="wwx">
+                  <b className="mono">
+                    {weatherNow.current.temperature_2m != null ? temperature(weatherNow.current.temperature_2m) : '—'}
+                  </b>
+                  <span>
+                    {weatherNow.high_c != null ? temperature(weatherNow.high_c) : '—'} /{' '}
+                    {weatherNow.low_c != null ? temperature(weatherNow.low_c) : '—'}
+                    {weatherNow.rain_chance != null ? ' · rain ' + weatherNow.rain_chance + '%' : ''}
+                    {weatherNow.current.wind_speed_10m != null
+                      ? ' · wind ' + windSpeed(weatherNow.current.wind_speed_10m)
+                      : ''}
+                  </span>
+                </div>
+              ) : (
+                <span className="quiet">No weather yet.</span>
+              )}
+              {wx.local.slice(0, 3).map((a) => (
+                <span key={a.key} className="wwxalert">
+                  {a.event}
                 </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        {wall.news !== false && (
-          <div className="wpanel wvideo">
-            <LiveFrame channel={channel} />
-            <b>{channel.name}</b>
+              ))}
+            </div>
+          )}
+          {show('top') && (
+            <div className="wpanel">
+              <h3>Top events</h3>
+              <ul className="wtop">
+                {top.map((e) => (
+                  <li key={e.id} style={{ ['--c' as string]: SEVERITY_COLOR[e.severity] }}>
+                    <b>{e.title}</b>
+                    <span>
+                      {e.place}
+                      <i className="mono">{ago(e.first_seen)}</i>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {show('news') && (
+            <div className="wpanel wvideo">
+              <LiveFrame channel={channel} />
+              <b>{channel.name}</b>
+            </div>
+          )}
+        </aside>
+      )}
+      {show('ticker') && (
+        <footer className="wticker">
+          <span className="wlatest">LATEST</span>
+          <div className="wtrack">
+            <div className="wmove">
+              {[...ticker, ...ticker].map((e, i) => (
+                <span key={e.id + i} style={{ ['--c' as string]: SEVERITY_COLOR[e.severity] }}>
+                  <b className="mono">{SEVERITY_NAME[e.severity].toUpperCase()}</b> {e.title} · {e.place} ·{' '}
+                  {ago(e.first_seen)}
+                </span>
+              ))}
+            </div>
           </div>
-        )}
-      </aside>
-      <footer className="wticker">
-        <span className="wlatest">LATEST</span>
-        <div className="wtrack">
-          <div className="wmove">
-            {[...ticker, ...ticker].map((e, i) => (
-              <span key={e.id + i} style={{ ['--c' as string]: SEVERITY_COLOR[e.severity] }}>
-                <b className="mono">{SEVERITY_NAME[e.severity].toUpperCase()}</b> {e.title} · {e.place} · {ago(e.first_seen)}
-              </span>
-            ))}
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

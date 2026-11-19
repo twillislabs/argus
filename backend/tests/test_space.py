@@ -127,6 +127,11 @@ async def test_satellite_api(admin_client, app):
         "/api/satellites", headers={"If-None-Match": r.headers["etag"]}
     )
     assert again.status_code == 304
+    stations = (
+        await admin_client.get("/api/satellites", params={"tag": "station"})
+    ).json()
+    assert [r[0] for r in stations["satellites"]] == [25544]
+    assert len(body["satellites"]) == 2
     detail = (await admin_client.get("/api/satellites/25544")).json()
     assert detail["orbit"]["inclination"] == 51.63
     assert detail["omm"]["OBJECT_ID"] == "1998-067A"

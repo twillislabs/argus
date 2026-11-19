@@ -52,6 +52,7 @@ async def test_pair_a_screen(app, admin_client):
         assert (await admin_client.get(url)).json() == {
             "wall": {},
             "home": None,
+            "profile": None,
         }
         wall = {
             "stops": [
@@ -110,3 +111,79 @@ async def test_only_admins_approve(client):
         "/api/admin/displays", json={"code": "ABCDEF", "name": "x"}
     )
     assert r.status_code in (401, 403)
+
+
+async def test_wall_profiles(app, admin_client):
+    import httpx
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as screen:
+        start = (await screen.post("/api/display/pair/start")).json()
+        ok = await admin_client.post(
+            "/api/admin/displays",
+            json={"code": start["code"], "name": "Ops TV"},
+            headers=csrf(admin_client),
+        )
+        display_id = ok.json()["id"]
+        await screen.post(
+            "/api/display/pair/poll", json={"token": start["token"]}
+        )
+
+        made = await admin_client.post(
+            "/api/admin/wall-profiles",
+            json={
+                "name": "Weather desk",
+                "wall": {
+                    "layers": {
+                        "wx_alerts": True,
+                        "clouds": True,
+                        "ships": False,
+                    },
+                    "sections": {"news": False, "weather": True},
+                    "stop_s": 30,
+                },
+            },
+            headers=csrf(admin_client),
+        )
+        assert made.status_code == 200, made.text
+        pid = made.json()["id"]
+        bad = await admin_client.post(
+            "/api/admin/wall-profiles",
+            json={"name": "x", "wall": {"sections": {"nope": True}}},
+            headers=csrf(admin_client),
+        )
+        assert bad.status_code == 422
+
+        url = "/api/admin/displays/{0}/wall".format(display_id)
+        put = await admin_client.put(
+            url, json={"wall": {}, "profile": pid}, headers=csrf(admin_client)
+        )
+        assert put.status_code == 200, put.text
+        me = (await screen.get("/api/me")).json()["preferences"]
+        assert me["wall"]["sections"]["weather"] is True
+        assert me["wall_profile_name"] == "Weather desk"
+        listed = (await admin_client.get("/api/admin/wall-profiles")).json()
+        assert listed["profiles"][0]["screens"] == 1
+
+        # Editing the profile reaches the screen.
+        await admin_client.put(
+            "/api/admin/wall-profiles/" + pid,
+            json={"name": "Weather desk", "wall": {"stop_s": 45}},
+            headers=csrf(admin_client),
+        )
+        me = (await screen.get("/api/me")).json()["preferences"]
+        assert me["wall"]["stop_s"] == 45
+
+        # Anyone signed in can preview a profile on /wall?profile=.
+        one = (await admin_client.get("/api/wall-profiles/" + pid)).json()
+        assert one["name"] == "Weather desk"
+
+        # Deleting it sends the screen back to its own settings.
+        gone = await admin_client.delete(
+            "/api/admin/wall-profiles/" + pid, headers=csrf(admin_client)
+        )
+        assert gone.status_code == 200
+        me = (await screen.get("/api/me")).json()["preferences"]
+        assert "wall_profile" not in me and "wall_profile_name" not in me
