@@ -8,12 +8,27 @@ from argus.collectors.base import (
 )
 from argus.collectors.firms import FirmsCollector
 from argus.collectors.gdelt import GdeltCollector
+from argus.collectors.hazards import (
+    EonetCollector,
+    GdacsCollector,
+    TsunamiCollector,
+)
+from argus.collectors.nga import NgaCollector
 from argus.collectors.rss import RssCollector
 from argus.collectors.usgs import UsgsCollector
 
 REGISTRY: dict[str, type[Collector]] = {
     c.name: c
-    for c in (UsgsCollector, GdeltCollector, RssCollector, FirmsCollector)
+    for c in (
+        UsgsCollector,
+        GdeltCollector,
+        RssCollector,
+        FirmsCollector,
+        GdacsCollector,
+        EonetCollector,
+        TsunamiCollector,
+        NgaCollector,
+    )
 }
 
 __all__ = [

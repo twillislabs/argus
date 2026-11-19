@@ -23,6 +23,8 @@ export const TYPE_INFO: Record<EventType, { label: string; color: string; source
   unrest: { label: 'Civil unrest', color: '#f5b942', source: 'GDELT' },
   quake: { label: 'Earthquakes', color: '#b49cff', source: 'USGS' },
   fire: { label: 'Thermal anomalies', color: '#ff8c42', source: 'NASA FIRMS' },
+  hazard: { label: 'Disasters', color: '#3fa7ff', source: 'GDACS · NASA EONET · NOAA tsunami' },
+  maritime: { label: 'Maritime warnings', color: '#7fd1c7', source: 'NGA navigational warnings' },
 };
 
 export const EVENT_TYPES = Object.keys(TYPE_INFO) as EventType[];

@@ -252,3 +252,7 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .passes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
 .passes li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; }
 .passes .dim { color: var(--dim); font-size: 11px; }
+.sw.hull { border-radius: 50% 50% 2px 2px / 70% 70% 2px 2px; width: 8px; height: 12px; }
+.ghint { margin: -2px 12px 4px; font-size: 11px; color: var(--dim); }
+.ghint.warn { color: var(--elev); }
+.srow-label .sdot { display: inline-block; margin-right: 6px; vertical-align: middle; }

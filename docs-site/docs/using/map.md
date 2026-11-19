@@ -139,6 +139,41 @@ types come from adsbdb and are the *planned* route. Aircraft whose owners
 opted out of tracking (the FAA's PIA and LADD programmes) are not shown
 unless they are military, and Argus never shows registered owner names.
 
+## Ships
+
+The **Sea** group shows vessels from AIS, the position reports ships
+broadcast, by category: military and law enforcement, tankers, cargo,
+passenger, fishing and other. It needs an AISStream key, which an
+administrator adds in **Settings → Data sources**; until then the group
+says so.
+
+Vessels load for the area in view, most interesting first (military,
+tankers, passenger, cargo), up to 4,000 at a time. Moving ships are hulls
+turned to their heading; stopped or moored ones are dots. Names appear as
+you zoom in.
+
+Click a vessel for its name, flag, type and status, speed, course,
+destination and ETA (as the crew entered them), draught, size, IMO number
+and callsign. The camera views work for ships too: **Follow**, **Chase**,
+**Orbit** and **Bridge**. Search by name, MMSI (`366123456`) or IMO
+(`IMO 9811000`).
+
+AIS is self-reported: ships can enter wrong details, and some switch AIS
+off.
+
+## Disasters and maritime warnings
+
+Two more event layers:
+
+- **Disasters**: floods, tropical cyclones, volcanoes, droughts and
+  wildfires from GDACS (with its green, orange or red alert level), named
+  storms and other natural events from NASA EONET, and bulletins from the
+  US tsunami warning centres (a tsunami warning is catastrophic). Select a
+  storm to see its track.
+- **Maritime warnings** (off by default): NGA's navigational warnings,
+  such as rocket launches, live firing, exercises, cable work, piracy and
+  hazards to shipping. Select one to see the area it covers.
+
 ## Satellites
 
 The **Space** group shows every active satellite CelesTrak tracks, about

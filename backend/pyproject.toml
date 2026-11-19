@@ -17,6 +17,7 @@ dependencies = [
     "defusedxml>=0.7",
     "nats-py>=2.9",
     "cryptography>=43",
+    "websockets>=14",
 ]
 
 [dependency-groups]

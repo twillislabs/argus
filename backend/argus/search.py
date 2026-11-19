@@ -23,7 +23,7 @@ from typing import Any
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from argus import places
+from argus import places, sea
 from argus.aviation import AirClient, LiveAir, airlines, airports
 from argus.models import Event, Satellite
 
@@ -38,6 +38,8 @@ CALLSIGN = re.compile(r"^(?=.*\d)[A-Z0-9]{3,8}$")
 HEX = re.compile(r"^[0-9A-F]{6}$")
 REG = re.compile(r"^(N\d{1,5}[A-Z]{0,2}|[A-Z]{1,2}-[A-Z0-9]{3,5})$")
 NORAD = re.compile(r"^\d{1,6}$")
+MMSI = re.compile(r"^\d{9}$")
+IMO = re.compile(r"^IMO\s?(\d{7})$")
 COSPAR = re.compile(r"^\d{4}-\d{3}[A-Z]{0,3}$")
 SQUAWKS = {"7500": "hijack", "7600": "radio failure", "7700": "emergency"}
 
@@ -61,12 +63,30 @@ EVENT_WORDS = {
     "unrest": ["unrest"],
     "riot": ["unrest"],
     "riots": ["unrest"],
+    "disaster": ["hazard"],
+    "disasters": ["hazard"],
+    "flood": ["hazard"],
+    "floods": ["hazard"],
+    "flooding": ["hazard"],
+    "cyclone": ["hazard"],
+    "cyclones": ["hazard"],
+    "hurricane": ["hazard"],
+    "hurricanes": ["hazard"],
+    "typhoon": ["hazard"],
+    "storm": ["hazard"],
+    "storms": ["hazard"],
+    "volcano": ["hazard"],
+    "volcanoes": ["hazard"],
+    "eruption": ["hazard"],
+    "tsunami": ["hazard"],
+    "drought": ["hazard"],
 }
 EVENT_LABELS = {
     "quake": "Earthquakes",
     "fire": "Fires",
     "conflict": "Conflict",
     "unrest": "Protests and unrest",
+    "hazard": "Disasters",
 }
 AIR_WORDS = {
     "military": "military",
@@ -147,6 +167,11 @@ def decode(query: str) -> list[Reading]:
             )
         )
 
+    if MMSI.match(compact):
+        out.append(Reading("mmsi", int(compact)))
+    m = IMO.match(up)
+    if m:
+        out.append(Reading("imo", m.group(1)))
     if NORAD.match(compact):
         out.append(Reading("norad", int(compact)))
     if COSPAR.match(up):
@@ -215,6 +240,20 @@ def _satellite_result(s: Satellite, why: str | None = None) -> dict:
     }
 
 
+def _vessel_result(v: dict, why: str | None = None) -> dict:
+    p = sea.public(v)
+    bits = [b for b in (why, p["type"], p["flag"], p["destination"]) if b]
+    return {
+        "kind": "vessel",
+        "label": p["name"] or "MMSI {0}".format(p["mmsi"]),
+        "detail": " · ".join(bits),
+        "mmsi": p["mmsi"],
+        "lat": p["lat"],
+        "lon": p["lon"],
+        "height_m": 60000,
+    }
+
+
 def _place_height(population: int) -> int:
     if population > 2_000_000:
         return 90000
@@ -249,14 +288,17 @@ async def resolve(
     air: LiveAir,
     client: AirClient | None,
     limit: int = 12,
+    ships: sea.LiveSea | None = None,
 ) -> list[dict]:
     readings = decode(query)
     results: list[dict] = []
     seen_hex: set[str] = set()
 
     def add(item: dict) -> None:
-        key = item.get("hex") or (
-            "sat:{0}".format(item["norad"]) if item.get("norad") else None
+        key = (
+            item.get("hex")
+            or ("sat:{0}".format(item["norad"]) if item.get("norad") else None)
+            or ("ship:{0}".format(item["mmsi"]) if item.get("mmsi") else None)
         )
         if key:
             if key in seen_hex:
@@ -308,6 +350,13 @@ async def resolve(
                         ),
                         "callsign": r.value,
                     }
+                )
+        elif r.kind in ("mmsi", "imo") and ships is not None:
+            for v in ships.find(str(r.value)):
+                add(
+                    _vessel_result(
+                        v, "{0} {1}".format(r.kind.upper(), r.value)
+                    )
                 )
         elif r.kind == "norad":
             sat = await db.get(Satellite, r.value)
@@ -366,6 +415,9 @@ async def resolve(
         )
         for sat in sats.scalars():
             add(_satellite_result(sat))
+    if ships is not None and len(text) >= 3:
+        for v in ships.find(text, limit=3):
+            add(_vessel_result(v))
     if len(text) >= 2 and not any(r.kind == "coords" for r in readings):
         for p in await asyncio.to_thread(places.search, text, 5):
             add(

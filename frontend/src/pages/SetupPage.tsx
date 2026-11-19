@@ -13,7 +13,7 @@ const PRESETS = [
     label: 'Live picture',
     detail: 'All events, military and civil aircraft, borders and labels',
     prefs: {
-      layers: { conflict: true, unrest: true, quake: true, fire: true },
+      layers: { conflict: true, unrest: true, quake: true, fire: true, hazard: true, maritime: false },
       air: { military: true, civil: true, focus: '' },
       reference: { borders: true, states: false, labels: true, airports: false },
     },
@@ -21,9 +21,9 @@ const PRESETS = [
   {
     id: 'events',
     label: 'Events',
-    detail: 'Conflict, unrest, earthquakes and fires; no aircraft',
+    detail: 'Conflict, unrest, earthquakes, fires and disasters; no aircraft',
     prefs: {
-      layers: { conflict: true, unrest: true, quake: true, fire: true },
+      layers: { conflict: true, unrest: true, quake: true, fire: true, hazard: true, maritime: false },
       air: { military: false, civil: false, focus: '' },
       reference: { borders: true, states: true, labels: true, airports: false },
     },
@@ -33,7 +33,7 @@ const PRESETS = [
     label: 'Air picture',
     detail: 'Military and civil aircraft with airports; events off',
     prefs: {
-      layers: { conflict: false, unrest: false, quake: false, fire: false },
+      layers: { conflict: false, unrest: false, quake: false, fire: false, hazard: false, maritime: false },
       air: { military: true, civil: true, focus: '' },
       reference: { borders: true, states: false, labels: true, airports: true },
     },
@@ -43,7 +43,7 @@ const PRESETS = [
     label: 'Start quiet',
     detail: 'Just borders and labels; turn layers on as you need them',
     prefs: {
-      layers: { conflict: false, unrest: false, quake: false, fire: false },
+      layers: { conflict: false, unrest: false, quake: false, fire: false, hazard: false, maritime: false },
       air: { military: false, civil: false, focus: '' },
       reference: { borders: true, states: false, labels: true, airports: false },
     },

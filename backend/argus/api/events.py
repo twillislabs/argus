@@ -20,7 +20,7 @@ from argus.services import load_session
 
 router = APIRouter(tags=["events"])
 
-TYPES = ("conflict", "unrest", "quake", "fire")
+TYPES = ("conflict", "unrest", "quake", "fire", "hazard", "maritime")
 
 
 @router.get("/api/events")

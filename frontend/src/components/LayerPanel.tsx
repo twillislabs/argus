@@ -1,8 +1,9 @@
-import type { CivilStatus, EventType } from '../lib/api';
+import type { CivilStatus, EventType, SeaStatus } from '../lib/api';
 import { EVENT_TYPES, SEVERITY_NAME, TYPE_INFO } from '../lib/format';
 import { AIR_COLOR } from '../map/aircraftLayer';
 import { DEFAULT_REFERENCE, type ReferenceLayers } from '../map/overlays';
 import { DEFAULT_SPACE, SAT_COLOR, type SpaceFilters } from '../map/satellites';
+import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 
 export interface AirFilters {
   military: boolean;
@@ -19,16 +20,33 @@ export interface LayerFilters {
   air: AirFilters;
   reference: ReferenceLayers;
   space: SpaceFilters;
+  sea: SeaFilters;
 }
 
 export const DEFAULT_FILTERS: LayerFilters = {
-  types: { conflict: true, unrest: true, quake: true, fire: true },
+  types: { conflict: true, unrest: true, quake: true, fire: true, hazard: true, maritime: false },
   minSeverity: 1,
   candidates: false,
   hours: 24,
   air: { military: true, civil: true, focus: '' },
   reference: DEFAULT_REFERENCE,
   space: DEFAULT_SPACE,
+  sea: { ...DEFAULT_SEA, cargo: false, tanker: false, passenger: false, fishing: false, military: false },
+};
+
+const SEA_ROWS: { id: keyof SeaFilters; label: string }[] = [
+  { id: 'military', label: 'Military and law enforcement' },
+  { id: 'tanker', label: 'Tankers' },
+  { id: 'cargo', label: 'Cargo' },
+  { id: 'passenger', label: 'Passenger' },
+  { id: 'fishing', label: 'Fishing' },
+  { id: 'other', label: 'Other (tugs, pleasure, unknown)' },
+];
+
+const SEA_HINT: Record<SeaStatus, string> = {
+  ok: 'AISStream · area in view',
+  nokey: 'Needs an AISStream key (Settings)',
+  waiting: 'Connecting to AISStream…',
 };
 
 const SPACE_ROWS: { id: keyof SpaceFilters; label: string; source: string; color: string }[] = [
@@ -66,6 +84,8 @@ interface Props {
   airCounts: { military: number; civil: number };
   civilStatus: CivilStatus;
   satCounts: Partial<Record<keyof SpaceFilters, number>>;
+  seaCounts: Partial<Record<keyof SeaFilters, number>>;
+  seaStatus: SeaStatus;
   onChange: (f: LayerFilters) => void;
 }
 
@@ -77,7 +97,17 @@ const CIVIL_HINT: Record<CivilStatus, string> = {
   limited: 'adsb.lol is busy; showing recent positions',
 };
 
-export default function LayerPanel({ filters, counts, airCounts, civilStatus, satCounts, onChange }: Props) {
+export default function LayerPanel({
+  filters,
+  counts,
+  airCounts,
+  civilStatus,
+  satCounts,
+  seaCounts,
+  seaStatus,
+  onChange,
+}: Props) {
+  const seaOn = Object.values(filters.sea).some(Boolean);
   const air = filters.air;
   const setAir = (next: Partial<AirFilters>) => onChange({ ...filters, air: { ...air, ...next } });
   const isDefault = JSON.stringify(filters) === JSON.stringify(DEFAULT_FILTERS);
@@ -156,6 +186,25 @@ export default function LayerPanel({ filters, counts, airCounts, civilStatus, sa
             ))}
           </select>
         </div>
+      </div>
+      <div className="group">
+        <div className="gtitle">Sea</div>
+        {seaOn && <p className={'ghint' + (seaStatus === 'ok' ? '' : ' warn')}>{SEA_HINT[seaStatus]}</p>}
+        {SEA_ROWS.map((r) => (
+          <label key={r.id} className="lrow">
+            <input
+              type="checkbox"
+              checked={filters.sea[r.id]}
+              onChange={(e) => onChange({ ...filters, sea: { ...filters.sea, [r.id]: e.target.checked } })}
+            />
+            <span className="tog" />
+            <span className="sw hull" style={{ background: VESSEL_COLOR[r.id] }} />
+            <span className="lname">
+              <span>{r.label}</span>
+            </span>
+            <span className="lcount mono">{seaOn && seaStatus === 'ok' ? (seaCounts[r.id] ?? 0) : '–'}</span>
+          </label>
+        ))}
       </div>
       <div className="group">
         <div className="gtitle">Space</div>

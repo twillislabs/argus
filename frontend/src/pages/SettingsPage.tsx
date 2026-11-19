@@ -6,7 +6,17 @@ import AppHeader from '../components/AppHeader';
 import HomePicker from '../components/HomePicker';
 import ImageryCard from '../components/ImageryCard';
 import UsersCard from '../components/UsersCard';
-import { api, can, type Home, type Me, savePreferences } from '../lib/api';
+import {
+  api,
+  can,
+  getKeys,
+  type Home,
+  type KeyState,
+  type Me,
+  saveKeys,
+  savePreferences,
+  type SourceStatus,
+} from '../lib/api';
 import { ago, zuluTime } from '../lib/format';
 
 interface Props {
@@ -63,6 +73,14 @@ const SECTIONS: Section[] = [
     capability: 'settings.manage',
   },
   {
+    id: 'sources',
+    label: 'Data sources',
+    title: 'Data sources',
+    description: 'Keys for sources that need one, and how every source is doing.',
+    group: 'Administration',
+    capability: 'settings.manage',
+  },
+  {
     id: 'streetmap',
     label: 'Street map',
     title: 'Self-hosted street map',
@@ -93,6 +111,7 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   else if (current.id === 'users') body = <UsersCard me={me} />;
   else if (current.id === 'imagery') body = <ImageryCard />;
   else if (current.id === 'streetmap') body = <StreetMapSection />;
+  else if (current.id === 'sources') body = <SourcesSection />;
   else if (current.id === 'audit') body = <AuditSection />;
 
   const groups = ['Personal', 'Administration'] as const;
@@ -372,5 +391,112 @@ function AuditSection() {
         </div>
       )}
     </section>
+  );
+}
+
+function SourcesSection() {
+  const [keys, setKeys] = useState<Record<string, KeyState> | null>(null);
+  const [ais, setAis] = useState('');
+  const [sources, setSources] = useState<SourceStatus[]>([]);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    try {
+      const [k, s] = await Promise.all([getKeys(), api<{ sources: SourceStatus[] }>('/api/sources')]);
+      setKeys(k);
+      setSources(s.sources);
+    } catch (err) {
+      setMessage({ ok: false, text: err instanceof Error ? err.message : 'Could not load.' });
+    }
+  }
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function save(value: string) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      setKeys(await saveKeys({ aisstream: value }));
+      setAis('');
+      setMessage({
+        ok: true,
+        text: value ? 'Saved. The worker connects within a minute.' : 'Key removed. Vessels stop.',
+      });
+    } catch (err) {
+      setMessage({ ok: false, text: err instanceof Error ? err.message : 'Save failed.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const k = keys?.aisstream;
+  return (
+    <>
+      <section className="card">
+        <div className="ph">
+          <h2>AISStream (vessels)</h2>
+          <span className="mono">{k?.set ? 'key ' + (k.hint ?? '') : 'no key'}</span>
+        </div>
+        <div className="cbody">
+          <p>
+            Live ship positions come from <b>aisstream.io</b>, a free AIS network. Sign in there (with GitHub),
+            create an API key under <b>API Keys</b>, and paste it here. It&apos;s stored encrypted and used only by
+            the server; browsers never see it.
+          </p>
+          <div className="field">
+            <label htmlFor="k-ais">AISStream API key</label>
+            <input
+              id="k-ais"
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              value={ais}
+              placeholder={k?.set ? 'Saved key ' + (k.hint ?? '') + ' (leave blank to keep it)' : 'Paste the key'}
+              onChange={(e) => setAis(e.target.value)}
+            />
+          </div>
+          {k?.unreadable && <p className="err">The saved key can&apos;t be read (ARGUS_SECRET_KEY changed). Enter it again.</p>}
+          <div className="actions">
+            <button className="btn primary" disabled={busy || !ais.trim()} onClick={() => void save(ais.trim())}>
+              Save key
+            </button>
+            {k?.set && (
+              <button className="btn" disabled={busy} onClick={() => void save('')}>
+                Remove key
+              </button>
+            )}
+          </div>
+          {message && (
+            <div className={message.ok ? 'okmsg' : 'err'} role="status">
+              {message.text}
+            </div>
+          )}
+        </div>
+      </section>
+      <section className="card wide">
+        <div className="ph">
+          <h2>Source health</h2>
+          <button className="btn small" onClick={() => void load()}>
+            Refresh
+          </button>
+        </div>
+        <div className="srows">
+          {sources.map((s) => (
+            <div key={s.name} className="srow">
+              <span className="srow-label">
+                <b>
+                  <i className={'sdot ' + (!s.enabled ? 'off' : s.last_error ? 'warn' : 'ok')} /> {s.label}
+                </b>
+                <small>{s.last_error ?? (s.enabled ? s.last_count + ' records last run' : 'off')}</small>
+              </span>
+              <span className="mono dim">{s.last_success_at ? ago(s.last_success_at) : 'never'}</span>
+            </div>
+          ))}
+          {!sources.length && <p className="quiet pad">The worker hasn&apos;t reported yet.</p>}
+        </div>
+      </section>
+    </>
   );
 }

@@ -26,7 +26,29 @@ from argus.models import Article, Event, EventSource, RawRecord
 
 CLUSTER_KM = 25.0
 CLUSTER_WINDOW = timedelta(hours=2)
-ACTIVE_WINDOW = {"quake": timedelta(hours=72)}
+ACTIVE_WINDOW = {
+    "quake": timedelta(hours=72),
+    # Hazards update when their source revises them (GDACS, EONET), which
+    # can be days apart for a long flood or drought.
+    "hazard": timedelta(days=7),
+    # Active warnings refresh daily (see collectors.nga).
+    "maritime": timedelta(days=2),
+}
+
+HAZARD_LABELS = {
+    "flood": "Flood",
+    "cyclone": "Tropical cyclone",
+    "storm": "Severe storm",
+    "volcano": "Volcano",
+    "drought": "Drought",
+    "wildfire": "Wildfire",
+    "tsunami": "Tsunami",
+    "landslide": "Landslide",
+    "dust": "Dust and haze",
+    "snow": "Snow",
+    "heat": "Temperature extreme",
+    "manmade": "Man-made event",
+}
 DEFAULT_ACTIVE_WINDOW = timedelta(hours=24)
 # GDELT promotion thresholds: independent outlets and total articles.
 PROMOTE_OUTLETS = 3
@@ -37,7 +59,7 @@ PROMOTE_ARTICLES = 10
 GENERIC_CODES = {"190", "192", "193"}
 PROMOTE_ARTICLES_GENERIC = 20
 
-UPDATABLE_KINDS = {"quake", "fire_cluster"}
+UPDATABLE_KINDS = {"quake", "fire_cluster", "hazard", "navwarn"}
 
 
 def new_event_id() -> str:
@@ -413,7 +435,88 @@ async def store_article(db: AsyncSession, row: RawRecord) -> None:
     )
 
 
-FUSERS = {"quake": fuse_quake, "fire_cluster": fuse_fire, "gdelt": fuse_gdelt}
+async def fuse_hazard(db: AsyncSession, row: RawRecord) -> Event:
+    """GDACS, EONET and tsunami bulletins: one event per hazard."""
+    p = row.payload
+    hazard = p.get("hazard", "")
+    near = places.nearest(row.lat, row.lon, max_km=150)
+    place = near.label() if near else (p.get("country") or "")
+    title = p.get("title") or HAZARD_LABELS.get(hazard, "Hazard")
+    summary = " ".join(
+        str(p.get("summary") or "").replace("<br/>", " ").split()
+    )[:600]
+    return await _upsert_keyed(
+        db,
+        "{0}:{1}".format(row.source, row.external_id),
+        row,
+        {
+            "type": "hazard",
+            "severity": max(1, min(5, int(p.get("severity") or 1))),
+            "status": "active",
+            "title": title[:300],
+            "summary": summary
+            or "{0} reported by {1}.".format(
+                HAZARD_LABELS.get(hazard, "Hazard"), p.get("provider")
+            ),
+            "place": (place or "")[:200],
+            "country": (p.get("country") or (near.country if near else ""))[
+                :80
+            ],
+            "lat": row.lat,
+            "lon": row.lon,
+            "last_updated": row.observed_at,
+            "confidence": 0.95,
+            "data": {
+                "hazard": hazard,
+                "label": HAZARD_LABELS.get(hazard, hazard),
+                "provider": p.get("provider"),
+                "alert": p.get("alert"),
+                "knots": p.get("knots"),
+                "track": p.get("track"),
+                "from": p.get("from"),
+                "to": p.get("to"),
+                "url": p.get("url"),
+            },
+        },
+    )
+
+
+async def fuse_navwarn(db: AsyncSession, row: RawRecord) -> Event:
+    p = row.payload
+    return await _upsert_keyed(
+        db,
+        "nga:{0}".format(row.external_id),
+        row,
+        {
+            "type": "maritime",
+            "severity": int(p.get("severity") or 1),
+            "status": "active",
+            "title": "{0}: {1}".format(p.get("id"), p.get("title"))[:300],
+            "summary": " ".join(str(p.get("text") or "").split())[:600],
+            "place": (p.get("area") or "")[:200],
+            "country": "",
+            "lat": row.lat,
+            "lon": row.lon,
+            "last_updated": row.observed_at,
+            "confidence": 0.99,
+            "data": {
+                "area": p.get("area"),
+                "issued": p.get("issued"),
+                "authority": p.get("authority"),
+                "points": p.get("points"),
+                "url": "https://msi.nga.mil/NavWarnings",
+            },
+        },
+    )
+
+
+FUSERS = {
+    "quake": fuse_quake,
+    "fire_cluster": fuse_fire,
+    "gdelt": fuse_gdelt,
+    "hazard": fuse_hazard,
+    "navwarn": fuse_navwarn,
+}
 
 
 # --- GDELT corroboration ---------------------------------------------------

@@ -301,8 +301,9 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
       for (const { label, area } of countryLabels) {
         const range = countryRange(area);
         const near = mode === 'satellite' ? range.near : Math.max(range.near, COUNTRY_TILES_BELOW);
-        label.distanceDisplayCondition = new DistanceDisplayCondition(near, range.far);
+        // Cesium throws unless far > near: hide labels with nothing left.
         label.show = range.far > near;
+        if (label.show) label.distanceDisplayCondition = new DistanceDisplayCondition(near, range.far);
       }
       const next = mode === 'dark' ? STYLE.dark : STYLE.imagery;
       if (next === style) return;

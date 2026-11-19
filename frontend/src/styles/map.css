@@ -120,3 +120,4 @@
 .iconbtn:disabled:hover { border-color: var(--line-2); }
 .mc-gap { height: 4px; }
 .skind.k-satellite { color: #b49cff; }
+.skind.k-vessel { color: #4fc1b0; }

@@ -5,6 +5,7 @@ import AppHeader from '../components/AppHeader';
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
 import SatelliteInspector from '../components/SatelliteInspector';
+import VesselInspector from '../components/VesselInspector';
 import LayerPanel, {
   type AirFilters,
   DEFAULT_FILTERS,
@@ -23,15 +24,19 @@ import {
   getEvents,
   getMapConfig,
   getSatelliteCatalog,
+  getVessels,
   getSummary,
   type Me,
   savePreferences,
   type SearchResult,
+  type SeaStatus,
   type Summary,
+  type Vessel,
 } from '../lib/api';
 import { connectLive, type LiveState } from '../lib/live';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import { DEFAULT_SPACE, type SatCatalog, type SpaceFilters } from '../map/satellites';
+import type { SeaFilters } from '../map/vesselLayer';
 import Globe, { type Basemap, BASEMAPS, type GlobeHandle, type Imagery, PHOTO_3D } from '../map/Globe';
 import { applyLayers, buildShareLink, takeShareLink } from '../lib/share';
 
@@ -45,6 +50,8 @@ const FOCUS_HEIGHT: Record<string, number> = {
   fire: 120_000,
   conflict: 150_000,
   unrest: 60_000,
+  hazard: 600_000,
+  maritime: 500_000,
 };
 
 function initialFilters(me: Me): LayerFilters {
@@ -57,6 +64,7 @@ function initialFilters(me: Me): LayerFilters {
     air: { ...DEFAULT_FILTERS.air, ...(air ?? {}) },
     reference: { ...DEFAULT_FILTERS.reference, ...(reference ?? {}) },
     space: { ...DEFAULT_SPACE, ...((me.preferences.space as Partial<SpaceFilters> | undefined) ?? {}) },
+    sea: { ...DEFAULT_FILTERS.sea, ...((me.preferences.sea as Partial<SeaFilters> | undefined) ?? {}) },
   };
 }
 
@@ -92,6 +100,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [summary, setSummary] = useState<Summary | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedHex, setSelectedHex] = useState<string | null>(null);
+  const [selectedMmsi, setSelectedMmsi] = useState<number | null>(null);
+  const [vessels, setVessels] = useState<Vessel[]>([]);
+  const [seaStatus, setSeaStatus] = useState<SeaStatus>('waiting');
+  const [trackedVessel, setTrackedVessel] = useState<Vessel | null>(null);
   const [selectedNorad, setSelectedNorad] = useState<number | null>(null);
   const [followSat, setFollowSat] = useState(false);
   const [satCatalog, setSatCatalog] = useState<SatCatalog | null>(null);
@@ -140,6 +152,21 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }, []);
 
   // Civil aircraft for the area in view, when the view is regional.
+  // Vessels for the area in view, while any sea layer is on.
+  const loadVessels = useCallback(async () => {
+    if (!Object.values(filtersRef.current.sea).some(Boolean)) {
+      setVessels([]);
+      return;
+    }
+    try {
+      const r = await getVessels(viewRef.current);
+      setVessels(r.vessels);
+      setSeaStatus(r.status);
+    } catch {
+      // Keep the last picture; the next poll retries.
+    }
+  }, []);
+
   const loadCivil = useCallback(async () => {
     if (!filtersRef.current.air.civil) {
       setCivil([]);
@@ -178,6 +205,13 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     const id = window.setInterval(() => void loadCivil(), CIVIL_MS);
     return () => window.clearInterval(id);
   }, [loadCivil, filters.air.civil]);
+  const seaOn = Object.values(filters.sea).some(Boolean);
+  useEffect(() => {
+    void loadVessels();
+    if (!seaOn) return;
+    const id = window.setInterval(() => void loadVessels(), CIVIL_MS);
+    return () => window.clearInterval(id);
+  }, [loadVessels, seaOn]);
 
   // The satellite catalogue (about 17,000 objects) loads only once a
   // space layer is on or a satellite is picked, then hourly.
@@ -230,9 +264,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       viewRef.current = bbox;
       if (passive) return;
       window.clearTimeout(viewTimer.current);
-      viewTimer.current = window.setTimeout(() => void loadCivil(), 400);
+      viewTimer.current = window.setTimeout(() => {
+        void loadCivil();
+        void loadVessels();
+      }, 400);
     },
-    [loadCivil],
+    [loadCivil, loadVessels],
   );
 
   // Live updates: merge changed events, replace the military picture.
@@ -284,6 +321,45 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     }
     return [...byHex.values()];
   }, [military, civil, filters.air, selectedHex, tracked]);
+  // Vessels on the map: the chosen categories, and always the selected
+  // one (with its freshest position).
+  const shownVessels = useMemo(() => {
+    const out = vessels.filter((v) => filters.sea[v.category] && v.mmsi !== selectedMmsi);
+    const sel =
+      trackedVessel?.mmsi === selectedMmsi ? trackedVessel : vessels.find((v) => v.mmsi === selectedMmsi);
+    if (sel) out.push(sel);
+    return out;
+  }, [vessels, filters.sea, selectedMmsi, trackedVessel]);
+  const seaCounts = useMemo(() => {
+    const c: Partial<Record<keyof SeaFilters, number>> = {};
+    for (const v of vessels) c[v.category] = (c[v.category] ?? 0) + 1;
+    return c;
+  }, [vessels]);
+  // The camera views follow an aircraft, or a vessel in the same shape.
+  const trackTarget = useMemo((): Aircraft | null => {
+    if (selectedHex) return aircraft.find((a) => a.hex === selectedHex) ?? null;
+    const v = selectedMmsi !== null ? shownVessels.find((x) => x.mmsi === selectedMmsi) : undefined;
+    if (!v) return null;
+    return {
+      hex: 'ship' + v.mmsi,
+      callsign: v.name ?? '',
+      reg: '',
+      type: '',
+      mil: false,
+      role: null,
+      lat: v.lat,
+      lon: v.lon,
+      alt_ft: 0,
+      ground: false,
+      gs_kt: v.sog,
+      track: v.cog ?? v.heading,
+      vrate: 0,
+      squawk: null,
+      emergency: false,
+      seen: v.age_s,
+    };
+  }, [aircraft, selectedHex, selectedMmsi, shownVessels]);
+
   const airCounts = useMemo(
     () => ({ military: military.length, civil: civil.length }),
     [military, civil],
@@ -291,7 +367,13 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   function changeFilters(next: LayerFilters) {
     setFilters(next);
-    void savePreferences({ layers: next.types, air: next.air, reference: next.reference, space: next.space }).catch(
+    void savePreferences({
+      layers: next.types,
+      air: next.air,
+      reference: next.reference,
+      space: next.space,
+      sea: next.sea,
+    }).catch(
       () => undefined,
     );
   }
@@ -315,6 +397,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     setSelected(null);
     setSelectedHex(null);
     setSelectedNorad(null);
+    setSelectedMmsi(null);
+    setTrackedVessel(null);
     setFollowSat(false);
     setCamera('free');
     setTracked(null);
@@ -338,7 +422,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       } else if (e.key === 't' || e.key === 'T') camPreset('top');
       else if (e.key === 'o' || e.key === 'O') camPreset('oblique');
       else if (e.key === 'n' || e.key === 'N') camPreset('north');
-      else if ((e.key === 'v' || e.key === 'V') && selectedHex) {
+      else if ((e.key === 'v' || e.key === 'V') && (selectedHex || selectedMmsi)) {
         const i = CAMERA_MODES.findIndex((m) => m.id === camera);
         setCamera(CAMERA_MODES[(i + 1) % CAMERA_MODES.length].id);
       } else if (e.key === 'Escape') {
@@ -348,7 +432,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [togglePanel, clearSelection, camera, selectedHex]);
+  }, [togglePanel, clearSelection, camera, selectedHex, selectedMmsi]);
 
   useEffect(() => {
     if (!notice) return;
@@ -371,6 +455,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       eventId: selected,
       hex: selectedHex,
       norad: selectedNorad,
+      mmsi: selectedMmsi,
       view: camera,
     });
     try {
@@ -388,7 +473,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (!share) return;
     if (share.basemap) setBasemap(share.basemap);
     if (share.layers) setFilters((f) => applyLayers(f, share.layers as string[]));
-    if (share.norad) selectSatellite(share.norad, true);
+    if (share.mmsi) selectVessel(share.mmsi, share.view ?? 'follow');
+    else if (share.norad) selectSatellite(share.norad, true);
     else if (share.hex) selectAircraft(share.hex, share.view ?? 'free');
     else if (share.eventId) select(share.eventId);
     if (share.camera && !(share.hex && share.view && share.view !== 'free')) {
@@ -419,9 +505,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       selectSatellite(Number(id.slice(4)));
       return;
     }
+    if (id && id.startsWith('ship:')) {
+      selectVessel(Number(id.slice(5)));
+      return;
+    }
     clearSelection();
     setSelected(id);
     if (id) openRight();
+  }
+
+  function selectVessel(mmsi: number, view: CameraMode = 'free') {
+    clearSelection();
+    setSelectedMmsi(mmsi);
+    setCamera(view);
+    openRight();
   }
 
   function selectSatellite(norad: number, follow = false) {
@@ -434,6 +531,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   function selectAircraft(hex: string, view: CameraMode = 'free') {
     setSelected(null);
     setSelectedNorad(null);
+    setSelectedMmsi(null);
+    setTrackedVessel(null);
     setFollowSat(false);
     if (hex !== selectedHex) {
       setTrail(null);
@@ -495,13 +594,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }
 
   function onSearch(r: SearchResult) {
+    if (r.kind === 'vessel' && r.mmsi) {
+      const v = vessels.find((x) => x.mmsi === r.mmsi);
+      const cat = v?.category;
+      if (cat && !filters.sea[cat]) changeFilters({ ...filters, sea: { ...filters.sea, [cat]: true } });
+      selectVessel(r.mmsi, 'follow');
+      return;
+    }
     if (r.kind === 'satellite' && r.norad) {
       selectSatellite(r.norad, true);
       return;
     }
     if (r.kind === 'filter' && r.filter) {
       if (r.filter.events) {
-        const types = { conflict: false, unrest: false, quake: false, fire: false };
+        const types = { conflict: false, unrest: false, quake: false, fire: false, hazard: false, maritime: false };
         for (const t of r.filter.events) types[t] = true;
         changeFilters({ ...filters, types });
       }
@@ -543,6 +649,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             airCounts={airCounts}
             civilStatus={civilStatus}
             satCounts={satCounts}
+            seaCounts={seaCounts}
+            seaStatus={seaStatus}
             onChange={changeFilters}
           />
         )}
@@ -556,6 +664,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             space={filters.space}
             selectedNorad={selectedNorad}
             followSat={followSat}
+            vessels={shownVessels}
+            selectedMmsi={selectedMmsi}
+            trackTarget={trackTarget}
             home={home}
             events={shown}
             selectedId={selected}
@@ -688,7 +799,19 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         </section>
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
-            {selectedNorad !== null ? (
+            {selectedMmsi !== null ? (
+              <VesselInspector
+                mmsi={selectedMmsi}
+                camera={camera}
+                onBack={clearSelection}
+                onCamera={setCamera}
+                onFly={(lat, lon) => {
+                  setCamera('free');
+                  globe.current?.flyTo(lat, lon, 40_000);
+                }}
+                onUpdate={setTrackedVessel}
+              />
+            ) : selectedNorad !== null ? (
               <SatelliteInspector
                 norad={selectedNorad}
                 home={home}

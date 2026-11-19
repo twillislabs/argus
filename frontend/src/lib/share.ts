@@ -14,9 +14,10 @@ import type { Basemap } from '../map/Globe';
 const KEY = 'argus-share';
 const BASEMAPS: Basemap[] = ['dark', 'satellite', 'hybrid', 'photo3d'];
 const VIEWS: CameraMode[] = ['free', 'follow', 'chase', 'orbit', 'cockpit'];
-const EVENT_LAYERS = ['conflict', 'unrest', 'quake', 'fire'] as const;
+const EVENT_LAYERS = ['conflict', 'unrest', 'quake', 'fire', 'hazard', 'maritime'] as const;
 const REF_LAYERS = ['borders', 'states', 'labels', 'airports'] as const;
 const SPACE_LAYERS = ['leo', 'meo', 'geo', 'heo', 'starlink'] as const;
+const SEA_LAYERS = ['cargo', 'tanker', 'passenger', 'fishing', 'military', 'other'] as const;
 
 export interface Share {
   camera?: string;
@@ -26,6 +27,7 @@ export interface Share {
   hex?: string;
   view?: CameraMode;
   norad?: number;
+  mmsi?: number;
 }
 
 export function enabledLayers(f: LayerFilters): string[] {
@@ -34,6 +36,7 @@ export function enabledLayers(f: LayerFilters): string[] {
   if (f.air.civil) on.push('civil');
   for (const r of REF_LAYERS) if (f.reference[r]) on.push(r);
   for (const r of SPACE_LAYERS) if (f.space[r]) on.push(r);
+  for (const r of SEA_LAYERS) if (f.sea[r]) on.push('sea-' + r);
   return on;
 }
 
@@ -41,10 +44,25 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
   const has = (id: string) => on.includes(id);
   return {
     ...f,
-    types: { conflict: has('conflict'), unrest: has('unrest'), quake: has('quake'), fire: has('fire') },
+    types: {
+      conflict: has('conflict'),
+      unrest: has('unrest'),
+      quake: has('quake'),
+      fire: has('fire'),
+      hazard: has('hazard'),
+      maritime: has('maritime'),
+    },
     air: { ...f.air, military: has('mil'), civil: has('civil'), focus: '' },
     reference: { borders: has('borders'), states: has('states'), labels: has('labels'), airports: has('airports') },
     space: { leo: has('leo'), meo: has('meo'), geo: has('geo'), heo: has('heo'), starlink: has('starlink') },
+    sea: {
+      cargo: has('sea-cargo'),
+      tanker: has('sea-tanker'),
+      passenger: has('sea-passenger'),
+      fishing: has('sea-fishing'),
+      military: has('sea-military'),
+      other: has('sea-other'),
+    },
   };
 }
 
@@ -56,6 +74,7 @@ export function buildShareLink(s: {
   hex: string | null;
   view: CameraMode;
   norad: number | null;
+  mmsi: number | null;
 }): string {
   const p = new URLSearchParams();
   if (s.camera) p.set('v', s.camera);
@@ -64,6 +83,9 @@ export function buildShareLink(s: {
   if (s.hex) {
     p.set('ac', s.hex);
     if (s.view !== 'free') p.set('cam', s.view);
+  } else if (s.mmsi) {
+    p.set('ship', String(s.mmsi));
+    if (s.view !== 'free') p.set('cam', s.view);
   } else if (s.norad) p.set('sat', String(s.norad));
   else if (s.eventId) p.set('e', s.eventId);
   return location.origin + '/#' + p.toString();
@@ -71,7 +93,8 @@ export function buildShareLink(s: {
 
 function parse(hash: string): Share | null {
   const p = new URLSearchParams(hash.replace(/^#/, ''));
-  if (!p.has('v') && !p.has('ac') && !p.has('e') && !p.has('sat')) return null;
+  if (!p.has('v') && !p.has('ac') && !p.has('e') && !p.has('sat') && !p.has('ship')) return null;
+  const ship = Number(p.get('ship'));
   const sat = Number(p.get('sat'));
   const b = p.get('b') as Basemap | null;
   const cam = p.get('cam') as CameraMode | null;
@@ -85,6 +108,7 @@ function parse(hash: string): Share | null {
     eventId: /^[A-Za-z0-9]{1,16}$/.test(eventId) ? eventId : undefined,
     view: cam && VIEWS.includes(cam) ? cam : undefined,
     norad: Number.isInteger(sat) && sat > 0 ? sat : undefined,
+    mmsi: Number.isInteger(ship) && ship > 0 ? ship : undefined,
   };
 }
 

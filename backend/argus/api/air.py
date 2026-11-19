@@ -121,6 +121,10 @@ async def universal_search(
 ):
     """Decode anything typed in the search box; see argus.search."""
     results = await search.resolve(
-        q, db, request.app.state.air, request.app.state.air_client
+        q,
+        db,
+        request.app.state.air,
+        request.app.state.air_client,
+        ships=request.app.state.sea,
     )
     return {"query": q, "results": results}

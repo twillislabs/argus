@@ -79,6 +79,14 @@ parts connect.
   fetching again.
 - satellite.js's main entry pulls in a WebAssembly build; import its JS
   modules through the `satellite-core/` alias (vite.config.ts, tsconfig).
+- Vessels: the worker's `sea_loop` holds one AISStream WebSocket (key from
+  `server_settings["keys"]`), publishing changes on `argus.sea`; the API
+  keeps them in `LiveSea` and serves them by bbox. They aren't stored or
+  pushed to browsers. Data source keys live in Settings > Data sources
+  (`/api/admin/keys`).
+- Hazards (GDACS, EONET, tsunami) and NGA warnings are keyed events
+  (`fuse_hazard`, `fuse_navwarn`) whose raw records update in place
+  (`UPDATABLE_KINDS`).
 - adsb.lol rate-limits per IP (429), shared by every Argus stack on this
   machine. All calls go through `AirClient._adsb_get` (spacing, pause on
   429, stale cache). Don't add direct calls.

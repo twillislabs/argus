@@ -20,6 +20,11 @@ M2–M3), patterns and alerts.
 | `gdelt` | 5 min (files every 15 min) | Conflict and protest reports, clustered within 25 km and 2 h |
 | `rss` | 10 min | Headlines in the `articles` table (16 outlets by default) |
 | `firms` | 3 h | Fire clusters (0.25 degree cells with 8+ detections); needs a key |
+| `gdacs` | 15 min | GDACS disasters (floods, cyclones, volcanoes, droughts, wildfires), one `hazard` event each |
+| `eonet` | 30 min | NASA EONET natural events (storms with their tracks, volcanoes...) as `hazard` events |
+| `tsunami` | 5 min | Latest NTWC and PTWC bulletins; a warning is severity 5 |
+| `nga` | 1 h | NGA navigational warnings with positions, as `maritime` events |
+| vessels (`aisstream`) | stream | AISStream WebSocket for the whole world (an admin's key); changes published on `argus.sea` every 5 s, kept in API memory (`LiveSea`), not stored |
 | satellites (`celestrak`) | 6 h | The CelesTrak "active" catalogue (OMM elements, about 17,000), tagged from small groups (stations, weather, GNSS, military...). Stored in `satellites`; browsers propagate it with SGP4 |
 | aircraft (`adsb_mil`) | 15 s | A snapshot of every military aircraft from adsb.lol, published on `argus.air`; not stored |
 

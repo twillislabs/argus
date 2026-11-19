@@ -100,7 +100,7 @@ export const logout = () => api<void>('/api/auth/logout', { method: 'POST' });
 
 // --- Milestone 1: events, summary, news, places -----------------------------
 
-export type EventType = 'conflict' | 'unrest' | 'quake' | 'fire';
+export type EventType = 'conflict' | 'unrest' | 'quake' | 'fire' | 'hazard' | 'maritime';
 
 export interface EventItem {
   id: string;
@@ -272,7 +272,7 @@ export const getAircraftDetail = (hex: string) =>
   api<AircraftDetail>('/api/aircraft/' + encodeURIComponent(hex));
 
 export interface SearchResult {
-  kind: 'coords' | 'aircraft' | 'flight' | 'airport' | 'place' | 'event' | 'filter' | 'satellite';
+  kind: 'coords' | 'aircraft' | 'flight' | 'airport' | 'place' | 'event' | 'filter' | 'satellite' | 'vessel';
   label: string;
   detail: string;
   lat?: number;
@@ -283,6 +283,7 @@ export interface SearchResult {
   id?: string;
   callsign?: string;
   norad?: number;
+  mmsi?: number;
   filter?: { events?: EventType[]; aircraft?: string };
 }
 
@@ -362,3 +363,51 @@ export async function getSatelliteCatalog() {
     '/api/satellites',
   );
 }
+
+// --- Vessels and data source keys --------------------------------------------
+
+export type VesselCategory = 'cargo' | 'tanker' | 'passenger' | 'fishing' | 'military' | 'other';
+
+export interface Vessel {
+  mmsi: number;
+  name: string | null;
+  callsign: string | null;
+  imo: number | null;
+  flag: string | null;
+  ship_type: number | null;
+  type: string | null;
+  category: VesselCategory;
+  lat: number;
+  lon: number;
+  sog: number | null;
+  cog: number | null;
+  heading: number | null;
+  status: string | null;
+  destination: string | null;
+  eta: string | null;
+  draught: number | null;
+  length: number | null;
+  beam: number | null;
+  age_s: number | null;
+}
+
+export type SeaStatus = 'ok' | 'nokey' | 'waiting';
+
+export function getVessels(bbox: Bbox | null) {
+  const params = new URLSearchParams();
+  if (bbox) params.set('bbox', bbox.map((v) => v.toFixed(3)).join(','));
+  return api<{ vessels: Vessel[]; total: number; status: SeaStatus }>('/api/vessels?' + params.toString());
+}
+
+export const getVessel = (mmsi: number) => api<Vessel>('/api/vessels/' + mmsi);
+
+export interface KeyState {
+  purpose: string;
+  set: boolean;
+  hint: string | null;
+  unreadable: boolean;
+}
+
+export const getKeys = () => api<Record<string, KeyState>>('/api/admin/keys');
+export const saveKeys = (body: Record<string, string>) =>
+  api<Record<string, KeyState>>('/api/admin/keys', { method: 'PUT', body });

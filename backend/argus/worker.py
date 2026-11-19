@@ -8,12 +8,13 @@ collector on its own interval. Changed events are published to NATS
 import asyncio
 import json
 import logging
+import time
 from datetime import timedelta
 
 import httpx
 from sqlalchemy import select
 
-from argus import __version__, space
+from argus import __version__, sea, secrets, space
 from argus.aviation import ADSB_LOL, normalise
 from argus.collectors import REGISTRY, Collector
 from argus.config import Settings, get_settings
@@ -21,7 +22,7 @@ from argus.db import Database, utcnow
 from argus.events import event_dict
 from argus.fusion import expire_and_prune, fuse, store_raw
 from argus.main import configure_logging
-from argus.models import Event, Source
+from argus.models import Event, ServerSetting, Source
 
 log = logging.getLogger("argus.worker")
 
@@ -153,6 +154,117 @@ async def air_loop(
         await asyncio.sleep(
             settings.air_interval_s if not error else RETRY_S / 5
         )
+
+
+SEA_SUBJECT = "argus.sea"
+SEA_SOURCE = "aisstream"
+SEA_FLUSH_S = 5
+SEA_BATCH = 300
+SEA_RETRY_S = 30
+NO_KEY = "Add an AISStream API key in Settings > Data sources."
+
+
+async def read_key(db: Database, settings: Settings, name: str) -> str | None:
+    """An API key an admin saved in Settings > Data sources."""
+    async with db.sessionmaker() as session:
+        row = await session.get(ServerSetting, "keys")
+        token = (row.value or {}).get(name) if row else None
+    return secrets.decrypt(settings.secret_key, token) if token else None
+
+
+async def _sea_health(
+    db: Database, error: str | None, count: int | None = None
+) -> None:
+    async with db.sessionmaker() as session:
+        row = await session.get(Source, SEA_SOURCE)
+        if row is None:
+            row = Source(name=SEA_SOURCE, last_count=0, interval_s=60)
+            session.add(row)
+        row.label = "AISStream vessels"
+        row.enabled = error != NO_KEY
+        row.last_run_at = utcnow()
+        row.last_error = error
+        if error is None:
+            row.last_success_at = utcnow()
+            if count is not None:
+                row.last_count = count
+        await session.commit()
+
+
+async def sea_loop(
+    db: Database, settings: Settings, publisher: Publisher
+) -> None:
+    """Stream AIS from AISStream and publish vessel changes on NATS.
+
+    Waits for an admin to add a key; reconnects with a pause on errors or
+    when the key changes.
+    """
+    from websockets.asyncio.client import connect
+
+    while True:
+        key = await read_key(db, settings, "aisstream")
+        if not key:
+            await _sea_health(db, NO_KEY)
+            await asyncio.sleep(60)
+            continue
+        pending: dict[int, dict] = {}
+        received = 0
+        try:
+            async with connect(
+                sea.AISSTREAM_URL,
+                open_timeout=15,
+                ping_interval=20,
+                max_size=2**20,
+            ) as ws:
+                await ws.send(
+                    json.dumps(
+                        {
+                            "APIKey": key,
+                            "BoundingBoxes": [[[-90, -180], [90, 180]]],
+                            "FilterMessageTypes": sea.MESSAGE_TYPES,
+                        }
+                    )
+                )
+                log.info("Connected to AISStream")
+                last_flush = last_health = time.monotonic()
+                async for raw in ws:
+                    msg = json.loads(raw)
+                    if isinstance(msg, dict) and msg.get("error"):
+                        raise RuntimeError(
+                            "AISStream: {0}".format(msg["error"])
+                        )
+                    update = sea.parse(msg) if isinstance(msg, dict) else None
+                    if update:
+                        merged = pending.setdefault(update["mmsi"], {})
+                        merged.update(update)
+                        received += 1
+                    now = time.monotonic()
+                    if now - last_flush >= SEA_FLUSH_S and pending:
+                        batch = list(pending.values())
+                        pending.clear()
+                        for i in range(0, len(batch), SEA_BATCH):
+                            await publisher.publish(
+                                {
+                                    "type": "vessels",
+                                    "vessels": batch[i : i + SEA_BATCH],
+                                },
+                                SEA_SUBJECT,
+                            )
+                        last_flush = now
+                    if now - last_health >= 60:
+                        await _sea_health(db, None, received)
+                        received = 0
+                        last_health = now
+                        if await read_key(db, settings, "aisstream") != key:
+                            log.info("AISStream key changed; reconnecting")
+                            break
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - reconnect after a pause
+            message = "{0}: {1}".format(type(exc).__name__, str(exc)[:300])
+            log.warning("AISStream stream ended: {0}".format(message))
+            await _sea_health(db, message)
+            await asyncio.sleep(SEA_RETRY_S)
 
 
 SPACE_SOURCE = "celestrak"
@@ -291,6 +403,9 @@ async def run(settings: Settings) -> None:
     ) as client:
         air_task = None
         space_task = None
+        sea_task = None
+        if settings.sea_enabled:
+            sea_task = asyncio.create_task(sea_loop(db, settings, publisher))
         if settings.space_enabled:
             space_task = asyncio.create_task(space_loop(db, client))
         if settings.air_enabled:
@@ -329,7 +444,7 @@ async def run(settings: Settings) -> None:
                     next_housekeeping = now + timedelta(seconds=HOUSEKEEPING_S)
                 await asyncio.sleep(TICK_S)
         finally:
-            for task in (air_task, space_task):
+            for task in (air_task, space_task, sea_task):
                 if task is not None:
                     task.cancel()
             await publisher.close()

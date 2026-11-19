@@ -35,15 +35,18 @@ import {
   UrlTemplateImageryProvider,
   VerticalOrigin,
   WebMapTileServiceImageryProvider,
+  Material,
+  PolylineCollection,
 } from '@cesium/engine';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
-import type { Aircraft, Bbox, EventItem, Home, MapConfig } from '../lib/api';
+import type { Aircraft, Bbox, EventItem, Home, MapConfig, Vessel } from '../lib/api';
 import { SEVERITY_COLOR } from '../lib/format';
 import { type AircraftCamera, type CameraMode, createAircraftCamera } from './aircraftCamera';
 import { addAircraftLayer, type AircraftLayer } from './aircraftLayer';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
 import { addOverlays, type Overlays, type ReferenceLayers } from './overlays';
+import { addVesselLayer, type VesselLayer } from './vesselLayer';
 import {
   addSatelliteLayer,
   type OrbitInfo,
@@ -304,6 +307,11 @@ interface Props {
   space: SpaceFilters;
   selectedNorad: number | null;
   followSat: boolean;
+  vessels: Vessel[];
+  selectedMmsi: number | null;
+  // What the aircraft camera views ride along with: the selected
+  // aircraft, or a vessel adapted to the same shape.
+  trackTarget: Aircraft | null;
   home: Home | null;
   events: EventItem[];
   selectedId: string | null;
@@ -327,6 +335,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     space,
     selectedNorad,
     followSat,
+    vessels,
+    selectedMmsi,
+    trackTarget,
     home,
     events,
     selectedId,
@@ -351,6 +362,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const photo3d = useRef<Cesium3DTileset | null>(null);
   const overlays = useRef<Overlays | null>(null);
   const sats = useRef<SatelliteLayer | null>(null);
+  const ships = useRef<VesselLayer | null>(null);
+  const shapes = useRef<PolylineCollection | null>(null);
   const followSatRef = useRef({ on: followSat, norad: selectedNorad, fresh: true });
   followSatRef.current = {
     on: followSat,
@@ -389,6 +402,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     points.current = collection;
     rings.current = ringCollection;
     air.current = addAircraftLayer(scene);
+    ships.current = addVesselLayer(scene);
     const satLayer = addSatelliteLayer(scene);
     sats.current = satLayer;
     // Following a satellite: keep the camera's offset from it, re-anchored
@@ -466,6 +480,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         for (let i = 0; i < c.length; i++) c.get(i).disableDepthTestDistance = d;
       }
       air.current?.setDepthDistance(d);
+      ships.current?.setDepthDistance(d);
       overlays.current?.setDepthDistance(d);
     }
     (v as unknown as { applyDepth: () => void }).applyDepth = () => {
@@ -534,6 +549,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['aircraft', () => air.current?.destroy()],
         ['overlays', () => overlays.current?.destroy()],
         ['satellites', () => sats.current?.destroy()],
+        ['vessels', () => ships.current?.destroy()],
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
         ['widget', () => v.destroy()],
@@ -547,7 +563,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       }
       dark.current = null;
       overlays.current = null;
+      shapes.current = null;
       sats.current = null;
+      ships.current = null;
       air.current = null;
       tracker.current = null;
       viewer.current = null;
@@ -618,6 +636,36 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     // imageryKey stands for imagery's contents.
   }, [basemap, imageryKey]);
 
+  // The selected event's shape: a warning's area or a storm's track.
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v) return;
+    if (!shapes.current) {
+      shapes.current = new PolylineCollection();
+      v.scene.primitives.add(shapes.current);
+    }
+    shapes.current.removeAll();
+    const e = events.find((x) => x.id === selectedId);
+    if (!e) return;
+    const flat: number[] = [];
+    const points = e.data.points as [number, number][] | undefined;
+    const track = e.data.track as [number, number][] | undefined;
+    if (points && points.length >= 2) {
+      for (const [lat, lon] of points) flat.push(lon, lat, 1500);
+      if (points.length >= 3) flat.push(points[0][1], points[0][0], 1500);
+    } else if (track && track.length >= 2) {
+      for (const [lon, lat] of track) flat.push(lon, lat, 1500);
+    }
+    if (flat.length < 6) return;
+    shapes.current.add({
+      positions: Cartesian3.fromDegreesArrayHeights(flat),
+      width: 2,
+      material: Material.fromType('Color', {
+        color: Color.fromCssColorString(SEVERITY_COLOR[e.severity] ?? '#7d93ad').withAlpha(0.9),
+      }),
+    });
+  }, [events, selectedId]);
+
   // Event markers: colour and size by severity, larger when selected.
   useEffect(() => {
     const collection = points.current;
@@ -662,12 +710,17 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     air.current?.update(aircraft, selectedHex);
     (viewer.current as unknown as { applyDepth?: () => void } | null)?.applyDepth?.();
-    tracker.current?.setTarget(aircraft.find((x) => x.hex === selectedHex) ?? null);
-  }, [aircraft, selectedHex]);
+    tracker.current?.setTarget(trackTarget);
+  }, [aircraft, selectedHex, trackTarget]);
 
   useEffect(() => {
     tracker.current?.setMode(camera);
   }, [camera]);
+
+  useEffect(() => {
+    ships.current?.update(vessels, selectedMmsi);
+    (viewer.current as unknown as { applyDepth?: () => void } | null)?.applyDepth?.();
+  }, [vessels, selectedMmsi]);
 
   useEffect(() => {
     if (satellites) sats.current?.load(satellites);

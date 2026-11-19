@@ -20,10 +20,11 @@ All settings are environment variables, usually set in `.env`.
 | `ARGUS_SESSION_REMEMBER_DAYS` | `30` | Lifetime with "keep me signed in" |
 | `ARGUS_LOGIN_MAX_FAILURES` | `5` | Failed sign-ins before lockout |
 | `ARGUS_LOGIN_LOCKOUT_MINUTES` | `15` | Lockout duration |
-| `ARGUS_COLLECTORS` | `usgs,gdelt,rss,firms` | Collectors the worker runs |
+| `ARGUS_COLLECTORS` | `usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga` | Collectors the worker runs |
 | `ARGUS_AIR_ENABLED` | `true` | Poll military aircraft from adsb.lol in the worker |
 | `ARGUS_AIR_INTERVAL_S` | `15` | Seconds between military aircraft polls |
 | `ARGUS_SPACE_ENABLED` | `true` | Fetch the CelesTrak satellite catalogue every six hours |
+| `ARGUS_SEA_ENABLED` | `true` | Stream vessels from AISStream once a key is saved |
 | `ARGUS_FIRMS_MAP_KEY` | (empty) | NASA FIRMS key; fires are off without it ([get one](https://firms.modaps.eosdis.nasa.gov/api/map_key/)) |
 | `ARGUS_RSS_FEEDS_FILE` | (built-in list) | JSON file of `[{"outlet": "...", "url": "..."}]` replacing the default feeds |
 | `ARGUS_USER_AGENT` | `Argus/0.1 (...)` | User-Agent sent to data sources |
@@ -96,3 +97,16 @@ How the key is handled:
 - Google bills tile use beyond its free monthly allowance to the key's
   project, and using Google tiles means following the Map Tiles API terms.
 - Changes are recorded in the audit log (`settings.imagery`), without the key.
+
+## Data source keys
+
+**Settings → Data sources** (administrators) holds keys for sources that
+need one, stored encrypted with `ARGUS_SECRET_KEY` and used only by the
+server, and shows how every source is doing.
+
+| Key | Unlocks | Get one |
+|---|---|---|
+| AISStream | Live vessels (the Sea layers) | Sign in at [aisstream.io](https://aisstream.io/) with GitHub and create a key under **API Keys** (free) |
+
+With a key saved, the worker holds one stream for the whole world, so all
+users share it.

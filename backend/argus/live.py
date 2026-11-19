@@ -11,6 +11,7 @@ log = logging.getLogger("argus.live")
 
 SUBJECT = "argus.events"
 AIR_SUBJECT = "argus.air"
+SEA_SUBJECT = "argus.sea"
 
 
 class Hub:
@@ -27,7 +28,7 @@ class Hub:
                 self.clients.discard(ws)
 
 
-async def subscribe_forever(url: str, hub: Hub, air=None) -> None:
+async def subscribe_forever(url: str, hub: Hub, air=None, sea=None) -> None:
     """Keep NATS subscriptions alive, retrying while the bus is down.
 
     Event changes are forwarded to browsers as-is. Aircraft snapshots
@@ -58,7 +59,17 @@ async def subscribe_forever(url: str, hub: Hub, air=None) -> None:
                         return
                 await hub.broadcast(text)
 
+            async def sea_handler(msg) -> None:
+                # Vessels are only kept here; browsers ask by area.
+                if sea is None:
+                    return
+                try:
+                    sea.apply(json.loads(msg.data).get("vessels", []))
+                except (ValueError, KeyError, TypeError) as exc:
+                    log.warning("Bad vessel message: {0}".format(exc))
+
             await nc.subscribe(SUBJECT, cb=handler)
+            await nc.subscribe(SEA_SUBJECT, cb=sea_handler)
             await nc.subscribe(AIR_SUBJECT, cb=air_handler)
             log.info("Subscribed to argus.* on {0}".format(url))
             while nc.is_connected or nc.is_reconnecting:
