@@ -17,6 +17,7 @@ never stored or returned.
 import asyncio
 import gzip
 import logging
+import math
 import os
 import time
 from collections import deque
@@ -33,6 +34,7 @@ log = logging.getLogger("argus.aviation")
 DATA = os.path.join(os.path.dirname(__file__), "data")
 ADSB_LOL = "https://api.adsb.lol/v2/"
 ADSBDB = "https://api.adsbdb.com/v0/"
+HEXDB_ROUTE = "https://hexdb.io/callsign-route"
 
 FLAG_MILITARY, FLAG_PIA, FLAG_LADD = 1, 4, 8
 NM_KM = 1.852
@@ -416,31 +418,66 @@ class AirClient:
             if a is not None
         ]
 
-    async def route(self, callsign: str) -> dict | None:
+    async def route_legs(self, callsign: str) -> list[dict]:
+        """Every leg on file for a callsign, from adsbdb and hexdb.
+
+        Airlines reuse flight numbers across legs and days, and each
+        database keeps a different version, so both are asked; pick_route
+        then chooses the leg that fits where the aircraft is.
+        """
         callsign = callsign.strip().upper()
         if not callsign:
-            return None
+            return []
         cached = self.routes.get(callsign)
         if cached is not None:
-            return cached or None
-        response = await self.client.get(
-            "{0}callsign/{1}".format(ADSBDB, callsign)
-        )
-        route: dict = {}
-        if response.status_code == 200:
-            fr = (response.json().get("response") or {}).get(
-                "flightroute"
-            ) or {}
-            if fr:
-                route = {
-                    "callsign": fr.get("callsign_icao") or callsign,
-                    "flight": fr.get("callsign_iata"),
-                    "airline": (fr.get("airline") or {}).get("name"),
-                    "origin": _airport(fr.get("origin")),
-                    "destination": _airport(fr.get("destination")),
-                }
-        self.routes.put(callsign, route)
-        return route or None
+            return cached
+        legs: list[dict] = []
+        try:
+            response = await self.client.get(
+                "{0}callsign/{1}".format(ADSBDB, callsign)
+            )
+            if response.status_code == 200:
+                fr = (response.json().get("response") or {}).get(
+                    "flightroute"
+                ) or {}
+                if fr:
+                    legs.append(
+                        {
+                            "callsign": fr.get("callsign_icao") or callsign,
+                            "flight": fr.get("callsign_iata"),
+                            "airline": (fr.get("airline") or {}).get("name"),
+                            "origin": _airport(fr.get("origin")),
+                            "destination": _airport(fr.get("destination")),
+                            "source": "adsbdb",
+                        }
+                    )
+        except httpx.HTTPError as exc:
+            log.warning("adsbdb route lookup failed: {0}".format(exc))
+        try:
+            response = await self.client.get(
+                HEXDB_ROUTE, params={"callsign": callsign}
+            )
+            text = response.text.strip() if response.status_code == 200 else ""
+            codes = [c for c in text.split("-") if len(c) == 4 and c.isalnum()]
+            flight = legs[0]["flight"] if legs else None
+            airline = legs[0]["airline"] if legs else None
+            for a, b in zip(codes, codes[1:], strict=False):
+                o, d = airports().get(a.upper()), airports().get(b.upper())
+                if o and d and o.icao != d.icao:
+                    legs.append(
+                        {
+                            "callsign": callsign,
+                            "flight": flight,
+                            "airline": airline,
+                            "origin": _bundled_airport(o),
+                            "destination": _bundled_airport(d),
+                            "source": "hexdb",
+                        }
+                    )
+        except httpx.HTTPError as exc:
+            log.warning("hexdb route lookup failed: {0}".format(exc))
+        self.routes.put(callsign, legs)
+        return legs
 
     async def detail(self, hex_id: str) -> dict | None:
         hex_id = hex_id.strip().lower()
@@ -479,6 +516,69 @@ def _airport(a: dict | None) -> dict | None:
     }
 
 
+def _bundled_airport(a: Airport) -> dict:
+    return {
+        "iata": a.iata or None,
+        "icao": a.icao,
+        "name": a.name,
+        "city": a.city,
+        "lat": a.lat,
+        "lon": a.lon,
+    }
+
+
+def bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dl = math.radians(lon2 - lon1)
+    y = math.sin(dl) * math.cos(p2)
+    x = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(
+        dl
+    )
+    return (math.degrees(math.atan2(y, x)) + 360) % 360
+
+
+MAX_TURN_DEG = 60
+
+
+def pick_route(
+    legs: list[dict], lat: float, lon: float, track: float | None
+) -> tuple[dict | None, dict | None]:
+    """The leg that best fits the aircraft, and its progress.
+
+    A leg fits when the aircraft is near the line between its airports
+    (route_progress's plausibility) and, while cruising, is heading within
+    MAX_TURN_DEG of the destination's bearing. Returns the best-fitting leg
+    even if none fits, with progress["plausible"] False.
+    """
+    best = None
+    for leg in legs:
+        progress = route_progress(leg, lat, lon)
+        if progress is None:
+            continue
+        d = leg["destination"]
+        detour = (progress["flown_km"] + progress["remaining_km"]) / max(
+            1, progress["total_km"]
+        )
+        turn = 0.0
+        # Away from departure and arrival (where aircraft turn onto and off
+        # their airways), they head within about 60 degrees of the
+        # destination's bearing.
+        cruising = (
+            progress["flown_km"] > 150 and progress["remaining_km"] > 150
+        )
+        if track is not None and cruising:
+            to_dest = bearing_deg(lat, lon, d["lat"], d["lon"])
+            turn = abs((track - to_dest + 540) % 360 - 180)
+            if turn > MAX_TURN_DEG:
+                progress = dict(progress, plausible=False)
+        score = (0 if progress["plausible"] else 10) + detour + turn / 180
+        if best is None or score < best[0]:
+            best = (score, leg, progress)
+    if best is None:
+        return (legs[0] if legs else None), None
+    return best[1], best[2]
+
+
 def route_progress(route: dict, lat: float, lon: float) -> dict | None:
     """Distance flown and remaining along a great circle, in km."""
     o, d = route.get("origin"), route.get("destination")
@@ -497,6 +597,7 @@ def route_progress(route: dict, lat: float, lon: float) -> dict | None:
     return {
         "total_km": round(total),
         "remaining_km": round(remaining),
+        "flown_km": round(flown),
         "fraction": round(done, 3),
         "plausible": plausible,
     }

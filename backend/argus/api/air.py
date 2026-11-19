@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 
 from argus import search
 from argus.api.deps import DbDep, SessionDep
-from argus.aviation import RateLimited, radius_for_bbox, route_progress
+from argus.aviation import RateLimited, pick_route, radius_for_bbox
 from argus.events import parse_bbox
 
 router = APIRouter(tags=["aircraft"])
@@ -96,11 +96,12 @@ async def get_aircraft(request: Request, session: SessionDep, hex_id: str):
     try:
         detail = await client.detail(hex_id)
         if aircraft.get("callsign") and not aircraft.get("mil"):
-            route = await client.route(aircraft["callsign"])
+            legs = await client.route_legs(aircraft["callsign"])
+            route, progress = pick_route(
+                legs, aircraft["lat"], aircraft["lon"], aircraft.get("track")
+            )
     except Exception as exc:  # noqa: BLE001 - position is still useful
-        log.warning("adsbdb lookup failed: {0}".format(exc))
-    if route:
-        progress = route_progress(route, aircraft["lat"], aircraft["lon"])
+        log.warning("Route lookup failed: {0}".format(exc))
     trail = [list(p) for p in air.trails.get(hex_id, [])]
     return {
         "aircraft": aircraft,

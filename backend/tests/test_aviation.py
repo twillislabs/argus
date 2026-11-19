@@ -11,6 +11,7 @@ from argus.aviation import (
     airlines,
     airports,
     normalise,
+    pick_route,
     radius_for_bbox,
     route_progress,
     snap_area,
@@ -48,14 +49,29 @@ class FakeClient:
     async def lookup(self, kind, value):
         return self.lookups.get((kind, value), [])
 
-    async def route(self, callsign):
-        return {
+    async def route_legs(self, callsign):
+        common = {
             "callsign": callsign,
             "flight": "DL1208",
             "airline": "Delta Air Lines",
-            "origin": {"iata": "BOS", "lat": 42.36, "lon": -71.0},
-            "destination": {"iata": "SFO", "lat": 37.62, "lon": -122.37},
         }
+        return [
+            # A stale leg for a reused flight number: Miami to LaGuardia
+            # doesn't pass Tennessee.
+            dict(
+                common,
+                origin={"iata": "MIA", "lat": 25.79, "lon": -80.29},
+                destination={"iata": "LGA", "lat": 40.78, "lon": -73.87},
+                source="adsbdb",
+            ),
+            # The leg the aircraft is flying: Dallas to Raleigh, eastbound.
+            dict(
+                common,
+                origin={"iata": "DFW", "lat": 32.90, "lon": -97.04},
+                destination={"iata": "RDU", "lat": 35.88, "lon": -78.79},
+                source="hexdb",
+            ),
+        ]
 
     async def detail(self, hex_id):
         return {"type": "757 351/W", "manufacturer": "Boeing"}
@@ -256,7 +272,9 @@ async def test_aircraft_detail(admin_client, app):
     body = (await admin_client.get("/api/aircraft/A789BC")).json()
     assert body["aircraft"]["callsign"] == "DAL1208"
     assert body["route"]["flight"] == "DL1208"
-    assert 0 <= body["progress"]["fraction"] <= 1
+    assert body["route"]["destination"]["iata"] == "RDU"
+    assert body["progress"]["plausible"]
+    assert 0 < body["progress"]["fraction"] < 1
     assert body["detail"]["manufacturer"] == "Boeing"
     assert (await admin_client.get("/api/aircraft/zzzzzz")).status_code == 422
     assert (await admin_client.get("/api/aircraft/abcdef")).status_code == 404
@@ -295,3 +313,68 @@ async def test_search_endpoint(admin_client, app):
 
     quakes = await results("earthquakes")
     assert quakes[0]["filter"] == {"events": ["quake"]}
+
+
+def test_pick_route_prefers_the_leg_being_flown():
+    westbound = {
+        "origin": {"lat": 35.88, "lon": -78.79},
+        "destination": {"lat": 32.90, "lon": -97.04},
+    }
+    eastbound = {
+        "origin": {"lat": 32.90, "lon": -97.04},
+        "destination": {"lat": 35.88, "lon": -78.79},
+    }
+    leg, progress = pick_route([westbound, eastbound], 35.5, -87.0, 80.0)
+    assert leg is eastbound and progress["plausible"]
+    # Due east with the destination due north: not this leg either.
+    north = {
+        "origin": {"lat": 35.88, "lon": -78.79},
+        "destination": {"lat": 41.98, "lon": -87.90},
+    }
+    assert not pick_route([north], 36.26, -87.72, 98.0)[1]["plausible"]
+    # Heading away from every destination: nothing fits.
+    leg, progress = pick_route([eastbound], 35.5, -87.0, 260.0)
+    assert progress["plausible"] is False
+    assert pick_route([], 0, 0, None) == (None, None)
+
+
+async def test_route_legs_from_both_sources(monkeypatch):
+    monkeypatch.setattr(aviation, "MIN_GAP_S", 0)
+
+    def handler(request):
+        if "adsbdb" in request.url.host:
+            return httpx.Response(
+                200,
+                json={
+                    "response": {
+                        "flightroute": {
+                            "callsign_icao": "DAL1652",
+                            "callsign_iata": "DL1652",
+                            "airline": {"name": "Delta Air Lines"},
+                            "origin": {
+                                "iata_code": "MIA",
+                                "latitude": 25.79,
+                                "longitude": -80.29,
+                            },
+                            "destination": {
+                                "iata_code": "LGA",
+                                "latitude": 40.78,
+                                "longitude": -73.87,
+                            },
+                        }
+                    }
+                },
+            )
+        return httpx.Response(200, text="KMSP-KRSW-KMSP")
+
+    client = AirClient("test")
+    client.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    legs = await client.route_legs("dal1652")
+    assert [leg["source"] for leg in legs] == ["adsbdb", "hexdb", "hexdb"]
+    assert legs[1]["origin"]["iata"] == "MSP"
+    assert legs[1]["destination"]["iata"] == "RSW"
+    assert legs[1]["flight"] == "DL1652"
+    # Over Tennessee heading south-east: the Minneapolis to Fort Myers leg.
+    leg, progress = pick_route(legs, 36.2, -86.8, 150.0)
+    assert leg["destination"]["iata"] == "RSW" and progress["plausible"]
+    await client.close()
