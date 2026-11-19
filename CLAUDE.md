@@ -117,7 +117,10 @@ parts connect.
   exception: `/api/cams/{id}/video` hands the browser the agency's HLS
   or MP4 URL on Play, and each video host must be in the CSP
   (`connect-src` for HLS, `media-src`); add TDOT's stream host there
-  once its feed is seen. New no-key feeds go in `cams.OPEN_FEEDS`. TDOT's
+  (TDOT streams from `*.skyvdn.com`; its stills redirect, which
+  `fetch_image` follows with the same check). New no-key feeds go in
+  `cams.OPEN_FEEDS`. `cams_loop` runs `cams_pass` under a catch-all and
+  saves after each feed, TDOT first. TDOT's
   field names aren't public: `parse_tdot` guesses and logs the keys of
   the first record when nothing parses.
 - ALPR cameras (`argus/alpr.py`, `/api/alpr`) come from Overpass per

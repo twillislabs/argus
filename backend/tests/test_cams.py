@@ -202,3 +202,35 @@ def test_open_feeds():
     ]
     assert fi[0]["image"] == "https://weathercam.digitraffic.fi/C0150301.jpg"
     assert fi[1]["name"] == "kt51 Inkoo (2)"
+
+
+async def test_image_proxy_follows_safe_redirects_only():
+    from argus.api import cams as cams_api
+
+    def handler(request):
+        if request.url.path == "/thumbs/a.png":
+            return httpx.Response(
+                301, headers={"location": "https://snap.example.org/a.png"}
+            )
+        if request.url.path == "/thumbs/bad.png":
+            return httpx.Response(
+                302, headers={"location": "https://127.0.0.1/secret"}
+            )
+        return httpx.Response(
+            200, content=b"png", headers={"content-type": "image/png"}
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler)
+    ) as client:
+        r = await cams_api.fetch_image(
+            client, "https://snap.example.org/thumbs/a.png"
+        )
+        assert r.status_code == 200 and r.content == b"png"
+        try:
+            await cams_api.fetch_image(
+                client, "https://snap.example.org/thumbs/bad.png"
+            )
+            raise AssertionError("followed a redirect to an address")
+        except httpx.HTTPError:
+            pass

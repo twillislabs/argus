@@ -486,82 +486,122 @@ async def wikipedia_loop(db: Database, client: httpx.AsyncClient) -> None:
 CAMS_EVERY = timedelta(days=1)
 
 
+async def save_cams(
+    db: Database,
+    feeds: dict,
+    tdot_key: str | None,
+    started: datetime,
+    errors: list[str],
+    fetched: str | None = None,
+) -> int:
+    """Store the camera catalogue. A pass part-way through keeps the old
+    fetched time (pass fetched=), so only a finished pass counts."""
+    count = sum(len(v) for v in feeds.values())
+    async with db.sessionmaker() as session:
+        row = await session.get(ServerSetting, "layer:trafficcams")
+        if row is None:
+            row = ServerSetting(key="layer:trafficcams")
+            session.add(row)
+        row.value = {
+            "fetched": fetched
+            if fetched is not None
+            else utcnow().isoformat(),
+            "tdot_key": bool(tdot_key),
+            "feeds": feeds,
+        }
+        row.updated_at = utcnow()
+        source = await session.get(Source, "trafficcams")
+        source.last_run_at = started
+        source.last_count = count
+        if count:
+            source.last_success_at = utcnow()
+        source.last_error = "; ".join(errors) or None
+        await session.commit()
+    return count
+
+
+async def cams_pass(
+    db: Database, settings: Settings, client: httpx.AsyncClient
+) -> None:
+    """One check of the traffic camera catalogues (see cams_loop)."""
+    async with db.sessionmaker() as session:
+        row = await session.get(ServerSetting, "layer:trafficcams")
+        previous = dict(row.value or {}) if row else {}
+        source = await session.get(Source, "trafficcams")
+        label = "Traffic cameras (Caltrans, DriveBC, TfL, Digitraffic, TDOT)"
+        if source is not None:
+            source.label = label
+        if source is None:
+            source = Source(
+                name="trafficcams",
+                label=label,
+                interval_s=int(CAMS_EVERY.total_seconds()),
+                enabled=True,
+                last_count=0,
+            )
+            session.add(source)
+        await session.commit()
+    fetched = previous.get("fetched")
+    tdot_key = await read_key(db, settings, "tdot")
+    key_changed = bool(tdot_key) != bool(previous.get("tdot_key"))
+    due = (
+        fetched is None
+        or key_changed
+        or utcnow() - datetime.fromisoformat(fetched) >= CAMS_EVERY
+    )
+    if due:
+        started = utcnow()
+        feeds = dict(previous.get("feeds") or {})
+        errors = []
+        # TDOT first (the one with a key); then the open feeds.
+        # Each fails on its own and keeps its last cameras; nothing
+        # here may end the loop.
+        jobs = []
+        if tdot_key:
+            jobs.append(
+                (
+                    "tdot",
+                    lambda k=tdot_key: traffic_cams.fetch_tdot(client, k),
+                )
+            )
+        else:
+            feeds.pop("tdot", None)
+        jobs.append(("caltrans", lambda: traffic_cams.fetch_caltrans(client)))
+        for name, fetch in traffic_cams.OPEN_FEEDS.items():
+            jobs.append((name, lambda f=fetch: f(client)))
+
+        for name, job in jobs:
+            try:
+                feeds[name] = await job()
+                log.info(
+                    "traffic cameras, {0}: {1}".format(name, len(feeds[name]))
+                )
+            except Exception as exc:  # noqa: BLE001 - keep the loop alive
+                log.warning(
+                    "traffic cameras, {0} failed: {1}".format(name, exc)
+                )
+                errors.append("{0}: {1}".format(name, str(exc)[:200]))
+            # Saved after each feed, so one slow feed doesn't hold the
+            # others back.
+            count = await save_cams(
+                db, feeds, tdot_key, started, errors, fetched
+            )
+        count = await save_cams(db, feeds, tdot_key, started, errors)
+        log.info("traffic cameras: {0}".format(count))
+
+
 async def cams_loop(
     db: Database, settings: Settings, client: httpx.AsyncClient
 ) -> None:
     """Traffic camera catalogues daily (argus/cams.py), kept in
     server_settings["layer:trafficcams"]. Each feed fails on its own;
-    a feed that fails keeps its last cameras."""
+    a feed that fails keeps its last cameras. Checked every ten minutes
+    (a new or removed TDOT key starts a pass at once)."""
     while True:
-        async with db.sessionmaker() as session:
-            row = await session.get(ServerSetting, "layer:trafficcams")
-            previous = dict(row.value or {}) if row else {}
-            source = await session.get(Source, "trafficcams")
-            label = (
-                "Traffic cameras (Caltrans, DriveBC, TfL, Digitraffic, TDOT)"
-            )
-            if source is not None:
-                source.label = label
-            if source is None:
-                source = Source(
-                    name="trafficcams",
-                    label=label,
-                    interval_s=int(CAMS_EVERY.total_seconds()),
-                    enabled=True,
-                    last_count=0,
-                )
-                session.add(source)
-            await session.commit()
-        fetched = previous.get("fetched")
-        tdot_key = await read_key(db, settings, "tdot")
-        key_changed = bool(tdot_key) != bool(previous.get("tdot_key"))
-        due = (
-            fetched is None
-            or key_changed
-            or utcnow() - datetime.fromisoformat(fetched) >= CAMS_EVERY
-        )
-        if due:
-            started = utcnow()
-            feeds = dict(previous.get("feeds") or {})
-            errors = []
-            try:
-                feeds["caltrans"] = await traffic_cams.fetch_caltrans(client)
-            except (httpx.HTTPError, ValueError) as exc:
-                errors.append("caltrans: {0}".format(str(exc)[:200]))
-            for name, fetch in traffic_cams.OPEN_FEEDS.items():
-                try:
-                    feeds[name] = await fetch(client)
-                except (httpx.HTTPError, ValueError, KeyError) as exc:
-                    errors.append("{0}: {1}".format(name, str(exc)[:200]))
-            if tdot_key:
-                try:
-                    feeds["tdot"] = await traffic_cams.fetch_tdot(
-                        client, tdot_key
-                    )
-                except (httpx.HTTPError, ValueError) as exc:
-                    errors.append("tdot: {0}".format(str(exc)[:200]))
-            else:
-                feeds.pop("tdot", None)
-            count = sum(len(v) for v in feeds.values())
-            async with db.sessionmaker() as session:
-                row = await session.get(ServerSetting, "layer:trafficcams")
-                if row is None:
-                    row = ServerSetting(key="layer:trafficcams")
-                    session.add(row)
-                row.value = {
-                    "fetched": utcnow().isoformat(),
-                    "tdot_key": bool(tdot_key),
-                    "feeds": feeds,
-                }
-                row.updated_at = utcnow()
-                source = await session.get(Source, "trafficcams")
-                source.last_run_at = started
-                source.last_count = count
-                if count:
-                    source.last_success_at = utcnow()
-                source.last_error = "; ".join(errors) or None
-                await session.commit()
-            log.info("traffic cameras: {0}".format(count))
+        try:
+            await cams_pass(db, settings, client)
+        except Exception:  # noqa: BLE001 - keep checking
+            log.exception("traffic cameras pass failed")
         await asyncio.sleep(600)
 
 

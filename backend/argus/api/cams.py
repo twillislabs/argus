@@ -102,6 +102,23 @@ def _client(request: Request) -> httpx.AsyncClient:
     return state.cams_http
 
 
+MAX_REDIRECTS = 3
+
+
+async def fetch_image(client: httpx.AsyncClient, url: str) -> httpx.Response:
+    """GET a camera image, following a few redirects (TDOT's stills
+    move), each checked like the catalogue URL itself."""
+    for _ in range(MAX_REDIRECTS + 1):
+        r = await client.get(url)
+        if r.status_code not in (301, 302, 303, 307, 308):
+            return r
+        target = str(r.url.join(r.headers.get("location", "")))
+        if not image_allowed(target):
+            raise httpx.HTTPError("redirected somewhere not allowed")
+        url = target
+    raise httpx.HTTPError("too many redirects")
+
+
 @router.get("/api/cams/{cam_id}/image")
 async def cam_image(
     cam_id: str, request: Request, session: SessionDep, db: DbDep
@@ -115,7 +132,7 @@ async def cam_image(
     hit = cache.get(cam_id)
     if not hit or time.monotonic() - hit[0] > IMAGE_TTL_S:
         try:
-            r = await client.get(cam["image"])
+            r = await fetch_image(client, cam["image"])
         except httpx.HTTPError as exc:
             raise HTTPException(502, "The camera didn't answer.") from exc
         kind = r.headers.get("content-type", "").split(";")[0]
