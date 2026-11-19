@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import SpaceWeatherCard, { useSpaceWeather } from './SpaceWeatherCard';
 
 import type { Aircraft, Bbox, EventItem, Home, Summary, Tension, WeatherNow, WxAlert } from '../lib/api';
 import { getLiveNear } from '../lib/api';
@@ -303,6 +304,7 @@ export default function SituationPanel({
   weatherNow,
   homeAlerts,
 }: Props) {
+  const spaceWx = useSpaceWeather();
   const milSpark = useSamples(kpis.military);
   const seaSpark = useSamples(kpis.vessels);
   const gpsSpark = useSamples(kpis.gps);
@@ -524,6 +526,10 @@ export default function SituationPanel({
         </section>
       )}
       <TensionCountries tension={tension} />
+      <section className="isec">
+        <h3>Space weather</h3>
+        <SpaceWeatherCard sw={spaceWx} />
+      </section>
       <section className="isec">
         <h3>Live feed · {events.length}</h3>
         {latest.length ? (

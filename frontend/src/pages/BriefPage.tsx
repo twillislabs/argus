@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import SpaceWeatherCard, { useSpaceWeather } from '../components/SpaceWeatherCard';
 
 import AppHeader from '../components/AppHeader';
 import { BAND_LABEL, Spark } from '../components/SituationPanel';
@@ -118,6 +119,7 @@ function changes(t: Tension | null, today: EventItem[], yesterday: EventItem[]):
 // Each theatre opens the map there.
 export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: () => Promise<void> }) {
   const navigate = useNavigate();
+  const spaceWx = useSpaceWeather();
   const [tension, setTension] = useState<Tension | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -329,6 +331,16 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
               </div>
             </section>
           )}
+
+          <section className="card">
+            <div className="ph">
+              <h2>Space weather</h2>
+              <span className="mono">NOAA SWPC</span>
+            </div>
+            <div className="cbody">
+              <SpaceWeatherCard sw={spaceWx} alerts={6} />
+            </div>
+          </section>
 
           <section className="card">
             <div className="ph">

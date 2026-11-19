@@ -549,6 +549,23 @@ Times marked as a month or a day are not yet fixed.
 The data comes from The Space Devs' Launch Library 2 (free, no key), read
 by Argus's server every two hours.
 
+## Space weather
+
+The Situation panel and the Brief have a **Space weather** section from
+NOAA's Space Weather Prediction Center, refreshed every ten minutes:
+
+- The three NOAA scales now, 0 (none) to 5 (extreme): **R** radio
+  blackouts (HF radio and GPS on the day side), **S** solar radiation
+  storms (polar flights, satellites) and **G** geomagnetic storms (power
+  grids, satellites, GPS, HF radio; auroras). Hover a scale for what it
+  affects.
+- The planetary **Kp** index now and its 24-hour high, with bars for the
+  last eight 3-hour readings. Kp 5 is a G1 storm, 9 a G5.
+- The outlook for the next three days: the chance of R1 or worse radio
+  blackouts, and any geomagnetic storm level forecast.
+- The latest alerts, warnings and watches (three in the panel, six in
+  the Brief); hover one for NOAA's full message.
+
 ## Satellites
 
 The **Space** group shows every active satellite CelesTrak tracks, about

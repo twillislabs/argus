@@ -90,3 +90,9 @@ async def get_satellite(norad_id: int, session: SessionDep, db: DbDep):
         "orbit": space.orbit_numbers(s.omm),
         "omm": s.omm,
     }
+
+
+@router.get("/api/spaceweather")
+async def space_weather(request: Request, session: SessionDep):
+    """NOAA SWPC scales, Kp and recent alerts (argus/spaceweather.py)."""
+    return await request.app.state.spaceweather.get()

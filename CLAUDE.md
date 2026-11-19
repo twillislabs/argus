@@ -197,6 +197,11 @@ parts connect.
   only (`FeedClient.get(..., only=)`), publishing a bare sample
   (`gps_sample`) on NATS `argus.gps`; the API feeds it to `GpsGrid` and
   nothing else (not stored, not pushed). `ARGUS_GPS_SWEEP=false` stops it.
+- Space weather: `argus/spaceweather.py` (NOAA SWPC scales, Kp and
+  alerts JSON, fetched on demand and cached 10 min in API memory),
+  `/api/spaceweather`, `components/SpaceWeatherCard.tsx` (Situation and
+  Brief). `parse_kp` reads both SWPC shapes (objects, and the older
+  list of lists).
 - Rocket launches: `argus/launches.py`, worker `launches_loop` (every
   2 h, honouring the last success across restarts: Launch Library 2
   allows 15 requests an hour per IP), `/api/launches`,

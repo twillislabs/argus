@@ -39,6 +39,7 @@ from argus.live import Hub, subscribe_forever
 from argus.openaip import OpenAip
 from argus.sea import LiveSea
 from argus.services import ensure_setup_token
+from argus.spaceweather import SpaceWeather
 from argus.video import Video
 from argus.youtube import LiveIds
 
@@ -82,6 +83,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.youtube = LiveIds(settings.user_agent)
         app.state.video = Video(settings.user_agent)
         app.state.faa = FaaStatus(settings.user_agent)
+        app.state.spaceweather = SpaceWeather(settings.user_agent)
         app.state.imagery = Imagery(
             settings.user_agent, settings.imagery_cache_dir
         )
@@ -108,6 +110,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.youtube.close()
         await app.state.video.close()
         await app.state.faa.close()
+        await app.state.spaceweather.close()
         await app.state.imagery.close()
         if hasattr(app.state, "weather_http"):
             await app.state.weather_http.aclose()
