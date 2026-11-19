@@ -30,6 +30,7 @@ import {
 import { connectLive, type LiveState } from '../lib/live';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import Globe, { type Basemap, BASEMAPS, type GlobeHandle, type Imagery, PHOTO_3D } from '../map/Globe';
+import { applyLayers, buildShareLink, takeShareLink } from '../lib/share';
 
 const REFRESH_MS = 60_000;
 const CIVIL_MS = 15_000;
@@ -46,10 +47,12 @@ const FOCUS_HEIGHT: Record<string, number> = {
 function initialFilters(me: Me): LayerFilters {
   const saved = me.preferences.layers as Partial<Record<EventType, boolean>> | undefined;
   const air = me.preferences.air as Partial<AirFilters> | undefined;
+  const reference = me.preferences.reference as Partial<LayerFilters['reference']> | undefined;
   return {
     ...DEFAULT_FILTERS,
     types: { ...DEFAULT_FILTERS.types, ...(saved ?? {}) },
     air: { ...DEFAULT_FILTERS.air, ...(air ?? {}) },
+    reference: { ...DEFAULT_FILTERS.reference, ...(reference ?? {}) },
   };
 }
 
@@ -97,6 +100,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [live, setLive] = useState<LiveState>('connecting');
   const [loadError, setLoadError] = useState('');
   const [notice, setNotice] = useState('');
+  const [historyDepth, setHistoryDepth] = useState(0);
   const home = me.preferences.home ?? null;
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
@@ -237,7 +241,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   function changeFilters(next: LayerFilters) {
     setFilters(next);
-    void savePreferences({ layers: next.types, air: next.air }).catch(() => undefined);
+    void savePreferences({ layers: next.types, air: next.air, reference: next.reference }).catch(
+      () => undefined,
+    );
   }
 
   const togglePanel = useCallback(
@@ -274,6 +280,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === '[') togglePanel('L');
       else if (e.key === ']') togglePanel('R');
+      else if (e.key === 'b' || e.key === 'B') {
+        setCamera('free');
+        globe.current?.back();
+      } else if (e.key === 't' || e.key === 'T') camPreset('top');
+      else if (e.key === 'o' || e.key === 'O') camPreset('oblique');
+      else if (e.key === 'n' || e.key === 'N') camPreset('north');
       else if ((e.key === 'v' || e.key === 'V') && selectedHex) {
         const i = CAMERA_MODES.findIndex((m) => m.id === camera);
         setCamera(CAMERA_MODES[(i + 1) % CAMERA_MODES.length].id);
@@ -291,6 +303,53 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     const id = window.setTimeout(() => setNotice(''), 5000);
     return () => window.clearTimeout(id);
   }, [notice]);
+
+  function camPreset(kind: 'top' | 'oblique' | 'north') {
+    setCamera('free');
+    if (kind === 'top') globe.current?.topDown();
+    else if (kind === 'oblique') globe.current?.oblique();
+    else globe.current?.northUp();
+  }
+
+  async function copyLink() {
+    const url = buildShareLink({
+      camera: globe.current?.cameraString() ?? null,
+      basemap,
+      filters,
+      eventId: selected,
+      hex: selectedHex,
+      view: camera,
+    });
+    try {
+      await navigator.clipboard.writeText(url);
+      setNotice('Link copied. It opens this view, layers and selection.');
+    } catch {
+      window.prompt('Copy this link:', url);
+    }
+  }
+
+  // A share link opens here: apply its base map, layers, selection and
+  // camera once, without changing the user's saved preferences.
+  function applyShare() {
+    const share = takeShareLink();
+    if (!share) return;
+    if (share.basemap) setBasemap(share.basemap);
+    if (share.layers) setFilters((f) => applyLayers(f, share.layers as string[]));
+    if (share.hex) selectAircraft(share.hex, share.view ?? 'free');
+    else if (share.eventId) select(share.eventId);
+    if (share.camera && !(share.hex && share.view && share.view !== 'free')) {
+      globe.current?.applyCamera(share.camera);
+    }
+  }
+  // On first render, and when a link is opened in a tab already on the map.
+  const applyShareRef = useRef(applyShare);
+  applyShareRef.current = applyShare;
+  useEffect(() => {
+    applyShareRef.current();
+    const onHash = () => applyShareRef.current();
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   function openRight() {
     if (!rightOpen) setRightOpen(true);
@@ -420,6 +479,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             ref={globe}
             basemap={basemap}
             imagery={imagery}
+            reference={filters.reference}
             home={home}
             events={shown}
             selectedId={selected}
@@ -430,6 +490,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             trail={trail}
             camera={camera}
             onView={onView}
+            onHistory={setHistoryDepth}
           />
           <div className="mc tl">
             <div className="seg" role="group" aria-label="Projection">
@@ -487,6 +548,35 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             >
               ◎
             </button>
+            <button
+              className="iconbtn"
+              title="Back to the previous view ( B )"
+              aria-label="Back"
+              disabled={historyDepth === 0}
+              onClick={() => {
+                setCamera('free');
+                globe.current?.back();
+              }}
+            >
+              ↶
+            </button>
+            <span className="mc-gap" />
+            <button className="iconbtn small" title="Look straight down ( T )" aria-label="Top-down view" onClick={() => camPreset('top')}>
+              TOP
+            </button>
+            <button className="iconbtn small" title="Tilt to 35° ( O )" aria-label="Oblique view" onClick={() => camPreset('oblique')}>
+              35°
+            </button>
+            <button className="iconbtn small" title="North up ( N )" aria-label="North up" onClick={() => camPreset('north')}>
+              N↑
+            </button>
+            <span className="mc-gap" />
+            <button className="iconbtn" title="Copy a link to this view" aria-label="Copy link" onClick={() => void copyLink()}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
+                <path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
+              </svg>
+            </button>
           </div>
           <button
             className="edge l"
@@ -541,7 +631,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 onFly={(lat, lon) => globe.current?.flyTo(lat, lon)}
               />
             ) : (
-              <SituationPanel summary={summary} events={shown} home={home} onSelect={selectAndFly} />
+              <SituationPanel
+                summary={summary}
+                events={shown}
+                home={home}
+                onSelect={selectAndFly}
+                aircraft={aircraft}
+                onSelectAircraft={(hex) => selectAircraft(hex, 'follow')}
+              />
             )}
           </aside>
         )}

@@ -36,7 +36,22 @@ so it works offline. You can qualify a name: `Goodlettsville, TN`,
 `Springfield, Illinois`, `Paris, France`. For anywhere smaller, type the
 coordinates; the time zone comes from the nearest listed place.
 
-Argus opens the globe there, shows a home clock, and lists events within the
-alert radius under **Near home**. Change it any time in **Settings**.
+Argus opens the globe there, shows a home clock, and lists events and
+aircraft within the alert radius under **Near home**. Change it any time in
+**Settings → Home location**.
 
-After setup you are signed in and the setup page disappears for good.
+## 4. Starting layers
+
+Pick what the map shows first:
+
+| Preset | Shows |
+|---|---|
+| **Live picture** | All events, military and civil aircraft, borders and labels |
+| **Events** | Conflict, unrest, earthquakes and fires, with state borders; no aircraft |
+| **Air picture** | Military and civil aircraft and airports; events off |
+| **Start quiet** | Just borders and labels |
+
+It's only a starting point: every layer can be switched in the layer panel.
+
+After setup you are signed in and the setup page disappears for good. To add
+more people, see **Settings → Users & roles**.

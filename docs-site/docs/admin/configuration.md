@@ -61,13 +61,13 @@ changes.
 
 Rendered tiles are cached by nginx (up to 2 GB, kept 30 days), so each
 tile is drawn once. The street map is a server-wide setting: every user
-sees the installed region.
+sees the installed region. **Settings → Street map** shows what's installed.
 
 Data © OpenStreetMap contributors (ODbL), credited on the map.
 
 ## Map imagery (Google)
 
-**Settings → Map imagery** (administrators only) chooses where **Satellite**
+**Settings → Map imagery** (under Administration) chooses where **Satellite**
 and **Hybrid** imagery comes from, for every user:
 
 - **Esri** (default): no key, fine for light use.

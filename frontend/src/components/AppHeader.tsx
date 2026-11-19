@@ -59,7 +59,7 @@ export default function AppHeader({ me, onSignedOut, live }: Props) {
           <Link to="/" aria-current={pathname === '/' ? 'page' : undefined}>
             Map
           </Link>
-          <Link to="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}>
+          <Link to="/settings" aria-current={pathname.startsWith('/settings') ? 'page' : undefined}>
             Settings
           </Link>
         </nav>

@@ -11,8 +11,9 @@ import logging
 from typing import Literal
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 
 from argus import secrets
 from argus.api.deps import (
@@ -23,7 +24,7 @@ from argus.api.deps import (
     require,
 )
 from argus.db import utcnow
-from argus.models import ServerSetting, UserSession
+from argus.models import AuditLog, ServerSetting, User, UserSession
 from argus.services import audit
 
 router = APIRouter(tags=["admin"])
@@ -148,4 +149,40 @@ async def map_config(session: SessionDep, db: DbDep, settings: SettingsDep):
             "google_key": key if google else None,
             "google_3d": google and bool(stored.get("google_3d")),
         }
+    }
+
+
+@router.get(
+    "/api/admin/audit", dependencies=[Depends(require("users.manage"))]
+)
+async def audit_log(
+    db: DbDep,
+    limit: int = Query(100, ge=1, le=500),
+    before: int | None = Query(None, description="id to page back from"),
+    action: str | None = Query(None, max_length=64),
+):
+    """Newest first. Page back with before=<last id>."""
+    query = (
+        select(AuditLog, User.username)
+        .outerjoin(User, User.id == AuditLog.user_id)
+        .order_by(AuditLog.id.desc())
+        .limit(limit)
+    )
+    if before is not None:
+        query = query.where(AuditLog.id < before)
+    if action:
+        query = query.where(AuditLog.action.like("{0}%".format(action)))
+    rows = (await db.execute(query)).all()
+    return {
+        "entries": [
+            {
+                "id": a.id,
+                "at": a.at.isoformat(),
+                "action": a.action,
+                "username": username,
+                "ip": a.ip,
+                "detail": a.detail or {},
+            }
+            for a, username in rows
+        ]
     }

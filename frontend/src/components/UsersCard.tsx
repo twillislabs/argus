@@ -93,9 +93,9 @@ export default function UsersCard({ me }: { me: Me }) {
   return (
     <section className="card wide">
       <div className="ph">
-        <h2>Users</h2>
+        <h2>Accounts</h2>
         <span className="mono">
-          {users.length} {users.length === 1 ? 'account' : 'accounts'} · Admin
+          {users.length} {users.length === 1 ? 'account' : 'accounts'}
         </span>
       </div>
       <div className="cbody">

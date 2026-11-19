@@ -6,6 +6,8 @@ import {
   Color,
   Math as CesiumMath,
   Matrix4,
+  BoundingSphere,
+  HeadingPitchRange,
   NearFarScalar,
   Rectangle,
 } from '@cesium/core';
@@ -40,6 +42,7 @@ import { SEVERITY_COLOR } from '../lib/format';
 import { type AircraftCamera, type CameraMode, createAircraftCamera } from './aircraftCamera';
 import { addAircraftLayer, type AircraftLayer } from './aircraftLayer';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
+import { addOverlays, type Overlays, type ReferenceLayers } from './overlays';
 
 // No Cesium ion: every tile comes from a source we configure.
 Ion.defaultAccessToken = '';
@@ -220,6 +223,57 @@ export interface GlobeHandle {
   flyTo: (lat: number, lon: number, height?: number) => void;
   setMode: (mode: '3d' | '2d') => void;
   view: () => { bbox: Bbox | null; height: number } | null;
+  // Camera presets around the point at the centre of the screen.
+  topDown: () => void;
+  oblique: () => void;
+  northUp: () => void;
+  // Return to where the camera was before the last fly (home, world,
+  // search, event). Returns false when there's nowhere to go back to.
+  back: () => boolean;
+  // The camera as a share-link string, and applying one.
+  cameraString: () => string | null;
+  applyCamera: (s: string) => boolean;
+}
+
+export interface SavedCamera {
+  lon: number;
+  lat: number;
+  height: number;
+  heading: number;
+  pitch: number;
+}
+
+function saveCamera(v: CesiumWidget): SavedCamera {
+  const c = v.camera.positionCartographic;
+  return {
+    lon: CesiumMath.toDegrees(c.longitude),
+    lat: CesiumMath.toDegrees(c.latitude),
+    height: c.height,
+    heading: v.camera.heading,
+    pitch: v.camera.pitch,
+  };
+}
+
+// The point on the globe at the centre of the screen.
+function centreTarget(v: CesiumWidget): Cartesian3 | undefined {
+  const canvas = v.scene.canvas;
+  const centre = new Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2);
+  return v.camera.pickEllipsoid(centre, v.scene.globe.ellipsoid);
+}
+
+function reorient(v: CesiumWidget, heading: number | null, pitch: number | null) {
+  if (v.scene.mode !== SceneMode.SCENE3D) return;
+  const target = centreTarget(v);
+  if (!target) return;
+  const range = Cartesian3.distance(v.camera.positionWC, target);
+  v.camera.flyToBoundingSphere(new BoundingSphere(target, 0), {
+    offset: new HeadingPitchRange(
+      heading ?? v.camera.heading,
+      pitch ?? v.camera.pitch,
+      range,
+    ),
+    duration: reduceMotion ? 0 : 0.8,
+  });
 }
 
 // The visible area, or null when the view includes the sky or a pole.
@@ -233,6 +287,7 @@ function viewBbox(v: CesiumWidget): Bbox | null {
 interface Props {
   basemap: Basemap;
   imagery: Imagery | null;
+  reference: ReferenceLayers;
   home: Home | null;
   events: EventItem[];
   selectedId: string | null;
@@ -243,12 +298,15 @@ interface Props {
   trail: number[][] | null;
   camera: CameraMode;
   onView?: (bbox: Bbox | null, height: number, passive?: boolean) => void;
+  // How many steps Back can go.
+  onHistory?: (depth: number) => void;
 }
 
 const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   {
     basemap,
     imagery,
+    reference,
     home,
     events,
     selectedId,
@@ -259,6 +317,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     trail,
     camera,
     onView,
+    onHistory,
   },
   ref,
 ) {
@@ -270,6 +329,12 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const air = useRef<AircraftLayer | null>(null);
   const tracker = useRef<AircraftCamera | null>(null);
   const photo3d = useRef<Cesium3DTileset | null>(null);
+  const overlays = useRef<Overlays | null>(null);
+  const history = useRef<SavedCamera[]>([]);
+  const onHistoryRef = useRef(onHistory);
+  onHistoryRef.current = onHistory;
+  const referenceRef = useRef(reference);
+  referenceRef.current = reference;
   const onViewRef = useRef(onView);
   onViewRef.current = onView;
   const tiles = useRef<ImageryLayer[]>([]);
@@ -320,6 +385,17 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       dark.current = m;
       applyFade();
     });
+    void addOverlays(scene).then((o) => {
+      if (disposed) {
+        o.destroy();
+        return;
+      }
+      overlays.current = o;
+      o.setLayers(referenceRef.current);
+      o.setImagery(basemapRef.current === 'dark' ? 'dark' : basemapRef.current === 'hybrid' ? 'hybrid' : 'satellite');
+      depthNow = -1;
+      applyDepth();
+    });
 
     // Cross-fade vector countries and street tiles with camera height.
     function applyFade() {
@@ -342,6 +418,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         for (let i = 0; i < c.length; i++) c.get(i).disableDepthTestDistance = d;
       }
       air.current?.setDepthDistance(d);
+      overlays.current?.setDepthDistance(d);
     }
     (v as unknown as { applyDepth: () => void }).applyDepth = () => {
       depthNow = -1;
@@ -407,6 +484,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['morph listener', removeMorph],
         ['tracking', removeTracking],
         ['aircraft', () => air.current?.destroy()],
+        ['overlays', () => overlays.current?.destroy()],
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
         ['widget', () => v.destroy()],
@@ -419,6 +497,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         }
       }
       dark.current = null;
+      overlays.current = null;
       air.current = null;
       tracker.current = null;
       viewer.current = null;
@@ -472,6 +551,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       });
     }
     const isDark = basemap === 'dark';
+    overlays.current?.setImagery(isDark ? 'dark' : basemap === 'hybrid' ? 'hybrid' : 'satellite');
     v.scene.globe.showGroundAtmosphere = !isDark;
     const sky = v.scene.skyAtmosphere;
     if (sky) {
@@ -539,6 +619,11 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     tracker.current?.setMode(camera);
   }, [camera]);
 
+  const referenceKey = [reference.borders, reference.states, reference.labels, reference.airports].join('');
+  useEffect(() => {
+    overlays.current?.setLayers(referenceRef.current);
+  }, [referenceKey]);
+
   useEffect(() => {
     air.current?.setTrail(trail);
   }, [trail]);
@@ -582,43 +667,117 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
 
   useImperativeHandle(
     ref,
-    () => ({
-      flyHome() {
-        tracker.current?.release();
-        const t = home ? { lon: home.lon, lat: home.lat, height: HOME_HEIGHT_M } : WORLD_VIEW;
-        viewer.current?.camera.flyTo({
-          destination: Cartesian3.fromDegrees(t.lon, t.lat, t.height),
-          duration: 1.6,
-        });
-      },
-      flyWorld() {
-        tracker.current?.release();
-        // Centre the world view on home's longitude when there is one.
-        const lon = home ? home.lon : WORLD_VIEW.lon;
-        viewer.current?.camera.flyTo({
-          destination: Cartesian3.fromDegrees(lon, 20, WORLD_VIEW.height),
-          duration: 1.6,
-        });
-      },
-      flyTo(lat, lon, height = 1_500_000) {
-        tracker.current?.release();
-        viewer.current?.camera.flyTo({
-          destination: Cartesian3.fromDegrees(lon, lat, height),
-          duration: 1.4,
-        });
-      },
-      view() {
-        const v = viewer.current;
-        if (!v) return null;
-        return { bbox: viewBbox(v), height: v.camera.positionCartographic.height };
-      },
-      setMode(mode) {
+    () => {
+      // Remember where the camera was, for Back.
+      function remember() {
         const v = viewer.current;
         if (!v) return;
-        if (mode === '2d' && v.scene.mode !== SceneMode.SCENE2D) v.scene.morphTo2D(1.2);
-        if (mode === '3d' && v.scene.mode !== SceneMode.SCENE3D) v.scene.morphTo3D(1.2);
-      },
-    }),
+        history.current = [...history.current, saveCamera(v)].slice(-10);
+        onHistoryRef.current?.(history.current.length);
+      }
+      return {
+        flyHome() {
+          remember();
+          tracker.current?.release();
+          const t = home ? { lon: home.lon, lat: home.lat, height: HOME_HEIGHT_M } : WORLD_VIEW;
+          viewer.current?.camera.flyTo({
+            destination: Cartesian3.fromDegrees(t.lon, t.lat, t.height),
+            duration: 1.6,
+          });
+        },
+        flyWorld() {
+          remember();
+          tracker.current?.release();
+          // Centre the world view on home's longitude when there is one.
+          const lon = home ? home.lon : WORLD_VIEW.lon;
+          viewer.current?.camera.flyTo({
+            destination: Cartesian3.fromDegrees(lon, 20, WORLD_VIEW.height),
+            duration: 1.6,
+          });
+        },
+        flyTo(lat, lon, height = 1_500_000) {
+          remember();
+          tracker.current?.release();
+          viewer.current?.camera.flyTo({
+            destination: Cartesian3.fromDegrees(lon, lat, height),
+            duration: 1.4,
+          });
+        },
+        view() {
+          const v = viewer.current;
+          if (!v) return null;
+          return { bbox: viewBbox(v), height: v.camera.positionCartographic.height };
+        },
+        setMode(mode) {
+          const v = viewer.current;
+          if (!v) return;
+          if (mode === '2d' && v.scene.mode !== SceneMode.SCENE2D) v.scene.morphTo2D(1.2);
+          if (mode === '3d' && v.scene.mode !== SceneMode.SCENE3D) v.scene.morphTo3D(1.2);
+        },
+        topDown() {
+          const v = viewer.current;
+          if (!v) return;
+          tracker.current?.release();
+          // Exactly -90 degrees is degenerate for an orbit offset.
+          reorient(v, null, -CesiumMath.PI_OVER_TWO + 0.001);
+        },
+        oblique() {
+          const v = viewer.current;
+          if (!v) return;
+          tracker.current?.release();
+          reorient(v, null, CesiumMath.toRadians(-35));
+        },
+        northUp() {
+          const v = viewer.current;
+          if (!v) return;
+          tracker.current?.release();
+          if (v.scene.mode === SceneMode.SCENE3D) reorient(v, 0, null);
+          else v.camera.setView({ orientation: { heading: 0, pitch: v.camera.pitch, roll: 0 } });
+        },
+        back() {
+          const v = viewer.current;
+          const last = history.current[history.current.length - 1];
+          if (!v || !last) return false;
+          history.current = history.current.slice(0, -1);
+          onHistoryRef.current?.(history.current.length);
+          tracker.current?.release();
+          v.camera.flyTo({
+            destination: Cartesian3.fromDegrees(last.lon, last.lat, last.height),
+            orientation: { heading: last.heading, pitch: last.pitch, roll: 0 },
+            duration: reduceMotion ? 0 : 1.4,
+          });
+          return true;
+        },
+        cameraString() {
+          const v = viewer.current;
+          if (!v) return null;
+          const c = saveCamera(v);
+          return [
+            c.lon.toFixed(5),
+            c.lat.toFixed(5),
+            Math.round(c.height),
+            CesiumMath.toDegrees(c.heading).toFixed(1),
+            CesiumMath.toDegrees(c.pitch).toFixed(1),
+          ].join(',');
+        },
+        applyCamera(text) {
+          const v = viewer.current;
+          const parts = text.split(',').map(Number);
+          if (!v || parts.length < 3 || parts.some((n) => !Number.isFinite(n))) return false;
+          const [lon, lat, height, heading = 0, pitch = -90] = parts;
+          if (Math.abs(lat) > 90 || Math.abs(lon) > 180 || height < 1 || height > 5e7) return false;
+          v.camera.setView({
+            destination: Cartesian3.fromDegrees(lon, lat, height),
+            orientation: {
+              heading: CesiumMath.toRadians(heading),
+              pitch: CesiumMath.toRadians(Math.max(-90, Math.min(0, pitch))),
+              roll: 0,
+            },
+          });
+          return true;
+        },
+      };
+    },
     [home],
   );
 

@@ -135,14 +135,23 @@ export async function addDarkMap(scene: Scene): Promise<DarkMap> {
   scene.primitives.add(lines);
 
   const landColor = Color.fromCssColorString(DARK.land);
+  let visible = true;
+  let alpha = 1;
+  // The 110m coastline and borders are coarse: right from orbit, but they
+  // cut across bays and cities once the street tiles have faded in.
+  const apply = () => {
+    land.show = visible && alpha > 0.01;
+    lines.show = visible && alpha > 0.15;
+  };
   return {
-    setFade(alpha) {
-      landMaterial.uniforms.color = landColor.withAlpha(alpha);
-      land.show = alpha > 0.01;
+    setFade(next) {
+      alpha = next;
+      landMaterial.uniforms.color = landColor.withAlpha(next);
+      apply();
     },
-    setVisible(visible) {
-      land.show = visible;
-      lines.show = visible;
+    setVisible(next) {
+      visible = next;
+      apply();
     },
     destroy() {
       // The scene may already be torn down (it destroys its primitives

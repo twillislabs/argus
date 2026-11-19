@@ -35,6 +35,15 @@ every user sees the same installed region.
 - **Drag** to pan, **scroll** or pinch to zoom, **right-drag** or Ctrl-drag
   to tilt.
 - **⌂** flies home. **◎** shows the whole world centred on your longitude.
+  **↶** (or **B**) goes back to where you were before the last jump (home,
+  world, a search result or an event), up to ten steps.
+- **TOP** (or **T**) looks straight down, **35°** (or **O**) tilts to an
+  oblique view and **N↑** (or **N**) turns north up, all around the point at
+  the centre of the screen.
+- **🔗 Copy link** copies a link to the current view: camera, base map,
+  layers and the selected event or aircraft (with its camera view). Whoever
+  opens it, after signing in, sees the same picture; their own saved
+  layers aren't changed.
 - **3D Globe / 2D World** switches between the globe and a flat map.
 - **[** and **]** collapse the layer panel and the situation panel.
 - **Double-click** an event to zoom in on its area, or an aircraft to follow
@@ -42,6 +51,24 @@ every user sees the same installed region.
 - **Esc** leaves an aircraft view, then closes the event or aircraft and
   returns to the situation panel.
 - **/** jumps to the search box.
+
+## Reference layers
+
+The **Reference** group in the layer panel draws over any base map:
+
+| Layer | Shows | Default |
+|---|---|---|
+| **Country borders** | Natural Earth 50m borders, light over imagery | on |
+| **State / province borders** | First-level divisions (states, provinces, oblasts), below about 6,000 km | off |
+| **Place labels** | Country names on wide views; cities of 200,000+ as you zoom in, larger cities first | on |
+| **Airports** | Large airports with their IATA code, below about 1,200 km | off |
+
+## Near home
+
+The Situation panel lists events within your alert radius and, under
+**Aircraft near home**, the aircraft inside it: military first, then
+emergencies, then the nearest. Click one to select and follow it. Civil
+traffic counts only when the map is showing your region.
 
 ## Search
 

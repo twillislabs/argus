@@ -2,6 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { ApiError, getMe, getSetupStatus, type Me } from './lib/api';
+import { stashShareLink } from './lib/share';
+
+// Keep a share link through the sign-in redirect.
+stashShareLink();
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import LoginPage from './pages/LoginPage';
 import MapPage from './pages/MapPage';
@@ -87,7 +91,7 @@ export default function App() {
         }
       />
       <Route
-        path="/settings"
+        path="/settings/:section?"
         element={
           boot.state === 'signedIn' ? (
             <SettingsPage me={boot.me} onSaved={refresh} onSignedOut={refresh} />

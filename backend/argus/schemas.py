@@ -134,6 +134,7 @@ class Preferences(BaseModel):
     right_open: bool | None = None
     layers: dict[str, bool] | None = None
     air: AirPreferences | None = None
+    reference: dict[str, bool] | None = None
     show_banner: bool | None = None
 
 

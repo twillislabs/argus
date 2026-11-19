@@ -1,6 +1,7 @@
 import type { CivilStatus, EventType } from '../lib/api';
 import { EVENT_TYPES, SEVERITY_NAME, TYPE_INFO } from '../lib/format';
 import { AIR_COLOR } from '../map/aircraftLayer';
+import { DEFAULT_REFERENCE, type ReferenceLayers } from '../map/overlays';
 
 export interface AirFilters {
   military: boolean;
@@ -15,6 +16,7 @@ export interface LayerFilters {
   candidates: boolean;
   hours: number;
   air: AirFilters;
+  reference: ReferenceLayers;
 }
 
 export const DEFAULT_FILTERS: LayerFilters = {
@@ -23,7 +25,15 @@ export const DEFAULT_FILTERS: LayerFilters = {
   candidates: false,
   hours: 24,
   air: { military: true, civil: true, focus: '' },
+  reference: DEFAULT_REFERENCE,
 };
+
+const REFERENCE_ROWS: { id: keyof ReferenceLayers; label: string; source: string }[] = [
+  { id: 'borders', label: 'Country borders', source: 'Natural Earth 50m' },
+  { id: 'states', label: 'State / province borders', source: 'Natural Earth 10m' },
+  { id: 'labels', label: 'Place labels', source: 'Countries, cities of 200k+' },
+  { id: 'airports', label: 'Airports', source: 'OurAirports, large airports' },
+];
 
 export const AIR_FOCUS = [
   ['', 'All shown aircraft'],
@@ -134,6 +144,26 @@ export default function LayerPanel({ filters, counts, airCounts, civilStatus, on
             ))}
           </select>
         </div>
+      </div>
+      <div className="group">
+        <div className="gtitle">Reference</div>
+        {REFERENCE_ROWS.map((r) => (
+          <label key={r.id} className="lrow">
+            <input
+              type="checkbox"
+              checked={filters.reference[r.id]}
+              onChange={(e) =>
+                onChange({ ...filters, reference: { ...filters.reference, [r.id]: e.target.checked } })
+              }
+            />
+            <span className="tog" />
+            <span className={'sw ref ' + r.id} />
+            <span className="lname">
+              <span>{r.label}</span>
+              <small>{r.source}</small>
+            </span>
+          </label>
+        ))}
       </div>
       <div className="group">
         <div className="gtitle">Filters</div>

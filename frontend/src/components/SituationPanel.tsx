@@ -1,4 +1,5 @@
-import type { EventItem, Home, Summary } from '../lib/api';
+import type { Aircraft, EventItem, Home, Summary } from '../lib/api';
+import { aircraftColor } from '../map/aircraftLayer';
 import { ago, EVENT_TYPES, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
 
 interface Props {
@@ -6,6 +7,8 @@ interface Props {
   events: EventItem[];
   home: Home | null;
   onSelect: (id: string) => void;
+  aircraft: Aircraft[];
+  onSelectAircraft: (hex: string) => void;
 }
 
 function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number) {
@@ -34,7 +37,7 @@ export function FeedItem({ e, onSelect, extra }: { e: EventItem; onSelect: (id: 
   );
 }
 
-export default function SituationPanel({ summary, events, home, onSelect }: Props) {
+export default function SituationPanel({ summary, events, home, onSelect, aircraft, onSelectAircraft }: Props) {
   const latest = [...events]
     .sort((a, b) => Date.parse(b.last_updated) - Date.parse(a.last_updated))
     .slice(0, 40);
@@ -44,6 +47,14 @@ export default function SituationPanel({ summary, events, home, onSelect }: Prop
         .filter((x) => x.km <= home.radius_km)
         .sort((a, b) => a.km - b.km)
     : [];
+  // Contacts: aircraft within the home radius, military first, then nearest.
+  const contacts = home
+    ? aircraft
+        .map((a) => ({ a, km: distanceKm(home.lat, home.lon, a.lat, a.lon) }))
+        .filter((x) => x.km <= home.radius_km)
+        .sort((x, y) => Number(y.a.mil) - Number(x.a.mil) || Number(y.a.emergency) - Number(x.a.emergency) || x.km - y.km)
+    : [];
+  const military = contacts.filter((x) => x.a.mil).length;
   const sources = summary?.sources ?? [];
   return (
     <div className="inspector-body">
@@ -80,6 +91,42 @@ export default function SituationPanel({ summary, events, home, onSelect }: Prop
             </ul>
           ) : (
             <p className="quiet">Nothing within {home.radius_km} km in this time window.</p>
+          )}
+        </section>
+      )}
+      {home && (
+        <section className="isec">
+          <h3>
+            Aircraft near home · {contacts.length}
+            {military ? ' · ' + military + ' military' : ''}
+          </h3>
+          {contacts.length ? (
+            <ul className="contacts">
+              {contacts.slice(0, 8).map(({ a, km }) => (
+                <li key={a.hex}>
+                  <button onClick={() => onSelectAircraft(a.hex)}>
+                    <i className="acdot" style={{ background: aircraftColor(a) }} />
+                    <span className="cname">
+                      <b className="mono">{a.callsign || a.reg || a.hex.toUpperCase()}</b>
+                      <small>
+                        {[a.mil ? a.role : null, a.type, a.emergency ? 'SQK ' + a.squawk : null]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </small>
+                    </span>
+                    <span className="mono cmeta">
+                      {a.ground ? 'GND' : a.alt_ft !== null ? Math.round(a.alt_ft / 100) * 100 + ' ft' : '—'}
+                      <br />
+                      {Math.round(km)} km
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="quiet">
+              No aircraft within {home.radius_km} km on the map. Civil traffic loads when the map shows your region.
+            </p>
           )}
         </section>
       )}

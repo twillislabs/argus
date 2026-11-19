@@ -18,7 +18,7 @@ title: Security model
 
 ## Users and roles
 
-Administrators manage accounts in **Settings → Users**. Every role can use
+Administrators manage accounts in **Settings → Users & roles**, and can read the audit log in **Settings → Audit log**. Every role can use
 the map, search and follow aircraft, and keep its own preferences:
 
 | Role | Can also |

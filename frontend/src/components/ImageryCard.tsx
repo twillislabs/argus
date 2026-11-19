@@ -52,8 +52,8 @@ export default function ImageryCard() {
   return (
     <section className="card">
       <div className="ph">
-        <h2>Map imagery</h2>
-        <span className="mono">Admin · all users</span>
+        <h2>Imagery provider</h2>
+        <span className="mono">{current ? (current.provider === 'google' ? 'Google' : 'Esri') : ''}</span>
       </div>
       <div className="cbody">
         <p>

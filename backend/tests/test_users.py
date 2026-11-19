@@ -200,3 +200,21 @@ async def test_viewers_cant_manage(admin_client, app):
     )
     assert r.status_code == 403
     await c.aclose()
+
+
+async def test_audit_log(admin_client, client):
+    await create(admin_client)
+    r = await admin_client.get("/api/admin/audit")
+    entries = r.json()["entries"]
+    assert entries[0]["action"] == "users.create"
+    assert entries[0]["username"] == "admin"
+    older = await admin_client.get(
+        "/api/admin/audit", params={"before": entries[0]["id"], "limit": 1}
+    )
+    assert older.json()["entries"][0]["id"] < entries[0]["id"]
+    only = await admin_client.get(
+        "/api/admin/audit", params={"action": "users."}
+    )
+    assert all(
+        e["action"].startswith("users.") for e in only.json()["entries"]
+    )

@@ -49,19 +49,25 @@ export default function AccountCard({ me, onSaved }: { me: Me; onSaved: () => Pr
     }
   }
 
-  return (
-    <section className="card">
-      <div className="ph">
-        <h2>Account</h2>
-        <span className="mono">
-          {me.user.username} · {me.user.role}
-        </span>
-      </div>
-      <div className="cbody">
-        {!editable ? (
+  if (!editable) {
+    return (
+      <section className="card">
+        <div className="cbody">
           <p className="quiet">This is a display account. An administrator manages its details and password.</p>
-        ) : (
-          <>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <>
+      <section className="card">
+        <div className="ph">
+          <h2>Profile</h2>
+          <span className="mono">
+            {me.user.username} · {me.user.role}
+          </span>
+        </div>
+        <div className="cbody">
             <div className="row2">
               <div className="field">
                 <label htmlFor="ac-name">Display name</label>
@@ -82,6 +88,14 @@ export default function AccountCard({ me, onSaved }: { me: Me; onSaved: () => Pr
                 {profileMsg.text}
               </div>
             )}
+        </div>
+      </section>
+      <section className="card">
+        <div className="ph">
+          <h2>Password</h2>
+          <span className="mono">Signs out your other devices</span>
+        </div>
+        <div className="cbody">
             <form className="stack" onSubmit={savePassword} noValidate>
               <input type="text" autoComplete="username" value={me.user.username} readOnly hidden />
               <div className="row2">
@@ -128,9 +142,8 @@ export default function AccountCard({ me, onSaved }: { me: Me; onSaved: () => Pr
                 </div>
               )}
             </form>
-          </>
-        )}
-      </div>
-    </section>
+        </div>
+      </section>
+    </>
   );
 }

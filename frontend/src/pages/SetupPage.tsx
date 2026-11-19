@@ -2,9 +2,53 @@ import { type FormEvent, useState } from 'react';
 
 import AuthShell from '../components/AuthShell';
 import HomePicker from '../components/HomePicker';
-import { api, ApiError, type Home } from '../lib/api';
+import { api, ApiError, type Home, savePreferences } from '../lib/api';
 
-const STEPS = ['Setup token', 'Admin account', 'Home location'];
+const STEPS = ['Setup token', 'Admin account', 'Home location', 'Starting layers'];
+
+// What the map shows at first; every layer can be changed later.
+const PRESETS = [
+  {
+    id: 'live',
+    label: 'Live picture',
+    detail: 'All events, military and civil aircraft, borders and labels',
+    prefs: {
+      layers: { conflict: true, unrest: true, quake: true, fire: true },
+      air: { military: true, civil: true, focus: '' },
+      reference: { borders: true, states: false, labels: true, airports: false },
+    },
+  },
+  {
+    id: 'events',
+    label: 'Events',
+    detail: 'Conflict, unrest, earthquakes and fires; no aircraft',
+    prefs: {
+      layers: { conflict: true, unrest: true, quake: true, fire: true },
+      air: { military: false, civil: false, focus: '' },
+      reference: { borders: true, states: true, labels: true, airports: false },
+    },
+  },
+  {
+    id: 'air',
+    label: 'Air picture',
+    detail: 'Military and civil aircraft with airports; events off',
+    prefs: {
+      layers: { conflict: false, unrest: false, quake: false, fire: false },
+      air: { military: true, civil: true, focus: '' },
+      reference: { borders: true, states: false, labels: true, airports: true },
+    },
+  },
+  {
+    id: 'manual',
+    label: 'Start quiet',
+    detail: 'Just borders and labels; turn layers on as you need them',
+    prefs: {
+      layers: { conflict: false, unrest: false, quake: false, fire: false },
+      air: { military: false, civil: false, focus: '' },
+      reference: { borders: true, states: false, labels: true, airports: false },
+    },
+  },
+] as const;
 
 function strength(pw: string): number {
   let s = 0;
@@ -24,6 +68,7 @@ export default function SetupPage({ onDone }: { onDone: () => Promise<void> }) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [home, setHome] = useState<Home | null>(null);
+  const [preset, setPreset] = useState<(typeof PRESETS)[number]['id']>('live');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -45,7 +90,11 @@ export default function SetupPage({ onDone }: { onDone: () => Promise<void> }) {
       if (password !== confirm) return setError('The passwords don’t match.');
       return setStep(2);
     }
-    if (!home) return setError('Pick a city or enter coordinates.');
+    if (step === 2) {
+      if (!home) return setError('Pick a city or enter coordinates.');
+      return setStep(3);
+    }
+    if (!home) return setStep(2);
     setBusy(true);
     try {
       await api('/api/setup', {
@@ -59,6 +108,9 @@ export default function SetupPage({ onDone }: { onDone: () => Promise<void> }) {
           home,
         },
       });
+      const chosen = PRESETS.find((p) => p.id === preset) ?? PRESETS[0];
+      // Setup signed us in; the layer choice is an ordinary preference.
+      await savePreferences(chosen.prefs).catch(() => undefined);
       await onDone();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Setup failed.';
@@ -183,6 +235,29 @@ export default function SetupPage({ onDone }: { onDone: () => Promise<void> }) {
             <HomePicker value={home} onChange={setHome} />
           </>
         )}
+        {step === 3 && (
+          <>
+            <div>
+              <h1>What should the map show?</h1>
+              <p>A starting point. Every layer can be switched in the layer panel later.</p>
+            </div>
+            <div className="presets" role="radiogroup" aria-label="Starting layers">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={preset === p.id}
+                  className={'preset' + (preset === p.id ? ' on' : '')}
+                  onClick={() => setPreset(p.id)}
+                >
+                  <b>{p.label}</b>
+                  <small>{p.detail}</small>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         <div className="err" role="alert">
           {error}
         </div>
@@ -195,7 +270,7 @@ export default function SetupPage({ onDone }: { onDone: () => Promise<void> }) {
             <span />
           )}
           <button type="submit" className="btn primary" disabled={busy}>
-            {step === 2 ? (busy ? 'Creating…' : 'Finish setup') : 'Continue'}
+            {step === 3 ? (busy ? 'Creating…' : 'Finish setup') : 'Continue'}
           </button>
         </div>
       </form>
