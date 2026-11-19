@@ -268,6 +268,7 @@ async def sea_loop(
 
 
 SPACE_SOURCE = "celestrak"
+SPACE_BLOCKED_S = 2 * 3600
 
 
 async def space_loop(db: Database, client: httpx.AsyncClient) -> None:
@@ -316,7 +317,12 @@ async def space_loop(db: Database, client: httpx.AsyncClient) -> None:
                         type(exc).__name__, str(exc)[:400]
                     )
                     await session.commit()
-                    await asyncio.sleep(RETRY_S * 6)
+                    # 403 means CelesTrak is blocking us for fetching too
+                    # often; asking again sooner only extends the block.
+                    blocked = "403" in str(exc)
+                    await asyncio.sleep(
+                        SPACE_BLOCKED_S if blocked else RETRY_S * 6
+                    )
                     continue
                 last = utcnow()
         wait = space.REFRESH - (utcnow() - last) if last else space.REFRESH
