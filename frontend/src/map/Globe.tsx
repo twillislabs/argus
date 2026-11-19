@@ -47,6 +47,7 @@ import { type AircraftCamera, type CameraMode, createAircraftCamera } from './ai
 import { addAircraftLayer, type AircraftLayer, aircraftColor } from './aircraftLayer';
 import { addAirspaceLayer, type AirspaceFilters, type AirspaceLayer } from './airspaceLayer';
 import { addGpsLayer, type GpsLayer } from './gpsLayer';
+import { createDrawTools, type DrawCallbacks, type Drawing, type DrawTools } from './drawTools';
 import { addTensionLayer, type TensionLayer } from './tensionLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
 import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './closeModels';
@@ -272,6 +273,9 @@ export interface GlobeHandle {
   cable: (id: string) => { id: string; name: string } | null;
   base: (index: number) => Base | null;
   satPasses: (norad: number, lat: number, lon: number) => Promise<Pass[]>;
+  // Drawing tools and a PNG of the map as it is now.
+  drawTool: () => DrawTools | null;
+  capture: () => Promise<Blob | null>;
   flyToSatellite: (norad: number) => void;
 }
 
@@ -349,6 +353,9 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onFocus?: (id: string) => void;
+  // Drawing and selection tools (map/drawTools.ts).
+  drawings?: Drawing[];
+  drawCallbacks?: DrawCallbacks;
   // The map item under the pointer (null when none), with its screen
   // position relative to the map, for hover cards.
   onHover?: (id: string | null, x: number, y: number) => void;
@@ -386,6 +393,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     onSelect,
     onFocus,
     onHover,
+    drawings,
+    drawCallbacks,
     aircraft,
     selectedHex,
     trail,
@@ -411,6 +420,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const areas = useRef<AirspaceLayer | null>(null);
   const gps = useRef<GpsLayer | null>(null);
   const tensionLayer = useRef<TensionLayer | null>(null);
+  const draw = useRef<DrawTools | null>(null);
+  const drawCbRef = useRef(drawCallbacks);
+  drawCbRef.current = drawCallbacks;
   const infraLayer = useRef<InfraLayer | null>(null);
   const vesselsRef = useRef(vessels);
   vesselsRef.current = vessels;
@@ -601,12 +613,22 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     });
 
     const handler = new ScreenSpaceEventHandler(scene.canvas);
+    draw.current = createDrawTools(v, {
+      onDrawn: (d) => drawCbRef.current?.onDrawn(d),
+      onSelectArea: (ring) => drawCbRef.current?.onSelectArea(ring),
+      onDelete: (id) => drawCbRef.current?.onDelete(id),
+      onText: (at, screen) => drawCbRef.current?.onText(at, screen),
+      onHint: (hint) => drawCbRef.current?.onHint(hint),
+    });
     handler.setInputAction((e: { position: Cartesian2 }) => {
+      // A drawing or selection tool takes the click.
+      if (draw.current?.click(e.position)) return;
       const picked = scene.pick(e.position);
       const id = picked && typeof picked.id === 'string' ? picked.id : null;
       onSelectRef.current(id);
     }, ScreenSpaceEventType.LEFT_CLICK);
     handler.setInputAction((e: { position: Cartesian2 }) => {
+      if (draw.current?.doubleClick(e.position)) return;
       const picked = scene.pick(e.position);
       if (picked && typeof picked.id === 'string') onFocusRef.current?.(picked.id);
     }, ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
@@ -620,9 +642,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           const pos = pendingMove;
           pendingMove = null;
           if (!pos || v.isDestroyed()) return;
+          draw.current?.move(pos);
           const picked = scene.pick(pos);
           const id = picked && typeof picked.id === 'string' ? picked.id : null;
-          scene.canvas.style.cursor = id ? 'pointer' : '';
+          if (draw.current?.tool() === 'none') scene.canvas.style.cursor = id ? 'pointer' : '';
           if (id !== hovered || id) onHoverRef.current?.(id, pos.x, pos.y);
           hovered = id;
           const at = v.camera.pickEllipsoid(pos, scene.globe.ellipsoid);
@@ -669,6 +692,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['infrastructure', () => infraLayer.current?.destroy()],
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
+        ['drawings', () => draw.current?.destroy()],
         ['pointer leave', () => scene.canvas.removeEventListener('pointerleave', onLeave)],
         ['widget', () => v.destroy()],
       ];
@@ -857,6 +881,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     tensionLayer.current?.update(tensionCountries, showTension);
   }, [tensionCountries, showTension]);
+
+  useEffect(() => {
+    draw.current?.setDrawings(drawings ?? []);
+  }, [drawings]);
   const infraKey = [infra.nuclear, infra.power, infra.cables, infra.bases].join('');
   const infraRef = useRef(infra);
   infraRef.current = infra;
@@ -1054,6 +1082,16 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         },
         satPasses(norad, lat, lon) {
           return sats.current?.passes(norad, lat, lon) ?? Promise.resolve([]);
+        },
+        drawTool() {
+          return draw.current;
+        },
+        capture() {
+          const v = viewer.current;
+          if (!v) return Promise.resolve(null);
+          // The drawing buffer is only readable straight after a render.
+          v.render();
+          return new Promise((resolve) => v.scene.canvas.toBlob((b) => resolve(b), 'image/png'));
         },
         flyToSatellite(norad) {
           const v = viewer.current;

@@ -29,6 +29,7 @@ export interface Preferences {
   left_open?: boolean;
   right_open?: boolean;
   units?: 'imperial' | 'metric';
+  drawings?: unknown[];
   [key: string]: unknown;
 }
 

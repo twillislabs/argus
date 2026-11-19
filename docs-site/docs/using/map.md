@@ -66,6 +66,23 @@ Distances, lengths and heights are in **imperial** units (miles, feet) by
 default; switch to metric in Settings > Display. Aircraft altitude and
 speed stay in feet and knots, and ship speed in knots, either way.
 
+## Map tools
+
+The toolbar under the base map buttons, as in Palantir's Foundry Map:
+
+| Tool | What it does |
+|---|---|
+| **Select ▾** | Box, polygon or circle: everything on the map inside the area (events, aircraft, ships) opens in a **Selection** panel with counts, the items themselves, **Zoom to area** and **Export CSV** |
+| **Draw ▾** | Point, line, polygon, rectangle or circle. Areas show their size and circles their radius |
+| **Measure** | Click points along a route; the running distance follows the cursor |
+| **Note** | Click the map, type a note, press Enter |
+| **Capture** | Saves a PNG of the map as it is now |
+| **Delete** | Click a drawing to delete it; Shift-click **Delete** to clear them all |
+
+Lines and polygons: click to add points, double-click or **Enter** to
+finish, **Backspace** to undo the last point, **Esc** to cancel. Drawings
+are saved to your account.
+
 ## Legend
 
 **Legend** beside the base map buttons shows what the colours and shapes

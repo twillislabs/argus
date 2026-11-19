@@ -9,6 +9,10 @@ import EventInspector from '../components/EventInspector';
 import { CursorReadout, ScaleBar, Timeline } from '../components/MapFooter';
 import { type HoverInfo, HoverLayer } from '../components/HoverCard';
 import Legend from '../components/Legend';
+import MapToolbar from '../components/MapToolbar';
+import SelectionPanel, { type AreaSelection } from '../components/SelectionPanel';
+import { inRing } from '../lib/geo';
+import type { DrawCallbacks, Drawing, Tool } from '../map/drawTools';
 import NewsPlayer from '../components/NewsPlayer';
 import { DEFAULT_TABS } from '../config/newsChannels';
 import SatelliteInspector from '../components/SatelliteInspector';
@@ -328,6 +332,51 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const viewTimer = useRef<number | undefined>(undefined);
   const [legendOpen, setLegendOpen] = useState(false);
 
+  // Drawing, measuring and area selection (map/drawTools.ts), with the
+  // user's drawings saved in their preferences.
+  const [drawings, setDrawings] = useState<Drawing[]>(() =>
+    Array.isArray(me.preferences.drawings) ? (me.preferences.drawings as Drawing[]) : [],
+  );
+  const [tool, setToolState] = useState<Tool>('none');
+  const [toolHint, setToolHint] = useState<string | null>(null);
+  const [notePrompt, setNotePrompt] = useState<{ at: [number, number]; x: number; y: number } | null>(null);
+  const [areaSel, setAreaSel] = useState<AreaSelection | null>(null);
+  const drawingsRef = useRef(drawings);
+  drawingsRef.current = drawings;
+  const saveDrawings = useCallback((next: Drawing[]) => {
+    setDrawings(next);
+    void savePreferences({ drawings: next.slice(-200) }).catch(() => undefined);
+  }, []);
+  const chooseTool = useCallback((t: Tool) => {
+    globe.current?.drawTool()?.setTool(t);
+    setToolState(t);
+    if (t === 'none') setNotePrompt(null);
+  }, []);
+  const selectInAreaRef = useRef<(ring: [number, number][]) => void>(() => undefined);
+  const drawCallbacks = useMemo<DrawCallbacks>(
+    () => ({
+      onDrawn: (d) => saveDrawings([...drawingsRef.current, d]),
+      onSelectArea: (ring) => selectInAreaRef.current(ring),
+      onDelete: (id) => saveDrawings(drawingsRef.current.filter((d) => d.id !== id)),
+      onText: (at, screen) => setNotePrompt({ at, x: screen.x, y: screen.y }),
+      onHint: (hint) => setToolHint(hint),
+    }),
+    [saveDrawings],
+  );
+
+  async function capture() {
+    const blob = await globe.current?.capture();
+    if (!blob) {
+      setNotice("Couldn't capture the map.");
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'argus-map-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '') + '.png';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   // The map item under the pointer, for the hover card (lib/hover.ts).
   const onHover = useCallback((id: string | null, x: number, y: number) => {
     setHover(id ? { id, x, y } : null);
@@ -540,6 +589,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   );
 
   const clearSelection = useCallback(() => {
+    setAreaSel(null);
     setSelected(null);
     setSelectedHex(null);
     setSelectedNorad(null);
@@ -562,6 +612,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       const tag = (document.activeElement?.tagName ?? '').toUpperCase();
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // An active drawing or selection tool takes Esc, Enter and Backspace.
+      const dt = globe.current?.drawTool();
+      if (dt && dt.tool() !== 'none') {
+        if (e.key === 'Escape') {
+          dt.cancel();
+          if (dt.tool() === 'none') chooseTool('none');
+          return;
+        }
+        if (e.key === 'Enter') return dt.finish();
+        if (e.key === 'Backspace') {
+          e.preventDefault();
+          return dt.undo();
+        }
+      }
       if (e.key === '[') togglePanel('L');
       else if (e.key === ']') togglePanel('R');
       else if (e.key === 'b' || e.key === 'B') {
@@ -580,7 +644,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [togglePanel, clearSelection, camera, selectedHex, selectedMmsi]);
+  }, [togglePanel, clearSelection, camera, selectedHex, selectedMmsi, chooseTool]);
 
   useEffect(() => {
     if (!notice) return;
@@ -704,6 +768,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }
 
   // Double-click: an event zooms in on its area, an aircraft is followed.
+  // Select tools: everything on the map inside the drawn area.
+  selectInAreaRef.current = (ring) => {
+    const inside = (lat: number, lon: number) => inRing([lon, lat], ring);
+    clearSelection();
+    setAreaSel({
+      ring,
+      events: shown.filter((e) => inside(e.lat, e.lon)),
+      aircraft: aircraft.filter((a) => inside(a.lat, a.lon)),
+      vessels: vessels.filter((v) => inside(v.lat, v.lon)),
+    });
+    chooseTool('none');
+    openRight();
+  };
+
   // What the hover card says about a map item.
   function hoverInfo(id: string): HoverInfo | null {
     if (id.startsWith('ac:')) {
@@ -943,6 +1021,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             onSelect={select}
             onFocus={focus}
             onHover={onHover}
+            drawings={drawings}
+            drawCallbacks={drawCallbacks}
             aircraft={aircraft}
             selectedHex={selectedHex}
             trail={trail}
@@ -1101,6 +1181,45 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             </div>
           )}
           <HoverLayer describe={hoverInfo} />
+          <div className="mc tl2">
+            <MapToolbar
+              tool={tool}
+              onTool={chooseTool}
+              onCapture={() => void capture()}
+              onClear={() => {
+                if (window.confirm('Delete all ' + drawings.length + ' drawings? This cannot be undone.')) saveDrawings([]);
+              }}
+              drawingCount={drawings.length}
+            />
+          </div>
+          {toolHint && <div className="toolhint">{toolHint}</div>}
+          {notePrompt && (
+            <form
+              className="noteprompt"
+              style={{ left: notePrompt.x, top: notePrompt.y }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                const text = String(new FormData(e.currentTarget).get('note') ?? '').trim();
+                if (text) {
+                  saveDrawings([
+                    ...drawings,
+                    { id: Date.now().toString(36), kind: 'text', points: [notePrompt.at], label: text.slice(0, 120) },
+                  ]);
+                }
+                setNotePrompt(null);
+              }}
+            >
+              <input
+                name="note"
+                autoFocus
+                maxLength={120}
+                placeholder="Note text, then Enter"
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setNotePrompt(null);
+                }}
+              />
+            </form>
+          )}
           {legendOpen && <Legend filters={filters} onClose={() => setLegendOpen(false)} />}
           <div className="mc bl">
             <CursorReadout />
@@ -1112,7 +1231,34 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         <Timeline events={shown} />
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
-            {selectedBase ? (
+            {areaSel ? (
+              <SelectionPanel
+                sel={areaSel}
+                onBack={() => setAreaSel(null)}
+                onEvent={(id) => {
+                  setAreaSel(null);
+                  selectAndFly(id);
+                }}
+                onAircraft={(hex) => {
+                  setAreaSel(null);
+                  selectAircraft(hex, 'follow');
+                }}
+                onVessel={(mmsi) => {
+                  setAreaSel(null);
+                  selectVessel(mmsi, 'follow');
+                }}
+                onZoom={() => {
+                  const lons = areaSel.ring.map((p) => p[0]);
+                  const lats = areaSel.ring.map((p) => p[1]);
+                  const span = Math.max(Math.max(...lons) - Math.min(...lons), Math.max(...lats) - Math.min(...lats));
+                  globe.current?.flyTo(
+                    (Math.max(...lats) + Math.min(...lats)) / 2,
+                    (Math.max(...lons) + Math.min(...lons)) / 2,
+                    Math.max(20_000, span * 160_000),
+                  );
+                }}
+              />
+            ) : selectedBase ? (
               <BaseInspector
                 base={selectedBase}
                 onBack={clearSelection}
