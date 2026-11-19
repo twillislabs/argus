@@ -231,8 +231,9 @@ aircraft. Not for navigation.
 
 If the openAIP row says *openAIP is refusing this server (403)*, openAIP's
 Cloudflare front end is turning this server's address away before it
-looks at the key. Argus doesn't try to get round that; ask openAIP
-(support@openaip.net) to allow your server.
+looks at the key. Argus doesn't try to get round that; contact openAIP
+through [openaip.net](https://www.openaip.net/) to have your server
+allowed.
 
 ## Infrastructure
 
