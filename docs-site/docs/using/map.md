@@ -100,6 +100,28 @@ speed stay in feet and knots, and ship speed in knots, either way.
 
 It refreshes every two minutes.
 
+## Wall
+
+**Wall** (`/wall`) is a hands-free layout for a screen at the back of the
+room, readable from a few metres away:
+
+- The map tours your home, then each theatre (most tense first), 25 seconds
+  a stop, with a caption showing the theatre's tension and top event. A
+  new critical event interrupts the tour, flies to the event and holds it
+  for a minute.
+- The right column shows world tension, events, military aircraft,
+  critical events and GPS jam cells in large type, the top five events and
+  a live news channel.
+
+Settings > Display > **Wall** turns the live news on or off, picks its
+channel (your news player's by default) and adds up to four clocks.
+- A ticker of the latest events runs along the bottom, with clocks for UTC
+  and home at the top.
+- For long hours on screen: the layout drifts a pixel or two every few
+  minutes (against burn-in), dims between 22:00 and 06:00 home time, hides
+  the cursor when it's still, and keeps the screen awake where the browser
+  allows.
+
 ## Map tools
 
 The toolbar under the base map buttons, as in Palantir's Foundry Map:
@@ -285,7 +307,7 @@ Click one for its details and the source text.
 |---|---|---|
 | **Flight restrictions (TFRs)** | US temporary flight restrictions: VIP movements, security, space launches, hazards | FAA (tfr.faa.gov) |
 | **SIGMETs** | Thunderstorms, turbulence, icing, volcanic ash, tropical cyclones, coloured by hazard, with base and top | aviationweather.gov |
-| **Conflict zone bulletins** | EASA's warnings to airlines about conflict airspace, shown by tinting the countries they cover | EASA |
+| **Conflict zone bulletins** | EASA's warnings to airlines about conflict airspace, drawn as closed airspace: the countries they cover hatched in red with a dashed edge | EASA |
 | **GPS interference** | Hexagons about 55 km across where over 2% of aircraft report a degraded position over the last hour, deeper pink the higher the share (over 10% is high) | Argus, from ADS-B |
 | **Restricted areas, CTRs, TMAs** | Restricted, prohibited and danger areas, control zones, terminal and control areas, military training areas, with lower and upper limits. Loads for a regional view; needs an openAIP key | openAIP |
 

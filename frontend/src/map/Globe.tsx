@@ -462,8 +462,15 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
 
   useEffect(() => {
     if (!container.current) return;
-    const v = new CesiumWidget(container.current, { baseLayer: false });
+    const v = new CesiumWidget(container.current, {
+      baseLayer: false,
+      // Order-independent translucency adds extra passes for every translucent
+      // layer; in 2D the whole world is on screen and it made the map crawl.
+      orderIndependentTranslucency: false,
+    });
     const scene = v.scene;
+    // ?fps=1 shows Cesium's frame-rate counter, for performance reports.
+    scene.debugShowFramesPerSecond = new URLSearchParams(window.location.search).get('fps') === '1';
     scene.backgroundColor = Color.fromCssColorString(DARK.background);
     scene.globe.baseColor = Color.fromCssColorString(DARK.ocean);
     if (scene.skyBox) scene.skyBox.show = false;

@@ -130,6 +130,11 @@ parts connect.
   (`styles/tokens.css`); the cursor readout and scale bar read
   `lib/cursor.ts`, which Globe.tsx writes, so mouse moves don't
   re-render the map page.
+- Pages: Map (`/`), Brief (`/brief`), Wall (`/wall`, reuses `Globe` with
+  minimal props), Settings. A Brief theatre card hands the map a place to
+  fly to through `sessionStorage[FLY_KEY]` (lib/share.ts).
+- The globe is created with `orderIndependentTranslucency: false`; add
+  `?fps=1` to the URL for Cesium's frame-rate counter.
 - 3D models: one per kind (`build_models.py`), chosen by
   `aircraftModel`/`shipModel` in `map/closeModels.ts` and loaded on
   first use.

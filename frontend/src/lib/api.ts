@@ -31,6 +31,7 @@ export interface Preferences {
   units?: 'imperial' | 'metric';
   drawings?: unknown[];
   show_route?: boolean;
+  wall?: { zones?: { label: string; tz: string }[]; channel?: string; news?: boolean };
   [key: string]: unknown;
 }
 

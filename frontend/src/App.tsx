@@ -11,6 +11,7 @@ import ChangePasswordPage from './pages/ChangePasswordPage';
 import LoginPage from './pages/LoginPage';
 import MapPage from './pages/MapPage';
 import NewsPage from './pages/NewsPage';
+import WallPage from './pages/WallPage';
 import SettingsPage from './pages/SettingsPage';
 import SetupPage from './pages/SetupPage';
 import { setUnits } from './lib/units';
@@ -101,6 +102,7 @@ export default function App() {
         path="/brief"
         element={boot.state === 'signedIn' ? <BriefPage me={boot.me} onSignedOut={refresh} /> : null}
       />
+      <Route path="/wall" element={boot.state === 'signedIn' ? <WallPage me={boot.me} /> : null} />
       <Route path="/news" element={boot.state === 'signedIn' ? <NewsPage /> : null} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

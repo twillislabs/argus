@@ -12,6 +12,7 @@ import {
 } from '@cesium/core';
 import {
   Material,
+  MaterialAppearance,
   PerInstanceColorAppearance,
   PolylineCollection,
   Primitive,
@@ -107,6 +108,9 @@ export interface AirspaceLayer {
 
 export function addAirspaceLayer(scene: Scene): AirspaceLayer {
   let fill: Primitive | null = null;
+  // Closed airspace (conflict zone bulletins): diagonal hatching, one
+  // primitive per area so the stripes keep a steady spacing.
+  let hatches: Primitive[] = [];
   const outlines = new PolylineCollection();
   scene.primitives.add(outlines);
   let generation = 0;
@@ -118,6 +122,8 @@ export function addAirspaceLayer(scene: Scene): AirspaceLayer {
       if (mine !== generation || scene.isDestroyed()) return;
       if (fill && scene.primitives.contains(fill)) scene.primitives.remove(fill);
       fill = null;
+      for (const h of hatches) if (scene.primitives.contains(h)) scene.primitives.remove(h);
+      hatches = [];
       outlines.removeAll();
       const instances: GeometryInstance[] = [];
       for (const item of items) {
@@ -145,11 +151,44 @@ export function addAirspaceLayer(scene: Scene): AirspaceLayer {
               },
             }),
           );
+          const closed = item.kind === 'czib';
           outlines.add({
             positions: Cartesian3.fromDegreesArrayHeights(ring.flatMap(([lon, lat]) => [lon, lat, 1200])),
-            width: selected ? 2.5 : 1.3,
-            material: Material.fromType('Color', { color: color.withAlpha(selected ? 1 : 0.75) }),
+            width: selected ? 2.5 : closed ? 1.5 : 1.3,
+            // Closed airspace: a dashed edge, as in the mock-up.
+            material: closed
+              ? Material.fromType('PolylineDash', { color: color.withAlpha(selected ? 1 : 0.8), dashLength: 10 })
+              : Material.fromType('Color', { color: color.withAlpha(selected ? 1 : 0.75) }),
           });
+          if (closed) {
+            const lons = ring.map((p) => p[0]);
+            const lats = ring.map((p) => p[1]);
+            const span = Math.max(Math.max(...lons) - Math.min(...lons), Math.max(...lats) - Math.min(...lats));
+            const hatch = new Primitive({
+              geometryInstances: new GeometryInstance({
+                id: 'air:' + item.key,
+                geometry: new PolygonGeometry({
+                  polygonHierarchy: new PolygonHierarchy(positions),
+                  height: 950,
+                  stRotation: Math.PI / 4,
+                  vertexFormat: MaterialAppearance.MaterialSupport.TEXTURED.vertexFormat,
+                }),
+              }),
+              appearance: new MaterialAppearance({
+                material: Material.fromType('Stripe', {
+                  evenColor: color.withAlpha(selected ? 0.55 : 0.38),
+                  oddColor: Color.TRANSPARENT,
+                  // About one stripe pair every quarter degree.
+                  repeat: Math.min(240, Math.max(8, span * 4)),
+                }),
+                translucent: true,
+                flat: true,
+              }),
+              asynchronous: true,
+            });
+            hatches.push(hatch);
+            scene.primitives.add(hatch);
+          }
         }
       }
       if (!instances.length) return;
@@ -163,7 +202,7 @@ export function addAirspaceLayer(scene: Scene): AirspaceLayer {
     destroy() {
       generation++;
       if (scene.isDestroyed()) return;
-      for (const p of [fill, outlines]) {
+      for (const p of [fill, outlines, ...hatches]) {
         if (p && !p.isDestroyed() && scene.primitives.contains(p)) scene.primitives.remove(p);
       }
     },

@@ -320,3 +320,7 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .brief th { text-align: left; }
 .brief td:first-child { width: 1%; white-space: nowrap; }
 .badge.sev { display: inline-block; white-space: nowrap; font-size: 10.5px; padding: 1px 6px; }
+.zonelist { display: grid; gap: 6px; justify-items: start; }
+.zonerow { display: flex; gap: 6px; align-items: center; }
+.zonerow input { width: 110px; background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 4px 6px; color: var(--text); }
+.zonerow select, .srow select { background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 4px 6px; color: var(--text); max-width: 240px; }

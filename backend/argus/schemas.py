@@ -143,6 +143,8 @@ class Preferences(BaseModel):
     tension: bool | None = None
     units: Literal["imperial", "metric"] | None = None
     show_route: bool | None = None
+    # Wall page: live news, channel and extra clocks.
+    wall: dict[str, Any] | None = None
     # Shapes and notes drawn on the map (map/drawTools.ts).
     drawings: list[dict[str, Any]] | None = Field(default=None, max_length=200)
     show_banner: bool | None = None

@@ -6,6 +6,7 @@ import AppHeader from '../components/AppHeader';
 import HomePicker from '../components/HomePicker';
 import ImageryCard from '../components/ImageryCard';
 import UsersCard from '../components/UsersCard';
+import { CHANNELS } from '../config/newsChannels';
 import {
   api,
   can,
@@ -110,7 +111,13 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   let body: ReactNode = null;
   if (current.id === 'account') body = <AccountCard me={me} onSaved={onSaved} />;
   else if (current.id === 'home') body = <HomeSection me={me} onSaved={onSaved} />;
-  else if (current.id === 'display') body = <DisplaySection me={me} onSaved={onSaved} />;
+  else if (current.id === 'display')
+    body = (
+      <>
+        <DisplaySection me={me} onSaved={onSaved} />
+        <WallSection me={me} onSaved={onSaved} />
+      </>
+    );
   else if (current.id === 'users') body = <UsersCard me={me} />;
   else if (current.id === 'imagery') body = <ImageryCard />;
   else if (current.id === 'streetmap') body = <StreetMapSection />;
@@ -198,6 +205,138 @@ function HomeSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) 
           </div>
         )}
       </div>
+    </section>
+  );
+}
+
+// The Wall page (/wall): live news on or off, which channel, and up to
+// four extra clocks.
+function WallSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
+  const saved = me.preferences.wall ?? {};
+  const [news, setNews] = useState(saved.news !== false);
+  const [channel, setChannel] = useState(saved.channel ?? '');
+  const [zones, setZones] = useState<{ label: string; tz: string }[]>(saved.zones ?? []);
+  const [status, setStatus] = useState('');
+  const zoneNames = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.('timeZone') ?? [];
+
+  async function save(next: { news?: boolean; channel?: string; zones?: { label: string; tz: string }[] }) {
+    const wall = { news, channel: channel || undefined, zones, ...next };
+    try {
+      await savePreferences({ wall });
+      await onSaved();
+      setStatus('Saved.');
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Could not save.');
+    }
+  }
+
+  return (
+    <section className="card">
+      <div className="ph">
+        <h2>Wall</h2>
+        <Link className="btn small" to="/wall">
+          Open the wall
+        </Link>
+      </div>
+      <div className="srows">
+        <label className="srow">
+          <span className="srow-label">
+            <b>Live news</b>
+            <small>A live channel in the wall&apos;s right column</small>
+          </span>
+          <span className="lrow flat">
+            <input
+              type="checkbox"
+              checked={news}
+              onChange={(e) => {
+                setNews(e.target.checked);
+                void save({ news: e.target.checked });
+              }}
+            />
+            <span className="tog" />
+          </span>
+        </label>
+        <div className="srow">
+          <span className="srow-label">
+            <b>Channel</b>
+            <small>Defaults to the first channel of your news player</small>
+          </span>
+          <select
+            value={channel}
+            disabled={!news}
+            onChange={(e) => {
+              setChannel(e.target.value);
+              void save({ channel: e.target.value || undefined });
+            }}
+          >
+            <option value="">Your news player&apos;s channel</option>
+            {CHANNELS.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="srow">
+          <span className="srow-label">
+            <b>Clocks</b>
+            <small>UTC and home always show; add up to four more</small>
+          </span>
+          <div className="zonelist">
+            {zones.map((z, i) => (
+              <div key={i} className="zonerow">
+                <input
+                  value={z.label}
+                  maxLength={16}
+                  placeholder="Label"
+                  aria-label="Clock label"
+                  onChange={(e) => setZones(zones.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                  onBlur={() => void save({})}
+                />
+                <select
+                  value={z.tz}
+                  aria-label="Time zone"
+                  onChange={(e) => {
+                    const next = zones.map((x, j) => (j === i ? { ...x, tz: e.target.value } : x));
+                    setZones(next);
+                    void save({ zones: next });
+                  }}
+                >
+                  {zoneNames.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn small"
+                  aria-label="Remove clock"
+                  onClick={() => {
+                    const next = zones.filter((_, j) => j !== i);
+                    setZones(next);
+                    void save({ zones: next });
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {zones.length < 4 && (
+              <button
+                className="btn small"
+                onClick={() => {
+                  const next = [...zones, { label: 'Kyiv', tz: 'Europe/Kyiv' }];
+                  setZones(next);
+                  void save({ zones: next });
+                }}
+              >
+                Add clock
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      {status && <p className="quiet small pad">{status}</p>}
     </section>
   );
 }
