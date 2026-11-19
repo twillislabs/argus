@@ -22,9 +22,20 @@ export interface InfraFilters {
   bases: boolean;
   // ALPR cameras (map/alprLayer.ts), fetched for the view.
   alpr: boolean;
+  // Cyber (map/cyberLayer.ts): internet outages and ransomware victims.
+  outages: boolean;
+  ransomware: boolean;
 }
 
-export const DEFAULT_INFRA: InfraFilters = { nuclear: false, power: false, cables: false, bases: false, alpr: false };
+export const DEFAULT_INFRA: InfraFilters = {
+  nuclear: false,
+  power: false,
+  cables: false,
+  bases: false,
+  alpr: false,
+  outages: false,
+  ransomware: false,
+};
 
 export const BASE_COLOR = '#ff5d8f';
 export const BASE_KINDS: Record<string, string> = {

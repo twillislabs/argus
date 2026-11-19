@@ -8,6 +8,7 @@ import { BASE_COLOR, FUEL_COLOR } from '../map/infraLayer';
 import { SAT_COLOR } from '../map/satellites';
 import { VESSEL_COLOR } from '../map/vesselLayer';
 import { LAUNCH_COLOR } from '../map/launchLayer';
+import { OUTAGE_COLOR, RANSOMWARE_COLOR } from '../map/cyberLayer';
 
 interface Row {
   color: string;
@@ -118,6 +119,19 @@ export default function Legend({ filters, onClose }: { filters: LayerFilters; on
               color: k === 'starlink' ? '#9aa7ba' : SAT_COLOR[k as keyof typeof SAT_COLOR],
               label: k === 'starlink' ? 'Starlink' : k.toUpperCase(),
             }))}
+          />
+        )}
+        {(filters.infra.outages || filters.infra.ransomware) && (
+          <Section
+            title="Cyber"
+            rows={[
+              ...(filters.infra.outages
+                ? [
+                    { color: OUTAGE_COLOR, label: 'Internet outage, ongoing (stronger) or in the last 24 h', shape: 'area' as const },
+                  ]
+                : []),
+              ...(filters.infra.ransomware ? [{ color: RANSOMWARE_COLOR, label: 'Ransomware victims, latest claims (sized by count)' }] : []),
+            ]}
           />
         )}
         {filters.space.launches && (

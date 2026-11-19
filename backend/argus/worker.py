@@ -17,6 +17,7 @@ from sqlalchemy import select
 from argus import (
     __version__,
     advisories,
+    cyber,
     launches,
     sea,
     secrets,
@@ -441,6 +442,78 @@ async def advisories_loop(db: Database, client: httpx.AsyncClient) -> None:
 
 WIKIPEDIA_EVERY = timedelta(hours=1)
 LAUNCHES_EVERY = timedelta(hours=2)
+CYBER_EVERY = timedelta(minutes=30)
+KEV_EVERY = timedelta(hours=6)
+
+
+async def cyber_loop(db: Database, client: httpx.AsyncClient) -> None:
+    """Internet outages and ransomware victims every half hour, CISA's
+    exploited vulnerabilities every six hours, into server_settings
+    ["layer:cyber"] (argus/cyber.py). Each part keeps its last good
+    answer when its source fails."""
+    while True:
+        async with db.sessionmaker() as session:
+            source = await session.get(Source, "cyber")
+            if source is None:
+                source = Source(
+                    name="cyber",
+                    label="Cyber (IODA, ransomware.live, CISA KEV)",
+                    interval_s=int(CYBER_EVERY.total_seconds()),
+                    enabled=True,
+                    last_count=0,
+                )
+                session.add(source)
+            row = await session.get(ServerSetting, "layer:cyber")
+            value = dict(row.value) if row else {}
+            await session.commit()
+        started = utcnow()
+        errors = []
+        parts = [
+            ("outages", cyber.fetch_outages),
+            ("ransomware", cyber.fetch_ransomware),
+        ]
+        kev_at = value.get("kev_fetched")
+        if (
+            not kev_at
+            or utcnow() - datetime.fromisoformat(kev_at) >= KEV_EVERY
+        ):
+            parts.append(("kev", cyber.fetch_kev))
+        for key, fetch in parts:
+            try:
+                value[key] = await fetch(client)
+                value[key + "_fetched"] = utcnow().isoformat()
+            except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+                errors.append(
+                    "{0}: {1}: {2}".format(
+                        key, type(exc).__name__, str(exc)[:200]
+                    )
+                )
+        async with db.sessionmaker() as session:
+            source = await session.get(Source, "cyber")
+            source.last_run_at = started
+            row = await session.get(ServerSetting, "layer:cyber")
+            if row is None:
+                row = ServerSetting(key="layer:cyber")
+                session.add(row)
+            row.value = value
+            row.updated_at = utcnow()
+            if len(errors) < len(parts):
+                source.last_success_at = utcnow()
+            source.last_count = len(value.get("outages") or []) + len(
+                value.get("ransomware") or []
+            )
+            source.last_error = "; ".join(errors) or None
+            await session.commit()
+        if errors:
+            log.warning("cyber: {0}".format("; ".join(errors)))
+        else:
+            log.info(
+                "cyber: {0} outages, {1} ransomware countries".format(
+                    len(value.get("outages") or []),
+                    len(value.get("ransomware") or []),
+                )
+            )
+        await asyncio.sleep(CYBER_EVERY.total_seconds())
 
 
 async def launches_loop(db: Database, client: httpx.AsyncClient) -> None:
@@ -1068,6 +1141,7 @@ async def run(settings: Settings) -> None:
         advisories_task = asyncio.create_task(advisories_loop(db, client))
         wikipedia_task = asyncio.create_task(wikipedia_loop(db, client))
         launches_task = asyncio.create_task(launches_loop(db, client))
+        cyber_task = asyncio.create_task(cyber_loop(db, client))
         cams_task = asyncio.create_task(cams_loop(db, settings, client))
         alpr_task = asyncio.create_task(alpr_prefetch_loop(db, settings))
         zones_task = (
@@ -1125,6 +1199,7 @@ async def run(settings: Settings) -> None:
                 advisories_task,
                 wikipedia_task,
                 launches_task,
+                cyber_task,
                 cams_task,
                 alpr_task,
                 zones_task,

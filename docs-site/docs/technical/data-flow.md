@@ -32,6 +32,7 @@ M2–M3), patterns and alerts.
 | video and webcams (API, on request) | 30 min / 1 h / 8 min caches | YouTube Data API search (live near a point, or about an event) and Windy Webcams API (near the view), with admins' keys; shared caches in API memory (`argus/video.py`); Windy previews proxied, each linked to its Windy page |
 | wikipedia | 1 h | Wikipedia's Current events portal, the last three days, through the MediaWiki API; each entry placed from its linked articles' coordinates; kept in `server_settings["layer:wikipedia"]` |
 | launches | 2 h | Rocket launches (last three days, next two weeks) from The Space Devs' Launch Library 2, two requests a run; the last success is honoured across restarts (15 requests an hour per IP); kept in `server_settings["layer:launches"]` |
+| cyber | 30 min | IODA country outages (last 24 h), ransomware.live latest claims counted per country (no victim names), and every 6 h CISA's Known Exploited Vulnerabilities; kept in `server_settings["layer:cyber"]`, each part keeping its last good answer |
 | advisories | 6 h | US State Department travel advisories (cadataapi.state.gov) and UK FCDO travel advice (GOV.UK content API; only countries updated since the last pass are re-read), kept in `server_settings["layer:advisories"]` |
 | receivers | 2 s / 10 s | Your readsb `aircraft.json` (NATS `argus.local_air`) and AIS-catcher `ships.json` (`argus.sea`) |
 | `nga` | 1 h | NGA navigational warnings with positions, as `maritime` events |

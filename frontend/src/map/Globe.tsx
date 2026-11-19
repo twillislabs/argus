@@ -55,6 +55,7 @@ import type {
   WikiItem,
   Home,
   Launch,
+  Cyber,
   MapConfig,
   OutlookArea,
   TensionCountry,
@@ -71,6 +72,7 @@ import { addTensionLayer, type TensionLayer } from './tensionLayer';
 import { addAdvisoryLayer, type AdvisoryLayer } from './advisoryLayer';
 import { addWikiLayer, type WikiLayer } from './wikiLayer';
 import { addLaunchLayer, type LaunchLayer } from './launchLayer';
+import { addCyberLayer, type CyberLayer } from './cyberLayer';
 import { addAlprLayer, type AlprLayer } from './alprLayer';
 import { addCamLayer, type CamLayer, WEBCAM_COLOR } from './camLayer';
 import { addWxLayer, type WeatherFilters, type WxLayer } from './wxLayer';
@@ -397,6 +399,8 @@ interface Props {
   // Rocket launches (map/launchLayer.ts).
   launches?: Launch[];
   showLaunches?: boolean;
+  // Cyber: outages and ransomware (map/cyberLayer.ts), shown per infra.
+  cyber?: Cyber | null;
   // ALPR cameras for the view, drawn while infra.alpr is on.
   alprCameras?: AlprCamera[];
   // Traffic cameras for the view (empty when the layer is off).
@@ -461,6 +465,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     showWiki,
     launches,
     showLaunches,
+    cyber,
     alprCameras,
     trafficCams,
     selectedCam,
@@ -513,6 +518,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const advisoryLayer = useRef<AdvisoryLayer | null>(null);
   const wikiLayer = useRef<WikiLayer | null>(null);
   const launchLayer = useRef<LaunchLayer | null>(null);
+  const cyberLayer = useRef<CyberLayer | null>(null);
   const alprLayer = useRef<AlprLayer | null>(null);
   const camLayer = useRef<CamLayer | null>(null);
   const webcamLayer = useRef<CamLayer | null>(null);
@@ -614,6 +620,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     advisoryLayer.current = addAdvisoryLayer(scene);
     wikiLayer.current = addWikiLayer(scene);
     launchLayer.current = addLaunchLayer(scene);
+    cyberLayer.current = addCyberLayer(scene);
     alprLayer.current = addAlprLayer(scene);
     camLayer.current = addCamLayer(scene);
     webcamLayer.current = addCamLayer(scene, WEBCAM_COLOR, 'webcam:');
@@ -741,6 +748,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       air.current?.setDepthDistance(d);
       wikiLayer.current?.setDepthDistance(d);
       launchLayer.current?.setDepthDistance(d);
+      cyberLayer.current?.setDepthDistance(d);
       alprLayer.current?.setDepthDistance(d);
       camLayer.current?.setDepthDistance(d);
       webcamLayer.current?.setDepthDistance(d);
@@ -876,6 +884,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['advisories', () => advisoryLayer.current?.destroy()],
         ['wikipedia', () => wikiLayer.current?.destroy()],
         ['launches', () => launchLayer.current?.destroy()],
+        ['cyber', () => cyberLayer.current?.destroy()],
         ['alpr', () => alprLayer.current?.destroy()],
         ['traffic cameras', () => camLayer.current?.destroy()],
         ['webcams', () => webcamLayer.current?.destroy()],
@@ -1091,6 +1100,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     launchLayer.current?.update(launches ?? [], Boolean(showLaunches));
   }, [launches, showLaunches]);
+
+  useEffect(() => {
+    cyberLayer.current?.update(cyber?.outages ?? [], infra.outages, cyber?.ransomware ?? [], infra.ransomware);
+  }, [cyber, infra.outages, infra.ransomware]);
 
   useEffect(() => {
     alprLayer.current?.update(alprCameras ?? [], infra.alpr);

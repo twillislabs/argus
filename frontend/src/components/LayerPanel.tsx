@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { OUTAGE_COLOR, RANSOMWARE_COLOR } from '../map/cyberLayer';
 
 import type { CivilStatus, EventType, SeaStatus, SourceStatus } from '../lib/api';
 import { EVENT_TYPES, SEVERITY_NAME, TYPE_INFO } from '../lib/format';
@@ -99,6 +100,8 @@ const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color
   { id: 'cables', label: 'Submarine cables', source: 'TeleGeography', color: '#7fd1c7' },
   { id: 'bases', label: 'Military bases', source: 'OpenStreetMap', color: BASE_COLOR },
   { id: 'alpr', label: 'Plate reader cameras', source: 'Flock and other ALPR · OpenStreetMap', color: ALPR_COLOR },
+  { id: 'outages', label: 'Internet outages', source: 'IODA · countries, last 24 hours', color: OUTAGE_COLOR },
+  { id: 'ransomware', label: 'Ransomware victims', source: 'ransomware.live · latest 100 claims, per country', color: RANSOMWARE_COLOR },
 ];
 
 const AIRSPACE_ROWS: { id: keyof AirspaceFilters; label: string; source: string }[] = [

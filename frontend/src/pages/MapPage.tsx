@@ -8,6 +8,7 @@ import PlaceInspector from '../components/PlaceInspector';
 import ImageryPanel, { type ImageryState, newImagery } from '../components/ImageryPanel';
 import TourPanel from '../components/TourPanel';
 import { launchColor, padKey } from '../map/launchLayer';
+import { OUTAGE_COLOR, RANSOMWARE_COLOR } from '../map/cyberLayer';
 import { cleanTour, type Tour } from '../lib/tours';
 import { FAA_COLOR, faaLevel, faaLine, type FaaStatus, getFaaStatus } from '../lib/faa';
 import AlprInspector from '../components/AlprInspector';
@@ -73,6 +74,8 @@ import {
   type Advisory,
   getWikipedia,
   getLaunches,
+  getCyber,
+  type Cyber,
   type Launch,
   type WikiItem,
   type Me,
@@ -924,6 +927,25 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     };
   }, [launchesOn]);
 
+  // Cyber (outages, ransomware) while either layer is on; the worker
+  // refreshes it every half hour.
+  const cyberOn = filters.infra.outages || filters.infra.ransomware;
+  const [cyber, setCyber] = useState<Cyber | null>(null);
+  useEffect(() => {
+    if (!cyberOn) return;
+    let cancelled = false;
+    const load = () =>
+      getCyber()
+        .then((r) => !cancelled && setCyber(r))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 600_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [cyberOn]);
+
   // Airspace areas, while any airspace layer is on (every 10 minutes).
   const airspaceOn = filters.airspace.tfr || filters.airspace.sigmet || filters.airspace.czib;
   // GPS cells load even with the layer off: Situation counts them.
@@ -1274,6 +1296,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         id.startsWith('adv:') ||
         id.startsWith('wiki:') ||
         id.startsWith('launch:') ||
+        id.startsWith('outage:') ||
+        id.startsWith('rw:') ||
         id.startsWith('draw:') ||
         id.startsWith('wx:') ||
         id.startsWith('spc:'))
@@ -1415,6 +1439,37 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             ],
           }
         : null;
+    }
+    if (id.startsWith('outage:')) {
+      const o = cyber?.outages.find((x) => 'outage:' + x.cc === id);
+      if (!o) return null;
+      const from = new Date(o.start).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      return {
+        title: (o.country ?? o.cc) + ' · internet outage',
+        color: OUTAGE_COLOR,
+        lines: [
+          (o.ongoing ? 'Ongoing since ' : 'From ') + from + (o.ongoing ? '' : ' to ' + new Date(o.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })),
+          'Seen in ' + o.source + ' · IODA score ' + o.score.toLocaleString(),
+        ],
+      };
+    }
+    if (id.startsWith('rw:')) {
+      const r = cyber?.ransomware.find((x) => 'rw:' + x.cc === id);
+      if (!r) return null;
+      return {
+        title:
+          r.country +
+          ' · ' +
+          r.count +
+          ' ransomware victim' +
+          (r.count === 1 ? '' : 's') +
+          (r.since ? ' since ' + new Date(r.since).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''),
+        color: RANSOMWARE_COLOR,
+        lines: [
+          r.sectors.length ? 'Sectors: ' + r.sectors.join(', ') : '',
+          r.groups.length ? 'Groups: ' + r.groups.join(', ') : '',
+        ],
+      };
     }
     if (id.startsWith('launch:')) {
       const l = launchItems.find((x) => 'launch:' + x.id === id);
@@ -1703,6 +1758,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             wikiItems={wikiItems}
             launches={launchItems}
             showLaunches={launchesOn}
+            cyber={cyber}
             showWiki={filters.wiki}
             alprCameras={alprCameras}
             trafficCams={filters.cams.traffic ? trafficCams : []}
@@ -1991,6 +2047,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                         ' (National Weather Service; open the alert for its full text and instructions.)'
                       : selectedInfo.startsWith('spc:')
                         ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'
+                        : selectedInfo.startsWith('outage:')
+                          ? 'Internet outage detected by IODA (Georgia Tech) from BGP routing, active probing, Google traffic or network telescope data. A high score means a large drop against normal; it can be a shutdown, a power cut, a cable cut or a fault. See the IODA dashboard for the signals.'
+                        : selectedInfo.startsWith('rw:')
+                          ? 'Organisations in this country that ransomware groups claimed on their leak sites, among the latest 100 claims worldwide collected by ransomware.live (usually a day or two). These are criminals’ claims, not confirmed breaches; Argus keeps counts, sectors and groups, not victim names.'
                         : selectedInfo.startsWith('launch:')
                           ? launchNote(launchItems, selectedInfo.slice(7))
                         : selectedInfo.startsWith('wiki:')
@@ -2003,7 +2063,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                       : 'A shape you drew. Delete it with the Delete tool.'
                 }
                 links={
-                  selectedInfo.startsWith('launch:')
+                  selectedInfo.startsWith('outage:')
+                    ? [{ label: 'IODA dashboard', url: 'https://ioda.inetintel.cc.gatech.edu/country/' + selectedInfo.slice(7) }]
+                    : selectedInfo.startsWith('rw:')
+                    ? [{ label: 'ransomware.live', url: 'https://www.ransomware.live/' }]
+                    : selectedInfo.startsWith('launch:')
                     ? launchLinks(launchItems.find((x) => 'launch:' + x.id === selectedInfo))
                     : selectedInfo.startsWith('wiki:')
                     ? wikiLinks(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))

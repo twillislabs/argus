@@ -8,6 +8,8 @@ import {
   api,
   type EventItem,
   getEvents,
+  getCyber,
+  type ExploitedVuln,
   getSummary,
   getTension,
   getWikipedia,
@@ -120,6 +122,12 @@ function changes(t: Tension | null, today: EventItem[], yesterday: EventItem[]):
 export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: () => Promise<void> }) {
   const navigate = useNavigate();
   const spaceWx = useSpaceWeather();
+  const [kev, setKev] = useState<ExploitedVuln[] | null>(null);
+  useEffect(() => {
+    getCyber()
+      .then((c) => setKev(c.kev))
+      .catch(() => setKev([]));
+  }, []);
   const [tension, setTension] = useState<Tension | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -331,6 +339,39 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
               </div>
             </section>
           )}
+
+          <section className="card">
+            <div className="ph">
+              <h2>Exploited vulnerabilities</h2>
+              <span className="mono">CISA KEV</span>
+            </div>
+            <div className="cbody">
+              {kev === null ? (
+                <p className="quiet small">Loading…</p>
+              ) : kev.length === 0 ? (
+                <p className="quiet small">Not fetched yet: the worker reads CISA's catalogue every six hours.</p>
+              ) : (
+                <ul className="kevlist">
+                  {kev.slice(0, 10).map((v) => (
+                    <li key={v.cve} title={v.description}>
+                      <a href={'https://nvd.nist.gov/vuln/detail/' + v.cve} target="_blank" rel="noopener noreferrer">
+                        <b className="mono">{v.cve}</b>
+                      </a>{' '}
+                      {v.vendor} {v.product}
+                      {v.ransomware && <span className="badge" style={{ ['--c' as string]: '#ff7a59' }}>ransomware</span>}
+                      <small>
+                        {v.name} · added {v.added}
+                        {v.due ? ', fix federal systems by ' + v.due : ''}
+                      </small>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="quiet small">
+                Flaws CISA has seen exploited in the wild, newest first. Hover one for its description.
+              </p>
+            </div>
+          </section>
 
           <section className="card">
             <div className="ph">

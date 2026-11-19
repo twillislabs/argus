@@ -197,6 +197,12 @@ parts connect.
   only (`FeedClient.get(..., only=)`), publishing a bare sample
   (`gps_sample`) on NATS `argus.gps`; the API feeds it to `GpsGrid` and
   nothing else (not stored, not pushed). `ARGUS_GPS_SWEEP=false` stops it.
+- Cyber: `argus/cyber.py` (IODA, ransomware.live, CISA KEV), worker
+  `cyber_loop`, `/api/cyber`, `map/cyberLayer.ts` (outage tints via
+  tensionLayer's shapes and `naturalEarthName`, ransomware markers at a
+  country's largest place from `places.tsv.gz`). The toggles are
+  `InfraFilters.outages` and `.ransomware`. Never store or show
+  ransomware victim names (unverified criminal claims).
 - Space weather: `argus/spaceweather.py` (NOAA SWPC scales, Kp and
   alerts JSON, fetched on demand and cached 10 min in API memory),
   `/api/spaceweather`, `components/SpaceWeatherCard.tsx` (Situation and

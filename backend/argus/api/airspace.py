@@ -143,6 +143,22 @@ async def rocket_launches(session: SessionDep, db: DbDep):
     }
 
 
+@router.get("/api/cyber")
+async def cyber_picture(session: SessionDep, db: DbDep):
+    """Internet outages, ransomware victims per country and new exploited
+    vulnerabilities (worker's cyber_loop)."""
+    row = await db.get(ServerSetting, "layer:cyber")
+    value = row.value if row else {}
+    return {
+        "outages": value.get("outages") or [],
+        "outages_fetched": value.get("outages_fetched"),
+        "ransomware": value.get("ransomware") or [],
+        "ransomware_fetched": value.get("ransomware_fetched"),
+        "kev": value.get("kev") or [],
+        "kev_fetched": value.get("kev_fetched"),
+    }
+
+
 @router.get("/api/alpr")
 async def alpr_cameras(
     request: Request,

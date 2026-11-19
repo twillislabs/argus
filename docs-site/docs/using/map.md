@@ -530,6 +530,31 @@ Two more event layers:
   such as rocket launches, live firing, exercises, cable work, piracy and
   hazards to shipping. Select one to see the area it covers.
 
+## Cyber
+
+Two layers at the end of the **Infrastructure** group, off by default,
+and a Brief section:
+
+- **Internet outages:** countries where Georgia Tech's IODA saw an
+  internet outage in the last 24 hours, tinted purple (stronger while
+  it's ongoing). Hover for when it started, what saw it (BGP routing,
+  active probing, Google traffic) and its size; click for a link to the
+  IODA dashboard. An outage can be a government shutdown, a power cut,
+  a cable cut or a fault.
+- **Ransomware victims:** a marker per country, sized and labelled with
+  how many organisations ransomware groups claimed there among the
+  latest 100 claims worldwide (usually a day or two, from
+  ransomware.live). Hover for the main sectors and groups. These are
+  criminals' claims, not confirmed breaches, so Argus keeps counts, not
+  victim names.
+- **Exploited vulnerabilities** (Brief): the newest entries in CISA's
+  Known Exploited Vulnerabilities catalogue, with a ransomware flag
+  when CISA knows of ransomware use and the date US federal agencies
+  must fix them. Each links to its NVD entry.
+
+The worker refreshes outages and ransomware every half hour, and CISA's
+list every six hours.
+
 ## Rocket launches
 
 **Rocket launches** (Space group, on by default) puts a rocket at each

@@ -135,6 +135,49 @@ export const putScreenWall = (id: number, wall: WallPrefs, home: Home | null, pr
     body: { wall, home, profile },
   });
 
+// Cyber (/api/cyber): IODA internet outages, ransomware.live counts per
+// country (no victim names), CISA's newest exploited vulnerabilities.
+export interface InternetOutage {
+  cc: string;
+  country: string | null;
+  start: string;
+  end: string;
+  ongoing: boolean;
+  source: string;
+  score: number;
+}
+export interface RansomwareCountry {
+  cc: string;
+  country: string;
+  lat: number;
+  lon: number;
+  count: number;
+  // When the source's recent list starts (it holds the latest 100).
+  since: string | null;
+  latest: string;
+  sectors: string[];
+  groups: string[];
+}
+export interface ExploitedVuln {
+  cve: string;
+  vendor: string;
+  product: string;
+  name: string;
+  added: string | null;
+  due: string | null;
+  ransomware: boolean;
+  description: string;
+}
+export interface Cyber {
+  outages: InternetOutage[];
+  outages_fetched: string | null;
+  ransomware: RansomwareCountry[];
+  ransomware_fetched: string | null;
+  kev: ExploitedVuln[];
+  kev_fetched: string | null;
+}
+export const getCyber = () => api<Cyber>('/api/cyber');
+
 // Rocket launches (/api/launches): the last three days and next two
 // weeks, from Launch Library 2.
 export interface Launch {
