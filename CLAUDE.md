@@ -116,6 +116,10 @@ parts connect.
   `/api/tension` is cached a minute.
   Country names are GDELT/GeoNames style; `map/tensionLayer.ts` maps
   them to Natural Earth's short names (`NE_NAME`) for the tint.
+- Big static line sets (state borders: 44,000 lines) go through
+  `map/lineBatch.ts` (one Primitive, per-instance colour). A
+  `PolylineCollection` with a material per line is one draw call per line
+  and crawls; sharing one material there gets it destroyed twice.
 - GPS interference cells are hexagons (`aviation.hex_cell`), not squares.
 - Labels: Argus labels down to `TILE_LABELS_BELOW` (overlays.ts); below
   it the basemap's label tiles (`LABEL_LAYERS` in Globe.tsx) and the

@@ -15,14 +15,13 @@ import {
   type Label,
   LabelCollection,
   LabelStyle,
-  Material,
   type PointPrimitive,
   PointPrimitiveCollection,
-  PolylineCollection,
   type Scene,
   VerticalOrigin,
 } from '@cesium/engine';
 import { feature, mesh } from 'topojson-client';
+import { type LineBatch, lineBatch } from './lineBatch';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 
 export interface ReferenceLayers {
@@ -68,12 +67,6 @@ function cityRange(population: number): DistanceDisplayCondition {
 }
 
 type Position = number[];
-
-function flatten(line: Position[], height: number): number[] {
-  const out: number[] = [];
-  for (const [lon, lat] of line) out.push(lon, lat, height);
-  return out;
-}
 
 // The admin-1 lines are delta-encoded at 0.01 degrees:
 // [x0, y0, dx1, dy1, dx2, dy2, ...].
@@ -158,18 +151,17 @@ async function json<T>(url: string): Promise<T | null> {
 }
 
 export async function addOverlays(scene: Scene): Promise<Overlays> {
-  const borders = new PolylineCollection();
-  const states = new PolylineCollection();
   const labels = new LabelCollection({ scene });
   const airportDots = new PointPrimitiveCollection();
   const airportLabels = new LabelCollection({ scene });
   const portDots = new PointPrimitiveCollection();
   const portLabels = new LabelCollection({ scene });
-  for (const p of [borders, states, airportDots, portDots, labels, airportLabels, portLabels]) scene.primitives.add(p);
+  for (const p of [airportDots, portDots, labels, airportLabels, portLabels]) scene.primitives.add(p);
 
   let style = STYLE.dark;
-  const borderMaterials: Material[] = [];
-  const stateMaterials: Material[] = [];
+  // Borders are batched into one primitive each (see lineBatch.ts).
+  let borders: LineBatch | null = null;
+  let states: LineBatch | null = null;
   const countryLabels: { label: Label; area: number }[] = [];
   const cityLabels: { label: Label; pop: number }[] = [];
 
@@ -184,12 +176,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   if (topo) {
     const countries = topo.objects.countries as GeometryCollection;
     const lines = mesh(topo, countries, (a, b) => a !== b) as unknown as GeoJSON.MultiLineString;
-    for (const line of lines.coordinates) {
-      if (line.length < 2) continue;
-      const material = Material.fromType('Color', { color: Color.fromCssColorString(style.border) });
-      borderMaterials.push(material);
-      borders.add({ positions: Cartesian3.fromDegreesArrayHeights(flatten(line, LINE_HEIGHT)), width: 1.2, material });
-    }
+    borders = lineBatch(scene, lines.coordinates, style.border, 1.2, LINE_HEIGHT);
+    scene.primitives.add(borders.primitive);
     const fc = feature(topo, countries) as unknown as GeoJSON.FeatureCollection;
     for (const f of fc.features) {
       const name = (f.properties as { name?: string } | null)?.name;
@@ -217,17 +205,10 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   }
 
   if (admin1) {
-    for (const line of decodeAdmin1(admin1)) {
-      if (line.length < 2) continue;
-      const material = Material.fromType('Color', { color: Color.fromCssColorString(style.state) });
-      stateMaterials.push(material);
-      states.add({
-        positions: Cartesian3.fromDegreesArrayHeights(flatten(line, LINE_HEIGHT)),
-        width: 1,
-        material,
-        distanceDisplayCondition: STATE_RANGE,
-      });
-    }
+    // Some 44,000 lines: batched, they draw in one call (a polyline
+    // each made the map crawl).
+    states = lineBatch(scene, decodeAdmin1(admin1), style.state, 1, LINE_HEIGHT, STATE_RANGE);
+    scene.primitives.add(states.primitive);
   }
 
   if (cities) {
@@ -335,8 +316,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     }
   }
   function apply() {
-    borders.show = layers.borders;
-    states.show = layers.states;
+    if (borders) borders.primitive.show = layers.borders;
+    if (states) states.primitive.show = layers.states;
     labels.show = layers.labels;
     airportDots.show = layers.airports;
     airportLabels.show = layers.airports;
@@ -357,10 +338,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
       const next = mode === 'dark' ? STYLE.dark : STYLE.imagery;
       if (next === style) return;
       style = next;
-      const border = Color.fromCssColorString(style.border);
-      const state = Color.fromCssColorString(style.state);
-      for (const m of borderMaterials) m.uniforms.color = border;
-      for (const m of stateMaterials) m.uniforms.color = state;
+      borders?.setColor(style.border);
+      states?.setColor(style.state);
       const city = Color.fromCssColorString(style.city);
       const country = Color.fromCssColorString(style.country);
       for (const { label } of cityLabels) label.fillColor = city;
@@ -378,7 +357,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     },
     destroy() {
       if (scene.isDestroyed()) return;
-      for (const p of [borders, states, airportDots, portDots, labels, airportLabels, portLabels]) {
+      const batches = [borders?.primitive, states?.primitive].filter((p): p is NonNullable<typeof p> => Boolean(p));
+      for (const p of [...batches, airportDots, portDots, labels, airportLabels, portLabels]) {
         if (!p.isDestroyed() && scene.primitives.contains(p)) scene.primitives.remove(p);
       }
     },
