@@ -76,6 +76,39 @@ FEEDS = {
 VIEW_ORDER = ("adsb.lol", "adsb.fi")
 POLL_ORDER = ("adsb.fi", "adsb.lol")
 
+# Where GPS interference is usually reported (gpsjam.org's regulars):
+# the worker's sweep asks adsb.fi for everything within 250 nm of one of
+# these after each military poll, so their cells have enough aircraft.
+GPS_HOTSPOTS = (
+    ("Kaliningrad and the southern Baltic", 55.0, 20.0),
+    ("Gulf of Finland and Estonia", 59.3, 26.0),
+    ("Finnmark and Lapland", 69.5, 27.0),
+    ("Western Black Sea", 44.5, 29.5),
+    ("Eastern Black Sea", 43.5, 36.0),
+    ("Caucasus", 41.0, 45.0),
+    ("Cyprus and Lebanon", 34.5, 34.5),
+    ("Israel and Jordan", 31.5, 35.5),
+    ("Iraq and Syria", 34.0, 42.5),
+    ("Persian Gulf", 26.5, 52.0),
+)
+SWEEP_RADIUS_NM = 250
+
+
+def gps_sample(aircraft: list[dict]) -> list[dict]:
+    """Just what the GPS grid needs from swept aircraft: nothing about
+    who they are beyond the hex, and nothing kept."""
+    return [
+        {
+            "hex": a["hex"],
+            "lat": a["lat"],
+            "lon": a["lon"],
+            "nac_p": a["nac_p"],
+            "ground": a.get("ground", False),
+        }
+        for a in aircraft
+        if a.get("nac_p") is not None and a.get("lat") is not None
+    ]
+
 
 def aircraft_list(doc: dict) -> list[dict]:
     """The aircraft array: "ac" on most endpoints, "aircraft" on some."""
@@ -493,9 +526,15 @@ class FeedClient:
         now = time.monotonic()
         return all(self.paused_until[n] > now for n in self.order)
 
-    async def get(self, kind: str, *args) -> tuple[Feed, httpx.Response]:
+    async def get(
+        self, kind: str, *args, only: str | None = None
+    ) -> tuple[Feed, httpx.Response]:
+        """GET from the first feed that isn't paused; with only=, from
+        that feed alone (no fallback)."""
         last_error: Exception | None = None
         for name in self.order:
+            if only is not None and name != only:
+                continue
             if self.paused_until[name] > time.monotonic():
                 continue
             feed = FEEDS[name]

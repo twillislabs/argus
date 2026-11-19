@@ -13,6 +13,7 @@ SUBJECT = "argus.events"
 AIR_SUBJECT = "argus.air"
 SEA_SUBJECT = "argus.sea"
 LOCAL_AIR_SUBJECT = "argus.local_air"
+GPS_SUBJECT = "argus.gps"
 
 
 class Hub:
@@ -86,6 +87,16 @@ async def subscribe_forever(
                 except (ValueError, KeyError, TypeError) as exc:
                     log.warning("Bad receiver message: {0}".format(exc))
 
+            async def gps_handler(msg) -> None:
+                # The worker's GPS sweep: only feeds the interference grid.
+                if gps is None:
+                    return
+                try:
+                    gps.observe(json.loads(msg.data).get("aircraft", []))
+                except (ValueError, KeyError, TypeError) as exc:
+                    log.warning("Bad GPS sweep message: {0}".format(exc))
+
+            await nc.subscribe(GPS_SUBJECT, cb=gps_handler)
             await nc.subscribe(LOCAL_AIR_SUBJECT, cb=local_handler)
             await nc.subscribe(SUBJECT, cb=handler)
             await nc.subscribe(SEA_SUBJECT, cb=sea_handler)

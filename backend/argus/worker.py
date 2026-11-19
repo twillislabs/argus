@@ -16,9 +16,13 @@ from sqlalchemy import select
 
 from argus import __version__, sea, secrets, space, tension
 from argus.aviation import (
+    GPS_HOTSPOTS,
     POLL_ORDER,
+    SWEEP_RADIUS_NM,
     FeedClient,
+    RateLimited,
     aircraft_list,
+    gps_sample,
     normalise,
 )
 from argus.collectors import REGISTRY, Collector
@@ -35,6 +39,7 @@ log = logging.getLogger("argus.worker")
 SUBJECT = "argus.events"
 AIR_SUBJECT = "argus.air"
 AIR_SOURCE = "adsb_mil"
+GPS_SUBJECT = "argus.gps"
 TICK_S = 5
 HOUSEKEEPING_S = 3600
 RETRY_S = 300
@@ -113,6 +118,34 @@ async def poll_military(feeds: FeedClient, publisher: Publisher) -> int:
     return len(snapshot)
 
 
+async def sweep_gps(
+    feeds: FeedClient, publisher: Publisher, index: int
+) -> int:
+    """One GPS hotspot from adsb.fi (never adsb.lol: its daily quota is
+    for map views), published for the API's GPS grid only. Returns how
+    many aircraft were seen; a paused or failing feed just skips it."""
+    _, lat, lon = GPS_HOTSPOTS[index % len(GPS_HOTSPOTS)]
+    try:
+        feed, response = await feeds.get(
+            "point", lat, lon, SWEEP_RADIUS_NM, only="adsb.fi"
+        )
+    except (RateLimited, httpx.HTTPError) as exc:
+        log.info("GPS sweep skipped: {0}".format(type(exc).__name__))
+        return 0
+    sample = gps_sample(
+        [
+            a
+            for a in (
+                normalise(x, source=feed.name)
+                for x in aircraft_list(response.json())
+            )
+            if a is not None
+        ]
+    )
+    await publisher.publish({"aircraft": sample}, GPS_SUBJECT)
+    return len(sample)
+
+
 async def air_loop(
     db: Database,
     settings: Settings,
@@ -131,6 +164,7 @@ async def air_loop(
         row.enabled = True
         await session.commit()
     last_saved = None
+    sweep = 0
     while True:
         started = utcnow()
         error, count = None, 0
@@ -139,6 +173,13 @@ async def air_loop(
         except Exception as exc:  # noqa: BLE001 - keep polling
             error = "{0}: {1}".format(type(exc).__name__, str(exc)[:400])
             log.warning("military poll failed: {0}".format(error))
+        if settings.gps_sweep:
+            # Same FeedClient, so adsb.fi stays at one request a second.
+            try:
+                await sweep_gps(feeds, publisher, sweep)
+            except Exception as exc:  # noqa: BLE001 - keep polling
+                log.warning("GPS sweep failed: {0}".format(exc))
+            sweep += 1
         # Health is written at most once a minute, or at once on errors.
         if (
             error

@@ -414,3 +414,76 @@ async def test_route_legs_from_both_sources(monkeypatch):
     leg, progress = pick_route(legs, 36.2, -86.8, 150.0)
     assert leg["destination"]["iata"] == "RSW" and progress["plausible"]
     await client.close()
+
+
+# --- GPS hotspot sweep ---------------------------------------------------
+
+
+async def test_gps_sweep_uses_adsb_fi_only():
+    from argus import worker
+
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.host)
+        if request.url.host == "opendata.adsb.fi":
+            return httpx.Response(429, headers={"Retry-After": "60"})
+        return httpx.Response(200, json={"now": 1, "aircraft": []})
+
+    class FakePublisher:
+        def __init__(self):
+            self.sent = []
+
+        async def publish(self, message, subject):
+            self.sent.append((subject, message))
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    feeds = aviation.FeedClient(http, aviation.POLL_ORDER)
+    pub = FakePublisher()
+    # adsb.fi is limiting us: skip the hotspot, never spend adsb.lol.
+    assert await worker.sweep_gps(feeds, pub, 0) == 0
+    assert calls == ["opendata.adsb.fi"]
+    assert pub.sent == []
+    await http.aclose()
+
+
+async def test_gps_sweep_publishes_a_bare_sample():
+    from argus import worker
+
+    def handler(request):
+        assert "/v3/lat/59.30/lon/26.00/dist/250" in str(request.url)
+        return httpx.Response(
+            200,
+            json={
+                "now": 1,
+                "aircraft": [
+                    raw("4ca1fa", dbFlags=0, nac_p=4, lat=59.4, lon=25.9),
+                    raw("4ca1fb", dbFlags=0, lat=59.5, lon=26.1),
+                ],
+            },
+        )
+
+    class FakePublisher:
+        sent = []
+
+        async def publish(self, message, subject):
+            self.sent.append((subject, message))
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    feeds = aviation.FeedClient(http, aviation.POLL_ORDER)
+    pub = FakePublisher()
+    assert await worker.sweep_gps(feeds, pub, 1) == 1
+    subject, message = pub.sent[0]
+    assert subject == "argus.gps"
+    assert message == {
+        "aircraft": [
+            {
+                "hex": "4ca1fa",
+                "lat": 59.4,
+                "lon": 25.9,
+                "nac_p": 4,
+                "ground": False,
+            }
+        ]
+    }
+    await http.aclose()

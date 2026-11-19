@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     # aircraft are fetched by the API for the area in view.
     air_enabled: bool = True
     air_interval_s: int = 30
+    # After each military poll, one GPS interference hotspot from adsb.fi
+    # (aviation.GPS_HOTSPOTS), so those cells have enough aircraft.
+    gps_sweep: bool = True
     # Satellite catalogue from CelesTrak, every six hours.
     space_enabled: bool = True
     # Vessels from AISStream (needs an admin's key in Settings).

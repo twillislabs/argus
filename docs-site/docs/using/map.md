@@ -313,8 +313,13 @@ Click one for its details and the source text.
 
 GPS interference uses the method gpsjam.org uses, but only from the
 aircraft Argus sees: military aircraft worldwide, civil traffic where
-someone is looking, and your own receiver. Cells need at least eight
-aircraft. Not for navigation.
+someone is looking, your own receiver, and a sweep of the places where
+interference is usually reported (the Baltic, Finnmark, the Black Sea,
+the Caucasus, the eastern Mediterranean, Iraq and Syria, the Persian
+Gulf). The sweep asks adsb.fi for one of those areas after each military
+poll, so each is refreshed about every five minutes. Cells need at
+least eight aircraft in the last hour, so a quiet area can stay clear.
+Not for navigation.
 
 If the openAIP row says *openAIP is refusing this server (403)*, openAIP's
 Cloudflare front end is turning this server's address away before it

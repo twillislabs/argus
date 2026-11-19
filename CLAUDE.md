@@ -121,6 +121,11 @@ parts connect.
   `PolylineCollection` with a material per line is one draw call per line
   and crawls; sharing one material there gets it destroyed twice.
 - GPS interference cells are hexagons (`aviation.hex_cell`), not squares.
+  Besides military, view and receiver traffic, the worker's `air_loop`
+  sweeps one `aviation.GPS_HOTSPOTS` area per military poll from adsb.fi
+  only (`FeedClient.get(..., only=)`), publishing a bare sample
+  (`gps_sample`) on NATS `argus.gps`; the API feeds it to `GpsGrid` and
+  nothing else (not stored, not pushed). `ARGUS_GPS_SWEEP=false` stops it.
 - Labels: Argus labels down to `TILE_LABELS_BELOW` (overlays.ts); below
   it the basemap's label tiles (`LABEL_LAYERS` in Globe.tsx) and the
   self-hosted street map fade in. Mark any new label-carrying imagery
