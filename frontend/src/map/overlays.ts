@@ -282,10 +282,17 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
       // Dark and Hybrid: only from heights where the tiles don't label.
       for (const { label, pop } of cityLabels) {
         const range = cityRange(pop);
-        label.distanceDisplayCondition =
-          mode === 'satellite'
-            ? range
-            : new DistanceDisplayCondition(TILE_LABELS_BELOW, Math.max(TILE_LABELS_BELOW, range.far));
+        if (mode === 'satellite') {
+          label.distanceDisplayCondition = range;
+          label.show = true;
+        } else if (range.far > TILE_LABELS_BELOW) {
+          label.distanceDisplayCondition = new DistanceDisplayCondition(TILE_LABELS_BELOW, range.far);
+          label.show = true;
+        } else {
+          // Only ever shown below the tiles' own labels: leave it to them.
+          // (A condition needs far > near, so hide it instead.)
+          label.show = false;
+        }
       }
       const next = mode === 'dark' ? STYLE.dark : STYLE.imagery;
       if (next === style) return;
