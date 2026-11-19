@@ -269,7 +269,7 @@ you typed and offers matches:
 | Aircraft | `A55EF3` (ICAO hex), `N445UA`, `G-ABCD` | Same as a flight |
 | Squawk | `7700`, `7600`, `7500` | Aircraft squawking that code, and a filter for emergencies |
 | Airport | `BNA`, `KBNA` | Flies to the airport |
-| Place | `Goodlettsville, TN`, `Kyiv` | Flies to the place (towns of 15,000+) |
+| Place | `Springfield, IL`, `Kyiv` | Flies to the place (towns of 15,000+) |
 | Coordinates | `36.32, -86.71` | Flies to the point |
 | Event | `Ishinomaki`, `earthquake Japan` | Opens matching events |
 | Layer words | `earthquakes`, `protests`, `military`, `tankers`, `emergencies` | Applies that filter; **Reset filters** undoes it |

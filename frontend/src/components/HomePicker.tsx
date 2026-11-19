@@ -92,7 +92,7 @@ export default function HomePicker({ value, onChange }: Props) {
           id="hp-q"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g. Goodlettsville, TN or Warsaw"
+          placeholder="A city or town, e.g. Springfield, IL or Warsaw"
           autoComplete="off"
         />
         {(results.length > 0 || (query.trim().length >= 2 && !searching)) && (

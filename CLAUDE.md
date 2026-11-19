@@ -37,7 +37,8 @@ parts connect.
 - `frontend/src/`: React 18 + TypeScript + Vite (`pages/`, `components/`,
   `map/`, `lib/`, `styles/`). Build output keeps JS, CSS, fonts, images and
   vendor files in their own folders (`vite.config.ts`).
-- `docs-site/`: Docusaurus, served at `/docs/`.
+- `docs-site/`: Docusaurus, served at `/docs/`, with local search
+  (`@easyops-cn/docusaurus-search-local`, index built with the site).
 - `streetmap/`: tileserver-gl config and the Argus Dark street style
   (Protomaps v4 schema). Data lives in `data/streetmap/` (gitignored),
   downloaded by `scripts/streetmap.sh` / `make streetmap`.

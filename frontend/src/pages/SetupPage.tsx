@@ -68,7 +68,9 @@ export default function SetupPage({ onDone }: { onDone: () => Promise<void> }) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [home, setHome] = useState<Home | null>(null);
-  const [preset, setPreset] = useState<(typeof PRESETS)[number]['id']>('live');
+  // Aircraft start off (they spend the shared ADS-B quota); the air presets
+  // are a click away.
+  const [preset, setPreset] = useState<(typeof PRESETS)[number]['id']>('events');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 

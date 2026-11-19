@@ -32,7 +32,7 @@ hashed with Argon2id and never stored in plain text.
 
 Search for your town or enter coordinates. The search runs on your server
 over GeoNames' list of every place with 15,000+ people (about 34,000 places),
-so it works offline. You can qualify a name: `Goodlettsville, TN`,
+so it works offline. You can qualify a name: `Springfield, IL`,
 `Springfield, Illinois`, `Paris, France`. For anywhere smaller, type the
 coordinates; the time zone comes from the nearest listed place.
 

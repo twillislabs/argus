@@ -15,7 +15,20 @@ const config: Config = {
     mermaid: true,
     hooks: { onBrokenMarkdownLinks: 'throw' },
   },
-  themes: ['@docusaurus/theme-mermaid'],
+  themes: [
+    '@docusaurus/theme-mermaid',
+    // Search, built into the site at build time: no outside service.
+    [
+      '@easyops-cn/docusaurus-search-local',
+      {
+        hashed: true,
+        indexBlog: false,
+        docsRouteBasePath: '/',
+        highlightSearchTermsOnTargetPage: true,
+        searchBarShortcutHint: true,
+      },
+    ],
+  ],
   clientModules: ['./src/fonts.ts'],
   i18n: { defaultLocale: 'en', locales: ['en'] },
   presets: [
