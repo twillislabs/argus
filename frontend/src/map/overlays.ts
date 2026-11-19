@@ -9,7 +9,7 @@ import {
   Color,
   DistanceDisplayCondition,
   NearFarScalar,
-} from '@cesium/core';
+} from "@cesium/core";
 import {
   HorizontalOrigin,
   type Label,
@@ -19,10 +19,10 @@ import {
   PointPrimitiveCollection,
   type Scene,
   VerticalOrigin,
-} from '@cesium/engine';
-import { feature, mesh } from 'topojson-client';
-import { type LineBatch, lineBatch } from './lineBatch';
-import type { GeometryCollection, Topology } from 'topojson-specification';
+} from "@cesium/engine";
+import { feature, mesh } from "topojson-client";
+import { type LineBatch, lineBatch } from "./lineBatch";
+import type { GeometryCollection, Topology } from "topojson-specification";
 
 export interface ReferenceLayers {
   borders: boolean;
@@ -46,8 +46,18 @@ export const DEFAULT_REFERENCE: ReferenceLayers = {
 // Line colours differ over imagery (light) and the dark map (muted).
 const STYLE = {
   // The mock-up's dark map: borders a faint blue-grey, names muted.
-  dark: { border: 'rgba(120,135,155,0.42)', state: 'rgba(120,135,155,0.24)', city: '#c2cad6', country: '#6f7a89' },
-  imagery: { border: 'rgba(255,255,255,0.75)', state: 'rgba(255,255,255,0.45)', city: '#ffffff', country: '#e8edf3' },
+  dark: {
+    border: "rgba(120,135,155,0.42)",
+    state: "rgba(120,135,155,0.24)",
+    city: "#c2cad6",
+    country: "#6f7a89",
+  },
+  imagery: {
+    border: "rgba(255,255,255,0.75)",
+    state: "rgba(255,255,255,0.45)",
+    city: "#ffffff",
+    country: "#e8edf3",
+  },
 };
 
 const LINE_HEIGHT = 800;
@@ -68,6 +78,37 @@ function cityRange(population: number): DistanceDisplayCondition {
 
 type Position = number[];
 
+// Join pieces that meet end to start into longer lines (the admin-1 data
+// is some 44,000 short pieces), so there are far fewer lines to build.
+function joinLines(lines: Position[][]): Position[][] {
+  const key = (p: Position) => p[0].toFixed(2) + "," + p[1].toFixed(2);
+  const byStart = new Map<string, number[]>();
+  lines.forEach((l, i) => {
+    if (l.length < 2) return;
+    const k = key(l[0]);
+    const list = byStart.get(k);
+    if (list) list.push(i);
+    else byStart.set(k, [i]);
+  });
+  const used = new Uint8Array(lines.length);
+  const out: Position[][] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (used[i] || lines[i].length < 2) continue;
+    used[i] = 1;
+    const line = [...lines[i]];
+    for (;;) {
+      const next = (byStart.get(key(line[line.length - 1])) ?? []).find(
+        (j) => !used[j],
+      );
+      if (next === undefined) break;
+      used[next] = 1;
+      for (const p of lines[next].slice(1)) line.push(p);
+    }
+    out.push(line);
+  }
+  return out;
+}
+
 // The admin-1 lines are delta-encoded at 0.01 degrees:
 // [x0, y0, dx1, dy1, dx2, dy2, ...].
 function decodeAdmin1(raw: number[][]): Position[][] {
@@ -86,11 +127,13 @@ function decodeAdmin1(raw: number[][]): Position[][] {
 
 // A country's label point: the centre of its largest ring's bounding box,
 // nudged to the ring's vertex average (good enough for labels).
-function labelPoint(geometry: GeoJSON.Geometry): { at: [number, number]; area: number } | null {
+function labelPoint(
+  geometry: GeoJSON.Geometry,
+): { at: [number, number]; area: number } | null {
   const polys =
-    geometry.type === 'Polygon'
+    geometry.type === "Polygon"
       ? [geometry.coordinates]
-      : geometry.type === 'MultiPolygon'
+      : geometry.type === "MultiPolygon"
         ? geometry.coordinates
         : [];
   let best: Position[] | null = null;
@@ -125,7 +168,7 @@ function countryRange(areaDeg2: number): DistanceDisplayCondition {
   return new DistanceDisplayCondition(4.0e5, 3.0e6);
 }
 
-export type LabelMode = 'dark' | 'satellite' | 'hybrid';
+export type LabelMode = "dark" | "satellite" | "hybrid";
 
 // Argus names places down to this height. Below it the Dark and Hybrid
 // maps' own label tiles fade in (Globe.tsx) and Argus's labels step
@@ -156,33 +199,47 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   const airportLabels = new LabelCollection({ scene });
   const portDots = new PointPrimitiveCollection();
   const portLabels = new LabelCollection({ scene });
-  for (const p of [airportDots, portDots, labels, airportLabels, portLabels]) scene.primitives.add(p);
+  for (const p of [airportDots, portDots, labels, airportLabels, portLabels])
+    scene.primitives.add(p);
 
   let style = STYLE.dark;
   // Borders are batched into one primitive each (see lineBatch.ts).
   let borders: LineBatch | null = null;
   let states: LineBatch | null = null;
+  let stateLines: number[][] | null = null;
   const countryLabels: { label: Label; area: number }[] = [];
   const cityLabels: { label: Label; pop: number }[] = [];
 
   const [topo, admin1, cities, airports, ports] = await Promise.all([
-    json<Topology>('/data/countries-50m.json'),
-    json<number[][]>('/data/admin1-lines.json'),
-    json<[string, number, number, number][]>('/data/cities.json'),
-    json<[string, string, number, number][]>('/data/airports.json'),
-    json<[string, string, string, number, number, number][]>('/data/ports.json'),
+    json<Topology>("/data/countries-50m.json"),
+    json<number[][]>("/data/admin1-lines.json"),
+    json<[string, number, number, number][]>("/data/cities.json"),
+    json<[string, string, number, number][]>("/data/airports.json"),
+    json<[string, string, string, number, number, number][]>(
+      "/data/ports.json",
+    ),
   ]);
 
   if (topo) {
     const countries = topo.objects.countries as GeometryCollection;
-    const lines = mesh(topo, countries, (a, b) => a !== b) as unknown as GeoJSON.MultiLineString;
-    borders = lineBatch(scene, lines.coordinates, style.border, 1.2, LINE_HEIGHT);
+    const lines = mesh(
+      topo,
+      countries,
+      (a, b) => a !== b,
+    ) as unknown as GeoJSON.MultiLineString;
+    borders = lineBatch(
+      scene,
+      lines.coordinates,
+      style.border,
+      1.2,
+      LINE_HEIGHT,
+    );
     scene.primitives.add(borders.primitive);
     const fc = feature(topo, countries) as unknown as GeoJSON.FeatureCollection;
     for (const f of fc.features) {
       const name = (f.properties as { name?: string } | null)?.name;
       const point = f.geometry ? labelPoint(f.geometry) : null;
-      if (!name || !point || name === 'Antarctica') continue;
+      if (!name || !point || name === "Antarctica") continue;
       const at = point.at;
       countryLabels.push({
         area: point.area,
@@ -191,7 +248,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
           text: name.toUpperCase(),
           font: '600 11px "Barlow Semi Condensed", "Arial Narrow", sans-serif',
           fillColor: Color.fromCssColorString(style.country),
-          outlineColor: Color.fromCssColorString('#05080e'),
+          outlineColor: Color.fromCssColorString("#05080e"),
           outlineWidth: 3,
           style: LabelStyle.FILL_AND_OUTLINE,
           horizontalOrigin: HorizontalOrigin.CENTER,
@@ -205,10 +262,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   }
 
   if (admin1) {
-    // Some 44,000 lines: batched, they draw in one call (a polyline
-    // each made the map crawl).
-    states = lineBatch(scene, decodeAdmin1(admin1), style.state, 1, LINE_HEIGHT, STATE_RANGE);
-    scene.primitives.add(states.primitive);
+    // Built the first time the layer is switched on (see apply).
+    stateLines = admin1;
   }
 
   if (cities) {
@@ -218,9 +273,11 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
         label: labels.add({
           position: Cartesian3.fromDegrees(lon, lat, 1500),
           text: name,
-          font: (pop >= 1_000_000 ? '600 12px' : '500 11px') + ' Inter, system-ui, sans-serif',
+          font:
+            (pop >= 1_000_000 ? "600 12px" : "500 11px") +
+            " Inter, system-ui, sans-serif",
           fillColor: Color.fromCssColorString(style.city),
-          outlineColor: Color.fromCssColorString('#05080e'),
+          outlineColor: Color.fromCssColorString("#05080e"),
           outlineWidth: 3,
           style: LabelStyle.FILL_AND_OUTLINE,
           horizontalOrigin: HorizontalOrigin.CENTER,
@@ -238,8 +295,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
       airportDots.add({
         position,
         pixelSize: 6,
-        color: Color.fromCssColorString('#0b0e13'),
-        outlineColor: Color.fromCssColorString('#b4c2d4'),
+        color: Color.fromCssColorString("#0b0e13"),
+        outlineColor: Color.fromCssColorString("#b4c2d4"),
         outlineWidth: 1.5,
         distanceDisplayCondition: AIRPORT_RANGE,
       });
@@ -247,8 +304,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
         position,
         text: code,
         font: '600 10.5px "JetBrains Mono", monospace',
-        fillColor: Color.fromCssColorString('#b4c2d4'),
-        outlineColor: Color.fromCssColorString('#05080e'),
+        fillColor: Color.fromCssColorString("#b4c2d4"),
+        outlineColor: Color.fromCssColorString("#05080e"),
         outlineWidth: 3,
         style: LabelStyle.FILL_AND_OUTLINE,
         horizontalOrigin: HorizontalOrigin.LEFT,
@@ -262,8 +319,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   if (ports) {
     // UN/LOCODE ports: sea ports (near the coast) from further out than
     // river and inland ports. Only sea ports get names.
-    const teal = Color.fromCssColorString('#4fc1b0');
-    const dark = Color.fromCssColorString('#0b0e13');
+    const teal = Color.fromCssColorString("#4fc1b0");
+    const dark = Color.fromCssColorString("#0b0e13");
     for (const [, name, , lon, lat, sea] of ports) {
       const position = Cartesian3.fromDegrees(lon, lat, 1000);
       portDots.add({
@@ -278,9 +335,9 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
       portLabels.add({
         position,
         text: name,
-        font: '500 10.5px Inter, system-ui, sans-serif',
+        font: "500 10.5px Inter, system-ui, sans-serif",
         fillColor: teal,
-        outlineColor: Color.fromCssColorString('#05080e'),
+        outlineColor: Color.fromCssColorString("#05080e"),
         outlineWidth: 3,
         style: LabelStyle.FILL_AND_OUTLINE,
         horizontalOrigin: HorizontalOrigin.LEFT,
@@ -292,18 +349,22 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   }
 
   let layers = DEFAULT_REFERENCE;
-  let mode: LabelMode = 'dark';
+  let mode: LabelMode = "dark";
   // Satellite has no names of its own, and Basemap labels can be off:
   // then Argus shows every label. Otherwise only above the height where
   // the tiles' own names take over.
   function placeLabels() {
-    const tiles = mode !== 'satellite' && layers.basemapLabels;
+    const tiles = mode !== "satellite" && layers.basemapLabels;
     for (const { label, pop } of cityLabels) {
       const range = cityRange(pop);
       const near = tiles ? TILE_LABELS_BELOW : range.near;
       // Cesium throws unless far > near: hide labels with nothing left.
       label.show = range.far > near;
-      if (label.show) label.distanceDisplayCondition = new DistanceDisplayCondition(near, range.far);
+      if (label.show)
+        label.distanceDisplayCondition = new DistanceDisplayCondition(
+          near,
+          range.far,
+        );
     }
     for (const { label, area } of countryLabels) {
       const range = countryRange(area);
@@ -312,11 +373,29 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
       // names appear once you're zoomed in to a continent.
       const far = Math.min(range.far, COUNTRY_LABELS_BELOW);
       label.show = far > near;
-      if (label.show) label.distanceDisplayCondition = new DistanceDisplayCondition(near, far);
+      if (label.show)
+        label.distanceDisplayCondition = new DistanceDisplayCondition(
+          near,
+          far,
+        );
     }
   }
   function apply() {
     if (borders) borders.primitive.show = layers.borders;
+    if (layers.states && !states && stateLines) {
+      // Some 44,000 pieces, joined into about 13,000 lines and batched
+      // into one draw call (a polyline each made the map crawl).
+      states = lineBatch(
+        scene,
+        joinLines(decodeAdmin1(stateLines)),
+        style.state,
+        1,
+        LINE_HEIGHT,
+        STATE_RANGE,
+      );
+      scene.primitives.add(states.primitive);
+      stateLines = null;
+    }
     if (states) states.primitive.show = layers.states;
     labels.show = layers.labels;
     airportDots.show = layers.airports;
@@ -335,7 +414,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     setImagery(nextMode) {
       mode = nextMode;
       placeLabels();
-      const next = mode === 'dark' ? STYLE.dark : STYLE.imagery;
+      const next = mode === "dark" ? STYLE.dark : STYLE.imagery;
       if (next === style) return;
       style = next;
       borders?.setColor(style.border);
@@ -347,7 +426,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     },
     setDepthDistance(metres) {
       for (const c of [labels, airportLabels, portLabels]) {
-        for (let i = 0; i < c.length; i++) c.get(i).disableDepthTestDistance = metres;
+        for (let i = 0; i < c.length; i++)
+          c.get(i).disableDepthTestDistance = metres;
       }
       for (const dots of [airportDots, portDots]) {
         for (let i = 0; i < dots.length; i++) {
@@ -357,9 +437,19 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     },
     destroy() {
       if (scene.isDestroyed()) return;
-      const batches = [borders?.primitive, states?.primitive].filter((p): p is NonNullable<typeof p> => Boolean(p));
-      for (const p of [...batches, airportDots, portDots, labels, airportLabels, portLabels]) {
-        if (!p.isDestroyed() && scene.primitives.contains(p)) scene.primitives.remove(p);
+      const batches = [borders?.primitive, states?.primitive].filter(
+        (p): p is NonNullable<typeof p> => Boolean(p),
+      );
+      for (const p of [
+        ...batches,
+        airportDots,
+        portDots,
+        labels,
+        airportLabels,
+        portLabels,
+      ]) {
+        if (!p.isDestroyed() && scene.primitives.contains(p))
+          scene.primitives.remove(p);
       }
     },
   };

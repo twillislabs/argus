@@ -36,3 +36,11 @@ p { margin: 0; color: var(--muted); }
 ::-webkit-scrollbar-thumb:hover { background-color: #3a4452; }
 ::-webkit-scrollbar-thumb:active { background-color: var(--accent); }
 ::-webkit-scrollbar-corner { background: transparent; }
+
+/* Themed hover tips (components/Tooltips.tsx). */
+.tip {
+  position: fixed; z-index: 1000; pointer-events: none; max-width: 320px; transform: translate(-50%, -100%);
+  background: var(--surface-3); color: var(--text); border: 1px solid var(--line-2); border-radius: 4px;
+  padding: 5px 8px; font: 12px/1.4 var(--f-body); white-space: pre-line; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.tip.below { transform: translate(-50%, 0); }
