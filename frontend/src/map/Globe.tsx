@@ -300,6 +300,8 @@ export interface GlobeHandle {
   // The camera as a share-link string, and applying one.
   cameraString: () => string | null;
   applyCamera: (s: string) => boolean;
+  // Fly to a cameraString view over `seconds`; resolves false if cancelled.
+  flyCamera: (s: string, seconds: number) => Promise<boolean>;
   satOrbit: (norad: number) => Promise<OrbitInfo | null>;
   plant: (index: number) => Plant | null;
   airport: (index: number) => Airport | null;
@@ -1412,6 +1414,26 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
             CesiumMath.toDegrees(c.heading).toFixed(1),
             CesiumMath.toDegrees(c.pitch).toFixed(1),
           ].join(',');
+        },
+        flyCamera(text, seconds) {
+          const v = viewer.current;
+          const parts = text.split(',').map(Number);
+          if (!v || parts.length < 3 || parts.some((n) => !Number.isFinite(n))) return Promise.resolve(false);
+          const [lon, lat, height, heading = 0, pitch = -90] = parts;
+          tracker.current?.release();
+          return new Promise((resolve) => {
+            v.camera.flyTo({
+              destination: Cartesian3.fromDegrees(lon, lat, Math.min(Math.max(height, 1), 5e7)),
+              orientation: {
+                heading: CesiumMath.toRadians(heading),
+                pitch: CesiumMath.toRadians(Math.max(-90, Math.min(0, pitch))),
+                roll: 0,
+              },
+              duration: reduceMotion ? 0 : seconds,
+              complete: () => resolve(true),
+              cancel: () => resolve(false),
+            });
+          });
         },
         applyCamera(text) {
           const v = viewer.current;

@@ -197,6 +197,11 @@ parts connect.
   only (`FeedClient.get(..., only=)`), publishing a bare sample
   (`gps_sample`) on NATS `argus.gps`; the API feeds it to `GpsGrid` and
   nothing else (not stored, not pushed). `ARGUS_GPS_SWEEP=false` stops it.
+- Director mode: `lib/tours.ts` (types, cleanTour, `/#tour=` links as
+  base64url JSON), `components/TourPanel.tsx`, playback in MapPage
+  (`playTour`, a token cancels it; `GlobeHandle.flyCamera` resolves
+  false when the user interrupts a flight). Saved in the `tours`
+  preference (`schemas.Tour`, camera text checked by `CAMERA_TEXT`).
 - Camera viewsheds (`map/camLayer.ts`): ground sectors in one Primitive,
   rebuilt only when the cameras or selection change (it builds in a
   worker; replacing it each render meant it never showed). It has no

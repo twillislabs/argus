@@ -8,6 +8,8 @@ interface Props {
   onCapture: () => void;
   onClear: () => void;
   drawingCount: number;
+  toursOpen: boolean;
+  onTours: () => void;
 }
 
 const SELECT: { id: Tool; label: string }[] = [
@@ -134,7 +136,7 @@ function DeleteMenu({
 
 // The map toolbar (as in Foundry Map): select in an area, draw shapes,
 // measure, add notes, capture a screenshot, delete drawings.
-export default function MapToolbar({ tool, onTool, onCapture, onClear, drawingCount }: Props) {
+export default function MapToolbar({ tool, onTool, onCapture, onClear, drawingCount, toursOpen, onTours }: Props) {
   const toggle = (t: Tool) => onTool(tool === t ? 'none' : t);
   return (
     <div className="maptoolbar seg" role="toolbar" aria-label="Map tools">
@@ -156,6 +158,9 @@ export default function MapToolbar({ tool, onTool, onCapture, onClear, drawingCo
         onClick={() => toggle('imagery-box')}
       >
         Imagery
+      </button>
+      <button aria-pressed={toursOpen} title="Director mode: saved camera tours with captions" onClick={onTours}>
+        Tours
       </button>
       <button title="Save a PNG of the map" onClick={onCapture}>
         Capture

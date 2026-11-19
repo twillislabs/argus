@@ -173,12 +173,32 @@ The toolbar under the base map buttons, as in Palantir's Foundry Map:
 | **Measure** | Click points along a route; the running distance follows the cursor |
 | **Note** | Click the map, type a note, press Enter |
 | **Imagery** | Draw a box (up to about 100 km across) for recent satellite imagery of it: see [Recent imagery](#recent-imagery) |
+| **Tours** | Director mode: saved camera moves with captions; see [Tours](#tours) |
 | **Capture** | Saves a PNG of the map as it is now |
 | **Delete** | **Click to delete** removes drawings and notes one at a time; **Delete all** clears them (after a confirmation) |
 
 Lines and polygons: click to add points, double-click or **Enter** to
 finish, **Backspace** to undo the last point, **Esc** to cancel. Drawings
 are saved to your account.
+
+### Tours
+
+**Tours** in the toolbar opens director mode: tours are camera moves
+with captions, for a briefing or a screen at the back of the room.
+
+1. **New tour** starts one with the current view as its first shot.
+2. Move the map to the next view (any angle: tilt with the **35°**
+   button or by dragging) and press **+ Add the current view**. Repeat.
+3. Give each shot a caption, how long to **fly** there (0 to 30 s) and
+   how long to **hold** (1 to 600 s). **Set** replaces a shot with the
+   current view; the arrows reorder.
+4. **▶ Play** flies through the shots with each caption at the bottom
+   of the map; **Loop** starts again at the end. Moving the map during a
+   flight, or **■ Stop**, ends it. **▶** next to a shot plays from there.
+
+Tours save to your account as you edit them. **Share link** copies a
+link that opens the tour in the Tours panel and plays it for anyone
+signed in to this Argus; they can **Save to my tours**.
 
 ### Recent imagery
 

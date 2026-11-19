@@ -6,9 +6,11 @@
 //   l    layers that are on, joined with "."
 //   e    an event id to open, or
 //   ac   an aircraft hex to select, with cam = its camera view
+//   tour a director-mode tour (base64url JSON) to open and play
 
 import type { LayerFilters } from '../components/LayerPanel';
 import type { CameraMode } from '../map/aircraftCamera';
+import { decodeTour, type Tour } from './tours';
 import type { Basemap } from '../map/Globe';
 
 const KEY = 'argus-share';
@@ -30,6 +32,8 @@ export interface Share {
   view?: CameraMode;
   norad?: number;
   mmsi?: number;
+  // A director-mode tour to open and play (/#tour=...).
+  tour?: Tour;
 }
 
 export function enabledLayers(f: LayerFilters): string[] {
@@ -94,7 +98,13 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
       gps: has('gps'),
       structure: has('structure'),
     },
-    infra: { nuclear: has('nuclear'), power: has('power'), cables: has('cables'), bases: has('bases'), alpr: has('alpr') },
+    infra: {
+      nuclear: has('nuclear'),
+      power: has('power'),
+      cables: has('cables'),
+      bases: has('bases'),
+      alpr: has('alpr'),
+    },
     tension: has('tension'),
     wiki: has('wiki'),
     cams: { traffic: has('cams-traffic'), webcams: has('cams-webcams') },
@@ -128,6 +138,10 @@ export function buildShareLink(s: {
 
 function parse(hash: string): Share | null {
   const p = new URLSearchParams(hash.replace(/^#/, ''));
+  if (p.has('tour')) {
+    const tour = decodeTour(p.get('tour') ?? '');
+    return tour ? { tour } : null;
+  }
   if (!p.has('v') && !p.has('ac') && !p.has('e') && !p.has('sat') && !p.has('ship')) return null;
   const ship = Number(p.get('ship'));
   const sat = Number(p.get('sat'));

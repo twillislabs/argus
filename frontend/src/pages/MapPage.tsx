@@ -6,6 +6,8 @@ import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
 import PlaceInspector from '../components/PlaceInspector';
 import ImageryPanel, { type ImageryState, newImagery } from '../components/ImageryPanel';
+import TourPanel from '../components/TourPanel';
+import { cleanTour, type Tour } from '../lib/tours';
 import { FAA_COLOR, faaLevel, faaLine, type FaaStatus, getFaaStatus } from '../lib/faa';
 import AlprInspector from '../components/AlprInspector';
 import BridgeHud from '../components/BridgeHud';
@@ -1040,6 +1042,54 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   // A share link opens here: apply its base map, layers, selection and
   // camera once, without changing the user's saved preferences.
+  // Director mode: saved tours (preferences), a tour opened from a link,
+  // and playback (one tour at a time; a newer play or Stop ends it).
+  const [toursOpen, setToursOpen] = useState(false);
+  const [tours, setTours] = useState<Tour[]>(
+    () => ((me.preferences.tours as unknown[] | undefined) ?? []).map(cleanTour).filter((t): t is Tour => t !== null),
+  );
+  const [sharedTour, setSharedTour] = useState<Tour | null>(null);
+  const [activeTour, setActiveTour] = useState<string | null>(null);
+  const [playing, setPlaying] = useState<{ id: string; index: number } | null>(null);
+  const playToken = useRef(0);
+  const saveTimer = useRef<number | undefined>(undefined);
+  const saveTours = (next: Tour[]) => {
+    setTours(next);
+    // Typing a caption saves once it pauses.
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(
+      () => void savePreferences({ tours: next }).catch(() => undefined),
+      800,
+    );
+  };
+  const stopTour = () => {
+    playToken.current++;
+    setPlaying(null);
+  };
+  async function playTour(t: Tour, from: number) {
+    const token = ++playToken.current;
+    const live = () => playToken.current === token;
+    let i = from;
+    while (live() && t.shots.length) {
+      if (i >= t.shots.length) {
+        if (!t.loop) break;
+        i = 0;
+      }
+      const shot = t.shots[i];
+      setPlaying({ id: t.id, index: i });
+      const done = await globe.current?.flyCamera(shot.camera, shot.fly_s);
+      // Someone moved the map mid-flight: hand it back to them.
+      if (!live() || done === false) break;
+      const until = Date.now() + shot.hold_s * 1000;
+      while (live() && Date.now() < until) await new Promise((r) => window.setTimeout(r, 200));
+      i++;
+    }
+    if (live()) setPlaying(null);
+  }
+  const playingTour = playing ? [sharedTour, ...tours].find((t) => t?.id === playing.id) : null;
+  const playingShot = playingTour?.shots[playing?.index ?? -1] ?? null;
+  useEffect(() => () => stopTour(), []);
+
   function applyShare() {
     // A theatre picked on the Brief page.
     try {
@@ -1055,6 +1105,17 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     }
     const share = takeShareLink();
     if (!share) return;
+    if (share.tour) {
+      const t = share.tour;
+      clearSelection();
+      setSharedTour(t);
+      setActiveTour(t.id);
+      setToursOpen(true);
+      openRight();
+      // Let the globe settle first.
+      window.setTimeout(() => void playTour(t, 0), 1500);
+      return;
+    }
     if (share.basemap) setBasemap(share.basemap);
     if (share.layers) setFilters((f) => applyLayers(f, share.layers as string[]));
     if (share.mmsi) selectVessel(share.mmsi, share.view ?? 'follow');
@@ -1756,6 +1817,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             </div>
           )}
           <HoverLayer describe={hoverInfo} />
+          {playingShot?.caption && <div className="tourcaption">{playingShot.caption}</div>}
           {ctxMenu && (
             <MapContextMenu
               {...ctxMenu}
@@ -1773,6 +1835,15 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 if (window.confirm('Delete all ' + drawings.length + ' drawings? This cannot be undone.')) saveDrawings([]);
               }}
               drawingCount={drawings.length}
+              toursOpen={toursOpen}
+              onTours={() => {
+                if (toursOpen) setToursOpen(false);
+                else {
+                  clearSelection();
+                  setToursOpen(true);
+                  openRight();
+                }
+              }}
             />
           </div>
           {toolHint && <div className="toolhint">{toolHint}</div>}
@@ -1975,6 +2046,28 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 id={selected}
                 onBack={() => setSelected(null)}
                 onFly={(lat, lon) => globe.current?.flyTo(lat, lon)}
+              />
+            ) : toursOpen ? (
+              <TourPanel
+                tours={tours}
+                shared={sharedTour}
+                activeId={activeTour}
+                playing={playing}
+                onActive={setActiveTour}
+                onTours={saveTours}
+                onSaveShared={() => {
+                  if (!sharedTour) return;
+                  saveTours([...tours, sharedTour]);
+                  setSharedTour(null);
+                }}
+                currentCamera={() => globe.current?.cameraString() ?? null}
+                onGo={(s) => {
+                  stopTour();
+                  void globe.current?.flyCamera(s.camera, Math.min(s.fly_s, 3));
+                }}
+                onPlay={(t, from) => void playTour(t, from)}
+                onStop={stopTour}
+                onClose={() => setToursOpen(false)}
               />
             ) : sentinel ? (
               <ImageryPanel

@@ -132,3 +132,35 @@ async def test_api_security_headers(client):
     response = await client.get("/api/health")
     assert response.headers["x-content-type-options"] == "nosniff"
     assert "default-src 'none'" in response.headers["content-security-policy"]
+
+
+async def test_tours_preference(admin_client):
+    tour = {
+        "id": "t1",
+        "name": "Strait of Hormuz",
+        "loop": True,
+        "shots": [
+            {
+                "camera": "56.30000,26.50000,250000,12.5,-45.0",
+                "caption": "Shipping lane",
+                "fly_s": 4,
+                "hold_s": 8,
+            },
+            {"camera": "-86.78000,36.16000,40000"},
+        ],
+    }
+    r = await admin_client.patch(
+        "/api/me/preferences",
+        json={"tours": [tour]},
+        headers=csrf(admin_client),
+    )
+    assert r.status_code == 200
+    saved = (await admin_client.get("/api/me")).json()["preferences"]["tours"]
+    assert saved[0]["shots"][0]["caption"] == "Shipping lane"
+    bad = dict(tour, shots=[{"camera": "javascript:alert(1)"}])
+    r = await admin_client.patch(
+        "/api/me/preferences",
+        json={"tours": [bad]},
+        headers=csrf(admin_client),
+    )
+    assert r.status_code == 422

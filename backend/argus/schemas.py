@@ -250,6 +250,34 @@ class WallProfileIn(BaseModel):
     wall: WallPrefs
 
 
+# A map camera: lon,lat,height[,heading,pitch] (GlobeHandle.cameraString).
+CAMERA_TEXT = (
+    r"^-?\d{1,3}(\.\d+)?,-?\d{1,2}(\.\d+)?,\d{1,8}(,-?\d{1,3}(\.\d+)?){0,2}$"
+)
+
+
+class TourShot(BaseModel):
+    """One shot of a director-mode tour: a view and a caption."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    camera: str = Field(max_length=60, pattern=CAMERA_TEXT)
+    caption: str = Field(default="", max_length=200)
+    fly_s: float = Field(default=3, ge=0, le=30)
+    hold_s: float = Field(default=6, ge=1, le=600)
+
+
+class Tour(BaseModel):
+    """A saved director-mode tour (map camera moves with captions)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, max_length=24, pattern=r"^[A-Za-z0-9_-]+$")
+    name: str = Field(min_length=1, max_length=60)
+    loop: bool = False
+    shots: list[TourShot] = Field(default_factory=list, max_length=40)
+
+
 class Preferences(BaseModel):
     """Per-user settings. Unknown keys are rejected to keep this small."""
 
@@ -280,6 +308,8 @@ class Preferences(BaseModel):
     # Shapes and notes drawn on the map (map/drawTools.ts).
     drawings: list[dict[str, Any]] | None = Field(default=None, max_length=200)
     show_banner: bool | None = None
+    # Director mode: saved map tours (TourPanel).
+    tours: list[Tour] | None = Field(default=None, max_length=30)
 
 
 class MeOut(BaseModel):
