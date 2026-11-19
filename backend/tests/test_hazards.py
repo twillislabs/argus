@@ -150,3 +150,16 @@ async def test_hazards_become_events(app):
         await db.commit()
         events = (await db.execute(select(Event))).scalars().all()
         assert len(events) == 1 and events[0].severity == 4
+
+
+def test_eonet_links_avoid_login_pages():
+    from argus.collectors.hazards import public_link
+
+    irwin = [{"id": "IRWIN", "url": "https://irwin.doi.gov/observer/x"}]
+    url = public_link(irwin, 35.0, -110.0, "2026-11-18T12:00:00Z")
+    assert url.startswith("https://worldview.earthdata.nasa.gov/")
+    assert "t=2026-11-18" in url
+    both = irwin + [{"id": "InciWeb", "url": "https://inciweb.wildfire.gov/x"}]
+    assert public_link(both, 35.0, -110.0, "2026-11-18") == (
+        "https://inciweb.wildfire.gov/x"
+    )

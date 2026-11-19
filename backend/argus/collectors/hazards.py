@@ -52,6 +52,23 @@ EONET_KINDS = {
     "manmade": "manmade",
 }
 
+# EONET sources whose pages need a login (IRWIN is the US interagency
+# fire system). Events with nothing else link to NASA Worldview: public
+# satellite imagery of the spot on the day.
+LOGIN_ONLY = {"IRWIN"}
+WORLDVIEW = (
+    "https://worldview.earthdata.nasa.gov/?v={0:.2f},{1:.2f},{2:.2f},{3:.2f}"
+    "&t={4}"
+)
+
+
+def public_link(sources: list[dict], lat: float, lon: float, day: str) -> str:
+    for src in sources:
+        if src.get("id") not in LOGIN_ONLY and src.get("url"):
+            return src["url"]
+    return WORLDVIEW.format(lon - 1, lat - 1, lon + 1, lat + 1, day[:10])
+
+
 ATOM = "{http://www.w3.org/2005/Atom}"
 GEO = "{http://www.w3.org/2003/01/geo/wgs84_pos#}"
 
@@ -158,7 +175,12 @@ def parse_eonet(doc: dict, now: datetime) -> list[RawIn]:
                     "knots": knots,
                     "modified": latest.get("date"),
                     "track": [g["coordinates"][:2] for g in points[-40:]],
-                    "url": sources[0].get("url") if sources else e.get("link"),
+                    "url": public_link(
+                        sources,
+                        float(lat),
+                        float(lon),
+                        str(latest.get("date") or now.isoformat()),
+                    ),
                 },
             )
         )
