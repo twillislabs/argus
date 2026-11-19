@@ -161,6 +161,8 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
 
 ## Data and credits
 
+- **Ports:** UN/LOCODE (UNECE), via the [datasets/un-locode](https://github.com/datasets/un-locode)
+  mirror.
 - **Ships:** [AISStream](https://aisstream.io/) (key). **Disasters:** [GDACS](https://www.gdacs.org/)
   (credit GDACS), [NASA EONET](https://eonet.gsfc.nasa.gov/), NOAA tsunami warning centres, and
   NGA Maritime Safety Information (public domain).

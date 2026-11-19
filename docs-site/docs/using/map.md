@@ -62,6 +62,7 @@ The **Reference** group in the layer panel draws over any base map:
 | **State / province borders** | First-level divisions (states, provinces, oblasts), below about 6,000 km | off |
 | **Place labels** | Country names on wide views; cities of 200,000+ as you zoom in, larger cities first | on |
 | **Airports** | Large airports with their IATA code, below about 1,200 km | off |
+| **Ports** | UN/LOCODE ports: sea ports (near the coast) below about 1,500 km, named when close; river and inland ports only close in | off |
 
 ## Near home
 
@@ -123,6 +124,10 @@ pointing at the destination), ground speed and altitude tapes, vertical
 speed, and the distance, bearing and time to the destination. ADS-B carries
 no pitch or roll, so the horizon line stays level where the camera sees the
 real horizon.
+
+Up close (inside about 12 km for aircraft, 8 km for ships), the flat
+glyph turns into a simple 3D model, turned to its heading, so Chase and
+Orbit look like what they are.
 
 Positions arrive every 10 to 15 seconds; in between, Argus moves the aircraft
 along its speed, track and climb rate so the camera glides. A bar at the

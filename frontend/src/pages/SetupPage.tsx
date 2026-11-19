@@ -15,7 +15,7 @@ const PRESETS = [
     prefs: {
       layers: { conflict: true, unrest: true, quake: true, fire: true, hazard: true, maritime: false },
       air: { military: true, civil: true, focus: '' },
-      reference: { borders: true, states: false, labels: true, airports: false },
+      reference: { borders: true, states: false, labels: true, airports: false, ports: false },
     },
   },
   {
@@ -25,7 +25,7 @@ const PRESETS = [
     prefs: {
       layers: { conflict: true, unrest: true, quake: true, fire: true, hazard: true, maritime: false },
       air: { military: false, civil: false, focus: '' },
-      reference: { borders: true, states: true, labels: true, airports: false },
+      reference: { borders: true, states: true, labels: true, airports: false, ports: false },
     },
   },
   {
@@ -35,7 +35,7 @@ const PRESETS = [
     prefs: {
       layers: { conflict: false, unrest: false, quake: false, fire: false, hazard: false, maritime: false },
       air: { military: true, civil: true, focus: '' },
-      reference: { borders: true, states: false, labels: true, airports: true },
+      reference: { borders: true, states: false, labels: true, airports: true, ports: false },
     },
   },
   {
@@ -45,7 +45,7 @@ const PRESETS = [
     prefs: {
       layers: { conflict: false, unrest: false, quake: false, fire: false, hazard: false, maritime: false },
       air: { military: false, civil: false, focus: '' },
-      reference: { borders: true, states: false, labels: true, airports: false },
+      reference: { borders: true, states: false, labels: true, airports: false, ports: false },
     },
   },
 ] as const;

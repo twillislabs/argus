@@ -44,7 +44,12 @@ export interface AircraftCamera {
   release: () => void;
 }
 
-export function createAircraftCamera(v: CesiumWidget, layer: () => AircraftLayer | null): AircraftCamera {
+export function createAircraftCamera(
+  v: CesiumWidget,
+  layer: () => AircraftLayer | null,
+  // Each frame: where the target is now (dead-reckoned) and the view.
+  onFrame?: (target: Aircraft, position: Cartesian3, mode: CameraMode) => void,
+): AircraftCamera {
   let mode: CameraMode = 'free';
   let target: Aircraft | null = null;
   // When the target's report was made, in performance.now() seconds.
@@ -90,6 +95,7 @@ export function createAircraftCamera(v: CesiumWidget, layer: () => AircraftLayer
       const p = extrapolate(target, now - reportedAt);
       const position = Cartesian3.fromDegrees(p.lon, p.lat, p.altM);
       layer()?.moveTo(target.hex, position);
+      onFrame?.(target, position, mode);
       if (mode === 'free') return;
 
       const camera = v.camera;

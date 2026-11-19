@@ -62,6 +62,7 @@ const REFERENCE_ROWS: { id: keyof ReferenceLayers; label: string; source: string
   { id: 'states', label: 'State / province borders', source: 'Natural Earth 10m' },
   { id: 'labels', label: 'Place labels', source: 'Countries, cities of 200k+' },
   { id: 'airports', label: 'Airports', source: 'OurAirports, large airports' },
+  { id: 'ports', label: 'Ports', source: 'UN/LOCODE, sea and inland' },
 ];
 
 export const AIR_FOCUS = [

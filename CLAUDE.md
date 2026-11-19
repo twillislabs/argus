@@ -28,7 +28,11 @@ parts connect.
     things up. New query kinds go in both, with tests in
     `tests/test_aviation.py`.
   - `data/*.tsv.gz`: bundled reference data, rebuilt by
-    `backend/scripts/build_*.py`.
+    `backend/scripts/build_*.py`. Frontend data (`frontend/public/data/`:
+    cities, airports, ports) comes from `build_labels.py` and
+    `build_ports.py` (UN/LOCODE); the 3D models in
+    `frontend/public/models/` from `build_models.py` (generated, no
+    external assets).
 - `backend/migrations/`: Alembic; the API applies them on start.
 - `frontend/src/`: React 18 + TypeScript + Vite (`pages/`, `components/`,
   `map/`, `lib/`, `styles/`). Build output keeps JS, CSS, fonts, images and

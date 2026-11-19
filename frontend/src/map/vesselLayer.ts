@@ -86,6 +86,8 @@ function dotImage(): HTMLCanvasElement {
 
 export interface VesselLayer {
   update: (list: Vessel[], selected: number | null) => void;
+  // Hide one vessel's glyph (its 3D model is showing instead).
+  setHidden: (mmsi: number | null) => void;
   setDepthDistance: (metres: number) => void;
   destroy: () => void;
 }
@@ -104,6 +106,7 @@ export function addVesselLayer(scene: Scene): VesselLayer {
   const labelRange = new DistanceDisplayCondition(0, 1.5e5);
   const always = new DistanceDisplayCondition(0, Number.MAX_VALUE);
   let depth = 0;
+  let hidden: number | null = null;
 
   return {
     update(list, selected) {
@@ -171,11 +174,17 @@ export function addVesselLayer(scene: Scene): VesselLayer {
         }
       }
       for (const [mmsi, item] of byMmsi) {
+        item.bb.show = mmsi !== hidden;
         if (seen.has(mmsi)) continue;
         billboards.remove(item.bb);
         if (item.label) labels.remove(item.label);
         byMmsi.delete(mmsi);
       }
+    },
+    setHidden(mmsi) {
+      if (mmsi === hidden) return;
+      hidden = mmsi;
+      for (const [m, item] of byMmsi) item.bb.show = m !== mmsi;
     },
     setDepthDistance(metres) {
       if (metres === depth) return;

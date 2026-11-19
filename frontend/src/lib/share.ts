@@ -15,7 +15,7 @@ const KEY = 'argus-share';
 const BASEMAPS: Basemap[] = ['dark', 'satellite', 'hybrid', 'photo3d'];
 const VIEWS: CameraMode[] = ['free', 'follow', 'chase', 'orbit', 'cockpit'];
 const EVENT_LAYERS = ['conflict', 'unrest', 'quake', 'fire', 'hazard', 'maritime'] as const;
-const REF_LAYERS = ['borders', 'states', 'labels', 'airports'] as const;
+const REF_LAYERS = ['borders', 'states', 'labels', 'airports', 'ports'] as const;
 const SPACE_LAYERS = ['leo', 'meo', 'geo', 'heo', 'starlink'] as const;
 const SEA_LAYERS = ['cargo', 'tanker', 'passenger', 'fishing', 'military', 'other'] as const;
 
@@ -53,7 +53,13 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
       maritime: has('maritime'),
     },
     air: { ...f.air, military: has('mil'), civil: has('civil'), focus: '' },
-    reference: { borders: has('borders'), states: has('states'), labels: has('labels'), airports: has('airports') },
+    reference: {
+      borders: has('borders'),
+      states: has('states'),
+      labels: has('labels'),
+      airports: has('airports'),
+      ports: has('ports'),
+    },
     space: { leo: has('leo'), meo: has('meo'), geo: has('geo'), heo: has('heo'), starlink: has('starlink') },
     sea: {
       cargo: has('sea-cargo'),

@@ -30,6 +30,7 @@ export interface ReferenceLayers {
   states: boolean;
   labels: boolean;
   airports: boolean;
+  ports: boolean;
 }
 
 export const DEFAULT_REFERENCE: ReferenceLayers = {
@@ -37,6 +38,7 @@ export const DEFAULT_REFERENCE: ReferenceLayers = {
   states: false,
   labels: true,
   airports: false,
+  ports: false,
 };
 
 // Line colours differ over imagery (light) and the dark map (muted).
@@ -50,6 +52,9 @@ const LINE_HEIGHT = 800;
 // the dark map's own 110m borders are enough.
 const STATE_RANGE = new DistanceDisplayCondition(0, 6.0e6);
 const AIRPORT_RANGE = new DistanceDisplayCondition(0, 1.2e6);
+const SEA_PORT_RANGE = new DistanceDisplayCondition(0, 1.5e6);
+const INLAND_PORT_RANGE = new DistanceDisplayCondition(0, 4.0e5);
+const PORT_LABEL_RANGE = new DistanceDisplayCondition(0, 1.2e5);
 
 function cityRange(population: number): DistanceDisplayCondition {
   if (population >= 5_000_000) return new DistanceDisplayCondition(0, 9.0e6);
@@ -153,7 +158,9 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   const labels = new LabelCollection({ scene });
   const airportDots = new PointPrimitiveCollection();
   const airportLabels = new LabelCollection({ scene });
-  for (const p of [borders, states, airportDots, labels, airportLabels]) scene.primitives.add(p);
+  const portDots = new PointPrimitiveCollection();
+  const portLabels = new LabelCollection({ scene });
+  for (const p of [borders, states, airportDots, portDots, labels, airportLabels, portLabels]) scene.primitives.add(p);
 
   let style = STYLE.dark;
   const borderMaterials: Material[] = [];
@@ -161,11 +168,12 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   const countryLabels: { label: Label; area: number }[] = [];
   const cityLabels: { label: Label; pop: number }[] = [];
 
-  const [topo, admin1, cities, airports] = await Promise.all([
+  const [topo, admin1, cities, airports, ports] = await Promise.all([
     json<Topology>('/data/countries-50m.json'),
     json<number[][]>('/data/admin1-lines.json'),
     json<[string, number, number, number][]>('/data/cities.json'),
     json<[string, string, number, number][]>('/data/airports.json'),
+    json<[string, string, string, number, number, number][]>('/data/ports.json'),
   ]);
 
   if (topo) {
@@ -265,6 +273,38 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     }
   }
 
+  if (ports) {
+    // UN/LOCODE ports: sea ports (near the coast) from further out than
+    // river and inland ports. Only sea ports get names.
+    const teal = Color.fromCssColorString('#4fc1b0');
+    const dark = Color.fromCssColorString('#0b0e13');
+    for (const [, name, , lon, lat, sea] of ports) {
+      const position = Cartesian3.fromDegrees(lon, lat, 1000);
+      portDots.add({
+        position,
+        pixelSize: sea ? 5 : 4,
+        color: dark,
+        outlineColor: sea ? teal : teal.withAlpha(0.6),
+        outlineWidth: 1.5,
+        distanceDisplayCondition: sea ? SEA_PORT_RANGE : INLAND_PORT_RANGE,
+      });
+      if (!sea) continue;
+      portLabels.add({
+        position,
+        text: name,
+        font: '500 10.5px Inter, system-ui, sans-serif',
+        fillColor: teal,
+        outlineColor: Color.fromCssColorString('#05080e'),
+        outlineWidth: 3,
+        style: LabelStyle.FILL_AND_OUTLINE,
+        horizontalOrigin: HorizontalOrigin.LEFT,
+        verticalOrigin: VerticalOrigin.CENTER,
+        pixelOffset: new Cartesian2(7, 0),
+        distanceDisplayCondition: PORT_LABEL_RANGE,
+      });
+    }
+  }
+
   let layers = DEFAULT_REFERENCE;
   function apply() {
     borders.show = layers.borders;
@@ -272,6 +312,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     labels.show = layers.labels;
     airportDots.show = layers.airports;
     airportLabels.show = layers.airports;
+    portDots.show = layers.ports;
+    portLabels.show = layers.ports;
   }
   apply();
 
@@ -318,16 +360,18 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
       for (const { label } of countryLabels) label.fillColor = country;
     },
     setDepthDistance(metres) {
-      for (const c of [labels, airportLabels]) {
+      for (const c of [labels, airportLabels, portLabels]) {
         for (let i = 0; i < c.length; i++) c.get(i).disableDepthTestDistance = metres;
       }
-      for (let i = 0; i < airportDots.length; i++) {
-        (airportDots.get(i) as PointPrimitive).disableDepthTestDistance = metres;
+      for (const dots of [airportDots, portDots]) {
+        for (let i = 0; i < dots.length; i++) {
+          (dots.get(i) as PointPrimitive).disableDepthTestDistance = metres;
+        }
       }
     },
     destroy() {
       if (scene.isDestroyed()) return;
-      for (const p of [borders, states, airportDots, labels, airportLabels]) {
+      for (const p of [borders, states, airportDots, portDots, labels, airportLabels, portLabels]) {
         if (!p.isDestroyed() && scene.primitives.contains(p)) scene.primitives.remove(p);
       }
     },

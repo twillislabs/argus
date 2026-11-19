@@ -43,10 +43,11 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import type { Aircraft, Bbox, EventItem, Home, MapConfig, Vessel } from '../lib/api';
 import { SEVERITY_COLOR } from '../lib/format';
 import { type AircraftCamera, type CameraMode, createAircraftCamera } from './aircraftCamera';
-import { addAircraftLayer, type AircraftLayer } from './aircraftLayer';
+import { addAircraftLayer, type AircraftLayer, aircraftColor } from './aircraftLayer';
+import { addCloseModels, type CloseModels } from './closeModels';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
 import { addOverlays, type Overlays, type ReferenceLayers } from './overlays';
-import { addVesselLayer, type VesselLayer } from './vesselLayer';
+import { addVesselLayer, VESSEL_COLOR, type VesselLayer } from './vesselLayer';
 import {
   addSatelliteLayer,
   type OrbitInfo,
@@ -364,6 +365,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const sats = useRef<SatelliteLayer | null>(null);
   const ships = useRef<VesselLayer | null>(null);
   const shapes = useRef<PolylineCollection | null>(null);
+  const models = useRef<CloseModels | null>(null);
+  const vesselsRef = useRef(vessels);
+  vesselsRef.current = vessels;
   const followSatRef = useRef({ on: followSat, norad: selectedNorad, fresh: true });
   followSatRef.current = {
     on: followSat,
@@ -403,6 +407,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     rings.current = ringCollection;
     air.current = addAircraftLayer(scene);
     ships.current = addVesselLayer(scene);
+    models.current = addCloseModels(scene);
     const satLayer = addSatelliteLayer(scene);
     sats.current = satLayer;
     // Following a satellite: keep the camera's offset from it, re-anchored
@@ -424,7 +429,20 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         v.camera.lookAtTransform(satFrame, Cartesian3.clone(v.camera.position));
       }
     });
-    const aircraftCamera = createAircraftCamera(v, () => air.current);
+    const aircraftCamera = createAircraftCamera(v, () => air.current, (target, position, mode) => {
+      // Up close, a 3D model replaces the glyph (not in the cockpit,
+      // where the camera sits inside the aircraft).
+      const isShip = target.hex.startsWith('ship');
+      const mmsi = isShip ? Number(target.hex.slice(4)) : null;
+      const vessel = isShip ? vesselsRef.current.find((x) => x.mmsi === mmsi) : undefined;
+      const css = isShip ? VESSEL_COLOR[vessel?.category ?? 'other'] : aircraftColor(target);
+      const shown =
+        mode !== 'cockpit' &&
+        (models.current?.place(isShip ? 'ship' : 'aircraft', position, target.track ?? 0, css) ?? false);
+      if (mode === 'cockpit') models.current?.hide();
+      if (isShip) ships.current?.setHidden(shown ? mmsi : null);
+      else if (mode !== 'cockpit') air.current?.setHidden(shown ? target.hex : null);
+    });
     tracker.current = aircraftCamera;
     // While the camera rides along, report the view every few seconds so
     // civil traffic keeps loading around the aircraft.
@@ -550,6 +568,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['overlays', () => overlays.current?.destroy()],
         ['satellites', () => sats.current?.destroy()],
         ['vessels', () => ships.current?.destroy()],
+        ['models', () => models.current?.destroy()],
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
         ['widget', () => v.destroy()],
@@ -566,6 +585,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       shapes.current = null;
       sats.current = null;
       ships.current = null;
+      models.current = null;
       air.current = null;
       tracker.current = null;
       viewer.current = null;
@@ -717,6 +737,13 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     tracker.current?.setMode(camera);
   }, [camera]);
 
+  // Nothing tracked: no model, and every glyph back.
+  useEffect(() => {
+    if (trackTarget) return;
+    models.current?.hide();
+    ships.current?.setHidden(null);
+  }, [trackTarget]);
+
   useEffect(() => {
     ships.current?.update(vessels, selectedMmsi);
     (viewer.current as unknown as { applyDepth?: () => void } | null)?.applyDepth?.();
@@ -742,7 +769,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     }
   }, [followSat, selectedNorad]);
 
-  const referenceKey = [reference.borders, reference.states, reference.labels, reference.airports].join('');
+  const referenceKey = [reference.borders, reference.states, reference.labels, reference.airports, reference.ports].join('');
   useEffect(() => {
     overlays.current?.setLayers(referenceRef.current);
   }, [referenceKey]);
