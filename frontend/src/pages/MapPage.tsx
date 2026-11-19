@@ -6,7 +6,7 @@ import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
-import { CursorReadout, ScaleBar, Timeline } from '../components/MapFooter';
+import { CursorReadout, LIVE, type Replay, ScaleBar, Timeline } from '../components/MapFooter';
 import { type HoverInfo, HoverLayer } from '../components/HoverCard';
 import InfoInspector from '../components/InfoInspector';
 import Legend from '../components/Legend';
@@ -435,6 +435,35 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   );
 
   const shown = useMemo(() => events.filter((e) => filters.types[e.type]), [events, filters.types]);
+
+  // Timeline replay: the map shows events as they were at the cursor, and
+  // only those inside a Shift-drag filter. Aircraft and ships stay live
+  // (Argus doesn't keep their history).
+  const [replay, setReplay] = useState<Replay>(LIVE);
+  useEffect(() => {
+    if (!replay.playing) return;
+    const step = 250;
+    const id = window.setInterval(() => {
+      setReplay((r) => {
+        if (!r.playing || r.t === null) return r;
+        const end = r.to ?? Date.now();
+        const begin = r.from ?? Date.now() - filters.hours * 3_600_000;
+        const next = r.t + r.speed * step;
+        // Loop within the window (or the filter), as Foundry Map does.
+        return { ...r, t: next > end ? begin : next };
+      });
+    }, step);
+    return () => window.clearInterval(id);
+  }, [replay.playing, filters.hours]);
+  const mapEvents = useMemo(() => {
+    if (replay.t === null && replay.from === null) return shown;
+    return shown.filter((e) => {
+      const t = Date.parse(e.first_seen);
+      if (replay.t !== null && t > replay.t) return false;
+      if (replay.from !== null && replay.to !== null && (t < replay.from || t > replay.to)) return false;
+      return true;
+    });
+  }, [shown, replay.t, replay.from, replay.to]);
   const counts = useMemo(() => {
     const c: Partial<Record<EventType, number>> = {};
     for (const e of events) c[e.type] = (c[e.type] ?? 0) + 1;
@@ -998,7 +1027,13 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   return (
     <div className="app">
-      <AppHeader me={me} onSignedOut={onSignedOut} live={live} search={<SearchBox onPick={onSearch} />} />
+      <AppHeader
+        me={me}
+        onSignedOut={onSignedOut}
+        live={live}
+        replay={replay.t !== null}
+        search={<SearchBox onPick={onSearch} />}
+      />
       <main className={'ws' + (leftOpen ? '' : ' noL') + (rightOpen ? '' : ' noR')}>
         {leftOpen && (
           <LayerPanel
@@ -1037,7 +1072,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             showTension={filters.tension}
             infra={filters.infra}
             home={home}
-            events={shown}
+            events={mapEvents}
             selectedId={selected}
             onSelect={select}
             onFocus={focus}
@@ -1271,7 +1306,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             <ScaleBar />
           </div>
         </section>
-        <Timeline events={shown} />
+        <Timeline events={shown} hours={filters.hours} replay={replay} onReplay={setReplay} />
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
             {selectedInfo ? (

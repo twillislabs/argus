@@ -249,3 +249,17 @@
 .ctxmenu button { display: grid; gap: 1px; border: 0; background: none; text-align: left; padding: 6px 12px; font-size: 12.5px; color: var(--text); cursor: pointer; }
 .ctxmenu button small { font-size: 10.5px; color: var(--dim); }
 .ctxmenu button:hover { background: var(--accent-soft); }
+
+/* Timeline replay controls (Foundry Map-style). */
+.tlrow { grid-template-columns: auto minmax(0, 1fr) auto; }
+.tlctl { display: flex; gap: 6px; align-items: center; }
+.tlctl .btn.small { min-width: 34px; }
+.tlctl .btn.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.tlspeed { background: var(--surface); color: var(--muted); border: 1px solid var(--line-2); border-radius: 4px; padding: 4px 6px; font: 11px var(--f-mono); }
+.tlplot { cursor: pointer; touch-action: none; }
+.tlband { fill: rgba(240, 201, 74, 0.12); stroke: rgba(240, 201, 74, 0.5); stroke-width: 0.15; }
+.playhead { position: absolute; top: 0; height: 34px; width: 2px; background: var(--elev); pointer-events: none; transform: translateX(-1px); }
+.playhead::before { content: ''; position: absolute; top: -3px; left: -4px; border: 5px solid transparent; border-top-color: var(--elev); }
+.tltime.replay { color: var(--elev); }
+.tltime small { display: block; font-size: 10px; color: var(--dim); }
+.livepill.replay { background: rgba(227, 192, 75, 0.12); color: var(--elev); }

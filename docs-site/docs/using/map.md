@@ -59,8 +59,25 @@ every user sees the same installed region.
 
 Along the bottom of the map, the **readout** shows the MGRS grid reference
 and latitude/longitude under the cursor and the camera's eye altitude, with
-a **scale bar** on the right. Under the map, **Activity · 24h** charts the
-events per hour, coloured by layer.
+a **scale bar** on the right.
+
+## Timeline
+
+Under the map, the timeline charts events across the time window (from
+the layer panel's **Time window**), coloured by layer:
+
+- **Click or drag** on it to see the map as it was then: only events
+  first seen by that moment are shown, and the bar at the top says
+  **REPLAY**.
+- **▶** plays forward at the chosen speed (1 minute to 6 hours of history
+  a second) and loops within the window.
+- **Shift-drag** picks a time range: the map shows only events first seen
+  inside it, and play loops within it. Double-click the timeline to clear
+  the range.
+- **Live** returns to now.
+
+Aircraft and ships stay live during replay; Argus doesn't keep their
+history yet.
 
 A green **UNCLASSIFIED // OPEN SOURCE** strip can be shown at the top from
 Settings > Display (off by default).

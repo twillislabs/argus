@@ -21,9 +21,11 @@ interface Props {
   live?: LiveState;
   // The map page's search, shown in the bar as in the mock-up.
   search?: ReactNode;
+  // The map is showing the past (timeline replay).
+  replay?: boolean;
 }
 
-export default function AppHeader({ me, onSignedOut, live, search }: Props) {
+export default function AppHeader({ me, onSignedOut, live, search, replay }: Props) {
   const now = useClock();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -68,9 +70,12 @@ export default function AppHeader({ me, onSignedOut, live, search }: Props) {
         {search}
         <div className="clocks">
           {live && (
-            <span className={'livepill ' + live} title="Live updates">
+            <span
+              className={'livepill ' + (replay ? 'replay' : live)}
+              title={replay ? 'Showing the past: press Live under the map to return' : 'Live updates'}
+            >
               <i />
-              {live === 'live' ? 'LIVE' : live === 'connecting' ? 'CONNECTING' : 'OFFLINE'}
+              {replay ? 'REPLAY' : live === 'live' ? 'LIVE' : live === 'connecting' ? 'CONNECTING' : 'OFFLINE'}
             </span>
           )}
           <div className="clock">
