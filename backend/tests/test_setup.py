@@ -12,7 +12,7 @@ async def test_health(client):
 
 async def test_status_needs_setup(client):
     response = await client.get("/api/setup/status")
-    assert response.json() == {"needs_setup": True}
+    assert response.json()["needs_setup"] is True
 
 
 async def test_setup_creates_admin_and_signs_in(client, app):
@@ -29,7 +29,7 @@ async def test_setup_creates_admin_and_signs_in(client, app):
     assert me.json()["preferences"]["home"]["name"] == "Nashville"
 
     status = await client.get("/api/setup/status")
-    assert status.json() == {"needs_setup": False}
+    assert status.json()["needs_setup"] is False
 
     async with app.state.db.sessionmaker() as db:
         token = (await db.execute(select(SetupToken))).scalar_one()

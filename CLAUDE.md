@@ -46,6 +46,13 @@ parts connect.
 
 ## Commands
 
+- `./argus` (repo root) wraps make/compose and runs `python -m argus.cli`
+  (users, reset-password, unlock) in the API container.
+- `ARGUS_TLS=self-signed` (+ `ARGUS_TLS_NAMES`, `ARGUS_HTTPS_PORT`):
+  `frontend/docker/30-argus-tls.sh` makes a cert into the `web-tls`
+  volume and adds `listen 443 ssl` to the server block. The sign-in page
+  explains Secure cookies on plain http (`/api/setup/status`
+  `secure_cookies`).
 - `make update` (scripts/update.sh): refuses with local changes, backs
   up, `git pull --ff-only`, rebuilds, waits for health.
 - Video and webcams: `argus/video.py`, `api/video.py`, keys `youtube`

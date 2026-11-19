@@ -17,6 +17,8 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+RUN apk add --no-cache openssl
+COPY frontend/docker/30-argus-tls.sh /docker-entrypoint.d/30-argus-tls.sh
 COPY frontend/docker/40-argus-real-ip.sh /docker-entrypoint.d/40-argus-real-ip.sh
 COPY --from=app /src/frontend/dist /usr/share/nginx/html
 COPY --from=docs /src/docs-site/build /usr/share/nginx/html/docs

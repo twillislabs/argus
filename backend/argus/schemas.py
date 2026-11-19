@@ -243,6 +243,9 @@ class MeOut(BaseModel):
 
 class SetupStatus(BaseModel):
     needs_setup: bool
+    # Sign-in cookies are Secure (ARGUS_COOKIE_SECURE): browsers keep them
+    # only over HTTPS (or on localhost), so the sign-in page can warn.
+    secure_cookies: bool = True
 
 
 class Health(BaseModel):

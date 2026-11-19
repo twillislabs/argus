@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Argus from the command line, run in the Argus folder: ./argus help
+set -euo pipefail
+cd "$(dirname "$0")"
+compose=(docker compose)
+[ -n "${COMPOSE_PROJECT_NAME:-}" ] && compose+=(-p "$COMPOSE_PROJECT_NAME")
+
+usage() {
+  cat <<'TXT'
+Usage: ./argus COMMAND [ARGS]
+
+Server
+  up                        build and start (creates .env the first time)
+  down                      stop (data stays)
+  update                    back up, pull the latest code, rebuild
+  status                    containers and their health
+  logs [SERVICE]            follow logs (api and worker by default)
+  token                     the first-run setup token
+
+Data
+  backup [--no-env]         back up the database and .env to backups/
+  restore FILE              replace all data with a backup
+
+Accounts
+  users                     list accounts
+  reset-password USERNAME   set a temporary password (also unlocks)
+  unlock USERNAME           clear a sign-in lockout
+
+Anything else is passed to docker compose, e.g. ./argus restart web
+TXT
+}
+
+api() {
+  if ! "${compose[@]}" ps --status running --services 2>/dev/null | grep -qx api; then
+    echo "The API isn't running. Start Argus first: ./argus up" >&2
+    exit 1
+  fi
+  "${compose[@]}" exec -T api python -m argus.cli "$@"
+}
+
+cmd=${1:-help}
+[ $# -gt 0 ] && shift
+case "$cmd" in
+  help|-h|--help) usage ;;
+  up) make --no-print-directory up ;;
+  down) make --no-print-directory down ;;
+  update) exec scripts/update.sh "$@" ;;
+  status) "${compose[@]}" ps ;;
+  logs) if [ $# -gt 0 ]; then "${compose[@]}" logs -f "$@"; else "${compose[@]}" logs -f api worker; fi ;;
+  token) "${compose[@]}" logs api | grep "setup token" | tail -1 ;;
+  backup) exec scripts/backup.sh "$@" ;;
+  restore)
+    [ $# -ge 1 ] || { echo "Usage: ./argus restore FILE" >&2; exit 1; }
+    exec scripts/restore.sh "$@" ;;
+  users) api users ;;
+  reset-password|unlock)
+    [ $# -eq 1 ] || { echo "Usage: ./argus $cmd USERNAME" >&2; exit 1; }
+    api "$cmd" "$1" ;;
+  *) exec "${compose[@]}" "$cmd" "$@" ;;
+esac

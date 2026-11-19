@@ -25,8 +25,11 @@ router = APIRouter(tags=["setup"])
 
 
 @router.get("/api/setup/status", response_model=SetupStatus)
-async def setup_status(db: DbDep) -> SetupStatus:
-    return SetupStatus(needs_setup=await user_count(db) == 0)
+async def setup_status(db: DbDep, settings: SettingsDep) -> SetupStatus:
+    return SetupStatus(
+        needs_setup=await user_count(db) == 0,
+        secure_cookies=settings.cookie_secure,
+    )
 
 
 @router.post(

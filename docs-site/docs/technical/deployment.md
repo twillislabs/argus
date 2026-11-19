@@ -30,6 +30,28 @@ argus.example.lan {
 
 Keep `ARGUS_COOKIE_SECURE=true` whenever browsers reach Argus over HTTPS.
 
+### HTTPS before a proxy: a self-signed certificate
+
+Sign-in cookies are Secure by default (`ARGUS_COOKIE_SECURE=true`), and
+browsers only keep Secure cookies over HTTPS (or on `localhost`): on a
+plain `http://` address the password is accepted but the browser drops
+the session, and the sign-in page says so. Until a reverse proxy with a
+real certificate is in front, Argus can serve HTTPS itself:
+
+```text
+ARGUS_TLS=self-signed
+ARGUS_TLS_NAMES=192.168.1.20,argus,argus.lan   # how people reach it
+ARGUS_HTTPS_PORT=8443
+```
+
+then `make up` and open `https://192.168.1.20:8443`. The browser warns
+once about the self-signed certificate; accept it and sign in. The
+certificate is made on first start and kept in the `web-tls` volume (so
+the exception stays valid across rebuilds); changing `ARGUS_TLS_NAMES`
+makes a new one. Plain HTTP on `ARGUS_HTTP_PORT` keeps working, for the
+proxy to use later. On a trusted LAN you can instead set
+`ARGUS_COOKIE_SECURE=false` and use plain HTTP.
+
 ### Real visitor addresses
 
 Argus limits sign-in attempts per address and records addresses in the

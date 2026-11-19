@@ -12,6 +12,9 @@ All settings are environment variables, usually set in `.env`.
 | `POSTGRES_PASSWORD` | (must set) | Database password |
 | `ARGUS_HTTP_PORT` | `8080` | Port the web container listens on |
 | `ARGUS_COOKIE_SECURE` | `true` | Set `false` only for plain-HTTP local use |
+| `ARGUS_TLS` | (empty) | `self-signed` to serve HTTPS with a certificate Argus makes itself (see [Deployment](../technical/deployment.md#https-before-a-proxy-a-self-signed-certificate)) |
+| `ARGUS_TLS_NAMES` | `localhost` | Names and IPs for that certificate, comma list |
+| `ARGUS_HTTPS_PORT` | `8443` | Host port for HTTPS |
 | `ARGUS_TRUSTED_PROXIES` | (empty) | Reverse proxies in front of Argus (IPs or ranges, comma list) whose forwarded visitor address is believed; see [Deployment](../technical/deployment.md#real-visitor-addresses) |
 | `ARGUS_REAL_IP_HEADER` | `X-Forwarded-For` | Header those proxies use; `CF-Connecting-IP` when Cloudflare connects directly |
 | `ARGUS_LOG_LEVEL` | `INFO` | API log level |

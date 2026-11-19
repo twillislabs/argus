@@ -5,6 +5,23 @@ sidebar_position: 4
 
 # Backups and moving servers
 
+## The ./argus command
+
+In the Argus folder, `./argus help` lists everything:
+
+| Command | Does |
+|---|---|
+| `./argus up`, `down`, `status`, `logs [service]` | Start, stop, health, logs |
+| `./argus update` | Back up, pull the latest code, rebuild (same as `make update`) |
+| `./argus backup`, `./argus restore FILE` | Same as `make backup` / `make restore` |
+| `./argus token` | The first-run setup token |
+| `./argus users` | List accounts |
+| `./argus reset-password USERNAME` | Print a temporary password (and unlock the account); they choose a new one at sign-in |
+| `./argus unlock USERNAME` | Clear a sign-in lockout |
+
+Anything else goes to `docker compose` (`./argus restart web`). With
+several stacks on one machine, set `COMPOSE_PROJECT_NAME` first.
+
 ## Updating
 
 ```bash
