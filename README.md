@@ -13,14 +13,13 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshot-dark.png" alt="Argus: the default dark globe with live events and military aircraft" width="900">
+  <img src="docs/assets/screenshot-dark.png" alt="Argus: the dark globe with world tension, conflict zones and live events" width="900">
 </p>
 
 Argus is a self-hosted visualizer for open-source intelligence (OSINT). It brings conflict and
-protest reports, earthquakes, fires, aircraft and the news onto one 3D globe, and will add ships,
-satellites, airspace, infrastructure, weather and live video. Every marker shows where it came from
-and how sure Argus is about it, and the whole thing runs from one `docker compose up` with no paid
-keys.
+protest reports, earthquakes, fires, aircraft, ships, satellites, airspace, weather, cameras and
+the news onto one 3D globe. Every marker shows where it came from and how sure Argus is about it,
+and the whole thing runs from one `docker compose up` with no paid keys.
 
 What it does today:
 
@@ -46,7 +45,17 @@ What it does today:
 - **Airspace and interference.** FAA flight restrictions, SIGMETs, EASA conflict zone bulletins,
   restricted areas and control zones (with a free openAIP key), and GPS interference worked out
   from ADS-B accuracy.
-- **Infrastructure.** Power plants by fuel (nuclear named), submarine cables and military bases.
+- **Infrastructure.** Power plants by fuel (nuclear named), submarine cables, military bases and
+  licence plate reader cameras mapped in OpenStreetMap (the DeFlock dataset).
+- **World tension.** A per-country, theatre and world index anchored to UCDP conflict deaths, with
+  live events on top, tinting the map.
+- **Weather.** NWS warnings, watches and advisories (on their zone outlines), the SPC severe weather
+  outlook, satellite clouds and precipitation, and conditions at home.
+- **Cameras and video.** Traffic cameras from Caltrans, TDOT (with a key), DriveBC, London and
+  Finland, with stills and live video; webcams from Windy and live YouTube streams near the view
+  or about an event (with free keys).
+- **Context.** US and UK travel advisories by country and Wikipedia's current events, placed on
+  the map.
 - **Live news.** A floating player with tabs for 18 news channels and Ryan Hall, Y'all.
 - **Your own receivers.** readsb/tar1090 and AIS-catcher feeds merged into the map.
 - **Satellites.** About 17,000 from CelesTrak, by orbit (LEO, MEO, GEO, HEO, Starlink), moved
@@ -60,26 +69,39 @@ What it does today:
   and right, matched to the events they describe.
 - **A situation panel** with counts by type, what's near home, a live feed, headlines and the
   health of every source. Click any event for its sources, coverage and raw record.
+- **Brief and Wall.** A one-page brief for the start of a shift, and a hands-free watch-floor
+  view that tours the theatres, for TVs paired with a code and set up per screen.
+- **Map tools.** Select an area and export what's in it, draw and measure, notes, a timeline you
+  can replay, share links and PNG capture.
 - **First-run setup and accounts.**
   - A one-time setup token from the server log
   - Argon2id passwords and sessions with CSRF protection
   - Lockout and rate limiting, plus an audit log
   - More users with roles (admin, analyst, viewer, wall display) and temporary passwords
     they replace at first sign-in
+- **Running it.** Backups and restore from Settings or the command line, `./argus update`,
+  real visitor addresses behind a reverse proxy, and an optional self-signed certificate.
 - **Built-in documentation** at `/docs/`, including how every part connects.
 
-Coming next: weather, traffic and event video, wall mode for a
-watch-floor screen, balanced news coverage, alerts, and optional AI (Anthropic, OpenAI or a local
-model).
+Coming next: air and sea patterns, more hazards, space weather and launches, Sentinel imagery,
+alerts, and optional AI (Anthropic, OpenAI or a local model).
 
 <table>
   <tr>
-    <td><img src="docs/assets/screenshot-aircraft.png" alt="Following a flight with its route and progress" width="440"></td>
-    <td><img src="docs/assets/screenshot-satellite.png" alt="Satellite view at street level" width="440"></td>
+    <td><img src="docs/assets/screenshot-brief.png" alt="The Brief: theatres, top events and changes since yesterday" width="440"></td>
+    <td><img src="docs/assets/screenshot-wall.png" alt="The Wall touring the Middle East with world tension and top events" width="440"></td>
   </tr>
   <tr>
+    <td align="center"><sub>Brief: the start-of-shift overview</sub></td>
+    <td align="center"><sub>Wall: the watch-floor tour</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/assets/screenshot-cameras.png" alt="Traffic cameras in Los Angeles with a live still" width="440"></td>
+    <td><img src="docs/assets/screenshot-aircraft.png" alt="Following a flight with its route and progress" width="440"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Traffic cameras: stills and live video</sub></td>
     <td align="center"><sub>Aircraft: search, follow, route</sub></td>
-    <td align="center"><sub>Satellite, street level</sub></td>
   </tr>
 </table>
 

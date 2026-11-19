@@ -8,6 +8,54 @@ import { csrfToken } from '../lib/api';
 // the accounts from the backup.
 
 type Status = { state: 'idle' | 'running' | 'done' | 'failed'; message: string };
+type Manifest = { created_utc?: string; version?: string; schema_revision?: string; database_bytes?: number };
+
+// The manifest inside a backup (.tar.gz), read in the browser so you can
+// see what you're about to restore. Null if it isn't readable.
+async function readManifest(file: File): Promise<Manifest | null> {
+  try {
+    const stream = file.stream().pipeThrough(new DecompressionStream('gzip'));
+    const reader = stream.getReader();
+    let buf = new Uint8Array(0);
+    // A tar is 512-byte headers each followed by the file; the manifest is
+    // small and usually near the start, but read until it turns up.
+    for (let offset = 0; ;) {
+      while (buf.length < offset + 512) {
+        const { value, done } = await reader.read();
+        if (done) return null;
+        const next = new Uint8Array(buf.length + value.length);
+        next.set(buf);
+        next.set(value, buf.length);
+        buf = next;
+      }
+      const header = buf.subarray(offset, offset + 512);
+      const name = new TextDecoder().decode(header.subarray(0, 100)).replace(/\0.*$/s, '');
+      if (!name) return null;
+      const size = parseInt(new TextDecoder().decode(header.subarray(124, 136)).replace(/\0.*$/s, '').trim() || '0', 8);
+      const start = offset + 512;
+      if (name.endsWith('/manifest.json')) {
+        while (buf.length < start + size) {
+          const { value, done } = await reader.read();
+          if (done) return null;
+          const next = new Uint8Array(buf.length + value.length);
+          next.set(buf);
+          next.set(value, buf.length);
+          buf = next;
+        }
+        void reader.cancel();
+        return JSON.parse(new TextDecoder().decode(buf.subarray(start, start + size))) as Manifest;
+      }
+      offset = start + Math.ceil(size / 512) * 512;
+      // Drop what's behind us so a big dump doesn't fill memory.
+      if (offset > 8 * 1024 * 1024) {
+        buf = buf.subarray(offset);
+        offset = 0;
+      }
+    }
+  } catch {
+    return null;
+  }
+}
 
 function detail(text: string, fallback: string): string {
   try {
@@ -25,7 +73,8 @@ export default function BackupsSection() {
 
   const [file, setFile] = useState<File | null>(null);
   const [pw2, setPw2] = useState('');
-  const [confirm, setConfirm] = useState('');
+  const [agree, setAgree] = useState(false);
+  const [manifest, setManifest] = useState<Manifest | null | 'reading'>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [error, setError] = useState('');
@@ -92,14 +141,14 @@ export default function BackupsSection() {
     xhr.withCredentials = true;
     xhr.setRequestHeader('Content-Type', 'application/gzip');
     xhr.setRequestHeader('X-CSRF-Token', csrfToken());
-    xhr.setRequestHeader('X-Argus-Confirm', confirm.trim().toLowerCase());
+    xhr.setRequestHeader('X-Argus-Confirm', agree ? 'restore' : '');
     xhr.setRequestHeader('X-Argus-Password', pw2);
     xhr.upload.onprogress = (ev) => ev.lengthComputable && setProgress(ev.loaded / ev.total);
     xhr.onload = () => {
       setProgress(null);
       if (xhr.status === 202) {
         setPw2('');
-        setConfirm('');
+        setAgree(false);
         setStatus({ state: 'running', message: 'Restoring the backup…' });
         watch();
       } else {
@@ -151,6 +200,7 @@ export default function BackupsSection() {
         <form className="cbody" onSubmit={restore}>
           <p className="err small" style={{ margin: 0 }}>
             Restoring replaces <b>all</b> of this server&apos;s data with the backup&apos;s, including every account.
+            Choose the file, check what it is, tick the box and enter your password.
           </p>
           <p className="quiet small">
             The backup is checked and restored into a fresh database first; this server&apos;s data is only replaced
@@ -163,9 +213,33 @@ export default function BackupsSection() {
               id="rs-file"
               type="file"
               accept=".gz,.tgz,application/gzip"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setFile(f);
+                setAgree(false);
+                setManifest(f ? 'reading' : null);
+                if (f) void readManifest(f).then(setManifest);
+              }}
             />
           </div>
+          {file && manifest === 'reading' && <p className="quiet small">Reading the backup…</p>}
+          {file && manifest && manifest !== 'reading' && (
+            <p className="small">
+              Backup from{' '}
+              <b>{manifest.created_utc ? new Date(manifest.created_utc).toLocaleString() : 'an unknown time'}</b>
+              {manifest.version ? ', Argus ' + manifest.version : ''}
+              {manifest.database_bytes ? ', ' + (manifest.database_bytes / 1048576).toFixed(1) + ' MB of data' : ''}.
+            </p>
+          )}
+          {file && manifest === null && (
+            <p className="err small">This doesn&apos;t look like an Argus backup (no manifest found).</p>
+          )}
+          {file && (
+            <label className="agree">
+              <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+              <span>Replace all of this server&apos;s data, including every account, with this backup</span>
+            </label>
+          )}
           <div className="pairform">
             <div className="field">
               <label htmlFor="rs-pw">Your password</label>
@@ -177,13 +251,9 @@ export default function BackupsSection() {
                 onChange={(e) => setPw2(e.target.value)}
               />
             </div>
-            <div className="field">
-              <label htmlFor="rs-confirm">Type restore</label>
-              <input id="rs-confirm" value={confirm} autoComplete="off" onChange={(e) => setConfirm(e.target.value)} />
-            </div>
             <button
               className="btn danger"
-              disabled={!file || !pw2 || confirm.trim().toLowerCase() !== 'restore' || restoring}
+              disabled={!file || !agree || !pw2 || manifest === null || manifest === 'reading' || restoring}
             >
               Restore
             </button>

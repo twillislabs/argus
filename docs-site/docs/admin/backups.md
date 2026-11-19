@@ -41,8 +41,10 @@ password:
 - **Download backup** saves the same kind of archive as `make backup`
   (the database and the secret key that unlocks stored data-source keys;
   not the rest of `.env`).
-- **Restore** uploads an archive (from either place) and replaces all of
-  this server's data with it, after you type `restore`. It is restored
+- **Restore**: choose the archive (from either place) and the page shows
+  when it was made, its Argus version and size; tick **Replace all of
+  this server's data**, enter your password and press **Restore**. It is
+  restored
   into a fresh database first and only swapped in once that has worked,
   so a damaged file changes nothing. Stored data-source keys are moved to
   this server's secret key, so a backup from another server works too.
