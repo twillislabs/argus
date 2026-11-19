@@ -6,6 +6,8 @@ downloaded, so there's nothing to license.
 
 Aircraft: airliner, widebody, bizjet, light, helicopter, fighter,
 airlifter. Ships: container, tanker, passenger, fishing, warship, boat.
+Space: iss (the International Space Station, flown truss-across and
+modules along its velocity).
 frontend/src/map/closeModels.ts picks one from the type or category.
 
     python scripts/build_models.py
@@ -323,6 +325,41 @@ def boat() -> list[list[Vec]]:
     return faces
 
 
+def iss() -> list[list[Vec]]:
+    """International Space Station, about 109 m across the solar arrays'
+    truss and 73 m along the pressurised modules (+Z is the direction of
+    flight, +Y away from Earth)."""
+    faces = []
+    # Integrated truss, across the direction of flight.
+    faces += box(0, 0, 0, 98, 3, 4)
+    # Pressurised modules along the flight path: US lab, nodes and the
+    # Russian segment behind, with a cross-module either side.
+    faces += box(0, 0, 4, 4.4, 4.4, 9)  # Destiny
+    faces += box(0, 0, 11, 4.6, 4.6, 6)  # Harmony
+    faces += box(0, 0, 16, 4.0, 4.0, 4)  # docking adapter
+    faces += box(-6, 0, 11, 8, 4.4, 4.4)  # Columbus
+    faces += box(6, 0, 11, 10, 4.4, 4.4)  # Kibo
+    faces += box(0, 0, -4, 4.6, 4.6, 5)  # Unity
+    faces += box(0, 0, -12, 4.2, 4.2, 12)  # Zarya
+    faces += box(0, 0, -24, 4.2, 4.2, 13)  # Zvezda
+    faces += box(0, 0, -32, 2.6, 2.6, 4)  # aft port
+    # Zvezda's own small solar arrays.
+    faces += box(-9, 0, -22, 14, 0.2, 3)
+    faces += box(9, 0, -22, 14, 0.2, 3)
+    # Eight main solar array wings, four on each end of the truss, each
+    # about 35 m long and 12 m wide, in pairs either side of the truss.
+    for side in (-1, 1):
+        for x in (side * 37, side * 47):
+            for z in (-20, 20):
+                faces += box(x, 0, z, 11, 0.25, 34)
+        # Mast boxes between the pairs.
+        faces += box(side * 42, 0, 0, 3, 3, 6)
+    # Radiators, hanging off the truss towards Earth.
+    for x in (-15, 15):
+        faces += box(x, -6, 0, 3, 12, 0.3)
+    return faces
+
+
 MODELS = {
     "airliner": airliner,
     "widebody": widebody,
@@ -337,6 +374,7 @@ MODELS = {
     "fishing": fishing,
     "warship": warship,
     "boat": boat,
+    "iss": iss,
 }
 
 

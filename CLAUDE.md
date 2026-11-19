@@ -178,7 +178,9 @@ parts connect.
   infinite scroll.
 - 3D models: one per kind (`build_models.py`), chosen by
   `aircraftModel`/`shipModel` in `map/closeModels.ts` and loaded on
-  first use.
+  first use. The ISS model (`iss.glb`) lives in `map/satellites.ts`,
+  extrapolated every frame from the last two 1 Hz positions; the
+  Space stations toggle is `SpaceFilters.iss`.
 - Hazards (GDACS, EONET, tsunami) and NGA warnings are keyed events
   (`fuse_hazard`, `fuse_navwarn`) whose raw records update in place
   (`UPDATABLE_KINDS`).

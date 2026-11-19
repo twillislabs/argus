@@ -16,7 +16,7 @@ const BASEMAPS: Basemap[] = ['dark', 'satellite', 'hybrid', 'photo3d'];
 const VIEWS: CameraMode[] = ['free', 'follow', 'chase', 'orbit', 'cockpit'];
 const EVENT_LAYERS = ['conflict', 'unrest', 'quake', 'fire', 'hazard', 'maritime'] as const;
 const REF_LAYERS = ['borders', 'states', 'labels', 'airports', 'ports', 'advisories'] as const;
-const SPACE_LAYERS = ['leo', 'meo', 'geo', 'heo', 'starlink'] as const;
+const SPACE_LAYERS = ['iss', 'leo', 'meo', 'geo', 'heo', 'starlink'] as const;
 const SEA_LAYERS = ['cargo', 'tanker', 'passenger', 'fishing', 'military', 'other'] as const;
 const AIRSPACE_LAYERS = ['tfr', 'sigmet', 'czib', 'gps', 'structure'] as const;
 const INFRA_LAYERS = ['nuclear', 'power', 'cables', 'bases'] as const;
@@ -68,7 +68,14 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
       // A look preference, not part of the shared picture: keep yours.
       basemapLabels: f.reference.basemapLabels,
     },
-    space: { leo: has('leo'), meo: has('meo'), geo: has('geo'), heo: has('heo'), starlink: has('starlink') },
+    space: {
+      iss: has('iss'),
+      leo: has('leo'),
+      meo: has('meo'),
+      geo: has('geo'),
+      heo: has('heo'),
+      starlink: has('starlink'),
+    },
     sea: {
       cargo: has('sea-cargo'),
       tanker: has('sea-tanker'),

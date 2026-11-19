@@ -110,6 +110,7 @@ const SEA_HINT: Record<SeaStatus, string> = {
 };
 
 const SPACE_ROWS: { id: keyof SpaceFilters; label: string; source: string; color: string }[] = [
+  { id: 'iss', label: 'Space stations', source: 'ISS (3D model) and Tiangong', color: SAT_COLOR.station },
   { id: 'leo', label: 'Low Earth orbit', source: 'Under 2,000 km · stations, imaging', color: SAT_COLOR.leo },
   { id: 'meo', label: 'Medium Earth orbit', source: 'GPS, Galileo, GLONASS, BeiDou', color: SAT_COLOR.meo },
   { id: 'geo', label: 'Geosynchronous', source: 'Communications, weather', color: SAT_COLOR.geo },

@@ -324,7 +324,13 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   // The satellite catalogue (about 17,000 objects) loads only once a
   // space layer is on or a satellite is picked, then hourly.
   const wantSats =
-    filters.space.leo || filters.space.meo || filters.space.geo || filters.space.heo || filters.space.starlink || selectedNorad !== null;
+    filters.space.iss ||
+    filters.space.leo ||
+    filters.space.meo ||
+    filters.space.geo ||
+    filters.space.heo ||
+    filters.space.starlink ||
+    selectedNorad !== null;
   useEffect(() => {
     if (!wantSats) return;
     let cancelled = false;

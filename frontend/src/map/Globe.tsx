@@ -1092,7 +1092,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     if (satellites) sats.current?.load(satellites);
   }, [satellites]);
-  const spaceKey = [space.leo, space.meo, space.geo, space.heo, space.starlink].join('');
+  const spaceKey = [space.iss, space.leo, space.meo, space.geo, space.heo, space.starlink].join('');
   const spaceRef = useRef(space);
   spaceRef.current = space;
   useEffect(() => {

@@ -444,6 +444,7 @@ The **Space** group shows every active satellite CelesTrak tracks, about
 
 | Layer | What's there |
 |---|---|
+| **Space stations** | The crewed stations: the ISS as a 3D model (truss, modules and solar arrays) that moves smoothly and faces its direction of travel, and Tiangong. Visible from far out; true size up close |
 | **Low Earth orbit** | Under about 2,000 km: space stations, imaging, weather and science |
 | **Medium Earth orbit** | Navigation constellations: GPS, Galileo, GLONASS, BeiDou |
 | **Geosynchronous** | Communications and weather satellites over fixed longitudes |
