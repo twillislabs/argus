@@ -20,12 +20,12 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from argus import places
 from argus.aviation import AirClient, LiveAir, airlines, airports
-from argus.models import Event
+from argus.models import Event, Satellite
 
 log = logging.getLogger("argus.search")
 
@@ -37,6 +37,8 @@ ICAO_FLIGHT = re.compile(r"^([A-Z]{3})\s?(\d{1,4}[A-Z]{0,2})$")
 CALLSIGN = re.compile(r"^(?=.*\d)[A-Z0-9]{3,8}$")
 HEX = re.compile(r"^[0-9A-F]{6}$")
 REG = re.compile(r"^(N\d{1,5}[A-Z]{0,2}|[A-Z]{1,2}-[A-Z0-9]{3,5})$")
+NORAD = re.compile(r"^\d{1,6}$")
+COSPAR = re.compile(r"^\d{4}-\d{3}[A-Z]{0,3}$")
 SQUAWKS = {"7500": "hijack", "7600": "radio failure", "7700": "emergency"}
 
 EVENT_WORDS = {
@@ -145,6 +147,11 @@ def decode(query: str) -> list[Reading]:
             )
         )
 
+    if NORAD.match(compact):
+        out.append(Reading("norad", int(compact)))
+    if COSPAR.match(up):
+        out.append(Reading("cospar", up))
+
     if HEX.match(compact):
         out.append(Reading("hex", compact.lower()))
     if REG.match(compact):
@@ -197,6 +204,17 @@ def _aircraft_result(a: dict, why: str | None = None) -> dict:
     }
 
 
+def _satellite_result(s: Satellite, why: str | None = None) -> dict:
+    bits = [b for b in (why, s.orbit_class.upper(), s.object_id) if b]
+    bits += [t for t in s.tags if t not in ("new",)][:2]
+    return {
+        "kind": "satellite",
+        "label": s.name,
+        "detail": " · ".join(bits),
+        "norad": s.norad_id,
+    }
+
+
 def _place_height(population: int) -> int:
     if population > 2_000_000:
         return 90000
@@ -237,10 +255,13 @@ async def resolve(
     seen_hex: set[str] = set()
 
     def add(item: dict) -> None:
-        if item.get("hex"):
-            if item["hex"] in seen_hex:
+        key = item.get("hex") or (
+            "sat:{0}".format(item["norad"]) if item.get("norad") else None
+        )
+        if key:
+            if key in seen_hex:
                 return
-            seen_hex.add(item["hex"])
+            seen_hex.add(key)
         results.append(item)
 
     for r in readings:
@@ -288,6 +309,18 @@ async def resolve(
                         "callsign": r.value,
                     }
                 )
+        elif r.kind == "norad":
+            sat = await db.get(Satellite, r.value)
+            if sat is not None:
+                add(_satellite_result(sat, "NORAD {0}".format(r.value)))
+        elif r.kind == "cospar":
+            rows = await db.execute(
+                select(Satellite)
+                .where(Satellite.object_id.like("{0}%".format(r.value)))
+                .limit(5)
+            )
+            for sat in rows.scalars():
+                add(_satellite_result(sat))
         elif r.kind == "airport":
             a = r.value
             add(
@@ -321,6 +354,18 @@ async def resolve(
             )
 
     text = query.strip()
+    # A satellite whose name starts with the query ("ISS", "NOAA 20")
+    # comes before places that merely contain it.
+    if len(text) >= 3 and not any(r.kind == "coords" for r in readings):
+        prefix = "{0}%".format(text.replace("%", "").replace("_", ""))
+        sats = await db.execute(
+            select(Satellite)
+            .where(Satellite.name.ilike(prefix))
+            .order_by(func.length(Satellite.name), Satellite.norad_id)
+            .limit(3)
+        )
+        for sat in sats.scalars():
+            add(_satellite_result(sat))
     if len(text) >= 2 and not any(r.kind == "coords" for r in readings):
         for p in await asyncio.to_thread(places.search, text, 5):
             add(
@@ -334,6 +379,15 @@ async def resolve(
                 }
             )
         like = "%{0}%".format(text.replace("%", "").replace("_", ""))
+        if len(text) >= 3:
+            sats = await db.execute(
+                select(Satellite)
+                .where(Satellite.name.ilike(like))
+                .order_by(func.length(Satellite.name), Satellite.norad_id)
+                .limit(5)
+            )
+            for sat in sats.scalars():
+                add(_satellite_result(sat))
         rows = (
             await db.execute(
                 select(Event)

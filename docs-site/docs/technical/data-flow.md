@@ -20,6 +20,7 @@ M2–M3), patterns and alerts.
 | `gdelt` | 5 min (files every 15 min) | Conflict and protest reports, clustered within 25 km and 2 h |
 | `rss` | 10 min | Headlines in the `articles` table (16 outlets by default) |
 | `firms` | 3 h | Fire clusters (0.25 degree cells with 8+ detections); needs a key |
+| satellites (`celestrak`) | 6 h | The CelesTrak "active" catalogue (OMM elements, about 17,000), tagged from small groups (stations, weather, GNSS, military...). Stored in `satellites`; browsers propagate it with SGP4 |
 | aircraft (`adsb_mil`) | 15 s | A snapshot of every military aircraft from adsb.lol, published on `argus.air`; not stored |
 
 **Aircraft** take a lighter path than events. The worker polls adsb.lol's

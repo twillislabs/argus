@@ -13,7 +13,7 @@ from datetime import timedelta
 import httpx
 from sqlalchemy import select
 
-from argus import __version__
+from argus import __version__, space
 from argus.aviation import ADSB_LOL, normalise
 from argus.collectors import REGISTRY, Collector
 from argus.config import Settings, get_settings
@@ -155,6 +155,62 @@ async def air_loop(
         )
 
 
+SPACE_SOURCE = "celestrak"
+
+
+async def space_loop(db: Database, client: httpx.AsyncClient) -> None:
+    """Refresh the satellite catalogue every six hours.
+
+    The last success is kept in sources, so restarting the worker doesn't
+    fetch again early (CelesTrak blocks clients that fetch too often).
+    """
+    async with db.sessionmaker() as session:
+        row = await session.get(Source, SPACE_SOURCE)
+        if row is None:
+            row = Source(name=SPACE_SOURCE, last_count=0)
+            session.add(row)
+        row.label = "CelesTrak satellites"
+        row.interval_s = int(space.REFRESH.total_seconds())
+        row.enabled = True
+        await session.commit()
+    while True:
+        async with db.sessionmaker() as session:
+            row = await session.get(Source, SPACE_SOURCE)
+            last = row.last_success_at if row else None
+            due = last is None or utcnow() - last >= space.REFRESH
+            if due:
+                started = utcnow()
+                try:
+                    count, failures = await space.refresh_catalog(
+                        session, client
+                    )
+                    row = await session.get(Source, SPACE_SOURCE)
+                    row.last_run_at = started
+                    row.last_success_at = utcnow()
+                    row.last_count = count
+                    row.last_error = (
+                        "Tag groups failed: {0}".format(", ".join(failures))
+                        if failures
+                        else None
+                    )
+                    await session.commit()
+                    log.info("celestrak: {0} satellites".format(count))
+                except Exception as exc:  # noqa: BLE001 - retry later
+                    await session.rollback()
+                    log.warning("CelesTrak refresh failed: {0}".format(exc))
+                    row = await session.get(Source, SPACE_SOURCE)
+                    row.last_run_at = started
+                    row.last_error = "{0}: {1}".format(
+                        type(exc).__name__, str(exc)[:400]
+                    )
+                    await session.commit()
+                    await asyncio.sleep(RETRY_S * 6)
+                    continue
+                last = utcnow()
+        wait = space.REFRESH - (utcnow() - last) if last else space.REFRESH
+        await asyncio.sleep(max(60.0, wait.total_seconds()))
+
+
 async def run_collector(
     db: Database,
     collector: Collector,
@@ -234,6 +290,9 @@ async def run(settings: Settings) -> None:
         follow_redirects=True,
     ) as client:
         air_task = None
+        space_task = None
+        if settings.space_enabled:
+            space_task = asyncio.create_task(space_loop(db, client))
         if settings.air_enabled:
             air_task = asyncio.create_task(
                 air_loop(db, settings, client, publisher)
@@ -270,8 +329,9 @@ async def run(settings: Settings) -> None:
                     next_housekeeping = now + timedelta(seconds=HOUSEKEEPING_S)
                 await asyncio.sleep(TICK_S)
         finally:
-            if air_task is not None:
-                air_task.cancel()
+            for task in (air_task, space_task):
+                if task is not None:
+                    task.cancel()
             await publisher.close()
             await db.dispose()
 

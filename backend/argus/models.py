@@ -233,3 +233,26 @@ class ServerSetting(Base):
     updated_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+
+
+# --- Milestone 3: space ---------------------------------------------------
+
+
+class Satellite(Base):
+    """One object from the CelesTrak catalogue, with its latest elements.
+
+    omm holds the CelesTrak GP record (OMM JSON) the browser propagates.
+    """
+
+    __tablename__ = "satellites"
+    __table_args__ = (Index("ix_satellites_name", "name"),)
+
+    norad_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(80))
+    object_id: Mapped[str] = mapped_column(String(16), default="")
+    # leo, meo, geo or heo, from the mean motion and eccentricity.
+    orbit_class: Mapped[str] = mapped_column(String(4))
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list)
+    epoch: Mapped[datetime] = mapped_column(UTCDateTime)
+    omm: Mapped[dict[str, Any]] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

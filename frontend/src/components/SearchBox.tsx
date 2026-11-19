@@ -10,6 +10,7 @@ const KIND_LABEL: Record<SearchResult['kind'], string> = {
   place: 'PLACE',
   event: 'EVENT',
   filter: 'FILTER',
+  satellite: 'SATELLITE',
 };
 
 interface Props {

@@ -246,3 +246,9 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
   .arow { grid-template-columns: 1fr 1fr; }
 }
 .srow .lrow.flat .tog { display: block; }
+.sw.sat { border-radius: 1px; transform: rotate(45deg) scale(0.75); }
+
+/* Satellite passes. */
+.passes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+.passes li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; }
+.passes .dim { color: var(--dim); font-size: 11px; }

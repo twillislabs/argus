@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     # aircraft are fetched by the API for the area in view.
     air_enabled: bool = True
     air_interval_s: int = 15
+    # Satellite catalogue from CelesTrak, every six hours.
+    space_enabled: bool = True
     raw_retention_days: int = 30
     event_retention_days: int = 30
 

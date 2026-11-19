@@ -4,6 +4,7 @@ import AircraftInspector from '../components/AircraftInspector';
 import AppHeader from '../components/AppHeader';
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
+import SatelliteInspector from '../components/SatelliteInspector';
 import LayerPanel, {
   type AirFilters,
   DEFAULT_FILTERS,
@@ -21,6 +22,7 @@ import {
   getAircraft,
   getEvents,
   getMapConfig,
+  getSatelliteCatalog,
   getSummary,
   type Me,
   savePreferences,
@@ -29,6 +31,7 @@ import {
 } from '../lib/api';
 import { connectLive, type LiveState } from '../lib/live';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
+import { DEFAULT_SPACE, type SatCatalog, type SpaceFilters } from '../map/satellites';
 import Globe, { type Basemap, BASEMAPS, type GlobeHandle, type Imagery, PHOTO_3D } from '../map/Globe';
 import { applyLayers, buildShareLink, takeShareLink } from '../lib/share';
 
@@ -53,6 +56,7 @@ function initialFilters(me: Me): LayerFilters {
     types: { ...DEFAULT_FILTERS.types, ...(saved ?? {}) },
     air: { ...DEFAULT_FILTERS.air, ...(air ?? {}) },
     reference: { ...DEFAULT_FILTERS.reference, ...(reference ?? {}) },
+    space: { ...DEFAULT_SPACE, ...((me.preferences.space as Partial<SpaceFilters> | undefined) ?? {}) },
   };
 }
 
@@ -88,6 +92,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [summary, setSummary] = useState<Summary | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedHex, setSelectedHex] = useState<string | null>(null);
+  const [selectedNorad, setSelectedNorad] = useState<number | null>(null);
+  const [followSat, setFollowSat] = useState(false);
+  const [satCatalog, setSatCatalog] = useState<SatCatalog | null>(null);
   const [camera, setCamera] = useState<CameraMode>('free');
   const [military, setMilitary] = useState<Aircraft[]>([]);
   const [civil, setCivil] = useState<Aircraft[]>([]);
@@ -172,6 +179,49 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     return () => window.clearInterval(id);
   }, [loadCivil, filters.air.civil]);
 
+  // The satellite catalogue (about 17,000 objects) loads only once a
+  // space layer is on or a satellite is picked, then hourly.
+  const wantSats =
+    filters.space.leo || filters.space.meo || filters.space.geo || filters.space.heo || filters.space.starlink || selectedNorad !== null;
+  useEffect(() => {
+    if (!wantSats) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const body = await getSatelliteCatalog();
+        if (cancelled) return;
+        setSatCatalog({
+          updated: body.updated,
+          raw: body.satellites,
+          meta: body.satellites.map((r) => ({
+            norad: Number(r[0]),
+            name: String(r[1]),
+            cospar: String(r[2]),
+            cls: r[3] as SatCatalog['meta'][number]['cls'],
+            tags: (r[4] as string[]) ?? [],
+          })),
+        });
+      } catch {
+        // Retried on the next interval.
+      }
+    }
+    if (!satCatalog) void load();
+    const id = window.setInterval(() => void load(), 3_600_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+    // satCatalog is checked once per switch-on; the interval refreshes it.
+  }, [wantSats]);
+  const satCounts = useMemo(() => {
+    const c: Partial<Record<keyof SpaceFilters, number>> = {};
+    for (const m of satCatalog?.meta ?? []) {
+      const k = m.tags.includes('starlink') ? 'starlink' : m.cls;
+      c[k] = (c[k] ?? 0) + 1;
+    }
+    return c;
+  }, [satCatalog]);
+
   const viewTimer = useRef<number | undefined>(undefined);
   // passive: reported while the camera rides along with an aircraft; the
   // regular civil refresh picks the new area up, so don't fetch now.
@@ -241,7 +291,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   function changeFilters(next: LayerFilters) {
     setFilters(next);
-    void savePreferences({ layers: next.types, air: next.air, reference: next.reference }).catch(
+    void savePreferences({ layers: next.types, air: next.air, reference: next.reference, space: next.space }).catch(
       () => undefined,
     );
   }
@@ -264,6 +314,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const clearSelection = useCallback(() => {
     setSelected(null);
     setSelectedHex(null);
+    setSelectedNorad(null);
+    setFollowSat(false);
     setCamera('free');
     setTracked(null);
     trackedRef.current = null;
@@ -318,6 +370,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       filters,
       eventId: selected,
       hex: selectedHex,
+      norad: selectedNorad,
       view: camera,
     });
     try {
@@ -335,7 +388,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (!share) return;
     if (share.basemap) setBasemap(share.basemap);
     if (share.layers) setFilters((f) => applyLayers(f, share.layers as string[]));
-    if (share.hex) selectAircraft(share.hex, share.view ?? 'free');
+    if (share.norad) selectSatellite(share.norad, true);
+    else if (share.hex) selectAircraft(share.hex, share.view ?? 'free');
     else if (share.eventId) select(share.eventId);
     if (share.camera && !(share.hex && share.view && share.view !== 'free')) {
       globe.current?.applyCamera(share.camera);
@@ -355,10 +409,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (!rightOpen) setRightOpen(true);
   }
 
-  // Map clicks: event ids, or "ac:<hex>" for aircraft.
+  // Map clicks: event ids, "ac:<hex>" for aircraft, "sat:<norad>".
   function select(id: string | null) {
     if (id && id.startsWith('ac:')) {
       selectAircraft(id.slice(3));
+      return;
+    }
+    if (id && id.startsWith('sat:')) {
+      selectSatellite(Number(id.slice(4)));
       return;
     }
     clearSelection();
@@ -366,8 +424,17 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (id) openRight();
   }
 
+  function selectSatellite(norad: number, follow = false) {
+    clearSelection();
+    setSelectedNorad(norad);
+    setFollowSat(follow);
+    openRight();
+  }
+
   function selectAircraft(hex: string, view: CameraMode = 'free') {
     setSelected(null);
+    setSelectedNorad(null);
+    setFollowSat(false);
     if (hex !== selectedHex) {
       setTrail(null);
       setTracked(null);
@@ -428,6 +495,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }
 
   function onSearch(r: SearchResult) {
+    if (r.kind === 'satellite' && r.norad) {
+      selectSatellite(r.norad, true);
+      return;
+    }
     if (r.kind === 'filter' && r.filter) {
       if (r.filter.events) {
         const types = { conflict: false, unrest: false, quake: false, fire: false };
@@ -471,6 +542,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             counts={counts}
             airCounts={airCounts}
             civilStatus={civilStatus}
+            satCounts={satCounts}
             onChange={changeFilters}
           />
         )}
@@ -480,6 +552,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             basemap={basemap}
             imagery={imagery}
             reference={filters.reference}
+            satellites={satCatalog}
+            space={filters.space}
+            selectedNorad={selectedNorad}
+            followSat={followSat}
             home={home}
             events={shown}
             selectedId={selected}
@@ -612,7 +688,21 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         </section>
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
-            {selectedHex ? (
+            {selectedNorad !== null ? (
+              <SatelliteInspector
+                norad={selectedNorad}
+                home={home}
+                following={followSat}
+                onBack={clearSelection}
+                onFollow={setFollowSat}
+                onFly={() => {
+                  setFollowSat(false);
+                  globe.current?.flyToSatellite(selectedNorad);
+                }}
+                orbit={(n) => globe.current?.satOrbit(n) ?? Promise.resolve(null)}
+                passes={(n, lat, lon) => globe.current?.satPasses(n, lat, lon) ?? Promise.resolve([])}
+              />
+            ) : selectedHex ? (
               <AircraftInspector
                 hex={selectedHex}
                 camera={camera}

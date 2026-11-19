@@ -272,7 +272,7 @@ export const getAircraftDetail = (hex: string) =>
   api<AircraftDetail>('/api/aircraft/' + encodeURIComponent(hex));
 
 export interface SearchResult {
-  kind: 'coords' | 'aircraft' | 'flight' | 'airport' | 'place' | 'event' | 'filter';
+  kind: 'coords' | 'aircraft' | 'flight' | 'airport' | 'place' | 'event' | 'filter' | 'satellite';
   label: string;
   detail: string;
   lat?: number;
@@ -282,6 +282,7 @@ export interface SearchResult {
   mil?: boolean;
   id?: string;
   callsign?: string;
+  norad?: number;
   filter?: { events?: EventType[]; aircraft?: string };
 }
 
@@ -341,3 +342,23 @@ export const changePassword = (current_password: string, new_password: string) =
   api<void>('/api/me/password', { method: 'POST', body: { current_password, new_password } });
 export const updateProfile = (body: { display_name?: string; email?: string | null }) =>
   api<User>('/api/me/profile', { method: 'PATCH', body });
+
+// --- Satellites --------------------------------------------------------------
+
+export interface SatelliteDetail {
+  norad: number;
+  name: string;
+  cospar: string;
+  class: 'leo' | 'meo' | 'geo' | 'heo';
+  tags: string[];
+  epoch: string;
+  orbit: { period_min: number; apogee_km: number; perigee_km: number; inclination: number };
+}
+
+export const getSatellite = (norad: number) => api<SatelliteDetail>('/api/satellites/' + norad);
+
+export async function getSatelliteCatalog() {
+  return api<{ updated: string | null; fields: string[]; satellites: (string | number | string[])[][] }>(
+    '/api/satellites',
+  );
+}

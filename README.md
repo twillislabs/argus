@@ -39,6 +39,9 @@ What it does today:
   airlift and so on), and civil traffic for whatever region you're looking at. Click one for its
   route and progress, then ride along in **Follow**, **Chase**, **Orbit** or **Cockpit**
   view (with a head-up display).
+- **Satellites.** About 17,000 from CelesTrak, by orbit (LEO, MEO, GEO, HEO, Starlink), moved
+  every second in your browser with SGP4. Click one for its orbit, ground track and its passes
+  over your home.
 - **Universal search.** Type a flight number (`AA100`), a hex or tail number, an airport, a
   place, coordinates, an event or a word like `tankers`, and Argus works out what you meant.
 - **Corroboration before it hits the map.** Machine-coded GDELT reports start as *unconfirmed* and
@@ -55,7 +58,7 @@ What it does today:
     they replace at first sign-in
 - **Built-in documentation** at `/docs/`, including how every part connects.
 
-Coming next: ships, satellites with live orbits,
+Coming next: ships,
 street-level imagery, airspace and GPS-jamming, weather, news and traffic video, wall mode for a
 watch-floor screen, balanced news coverage, alerts, and optional AI (Anthropic, OpenAI or a local
 model).
@@ -155,6 +158,8 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
 
 ## Data and credits
 
+- **Satellites:** [CelesTrak](https://celestrak.org/) GP elements; SGP4 by
+  [satellite.js](https://github.com/shashwatak/satellite-js) (MIT).
 - **Street map:** © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
   (ODbL), via the [Protomaps](https://protomaps.com/) daily build, rendered with
   [tileserver-gl](https://github.com/maptiler/tileserver-gl) (BSD); Noto Sans fonts (OFL).

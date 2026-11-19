@@ -7,6 +7,7 @@ import {
   Math as CesiumMath,
   Matrix4,
   BoundingSphere,
+  FixedFrameTransforms,
   HeadingPitchRange,
   NearFarScalar,
   Rectangle,
@@ -43,6 +44,14 @@ import { type AircraftCamera, type CameraMode, createAircraftCamera } from './ai
 import { addAircraftLayer, type AircraftLayer } from './aircraftLayer';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
 import { addOverlays, type Overlays, type ReferenceLayers } from './overlays';
+import {
+  addSatelliteLayer,
+  type OrbitInfo,
+  type Pass,
+  type SatCatalog,
+  type SatelliteLayer,
+  type SpaceFilters,
+} from './satellites';
 
 // No Cesium ion: every tile comes from a source we configure.
 Ion.defaultAccessToken = '';
@@ -233,6 +242,9 @@ export interface GlobeHandle {
   // The camera as a share-link string, and applying one.
   cameraString: () => string | null;
   applyCamera: (s: string) => boolean;
+  satOrbit: (norad: number) => Promise<OrbitInfo | null>;
+  satPasses: (norad: number, lat: number, lon: number) => Promise<Pass[]>;
+  flyToSatellite: (norad: number) => void;
 }
 
 export interface SavedCamera {
@@ -288,6 +300,10 @@ interface Props {
   basemap: Basemap;
   imagery: Imagery | null;
   reference: ReferenceLayers;
+  satellites: SatCatalog | null;
+  space: SpaceFilters;
+  selectedNorad: number | null;
+  followSat: boolean;
   home: Home | null;
   events: EventItem[];
   selectedId: string | null;
@@ -307,6 +323,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     basemap,
     imagery,
     reference,
+    satellites,
+    space,
+    selectedNorad,
+    followSat,
     home,
     events,
     selectedId,
@@ -330,6 +350,13 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const tracker = useRef<AircraftCamera | null>(null);
   const photo3d = useRef<Cesium3DTileset | null>(null);
   const overlays = useRef<Overlays | null>(null);
+  const sats = useRef<SatelliteLayer | null>(null);
+  const followSatRef = useRef({ on: followSat, norad: selectedNorad, fresh: true });
+  followSatRef.current = {
+    on: followSat,
+    norad: selectedNorad,
+    fresh: followSatRef.current.fresh || followSatRef.current.norad !== selectedNorad || !followSatRef.current.on,
+  };
   const history = useRef<SavedCamera[]>([]);
   const onHistoryRef = useRef(onHistory);
   onHistoryRef.current = onHistory;
@@ -362,6 +389,27 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     points.current = collection;
     rings.current = ringCollection;
     air.current = addAircraftLayer(scene);
+    const satLayer = addSatelliteLayer(scene);
+    sats.current = satLayer;
+    // Following a satellite: keep the camera's offset from it, re-anchored
+    // on its new position each second (zoom and tilt still work).
+    const satFrame = new Matrix4();
+    satLayer.onTick(() => {
+      const f = followSatRef.current;
+      if (!f.on || f.norad === null || v.scene.mode !== SceneMode.SCENE3D) return;
+      const p = satLayer.position(f.norad);
+      if (!p) return;
+      FixedFrameTransforms.eastNorthUpToFixedFrame(p, undefined, satFrame);
+      const inFrame = !Matrix4.equals(v.camera.transform, Matrix4.IDENTITY);
+      if (f.fresh || !inFrame) {
+        const height = Cartesian3.magnitude(p) - 6_371_000;
+        const range = Math.min(Math.max(height * 1.6, 400_000), 60_000_000);
+        v.camera.lookAtTransform(satFrame, new HeadingPitchRange(0, CesiumMath.toRadians(-60), range));
+        followSatRef.current.fresh = false;
+      } else {
+        v.camera.lookAtTransform(satFrame, Cartesian3.clone(v.camera.position));
+      }
+    });
     const aircraftCamera = createAircraftCamera(v, () => air.current);
     tracker.current = aircraftCamera;
     // While the camera rides along, report the view every few seconds so
@@ -485,6 +533,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['tracking', removeTracking],
         ['aircraft', () => air.current?.destroy()],
         ['overlays', () => overlays.current?.destroy()],
+        ['satellites', () => sats.current?.destroy()],
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
         ['widget', () => v.destroy()],
@@ -498,6 +547,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       }
       dark.current = null;
       overlays.current = null;
+      sats.current = null;
       air.current = null;
       tracker.current = null;
       viewer.current = null;
@@ -618,6 +668,26 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     tracker.current?.setMode(camera);
   }, [camera]);
+
+  useEffect(() => {
+    if (satellites) sats.current?.load(satellites);
+  }, [satellites]);
+  const spaceKey = [space.leo, space.meo, space.geo, space.heo, space.starlink].join('');
+  const spaceRef = useRef(space);
+  spaceRef.current = space;
+  useEffect(() => {
+    sats.current?.setFilter(spaceRef.current);
+  }, [spaceKey]);
+  useEffect(() => {
+    sats.current?.select(selectedNorad);
+  }, [selectedNorad]);
+  useEffect(() => {
+    if (!followSat && viewer.current && !Matrix4.equals(viewer.current.camera.transform, Matrix4.IDENTITY)) {
+      // Release only what satellite follow held; the aircraft tracker
+      // manages its own camera.
+      if (selectedNorad !== null) viewer.current.camera.lookAtTransform(Matrix4.IDENTITY);
+    }
+  }, [followSat, selectedNorad]);
 
   const referenceKey = [reference.borders, reference.states, reference.labels, reference.airports].join('');
   useEffect(() => {
@@ -747,6 +817,24 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
             duration: reduceMotion ? 0 : 1.4,
           });
           return true;
+        },
+        satOrbit(norad) {
+          return sats.current?.orbit(norad) ?? Promise.resolve(null);
+        },
+        satPasses(norad, lat, lon) {
+          return sats.current?.passes(norad, lat, lon) ?? Promise.resolve([]);
+        },
+        flyToSatellite(norad) {
+          const v = viewer.current;
+          const p = sats.current?.position(norad);
+          if (!v || !p) return;
+          remember();
+          tracker.current?.release();
+          const height = Cartesian3.magnitude(p) - 6_371_000;
+          v.camera.flyToBoundingSphere(new BoundingSphere(p, 0), {
+            offset: new HeadingPitchRange(0, CesiumMath.toRadians(-60), Math.min(Math.max(height * 1.6, 400_000), 60_000_000)),
+            duration: reduceMotion ? 0 : 1.6,
+          });
         },
         cameraString() {
           const v = viewer.current;

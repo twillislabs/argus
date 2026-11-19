@@ -119,3 +119,4 @@
 .iconbtn:disabled { opacity: 0.35; cursor: default; }
 .iconbtn:disabled:hover { border-color: var(--line-2); }
 .mc-gap { height: 4px; }
+.skind.k-satellite { color: #b49cff; }

@@ -47,6 +47,8 @@ services:
       ARGUS_LOG_LEVEL: ${ARGUS_LOG_LEVEL:-INFO}
       ARGUS_COLLECTORS: ${ARGUS_COLLECTORS:-usgs,gdelt,rss,firms}
       ARGUS_FIRMS_MAP_KEY: ${ARGUS_FIRMS_MAP_KEY:-}
+      ARGUS_AIR_ENABLED: ${ARGUS_AIR_ENABLED:-true}
+      ARGUS_SPACE_ENABLED: ${ARGUS_SPACE_ENABLED:-true}
     healthcheck:
       disable: true
     depends_on:

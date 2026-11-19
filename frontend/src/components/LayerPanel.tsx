@@ -2,6 +2,7 @@ import type { CivilStatus, EventType } from '../lib/api';
 import { EVENT_TYPES, SEVERITY_NAME, TYPE_INFO } from '../lib/format';
 import { AIR_COLOR } from '../map/aircraftLayer';
 import { DEFAULT_REFERENCE, type ReferenceLayers } from '../map/overlays';
+import { DEFAULT_SPACE, SAT_COLOR, type SpaceFilters } from '../map/satellites';
 
 export interface AirFilters {
   military: boolean;
@@ -17,6 +18,7 @@ export interface LayerFilters {
   hours: number;
   air: AirFilters;
   reference: ReferenceLayers;
+  space: SpaceFilters;
 }
 
 export const DEFAULT_FILTERS: LayerFilters = {
@@ -26,7 +28,16 @@ export const DEFAULT_FILTERS: LayerFilters = {
   hours: 24,
   air: { military: true, civil: true, focus: '' },
   reference: DEFAULT_REFERENCE,
+  space: DEFAULT_SPACE,
 };
+
+const SPACE_ROWS: { id: keyof SpaceFilters; label: string; source: string; color: string }[] = [
+  { id: 'leo', label: 'Low Earth orbit', source: 'Under 2,000 km · stations, imaging', color: SAT_COLOR.leo },
+  { id: 'meo', label: 'Medium Earth orbit', source: 'GPS, Galileo, GLONASS, BeiDou', color: SAT_COLOR.meo },
+  { id: 'geo', label: 'Geosynchronous', source: 'Communications, weather', color: SAT_COLOR.geo },
+  { id: 'heo', label: 'Highly elliptical', source: 'Molniya, Tundra and similar', color: SAT_COLOR.heo },
+  { id: 'starlink', label: 'Starlink', source: 'About 11,000 satellites', color: '#9aa7ba' },
+];
 
 const REFERENCE_ROWS: { id: keyof ReferenceLayers; label: string; source: string }[] = [
   { id: 'borders', label: 'Country borders', source: 'Natural Earth 50m' },
@@ -54,6 +65,7 @@ interface Props {
   counts: Partial<Record<EventType, number>>;
   airCounts: { military: number; civil: number };
   civilStatus: CivilStatus;
+  satCounts: Partial<Record<keyof SpaceFilters, number>>;
   onChange: (f: LayerFilters) => void;
 }
 
@@ -65,7 +77,7 @@ const CIVIL_HINT: Record<CivilStatus, string> = {
   limited: 'adsb.lol is busy; showing recent positions',
 };
 
-export default function LayerPanel({ filters, counts, airCounts, civilStatus, onChange }: Props) {
+export default function LayerPanel({ filters, counts, airCounts, civilStatus, satCounts, onChange }: Props) {
   const air = filters.air;
   const setAir = (next: Partial<AirFilters>) => onChange({ ...filters, air: { ...air, ...next } });
   const isDefault = JSON.stringify(filters) === JSON.stringify(DEFAULT_FILTERS);
@@ -144,6 +156,25 @@ export default function LayerPanel({ filters, counts, airCounts, civilStatus, on
             ))}
           </select>
         </div>
+      </div>
+      <div className="group">
+        <div className="gtitle">Space</div>
+        {SPACE_ROWS.map((r) => (
+          <label key={r.id} className="lrow">
+            <input
+              type="checkbox"
+              checked={filters.space[r.id]}
+              onChange={(e) => onChange({ ...filters, space: { ...filters.space, [r.id]: e.target.checked } })}
+            />
+            <span className="tog" />
+            <span className="sw sat" style={{ background: r.color }} />
+            <span className="lname">
+              <span>{r.label}</span>
+              <small>{r.source}</small>
+            </span>
+            <span className="lcount mono">{satCounts[r.id] ?? '–'}</span>
+          </label>
+        ))}
       </div>
       <div className="group">
         <div className="gtitle">Reference</div>

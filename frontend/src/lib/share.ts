@@ -16,6 +16,7 @@ const BASEMAPS: Basemap[] = ['dark', 'satellite', 'hybrid', 'photo3d'];
 const VIEWS: CameraMode[] = ['free', 'follow', 'chase', 'orbit', 'cockpit'];
 const EVENT_LAYERS = ['conflict', 'unrest', 'quake', 'fire'] as const;
 const REF_LAYERS = ['borders', 'states', 'labels', 'airports'] as const;
+const SPACE_LAYERS = ['leo', 'meo', 'geo', 'heo', 'starlink'] as const;
 
 export interface Share {
   camera?: string;
@@ -24,6 +25,7 @@ export interface Share {
   eventId?: string;
   hex?: string;
   view?: CameraMode;
+  norad?: number;
 }
 
 export function enabledLayers(f: LayerFilters): string[] {
@@ -31,6 +33,7 @@ export function enabledLayers(f: LayerFilters): string[] {
   if (f.air.military) on.push('mil');
   if (f.air.civil) on.push('civil');
   for (const r of REF_LAYERS) if (f.reference[r]) on.push(r);
+  for (const r of SPACE_LAYERS) if (f.space[r]) on.push(r);
   return on;
 }
 
@@ -41,6 +44,7 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
     types: { conflict: has('conflict'), unrest: has('unrest'), quake: has('quake'), fire: has('fire') },
     air: { ...f.air, military: has('mil'), civil: has('civil'), focus: '' },
     reference: { borders: has('borders'), states: has('states'), labels: has('labels'), airports: has('airports') },
+    space: { leo: has('leo'), meo: has('meo'), geo: has('geo'), heo: has('heo'), starlink: has('starlink') },
   };
 }
 
@@ -51,6 +55,7 @@ export function buildShareLink(s: {
   eventId: string | null;
   hex: string | null;
   view: CameraMode;
+  norad: number | null;
 }): string {
   const p = new URLSearchParams();
   if (s.camera) p.set('v', s.camera);
@@ -59,13 +64,15 @@ export function buildShareLink(s: {
   if (s.hex) {
     p.set('ac', s.hex);
     if (s.view !== 'free') p.set('cam', s.view);
-  } else if (s.eventId) p.set('e', s.eventId);
+  } else if (s.norad) p.set('sat', String(s.norad));
+  else if (s.eventId) p.set('e', s.eventId);
   return location.origin + '/#' + p.toString();
 }
 
 function parse(hash: string): Share | null {
   const p = new URLSearchParams(hash.replace(/^#/, ''));
-  if (!p.has('v') && !p.has('ac') && !p.has('e')) return null;
+  if (!p.has('v') && !p.has('ac') && !p.has('e') && !p.has('sat')) return null;
+  const sat = Number(p.get('sat'));
   const b = p.get('b') as Basemap | null;
   const cam = p.get('cam') as CameraMode | null;
   const hex = (p.get('ac') ?? '').toLowerCase();
@@ -77,6 +84,7 @@ function parse(hash: string): Share | null {
     hex: /^[0-9a-f]{6}$/.test(hex) ? hex : undefined,
     eventId: /^[A-Za-z0-9]{1,16}$/.test(eventId) ? eventId : undefined,
     view: cam && VIEWS.includes(cam) ? cam : undefined,
+    norad: Number.isInteger(sat) && sat > 0 ? sat : undefined,
   };
 }
 

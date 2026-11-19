@@ -139,6 +139,33 @@ types come from adsbdb and are the *planned* route. Aircraft whose owners
 opted out of tracking (the FAA's PIA and LADD programmes) are not shown
 unless they are military, and Argus never shows registered owner names.
 
+## Satellites
+
+The **Space** group shows every active satellite CelesTrak tracks, about
+17,000, by orbit:
+
+| Layer | What's there |
+|---|---|
+| **Low Earth orbit** | Under about 2,000 km: space stations, imaging, weather and science |
+| **Medium Earth orbit** | Navigation constellations: GPS, Galileo, GLONASS, BeiDou |
+| **Geosynchronous** | Communications and weather satellites over fixed longitudes |
+| **Highly elliptical** | Molniya, Tundra and other long, looping orbits |
+| **Starlink** | About 11,000 satellites, off by default |
+
+Your browser works out every position each second with SGP4 from
+CelesTrak's elements, so nothing is downloaded per second. Click a
+satellite (or search its name, NORAD number like `25544`, or COSPAR ID
+like `1998-067A`) to see:
+
+- its orbit as a ring and its ground track (dashed) for the next orbit and
+  a half;
+- altitude and speed now, period, inclination, perigee and apogee;
+- its **passes over home** in the next 24 hours: rise and set times (UTC),
+  the highest elevation, and how soon. Passes count above 10°.
+
+**Follow** keeps it in view as it moves; scroll to zoom. The ISS moves at
+7.7 km/s, so following is the easiest way to watch it.
+
 ## Events
 
 Markers are coloured by severity (info, elevated, high, critical,

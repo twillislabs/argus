@@ -128,6 +128,8 @@ export type LabelMode = 'dark' | 'satellite' | 'hybrid';
 // Below this height the Dark and Hybrid maps' own tiles carry place names,
 // so Argus's city labels step aside instead of doubling them.
 const TILE_LABELS_BELOW = 2.6e6;
+// The tiles name countries from about here down.
+const COUNTRY_TILES_BELOW = 3.2e6;
 
 export interface Overlays {
   setLayers: (layers: ReferenceLayers) => void;
@@ -156,7 +158,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   let style = STYLE.dark;
   const borderMaterials: Material[] = [];
   const stateMaterials: Material[] = [];
-  const countryLabels: Label[] = [];
+  const countryLabels: { label: Label; area: number }[] = [];
   const cityLabels: { label: Label; pop: number }[] = [];
 
   const [topo, admin1, cities, airports] = await Promise.all([
@@ -181,8 +183,9 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
       const point = f.geometry ? labelPoint(f.geometry) : null;
       if (!name || !point || name === 'Antarctica') continue;
       const at = point.at;
-      countryLabels.push(
-        labels.add({
+      countryLabels.push({
+        area: point.area,
+        label: labels.add({
           position: Cartesian3.fromDegrees(at[0], at[1], 2000),
           text: name.toUpperCase(),
           font: '600 11px "Barlow Semi Condensed", "Arial Narrow", sans-serif',
@@ -196,7 +199,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
           distanceDisplayCondition: countryRange(point.area),
           scaleByDistance: new NearFarScalar(2.0e6, 1.1, 2.0e7, 0.8),
         }),
-      );
+      });
     }
   }
 
@@ -294,6 +297,13 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
           label.show = false;
         }
       }
+      // Country names too: the tiles carry them once they fade in.
+      for (const { label, area } of countryLabels) {
+        const range = countryRange(area);
+        const near = mode === 'satellite' ? range.near : Math.max(range.near, COUNTRY_TILES_BELOW);
+        label.distanceDisplayCondition = new DistanceDisplayCondition(near, range.far);
+        label.show = range.far > near;
+      }
       const next = mode === 'dark' ? STYLE.dark : STYLE.imagery;
       if (next === style) return;
       style = next;
@@ -304,7 +314,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
       const city = Color.fromCssColorString(style.city);
       const country = Color.fromCssColorString(style.country);
       for (const { label } of cityLabels) label.fillColor = city;
-      for (const l of countryLabels) l.fillColor = country;
+      for (const { label } of countryLabels) label.fillColor = country;
     },
     setDepthDistance(metres) {
       for (const c of [labels, airportLabels]) {

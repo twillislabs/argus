@@ -30,6 +30,20 @@ function vendorChunk(id: string): string | undefined {
 }
 
 export default defineConfig({
+  resolve: {
+    alias: [
+      // satellite.js's main entry also loads a WebAssembly build (top-level
+      // await, Node threads). Argus only needs the plain JS SGP4 modules.
+      {
+        find: /^satellite-core\/(.*)$/,
+        replacement: decodeURIComponent(new URL('./node_modules/satellite.js/dist/', import.meta.url).pathname) + '$1',
+      },
+    ],
+  },
+  worker: {
+    format: 'es',
+    rollupOptions: { output: { entryFileNames: 'assets/js/[name]-[hash].js' } },
+  },
   define: {
     CESIUM_BASE_URL: JSON.stringify('/' + cesiumBase),
   },

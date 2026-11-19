@@ -23,6 +23,7 @@ All settings are environment variables, usually set in `.env`.
 | `ARGUS_COLLECTORS` | `usgs,gdelt,rss,firms` | Collectors the worker runs |
 | `ARGUS_AIR_ENABLED` | `true` | Poll military aircraft from adsb.lol in the worker |
 | `ARGUS_AIR_INTERVAL_S` | `15` | Seconds between military aircraft polls |
+| `ARGUS_SPACE_ENABLED` | `true` | Fetch the CelesTrak satellite catalogue every six hours |
 | `ARGUS_FIRMS_MAP_KEY` | (empty) | NASA FIRMS key; fires are off without it ([get one](https://firms.modaps.eosdis.nasa.gov/api/map_key/)) |
 | `ARGUS_RSS_FEEDS_FILE` | (built-in list) | JSON file of `[{"outlet": "...", "url": "..."}]` replacing the default feeds |
 | `ARGUS_USER_AGENT` | `Argus/0.1 (...)` | User-Agent sent to data sources |

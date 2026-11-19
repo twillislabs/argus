@@ -72,6 +72,13 @@ parts connect.
 - adsb.lol's routeset endpoint is unusable (202, empty); routes come from
   adsbdb, which goes stale when flight numbers are reused
   (`route_progress` flags implausible routes).
+- CelesTrak blocks clients that fetch a group more than about once every
+  two hours. The worker's `space_loop` waits out six hours from the last
+  success (kept in `sources`), even across restarts. For throwaway stacks
+  run with `ARGUS_SPACE_ENABLED=false` and load a saved copy instead of
+  fetching again.
+- satellite.js's main entry pulls in a WebAssembly build; import its JS
+  modules through the `satellite-core/` alias (vite.config.ts, tsconfig).
 - adsb.lol rate-limits per IP (429), shared by every Argus stack on this
   machine. All calls go through `AirClient._adsb_get` (spacing, pause on
   429, stale cache). Don't add direct calls.
