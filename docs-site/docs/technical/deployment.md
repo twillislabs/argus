@@ -104,7 +104,11 @@ to Argus on `127.0.0.1:8080`:
    or `close`.)
 2. In Argus's `.env`: `ARGUS_TRUSTED_PROXIES=172.16.0.0/12` (the Docker
    bridge the host nginx arrives through) and `ARGUS_COOKIE_SECURE=true`.
-3. In Cloudflare: keep WebSockets on; turn off Rocket Loader and any
+3. In Cloudflare: keep WebSockets on. Argus marks its responses
+   `Cache-Control: no-transform`, which stops Rocket Loader and the
+   minifiers rewriting them (Rocket Loader otherwise leaves a blank page:
+   it injects inline scripts the Content-Security-Policy blocks); still,
+   turn off Rocket Loader and any
    other script or HTML rewriting (Argus's Content-Security-Policy blocks
    injected scripts); leave caching to Argus's headers (`/api` is
    `no-store`).

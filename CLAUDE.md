@@ -93,6 +93,9 @@ parts connect.
   tiles directly). New external tile hosts must be added to the CSP in
   `frontend/nginx.conf` (img-src and connect-src).
 - nginx uses `absolute_redirect off` so redirects keep the host port.
+- Every response carries `Cache-Control: no-transform` (nginx), so
+  Cloudflare's Rocket Loader can't rewrite the page (blank page under
+  our CSP). Locations with their own add_header must repeat it.
 - Visitor addresses: `frontend/docker/40-argus-real-ip.sh` writes nginx
   `set_real_ip_from` lines from `ARGUS_TRUSTED_PROXIES` (validated) and
   `ARGUS_REAL_IP_HEADER`; nginx then sends the API only `$remote_addr`
