@@ -101,7 +101,8 @@ async def test_cams_api_and_image_proxy(app, admin_client):
     ).json()
     assert r["status"] == "ok" and len(r["cameras"]) == 1
     cam = r["cameras"][0]
-    assert cam["image"] == "/api/cams/caltrans-d7-1/image" and cam["video"]
+    assert cam["image"] == "/api/cams/caltrans-d7-1/image"
+    assert cam["video"] == "live"
     assert "cwwp2" not in str(cam)  # agency URLs stay on the server
 
     calls = []
@@ -123,3 +124,81 @@ async def test_cams_api_and_image_proxy(app, admin_client):
     await admin_client.get(cam["image"])
     assert len(calls) == 1  # cached
     assert (await admin_client.get("/api/cams/nope/image")).status_code == 404
+    v = (await admin_client.get("/api/cams/caltrans-d7-1/video")).json()
+    assert v == {
+        "kind": "live",
+        "url": "https://wzmedia.dot.ca.gov/D7/CCTV-196.stream/playlist.m3u8",
+    }
+
+
+def test_open_feeds():
+    bc = cams.parse_drivebc(
+        [
+            {
+                "id": 591,
+                "name": "Fort St. John - SE",
+                "caption": "Highway 97 at 100 Avenue, looking southeast.",
+                "highway_display": "97",
+                "location": {"type": "Point", "coordinates": [-120.87, 56.25]},
+                "orientation": "SE",
+                "is_on": True,
+                "should_appear": True,
+            },
+            {"id": 592, "is_on": False, "location": {"coordinates": [1, 2]}},
+        ]
+    )
+    assert [c["id"] for c in bc] == ["drivebc-591"]
+    assert bc[0]["direction"] == 135.0
+    assert bc[0]["image"] == "https://www.drivebc.ca/images/591.jpg"
+
+    tfl = cams.parse_tfl(
+        [
+            {
+                "id": "JamCams_00002.00865",
+                "commonName": "A406 Billet Upass E",
+                "lat": 51.6,
+                "lon": -0.02,
+                "additionalProperties": [
+                    {"key": "available", "value": "true"},
+                    {"key": "imageUrl", "value": "https://s3.example/a.jpg"},
+                    {"key": "videoUrl", "value": "https://s3.example/a.mp4"},
+                    {"key": "view", "value": "East"},
+                ],
+            },
+            {
+                "id": "JamCams_off",
+                "lat": 51,
+                "lon": 0,
+                "additionalProperties": [
+                    {"key": "available", "value": "false"}
+                ],
+            },
+        ]
+    )
+    assert [c["id"] for c in tfl] == ["tfl-00002.00865"]
+    assert tfl[0]["clip"].endswith(".mp4") and tfl[0]["stream"] is None
+
+    fi = cams.parse_digitraffic(
+        {
+            "features": [
+                {
+                    "geometry": {"coordinates": [23.99, 60.05, 0]},
+                    "properties": {
+                        "name": "kt51_Inkoo",
+                        "collectionStatus": "GATHERING",
+                        "presets": [
+                            {"id": "C0150301", "inCollection": True},
+                            {"id": "C0150302", "inCollection": True},
+                            {"id": "C0150303", "inCollection": False},
+                        ],
+                    },
+                }
+            ]
+        }
+    )
+    assert [c["id"] for c in fi] == [
+        "digitraffic-C0150301",
+        "digitraffic-C0150302",
+    ]
+    assert fi[0]["image"] == "https://weathercam.digitraffic.fi/C0150301.jpg"
+    assert fi[1]["name"] == "kt51 Inkoo (2)"

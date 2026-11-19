@@ -5,6 +5,9 @@ browsers never call the agencies.
 /api/cams?bbox=        cameras in view (status zoom when the view is
                        wider than MAX_SPAN degrees)
 /api/cams/{id}/image   that camera's current image
+/api/cams/{id}/video   where its live stream (HLS) or latest clip (MP4)
+                       plays from: video comes straight from the agency,
+                       only when someone presses play
 """
 
 import time
@@ -57,7 +60,11 @@ def _public(c: dict) -> dict:
         )
     } | {
         "image": "/api/cams/{0}/image".format(c["id"]),
-        "video": bool(c.get("stream")),
+        "video": "live"
+        if c.get("stream")
+        else "clip"
+        if c.get("clip")
+        else None,
     }
 
 
@@ -126,3 +133,14 @@ async def cam_image(
         media_type=hit[2],
         headers={"Cache-Control": "private, max-age={0}".format(IMAGE_TTL_S)},
     )
+
+
+@router.get("/api/cams/{cam_id}/video")
+async def cam_video(
+    cam_id: str, request: Request, session: SessionDep, db: DbDep
+):
+    cam = (await catalogue(request, db)).get(cam_id) or {}
+    url = cam.get("stream") or cam.get("clip")
+    if not url or not url.startswith("https://"):
+        raise HTTPException(404, "This camera has no video.")
+    return {"kind": "live" if cam.get("stream") else "clip", "url": url}

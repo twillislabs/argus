@@ -113,7 +113,11 @@ parts connect.
 - Traffic cameras: `argus/cams.py` (feed parsers), worker `cams_loop`
   (daily, `layer:trafficcams`), `api/cams.py`. Browsers get our proxy
   path (`/api/cams/{id}/image`), never agency URLs; the proxy only
-  fetches a camera's own catalogue image (`image_allowed`). TDOT's
+  fetches a camera's own catalogue image (`image_allowed`). Video is the
+  exception: `/api/cams/{id}/video` hands the browser the agency's HLS
+  or MP4 URL on Play, and each video host must be in the CSP
+  (`connect-src` for HLS, `media-src`); add TDOT's stream host there
+  once its feed is seen. New no-key feeds go in `cams.OPEN_FEEDS`. TDOT's
   field names aren't public: `parse_tdot` guesses and logs the keys of
   the first record when nothing parses.
 - ALPR cameras (`argus/alpr.py`, `/api/alpr`) come from Overpass per

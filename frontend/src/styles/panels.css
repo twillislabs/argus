@@ -369,6 +369,7 @@ tr.dimrow td { color: var(--dim); }
 .alprsum li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kv.tags dt { font-size: 11px; }
 .camshot { margin: 10px 0 6px; background: #05080e; border: 1px solid var(--line); border-radius: 4px; min-height: 140px; display: grid; place-items: center; overflow: hidden; }
+.camvideo { display: block; width: 100%; margin: 10px 0 6px; background: #05080e; border: 1px solid var(--line); border-radius: 4px; }
 .camshot img { display: block; width: 100%; height: auto; }
 .camshot figcaption { padding: 10px; font-size: 12px; }
 .wikilist h3 { margin: 10px 0 4px; font: 600 10.5px/1 var(--f-head); letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }

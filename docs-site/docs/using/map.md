@@ -179,7 +179,7 @@ is overdue (hover for the error), grey when it isn't collecting.
 
 | Layer | Shows | Source |
 |---|---|---|
-| **Traffic cameras** | Government road cameras, with a wedge for the way each looks where the agency says. Click one for its latest still, refreshed every 30 seconds; Argus's server fetches the images, so your browser never contacts the agency. Loads for a regional view (zoom in to about a state). Off by default | Caltrans (California, no key); TDOT SmartWay (Tennessee) once an admin adds a TDOT key in Settings › Data sources |
+| **Traffic cameras** | Government road and weather cameras, with a wedge for the way each looks where the agency says. Click one for its latest still, refreshed every 30 seconds (Argus's server fetches stills, so your browser never contacts the agency for them). Where the agency streams live video (most Caltrans cameras) or keeps a short recent clip (London's JamCams), **Play** shows it; video plays straight from the agency's server. Loads for a regional view (zoom in to about a state). Off by default | Caltrans (California), DriveBC (British Columbia), TfL JamCams (London, Powered by TfL Open Data), Fintraffic Digitraffic weather cameras (Finland, CC BY 4.0), no keys needed; TDOT SmartWay (Tennessee) with a TDOT key in Settings › Data sources |
 
 ## Reference layers
 

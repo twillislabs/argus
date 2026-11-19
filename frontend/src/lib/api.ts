@@ -557,8 +557,12 @@ export interface TrafficCam {
   agency: string;
   refresh_s: number;
   image: string;
-  video: boolean;
+  // Live video (HLS) or a short recent clip (MP4), from the agency.
+  video: 'live' | 'clip' | null;
 }
+
+export const getCamVideo = (id: string) =>
+  api<{ kind: 'live' | 'clip'; url: string }>('/api/cams/' + encodeURIComponent(id) + '/video');
 
 export const getCams = (bbox: Bbox) =>
   api<{ cameras: TrafficCam[]; status: 'ok' | 'zoom' }>('/api/cams?bbox=' + bbox.map((v) => v.toFixed(3)).join(','));

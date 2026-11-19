@@ -497,10 +497,15 @@ async def cams_loop(
             row = await session.get(ServerSetting, "layer:trafficcams")
             previous = dict(row.value or {}) if row else {}
             source = await session.get(Source, "trafficcams")
+            label = (
+                "Traffic cameras (Caltrans, DriveBC, TfL, Digitraffic, TDOT)"
+            )
+            if source is not None:
+                source.label = label
             if source is None:
                 source = Source(
                     name="trafficcams",
-                    label="Traffic cameras (Caltrans, TDOT)",
+                    label=label,
                     interval_s=int(CAMS_EVERY.total_seconds()),
                     enabled=True,
                     last_count=0,
@@ -523,6 +528,11 @@ async def cams_loop(
                 feeds["caltrans"] = await traffic_cams.fetch_caltrans(client)
             except (httpx.HTTPError, ValueError) as exc:
                 errors.append("caltrans: {0}".format(str(exc)[:200]))
+            for name, fetch in traffic_cams.OPEN_FEEDS.items():
+                try:
+                    feeds[name] = await fetch(client)
+                except (httpx.HTTPError, ValueError, KeyError) as exc:
+                    errors.append("{0}: {1}".format(name, str(exc)[:200]))
             if tdot_key:
                 try:
                     feeds["tdot"] = await traffic_cams.fetch_tdot(
