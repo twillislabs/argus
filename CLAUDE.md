@@ -280,7 +280,9 @@ parts connect.
   home). `/wall?profile=` previews one. Pushing: walls poll
   `/api/display/sync` every 10 s (counters per screen and for all, plus
   a boot id, in API memory; `push_sync`), bumped by saving a screen or
-  profile and by Sync / Reload in Settings. `mode: "tv"` makes the wall
+  profile and by Sync / Reload in Settings; the same poll renews a
+  display session (and its cookie) once under 20 days are left.
+  `mode: "tv"` makes the wall
   live TV only (`tv_channels`, `muted`, `volume`; LiveFrame's `audio`
   prop applies sound changes through the YouTube player API).
 - Page titles are set per route in `App.tsx` (`pageTitle`); only

@@ -27,12 +27,14 @@ just sets a new baseline.
 import secrets as pysecrets
 import time
 from dataclasses import dataclass
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete, func, select
 
 from argus.api.deps import (
+    SESSION_COOKIE,
     DbDep,
     SessionDep,
     SettingsDep,
@@ -342,9 +344,32 @@ async def set_wall(
     return {"wall": wall, "home": home, "profile": body.profile}
 
 
+# A paired screen's session renews itself while the screen is in use, so
+# it keeps showing the wall (also after a restart) instead of dropping to
+# the sign-in page when the remember-me period runs out.
+RENEW_WHEN_LEFT = timedelta(days=20)
+
+
 @router.get("/api/display/sync")
-async def sync_state(request: Request, session: SessionDep):
+async def sync_state(
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    db: DbDep,
+    settings: SettingsDep,
+):
     """What a wall polls: counters that move when it should sync."""
+    if (
+        session.user.role == "display"
+        and session.expires_at - utcnow() < RENEW_WHEN_LEFT
+    ):
+        session.expires_at = utcnow() + timedelta(
+            days=settings.session_remember_days
+        )
+        await db.commit()
+        token = request.cookies.get(SESSION_COOKIE)
+        if token:
+            set_session_cookies(response, token, session, settings)
     sig = _signals(request)
     mine = sig.get(session.user_id) or {}
     every = sig.get("all") or {}

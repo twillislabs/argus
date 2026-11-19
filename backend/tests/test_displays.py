@@ -241,3 +241,53 @@ async def test_sync_now(admin_client, app):
             "/api/admin/displays/sync", json={}, headers=csrf(screen)
         )
         assert r.status_code == 403
+
+
+async def test_display_session_renews(admin_client, app):
+    from datetime import timedelta
+
+    import httpx
+    from sqlalchemy import select
+
+    from argus.db import utcnow
+    from argus.models import User, UserSession
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as screen:
+        start = (await screen.post("/api/display/pair/start")).json()
+        await admin_client.post(
+            "/api/admin/displays",
+            json={"code": start["code"], "name": "Lobby"},
+            headers=csrf(admin_client),
+        )
+        await screen.post(
+            "/api/display/pair/poll", json={"token": start["token"]}
+        )
+        # Pretend the screen was paired 25 days ago.
+        async with app.state.db.sessionmaker() as db:
+            row = (
+                await db.execute(
+                    select(UserSession)
+                    .join(User)
+                    .where(User.role == "display")
+                )
+            ).scalar_one()
+            row.expires_at = utcnow() + timedelta(days=5)
+            await db.commit()
+        r = await screen.get("/api/display/sync")
+        assert r.status_code == 200
+        assert "argus_session=" in r.headers.get("set-cookie", "")
+        async with app.state.db.sessionmaker() as db:
+            row = (
+                await db.execute(
+                    select(UserSession)
+                    .join(User)
+                    .where(User.role == "display")
+                )
+            ).scalar_one()
+            assert row.expires_at - utcnow() > timedelta(days=29)
+        # Fresh sessions aren't touched on every poll.
+        again = await screen.get("/api/display/sync")
+        assert "set-cookie" not in again.headers

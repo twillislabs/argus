@@ -364,15 +364,16 @@ export default function WallEditor({
               </small>
             </span>
             <span className="soundctl">
-              <label className="switch">
+              <span className="lrow flat">
                 <input
                   type="checkbox"
+                  aria-label="Sound on"
                   checked={wall.muted === false}
                   onChange={(e) => change({ muted: e.target.checked ? false : undefined })}
                 />
                 <span className="tog" />
-                <span>{wall.muted === false ? 'On' : 'Muted'}</span>
-              </label>
+              </span>
+              <span className="soundlabel">{wall.muted === false ? 'Sound on' : 'Muted'}</span>
               <input
                 type="range"
                 aria-label="Volume"

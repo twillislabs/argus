@@ -163,6 +163,13 @@ without typing a password on it:
 
 Each screen gets its own *display* account: it can only see the Wall, its
 session doesn't time out when idle, and no password is kept on the device.
+The session renews itself while the screen is showing the wall, so it
+stays paired indefinitely. After a power cut or restart, the screen goes
+straight back to the wall as long as its browser opens your Argus
+address on start (set that as the kiosk or start-up page); its layout,
+channels and sound come from the server, and the tour starts again from
+its first stop. A screen left switched off for more than 30 days needs
+pairing again.
 **Wall settings** next to a screen sets what it shows: its home (for the
 home stop, home clock and night dimming), the tour, seconds per stop,
 critical-event interruptions, map layers, sections, news and clocks, or

@@ -658,3 +658,7 @@ tr.dimrow td { color: var(--dim); }
 .soundctl input[type='range'] {
   width: 140px;
 }
+.soundlabel {
+  min-width: 5.5em;
+  font-size: 13px;
+}
