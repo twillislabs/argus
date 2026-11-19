@@ -18,7 +18,7 @@ M2–M3), patterns and alerts.
 |---|---|---|
 | `usgs` | 1 min | One event per quake (M2.5+, past day), updated when USGS revises it |
 | `gdelt` | 5 min (files every 15 min) | Conflict and protest reports, clustered within 25 km and 2 h |
-| `rss` | 10 min | Headlines in the `articles` table (16 outlets by default) |
+| `rss` | 10 min | Headlines in the `articles` table (24 outlets, 32 feeds by default: world and US desks) |
 | `firms` | 3 h | Fire clusters (0.25 degree cells with 8+ detections); needs a key |
 | `gdacs` | 15 min | GDACS disasters (floods, cyclones, volcanoes, droughts, wildfires), one `hazard` event each |
 | `eonet` | 30 min | NASA EONET natural events (storms with their tracks, volcanoes...) as `hazard` events |

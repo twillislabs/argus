@@ -65,7 +65,46 @@ DEFAULT_FEEDS = [
     {
         "outlet": "Kyiv Independent",
         "url": "https://kyivindependent.com/news-archive/rss/",
+    },  # US national desks, so domestic stories (airports, outages,
+    # weather, crime) reach the airport panels and event matching.
+    {"outlet": "NPR", "url": "https://feeds.npr.org/1003/rss.xml"},
+    {"outlet": "CBS News", "url": "https://www.cbsnews.com/latest/rss/us"},
+    {
+        "outlet": "NBC News",
+        "url": "https://feeds.nbcnews.com/nbcnews/public/us-news",
     },
+    {
+        "outlet": "ABC News",
+        "url": "https://abcnews.go.com/abcnews/usheadlines",
+    },
+    {
+        "outlet": "Fox News",
+        "url": "https://moxie.foxnews.com/google-publisher/us.xml",
+    },
+    {"outlet": "New York Post", "url": "https://nypost.com/us-news/feed/"},
+    {
+        "outlet": "BBC News",
+        "url": "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml",
+    },
+    {
+        "outlet": "The Guardian",
+        "url": "https://www.theguardian.com/us-news/rss",
+    },
+    # More conservative outlets (all sections; some are opinion-heavy).
+    {"outlet": "Daily Wire", "url": "https://www.dailywire.com/feeds/rss.xml"},
+    {
+        "outlet": "Washington Times",
+        "url": "https://www.washingtontimes.com/rss/headlines/news/",
+    },
+    {"outlet": "Daily Caller", "url": "https://dailycaller.com/feed/"},
+    {"outlet": "Breitbart", "url": "https://feeds.feedburner.com/breitbart"},
+    {"outlet": "The Blaze", "url": "https://www.theblaze.com/feeds/feed.rss"},
+    {"outlet": "Just the News", "url": "https://justthenews.com/rss.xml"},
+    {
+        "outlet": "National Review",
+        "url": "https://www.nationalreview.com/feed/",
+    },
+    {"outlet": "The Federalist", "url": "https://thefederalist.com/feed/"},
 ]
 
 _TAG = re.compile(r"<[^>]+>")
