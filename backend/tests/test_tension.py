@@ -38,8 +38,8 @@ def test_weight_halves_every_twelve_hours():
     old = tension.weight(ev(hours=12, now=now), now)
     assert fresh == 3.0
     assert abs(old - 1.5) < 1e-9
-    # Candidates count half; quakes not at all.
-    assert tension.weight(ev(status="candidate", now=now), now) == 1.5
+    # Unconfirmed reports and quakes don't count.
+    assert tension.weight(ev(status="candidate", now=now), now) == 0.0
     assert tension.weight(ev(kind="quake", now=now), now) == 0.0
 
 

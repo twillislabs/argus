@@ -233,6 +233,8 @@ export interface Aircraft {
   seen: number | null;
   // ADS-B emitter category (A1 light ... A5 heavy, A7 rotorcraft).
   category?: string | null;
+  // The feed it came from: adsb.lol, adsb.fi, or your own receiver.
+  source?: string;
 }
 
 export interface RouteAirport {

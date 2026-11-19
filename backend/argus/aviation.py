@@ -1,12 +1,17 @@
-"""Aircraft: reference data, the adsb.lol client, and the live picture.
+"""Aircraft: reference data, the ADS-B feed client, and the live picture.
 
 - Airports (OurAirports, public domain) and airlines (OpenFlights, ODbL)
   are bundled in argus/data and loaded on first use.
-- Military aircraft come from adsb.lol /v2/mil, polled by the worker and
-  published on NATS; the API keeps the latest positions and a short trail
-  per aircraft in memory (LiveAir).
-- Civil aircraft are fetched on demand for the area being viewed
-  (adsb.lol /v2/point, at most 250 nm), with a short cache.
+- Positions come from free community ADS-B feeds with the same API:
+  adsb.lol (ODbL; 500 requests a day per IP address) and adsb.fi (open
+  data for personal, non-commercial use; one request a second).
+  FeedClient tries them in order and skips one that's rate-limiting us
+  until it says it will accept requests again.
+- Military aircraft are polled by the worker (adsb.fi first, to keep
+  adsb.lol's daily quota for map views) and published on NATS; the API
+  keeps the latest positions and a short trail per aircraft (LiveAir).
+- Civil aircraft are fetched on demand for the area being viewed (at
+  most 250 nm), with a short cache.
 - Routes and aircraft details come from adsbdb.com, cached for hours.
 
 Privacy: aircraft flagged PIA or LADD (owners who asked not to be shown)
@@ -33,6 +38,50 @@ log = logging.getLogger("argus.aviation")
 
 DATA = os.path.join(os.path.dirname(__file__), "data")
 ADSB_LOL = "https://api.adsb.lol/v2/"
+
+
+@dataclass(frozen=True)
+class Feed:
+    name: str
+    base: str
+    # Request kind -> path, formatted with the request's arguments.
+    paths: dict[str, str]
+
+
+FEEDS = {
+    "adsb.lol": Feed(
+        "adsb.lol",
+        ADSB_LOL,
+        {
+            "mil": "mil",
+            "point": "point/{0:.2f}/{1:.2f}/{2}",
+            "callsign": "callsign/{0}",
+            "hex": "hex/{0}",
+            "reg": "reg/{0}",
+        },
+    ),
+    "adsb.fi": Feed(
+        "adsb.fi",
+        "https://opendata.adsb.fi/api/",
+        {
+            "mil": "v2/mil",
+            "point": "v3/lat/{0:.2f}/lon/{1:.2f}/dist/{2}",
+            "callsign": "v2/callsign/{0}",
+            "hex": "v2/icao/{0}",
+            "reg": "v2/registration/{0}",
+        },
+    ),
+}
+# Order for map views and lookups; the worker's military poll reverses it.
+VIEW_ORDER = ("adsb.lol", "adsb.fi")
+POLL_ORDER = ("adsb.fi", "adsb.lol")
+
+
+def aircraft_list(doc: dict) -> list[dict]:
+    """The aircraft array: "ac" on most endpoints, "aircraft" on some."""
+    return doc.get("ac") or doc.get("aircraft") or []
+
+
 ADSBDB = "https://api.adsbdb.com/v0/"
 HEXDB_ROUTE = "https://hexdb.io/callsign-route"
 
@@ -175,8 +224,10 @@ def large_airports() -> list[Airport]:
 # --- aircraft records ----------------------------------------------------
 
 
-def normalise(ac: dict, military: bool | None = None) -> dict[str, Any] | None:
-    """Trim an adsb.lol aircraft to what Argus shows. None = drop it."""
+def normalise(
+    ac: dict, military: bool | None = None, source: str = "adsb.lol"
+) -> dict[str, Any] | None:
+    """Trim a feed's aircraft to what Argus shows. None = drop it."""
     if "lat" not in ac or "lon" not in ac:
         return None
     flags = int(ac.get("dbFlags") or 0)
@@ -211,7 +262,7 @@ def normalise(ac: dict, military: bool | None = None) -> dict[str, Any] | None:
         # Navigation accuracy, for GPS interference (NACp < 8 means the
         # aircraft's own position is degraded).
         "nac_p": ac.get("nac_p"),
-        "source": "adsb.lol",
+        "source": source,
     }
 
 
@@ -391,7 +442,7 @@ class TTLCache:
 
 
 class RateLimited(Exception):
-    """adsb.lol asked us to slow down and there's nothing cached."""
+    """Every feed asked us to slow down and there's nothing cached."""
 
 
 # Area queries snap to these radii (nm) and a 0.25 degree grid, so small
@@ -406,17 +457,87 @@ MIN_GAP_S = 1.0
 BACKOFF_S = 30.0
 
 
+def _pause_for(response: httpx.Response) -> float:
+    """How long a 429 says to stay away: the daily quota's reset when it's
+    used up (adsb.lol), else Retry-After, else BACKOFF_S."""
+    h = response.headers
+    try:
+        if h.get("x-ratelimit-remaining", "").split(",")[0].strip() == "0":
+            return float(h.get("x-ratelimit-reset", BACKOFF_S))
+        return float(h.get("Retry-After", BACKOFF_S))
+    except ValueError:
+        return BACKOFF_S
+
+
+class FeedClient:
+    """GETs from the ADS-B feeds in order: each is spaced to one request
+    a second, a 429 pauses that feed (until its quota resets, when it
+    says so) and the next one is tried. Raises RateLimited when every
+    feed is paused."""
+
+    def __init__(
+        self, client: httpx.AsyncClient, order: tuple[str, ...]
+    ) -> None:
+        self.client = client
+        self.order = order
+        self.locks = {n: asyncio.Lock() for n in order}
+        self.next_request = {n: 0.0 for n in order}
+        self.paused_until = {n: 0.0 for n in order}
+
+    def limited(self) -> bool:
+        now = time.monotonic()
+        return all(self.paused_until[n] > now for n in self.order)
+
+    async def get(self, kind: str, *args) -> tuple[Feed, httpx.Response]:
+        last_error: Exception | None = None
+        for name in self.order:
+            if self.paused_until[name] > time.monotonic():
+                continue
+            feed = FEEDS[name]
+            async with self.locks[name]:
+                wait = self.next_request[name] - time.monotonic()
+                if wait > 0:
+                    await asyncio.sleep(wait)
+                self.next_request[name] = time.monotonic() + MIN_GAP_S
+                try:
+                    response = await self.client.get(
+                        feed.base + feed.paths[kind].format(*args)
+                    )
+                except httpx.HTTPError as exc:
+                    last_error = exc
+                    continue
+            if response.status_code == 429:
+                pause = max(5.0, _pause_for(response))
+                self.paused_until[name] = time.monotonic() + pause
+                log.warning(
+                    "{0} rate limit; pausing it {1:.0f} s".format(name, pause)
+                )
+                continue
+            if response.status_code >= 500:
+                last_error = httpx.HTTPStatusError(
+                    "{0} returned {1}".format(name, response.status_code),
+                    request=response.request,
+                    response=response,
+                )
+                continue
+            response.raise_for_status()
+            return feed, response
+        if last_error is not None and not self.limited():
+            raise last_error
+        raise RateLimited()
+
+
 def snap_area(lat: float, lon: float, radius_nm: int) -> tuple:
     radius = next((r for r in RADIUS_STEPS if r >= radius_nm), 250)
     return round(lat * 4) / 4, round(lon * 4) / 4, radius
 
 
 class AirClient:
-    """adsb.lol area queries and adsbdb lookups, with caches.
+    """ADS-B area queries and adsbdb lookups, with caches.
 
-    adsb.lol is a free community service with rate limits shared by
+    The feeds are free community services with rate limits shared by
     everyone on this IP address, so requests are spaced out, a 429 pauses
-    them, and recent answers are served while paused.
+    that feed, and recent answers are served while all are paused.
     """
 
     def __init__(self, user_agent: str) -> None:
@@ -431,36 +552,13 @@ class AirClient:
         # hex -> (time seen, aircraft), from any area answer.
         self.recent: dict[str, tuple[float, dict]] = {}
         self.gps: GpsGrid | None = None
-        self.lock = asyncio.Lock()
-        self.next_request = 0.0
-        self.paused_until = 0.0
+        self.feeds = FeedClient(self.client, VIEW_ORDER)
 
     async def close(self) -> None:
         await self.client.aclose()
 
     def limited(self) -> bool:
-        return time.monotonic() < self.paused_until
-
-    async def _adsb_get(self, path: str) -> httpx.Response:
-        """GET from adsb.lol, spaced out and paused after a 429."""
-        if self.limited():
-            raise RateLimited()
-        async with self.lock:
-            wait = self.next_request - time.monotonic()
-            if wait > 0:
-                await asyncio.sleep(wait)
-            self.next_request = time.monotonic() + MIN_GAP_S
-            response = await self.client.get(ADSB_LOL + path)
-        if response.status_code == 429:
-            try:
-                pause = float(response.headers.get("Retry-After", BACKOFF_S))
-            except ValueError:
-                pause = BACKOFF_S
-            self.paused_until = time.monotonic() + max(5.0, pause)
-            log.warning("adsb.lol rate limit; pausing {0:.0f} s".format(pause))
-            raise RateLimited()
-        response.raise_for_status()
-        return response
+        return self.feeds.limited()
 
     async def area(self, lat: float, lon: float, radius_nm: int) -> list[dict]:
         """Civil and military aircraft within radius_nm (max 250)."""
@@ -470,16 +568,17 @@ class AirClient:
         if hit and time.time() - hit[0] < AREA_TTL_S:
             return hit[1]
         try:
-            response = await self._adsb_get(
-                "point/{0:.2f}/{1:.2f}/{2}".format(lat, lon, radius)
-            )
+            feed, response = await self.feeds.get("point", lat, lon, radius)
         except (RateLimited, httpx.HTTPError):
             if hit and time.time() - hit[0] < AREA_STALE_S:
                 return hit[1]
             raise
         out = [
             a
-            for a in (normalise(x) for x in response.json().get("ac", []))
+            for a in (
+                normalise(x, source=feed.name)
+                for x in aircraft_list(response.json())
+            )
             if a is not None
         ]
         self.areas.put(key, out)
@@ -515,15 +614,17 @@ class AirClient:
         return None
 
     async def lookup(self, kind: str, value: str) -> list[dict]:
-        """adsb.lol by callsign, hex or reg (for search and selection)."""
-        path = {"callsign": "callsign", "hex": "hex", "reg": "reg"}[kind]
+        """A feed by callsign, hex or reg (for search and selection)."""
         try:
-            response = await self._adsb_get("{0}/{1}".format(path, value))
-        except (RateLimited, httpx.HTTPStatusError):
+            feed, response = await self.feeds.get(kind, value)
+        except (RateLimited, httpx.HTTPError):
             return []
         return [
             a
-            for a in (normalise(x) for x in response.json().get("ac", []))
+            for a in (
+                normalise(x, source=feed.name)
+                for x in aircraft_list(response.json())
+            )
             if a is not None
         ]
 

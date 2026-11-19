@@ -171,6 +171,7 @@ async def test_area_backs_off_and_serves_cache(monkeypatch):
 
     client = AirClient("test")
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client.feeds.client = client.client
     first = await client.area(36.1, -86.7, 100)
     assert [a["hex"] for a in first] == ["ae1234"]
     assert client.seen_recently("ae1234")["callsign"] == "RCH123"
@@ -186,9 +187,44 @@ async def test_area_backs_off_and_serves_cache(monkeypatch):
     # Paused: no further requests, and nothing cached elsewhere raises.
     with pytest.raises(RateLimited):
         await client.area(10.0, 10.0, 100)
-    assert len(calls) == 2
+    # Both feeds were asked once each after the first answer.
+    assert len(calls) == 3
     assert await client.lookup("hex", "abcdef") == []
     await client.close()
+
+
+async def test_feeds_fall_back_and_respect_daily_quota(monkeypatch):
+    monkeypatch.setattr(aviation, "MIN_GAP_S", 0)
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.host)
+        if request.url.host == "api.adsb.lol":
+            # Daily quota used up: stay away until it resets.
+            return httpx.Response(
+                429,
+                headers={
+                    "x-ratelimit-limit": "500, 500;w=86400",
+                    "x-ratelimit-remaining": "0",
+                    "x-ratelimit-reset": "40000",
+                },
+            )
+        return httpx.Response(
+            200, json={"now": 1, "aircraft": [raw(dbFlags=0)]}
+        )
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    feeds = aviation.FeedClient(http, aviation.VIEW_ORDER)
+    feed, response = await feeds.get("point", 36.1, -86.7, 100)
+    assert feed.name == "adsb.fi"
+    assert aviation.aircraft_list(response.json())[0]["hex"] == "ae1234"
+    assert "/v3/lat/36.10/lon/-86.70/dist/100" in str(response.request.url)
+    # adsb.lol is skipped for the rest of the quota window.
+    assert feeds.paused_until["adsb.lol"] - time.monotonic() > 39000
+    await feeds.get("hex", "ae1234")
+    assert calls == ["api.adsb.lol", "opendata.adsb.fi", "opendata.adsb.fi"]
+    assert not feeds.limited()
+    await http.aclose()
 
 
 def test_reference_data():

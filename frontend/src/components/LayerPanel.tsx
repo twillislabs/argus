@@ -123,11 +123,11 @@ interface Props {
 }
 
 const CIVIL_HINT: Record<CivilStatus, string> = {
-  ok: 'adsb.lol · area in view',
+  ok: 'adsb.lol / adsb.fi · area in view',
   zoom: 'Zoom in to a region to load',
-  off: 'adsb.lol · area in view',
-  error: 'adsb.lol unavailable, retrying',
-  limited: 'adsb.lol is busy; showing recent positions',
+  off: 'adsb.lol / adsb.fi · area in view',
+  error: 'ADS-B feeds unavailable, retrying',
+  limited: 'ADS-B feeds are busy; showing recent positions',
 };
 
 // Which collectors feed each layer, for the health dot beside its count.
@@ -326,7 +326,7 @@ export default function LayerPanel({
           <span className="sw plane" style={{ background: AIR_COLOR.military }} />
           <span className="lname">
             <span>Military aircraft</span>
-            <small>adsb.lol · worldwide</small>
+            <small>adsb.fi / adsb.lol · worldwide</small>
           </span>
           <span className="lcount mono">
             {airCounts.military}

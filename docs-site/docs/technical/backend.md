@@ -28,7 +28,7 @@ flowchart TB
     events[events.py]
     air[air.py]
   end
-  aviation["aviation.py<br/>airports, airlines, LiveAir,<br/>adsb.lol + adsbdb client"]
+  aviation["aviation.py<br/>airports, airlines, LiveAir,<br/>ADS-B feeds + adsbdb client"]
   search["search.py<br/>decode() + resolve()"]
   air --> aviation & search
   search --> aviation

@@ -118,7 +118,7 @@ make           # every target
 | --- | --- |
 | `web` | nginx: serves the app and the docs, proxies `/api` and `/ws`, sets the security headers |
 | `api` | FastAPI: accounts, sessions, events, live WebSocket; runs migrations on start |
-| `worker` | Collectors (USGS, GDELT, RSS, FIRMS, adsb.lol) and event fusion; publishes changes to NATS |
+| `worker` | Collectors (USGS, GDELT, RSS, FIRMS, adsb.fi / adsb.lol) and event fusion; publishes changes to NATS |
 | `db` | PostgreSQL 17 with TimescaleDB and PostGIS |
 | `nats` | NATS JetStream message bus between the worker and the API |
 | `tiles` | tileserver-gl: renders the self-hosted street map (`make streetmap` installs a region) |
@@ -153,7 +153,7 @@ make ci        # everything GitHub Actions runs, locally
 | `backend/argus/collectors/` | One module per data source (USGS, GDELT, RSS, FIRMS) |
 | `backend/argus/fusion.py` | Raw records into events: clustering, severity, promotion |
 | `backend/argus/worker.py` | The collector scheduler and NATS publisher |
-| `backend/argus/aviation.py` | Airports, airlines, the live aircraft picture and the adsb.lol client |
+| `backend/argus/aviation.py` | Airports, airlines, the live aircraft picture and the ADS-B feed client |
 | `backend/argus/search.py` | The universal search decoder |
 | `backend/migrations/` | Alembic migrations, applied when the API starts |
 | `frontend/src/` | The web app: React, TypeScript and CesiumJS (`pages/`, `components/`, `map/`, `lib/`, `styles/`) |
@@ -192,7 +192,7 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
 - **Events:** the GDELT Project.
 - **Fires:** NASA FIRMS.
 - **Places:** [GeoNames](https://www.geonames.org/) (CC BY 4.0).
-- **Aircraft:** [adsb.lol](https://adsb.lol/) (ODbL 1.0) for positions, [adsbdb](https://www.adsbdb.com/)
+- **Aircraft:** [adsb.lol](https://adsb.lol/) (ODbL 1.0) and [adsb.fi](https://adsb.fi/) (open data, personal non-commercial use) for positions, [adsbdb](https://www.adsbdb.com/)
   for routes and types, [OurAirports](https://ourairports.com/data/) (public domain) and
   [OpenFlights](https://openflights.org/data) airlines (ODbL 1.0). Aircraft whose owners opted out
   (PIA, LADD) are hidden unless military, and owner names are never shown.

@@ -202,7 +202,7 @@ function HomeSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) 
 }
 
 function DisplaySection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
-  const [banner, setBanner] = useState(me.preferences.show_banner !== false);
+  const [banner, setBanner] = useState(me.preferences.show_banner === true);
 
   async function toggleBanner(next: boolean) {
     setBanner(next);
@@ -558,7 +558,7 @@ function ReceiversCard() {
       <div className="cbody">
         <p>
           If you run your own ADS-B or AIS receiver (an RTL-SDR on your network), Argus can read it. Aircraft and ships
-          it hears are added to the map for everyone, alongside adsb.lol and AISStream.
+          it hears are added to the map for everyone, alongside adsb.lol, adsb.fi and AISStream.
         </p>
         <div className="field">
           <label htmlFor="rx-adsb">ADS-B: readsb or tar1090 aircraft.json</label>

@@ -52,7 +52,7 @@ export default function AppHeader({ me, onSignedOut, live, search }: Props) {
 
   return (
     <>
-      {me.preferences.show_banner !== false && (
+      {me.preferences.show_banner === true && (
         <div className="banner">UNCLASSIFIED // OPEN SOURCE</div>
       )}
       <header className="cmdbar">

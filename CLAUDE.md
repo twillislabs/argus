@@ -1,7 +1,7 @@
 # Argus
 
 Self-hosted OSINT visualizer: a CesiumJS globe fed by collectors (USGS,
-GDELT, RSS, FIRMS, adsb.lol), with event fusion, accounts and live updates.
+GDELT, RSS, FIRMS, adsb.lol / adsb.fi), with event fusion, accounts and live updates.
 See README.md for the overview and `docs-site/docs/technical/` for how the
 parts connect.
 
@@ -11,7 +11,7 @@ parts connect.
   - `collectors/`: one module per source; `worker.py` schedules them and
     publishes to NATS; `fusion.py` turns raw records into events.
   - `api/`: routers; `/ws/live` checks Origin == Host and the session.
-  - `aviation.py`: airports/airlines, adsb.lol + adsbdb client, live
+  - `aviation.py`: airports/airlines, ADS-B feeds + adsbdb client, live
     military picture (`LiveAir`). The worker polls `/v2/mil` and publishes
     on NATS `argus.air`; civil traffic is fetched by the API per view.
   - `roles.py`: roles and their capabilities. Gate endpoints with
@@ -127,9 +127,14 @@ parts connect.
 - Hazards (GDACS, EONET, tsunami) and NGA warnings are keyed events
   (`fuse_hazard`, `fuse_navwarn`) whose raw records update in place
   (`UPDATABLE_KINDS`).
-- adsb.lol rate-limits per IP (429), shared by every Argus stack on this
-  machine. All calls go through `AirClient._adsb_get` (spacing, pause on
-  429, stale cache). Don't add direct calls.
+- ADS-B feeds rate-limit per IP, shared by every Argus stack on this
+  machine: adsb.lol allows 500 requests a day (429 with
+  `x-ratelimit-remaining: 0` and `x-ratelimit-reset` in seconds), adsb.fi
+  one a second. All calls go through `aviation.FeedClient` (order, spacing,
+  per-feed pause until reset, fallback); the worker's military poll uses
+  `POLL_ORDER` (adsb.fi first), the API `VIEW_ORDER`. Don't add direct
+  calls. Throwaway stacks spend the same quota: keep
+  `ARGUS_AIR_ENABLED=false` there.
 - Map markers use `disableDepthTestDistance` = horizon distance (infinite
   in 2D), set in `Globe.tsx`; otherwise the dark map's land and border
   shapes clip them. New primitive collections need the same.

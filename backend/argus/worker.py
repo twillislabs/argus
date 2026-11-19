@@ -15,7 +15,12 @@ import httpx
 from sqlalchemy import select
 
 from argus import __version__, sea, secrets, space, tension
-from argus.aviation import ADSB_LOL, normalise
+from argus.aviation import (
+    POLL_ORDER,
+    FeedClient,
+    aircraft_list,
+    normalise,
+)
 from argus.collectors import REGISTRY, Collector
 from argus.config import Settings, get_settings
 from argus.db import Database, utcnow
@@ -90,16 +95,14 @@ async def register_sources(db: Database, collectors: list[Collector]) -> None:
         await session.commit()
 
 
-async def poll_military(
-    client: httpx.AsyncClient, publisher: Publisher
-) -> int:
-    """One adsb.lol /v2/mil poll, published as a full snapshot."""
-    response = await client.get("{0}mil".format(ADSB_LOL))
-    response.raise_for_status()
+async def poll_military(feeds: FeedClient, publisher: Publisher) -> int:
+    """One military poll, published as a full snapshot."""
+    feed, response = await feeds.get("mil")
     snapshot = [
         a
         for a in (
-            normalise(x, military=True) for x in response.json().get("ac", [])
+            normalise(x, military=True, source=feed.name)
+            for x in aircraft_list(response.json())
         )
         if a is not None
     ]
@@ -116,12 +119,13 @@ async def air_loop(
     publisher: Publisher,
 ) -> None:
     """Poll military aircraft forever, recording health in sources."""
+    feeds = FeedClient(client, POLL_ORDER)
     async with db.sessionmaker() as session:
         row = await session.get(Source, AIR_SOURCE)
         if row is None:
             row = Source(name=AIR_SOURCE, last_count=0)
             session.add(row)
-        row.label = "adsb.lol military aircraft"
+        row.label = "Military aircraft (adsb.fi, adsb.lol)"
         row.interval_s = settings.air_interval_s
         row.enabled = True
         await session.commit()
@@ -130,10 +134,10 @@ async def air_loop(
         started = utcnow()
         error, count = None, 0
         try:
-            count = await poll_military(client, publisher)
+            count = await poll_military(feeds, publisher)
         except Exception as exc:  # noqa: BLE001 - keep polling
             error = "{0}: {1}".format(type(exc).__name__, str(exc)[:400])
-            log.warning("adsb.lol military poll failed: {0}".format(error))
+            log.warning("military poll failed: {0}".format(error))
         # Health is written at most once a minute, or at once on errors.
         if (
             error

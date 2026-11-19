@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # Military aircraft from adsb.lol, polled by the worker. Civil
     # aircraft are fetched by the API for the area in view.
     air_enabled: bool = True
-    air_interval_s: int = 15
+    air_interval_s: int = 30
     # Satellite catalogue from CelesTrak, every six hours.
     space_enabled: bool = True
     # Vessels from AISStream (needs an admin's key in Settings).

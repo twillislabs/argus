@@ -31,14 +31,15 @@ M2–M3), patterns and alerts.
 | `nga` | 1 h | NGA navigational warnings with positions, as `maritime` events |
 | vessels (`aisstream`) | stream | AISStream WebSocket for the whole world (an admin's key); changes published on `argus.sea` every 5 s, kept in API memory (`LiveSea`), not stored |
 | satellites (`celestrak`) | 6 h | The CelesTrak "active" catalogue (OMM elements, about 17,000), tagged from small groups (stations, weather, GNSS, military...). Stored in `satellites`; browsers propagate it with SGP4 |
-| aircraft (`adsb_mil`) | 15 s | A snapshot of every military aircraft from adsb.lol, published on `argus.air`; not stored |
+| aircraft (`adsb_mil`) | 30 s | A snapshot of every military aircraft from adsb.fi (adsb.lol as a fallback), published on `argus.air`; not stored |
 
-**Aircraft** take a lighter path than events. The worker polls adsb.lol's
-military feed and publishes each snapshot on NATS. The API keeps the latest
+**Aircraft** take a lighter path than events. The worker polls the
+military feed (adsb.fi, then adsb.lol) and publishes each snapshot on NATS. The API keeps the latest
 positions and short trails in memory (`LiveAir`) and forwards the snapshot to
 browsers over `/ws/live`. Civil traffic isn't collected at all: when the
-browser's view is regional, the API asks adsb.lol for that area (cached for
-10 s, so many browsers looking at the same place cost one request).
+browser's view is regional, the API asks adsb.lol (or adsb.fi when adsb.lol
+is limiting) for that area (cached for 15 s, so many browsers looking at the
+same place cost one request).
 Privacy-flagged aircraft are dropped before anything is kept.
 
 **Fusion rules (v0):**
@@ -64,7 +65,7 @@ Privacy-flagged aircraft are dropped before anything is kept.
 ```mermaid
 flowchart LR
   subgraph sources[External sources]
-    adsb[adsb.lol / airplanes.live]
+    adsb[adsb.lol / adsb.fi]
     ais[AISStream]
     celestrak[CelesTrak]
     gdelt[GDELT / RSS]

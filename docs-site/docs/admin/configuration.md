@@ -21,8 +21,8 @@ All settings are environment variables, usually set in `.env`.
 | `ARGUS_LOGIN_MAX_FAILURES` | `5` | Failed sign-ins before lockout |
 | `ARGUS_LOGIN_LOCKOUT_MINUTES` | `15` | Lockout duration |
 | `ARGUS_COLLECTORS` | `usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga,faa_tfr,sigmet,czib` | Collectors the worker runs |
-| `ARGUS_AIR_ENABLED` | `true` | Poll military aircraft from adsb.lol in the worker |
-| `ARGUS_AIR_INTERVAL_S` | `15` | Seconds between military aircraft polls |
+| `ARGUS_AIR_ENABLED` | `true` | Poll military aircraft (adsb.fi, then adsb.lol) in the worker |
+| `ARGUS_AIR_INTERVAL_S` | `30` | Seconds between military aircraft polls |
 | `ARGUS_SPACE_ENABLED` | `true` | Fetch the CelesTrak satellite catalogue every six hours |
 | `ARGUS_SEA_ENABLED` | `true` | Stream vessels from AISStream once a key is saved |
 | `ARGUS_FIRMS_MAP_KEY` | (empty) | NASA FIRMS key; fires are off without it ([get one](https://firms.modaps.eosdis.nasa.gov/api/map_key/)) |

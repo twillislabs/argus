@@ -57,8 +57,8 @@ and latitude/longitude under the cursor and the camera's eye altitude, with
 a **scale bar** on the right. Under the map, **Activity · 24h** charts the
 events per hour, coloured by layer.
 
-The green **UNCLASSIFIED // OPEN SOURCE** strip at the top can be turned
-off in Settings > Display.
+A green **UNCLASSIFIED // OPEN SOURCE** strip can be shown at the top from
+Settings > Display (off by default).
 
 ## The layer panel
 
@@ -92,12 +92,13 @@ sentences on what came in over the past hour. **Tension by country** lists
 the countries furthest above their normal. **Country tension** (in Events) tints those countries
 red on wide views, deeper the higher the score; it fades out as you zoom in.
 
-The score counts armed conflict, civil unrest and maritime-security
-events: severity × confidence, halving every 12 hours, with unconfirmed
-reports at half weight. The worker samples it hourly, and the baseline is
+The score counts confirmed armed conflict, civil unrest and
+maritime-security events: severity × confidence, halving every 12 hours.
+Unconfirmed GDELT reports don't count; most are noise. The worker samples it hourly, and the baseline is
 the average of those samples over the last 90 days. A new install builds
 its first baseline from the events already stored; until there's a week of
-history the panel says it's still learning.
+history the panel says it's still learning, and with under three days
+each country is compared with a typical country today instead.
 
 ## In view
 
@@ -180,12 +181,17 @@ along its speed, track and climb rate so the camera glides. A bar at the
 bottom of the map shows the view, callsign, altitude and speed. **Esc**
 returns to Free, as do **⌂**, **◎** and **Fly to**.
 
-adsb.lol limits how often each address can ask. Argus spaces its requests,
-shares answers between everyone looking at the same area, and pauses after a
-limit. While paused, the panel says *adsb.lol is busy* and shows the most
-recent positions.
+Positions come from two free community ADS-B networks with the same API:
+adsb.lol (ODbL; 500 requests a day per address) and adsb.fi (open data for
+personal, non-commercial use; one request a second). Map views and lookups
+ask adsb.lol first; the military feed asks adsb.fi first, to keep adsb.lol's
+daily allowance for your map. When a network says to slow down, Argus
+leaves it alone until it says it'll take requests again (for adsb.lol's
+daily limit, the next day) and uses the other. Answers are shared between
+everyone looking at the same area. If both are limiting, the panel says
+*ADS-B feeds are busy* and shows the most recent positions.
 
-Positions come from adsb.lol, a community ADS-B network (ODbL). Routes and
+The aircraft panel says which network each position came from. Routes and
 types come from adsbdb and are the *planned* route. Aircraft whose owners
 opted out of tracking (the FAA's PIA and LADD programmes) are not shown
 unless they are military, and Argus never shows registered owner names.

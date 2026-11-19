@@ -1,10 +1,11 @@
 """Tension index: how tense a country, theatre or the world is right now
 compared with its own recent past.
 
-Each conflict, unrest or maritime-security event adds
+Each confirmed conflict, unrest or maritime-security event adds
 severity × confidence × type weight, halving every 12 hours since it was
-last updated. Unconfirmed (candidate) events count half. That sum is the
-area's *raw* score.
+last updated. Unconfirmed (candidate) GDELT reports don't count: most are
+noise from English-language coverage (a "military force" report placed
+at the White House). That sum is the area's *raw* score.
 
 The worker samples raw scores every hour into `tension_daily` (one row per
 area per day: the sum of samples and how many there were). The baseline is
@@ -29,13 +30,15 @@ from argus.db import utcnow
 from argus.models import Event, TensionDaily
 
 WEIGHTS = {"conflict": 1.0, "unrest": 0.6, "maritime": 0.8}
-CANDIDATE_FACTOR = 0.5
+CANDIDATE_FACTOR = 0.0
 HALF_LIFE_H = 12.0
 # Older events add under 0.5% of their weight.
 WINDOW = timedelta(hours=96)
 BASELINE_DAYS = 90
-# Days of samples before the baseline is trusted.
+# Days of samples before the baseline is trusted, and before it's used
+# at all (a day or two of history says little about normal).
 MIN_BASELINE_DAYS = 7
+MIN_USABLE_DAYS = 3
 MIN_BASELINE = 2.0
 WORLD = "world"
 MIN_RAW_LISTED = 0.5
@@ -429,9 +432,9 @@ async def snapshot(
     before = raw_scores(events, now - timedelta(hours=24))
     base, days = await baselines(db, now.date())
     trusted = days >= MIN_BASELINE_DAYS
-    # With no history at all, compare each country with a typical
-    # country today, and the world and theatres with themselves (50):
-    # there's nothing yet to say they're above normal.
+    # With under three days of history, compare each country with a
+    # typical country today, and the world and theatres with themselves
+    # (50): there's nothing yet to say they're above normal.
     countries_now = [
         v
         for k, v in current.items()
@@ -440,7 +443,7 @@ async def snapshot(
     typical = sum(countries_now) / len(countries_now) if countries_now else 0
 
     def baseline_for(key: str) -> float | None:
-        if days:
+        if days >= MIN_USABLE_DAYS:
             # Some history: use it (flagged as learning until a week).
             return base.get(key, 0.0)
         if key == WORLD or key.startswith("theatre:"):
