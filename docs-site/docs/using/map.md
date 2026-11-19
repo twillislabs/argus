@@ -50,7 +50,23 @@ every user sees the same installed region.
   it.
 - **Esc** leaves an aircraft view, then closes the event or aircraft and
   returns to the situation panel.
-- **/** jumps to the search box.
+- **Ctrl K** (⌘ K on a Mac) or **/** jumps to the search box.
+
+Along the bottom of the map, the **readout** shows the MGRS grid reference
+and latitude/longitude under the cursor and the camera's eye altitude, with
+a **scale bar** on the right. Under the map, **Activity · 24h** charts the
+events per hour, coloured by layer.
+
+The green **UNCLASSIFIED // OPEN SOURCE** strip at the top can be turned
+off in Settings > Display.
+
+## The layer panel
+
+Type in **Filter layers** to find a layer by name or source. Click a group
+title to fold it away (remembered in this browser); its count shows how
+many of its layers are on. The dot beside a layer's count is its source's
+health: green when it's collecting, yellow when its last fetch failed or
+is overdue (hover for the error), grey when it isn't collecting.
 
 ## Reference layers
 
@@ -69,8 +85,11 @@ The **Reference** group in the layer panel draws over any base map:
 
 **World tension** at the top of the Situation panel scores how tense the
 world is now against its own recent past, 0 to 100: 50 is normal, 67 is
-twice normal, 80 and up is severe. Below it are the five countries furthest
-above their normal. **Country tension** (in Events) tints those countries
+twice normal, 80 and up is severe. Under it are four tiles (events in the
+time window, military aircraft, vessels in view, GPS interference cells)
+with a sparkline of recent values, then **Last 60 minutes**, a few plain
+sentences on what came in over the past hour. **Tension by country** lists
+the countries furthest above their normal. **Country tension** (in Events) tints those countries
 red on wide views, deeper the higher the score; it fades out as you zoom in.
 
 The score counts armed conflict, civil unrest and maritime-security
@@ -94,7 +113,7 @@ traffic counts only when the map is showing your region.
 
 ## Search
 
-The search box under the map controls takes anything. Argus works out what
+The search box in the top bar takes anything. Argus works out what
 you typed and offers matches:
 
 | Type | For example | What happens |
@@ -206,7 +225,7 @@ coverage varies by country.
 
 ## Live news
 
-**TV** in the map controls opens a floating live player. It starts muted;
+**▶ News** beside the base map buttons opens a floating live player. It starts muted;
 unmute it in the player. Drag it by its title bar and resize it from the
 corner. Tabs switch channel; **⋯** chooses which channels have tabs;
 **+** adds another player (up to four, each with its own channel and

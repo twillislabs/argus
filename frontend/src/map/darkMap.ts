@@ -26,7 +26,7 @@ export const DARK = {
   land: '#171c23',
   border: 'rgba(120,135,155,0.38)',
   coast: 'rgba(120,140,170,0.32)',
-  graticule: 'rgba(120,140,170,0.08)',
+  graticule: 'rgba(120,140,170,0.13)',
   background: '#070a0e',
 };
 

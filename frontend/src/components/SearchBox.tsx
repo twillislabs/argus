@@ -55,11 +55,17 @@ export default function SearchBox({ onPick }: Props) {
     return () => window.clearTimeout(id);
   }, [q]);
 
-  // "/" focuses the search from anywhere on the map page.
+  // Ctrl K (Cmd K on a Mac) or "/" focuses the search from anywhere on
+  // the map page.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (document.activeElement?.tagName ?? '').toUpperCase();
-      if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        input.current?.focus();
+        input.current?.select();
+      } else if (e.key === '/' && !typing) {
         e.preventDefault();
         input.current?.focus();
       }
@@ -96,11 +102,15 @@ export default function SearchBox({ onPick }: Props) {
   const showList = open && q.trim().length > 0;
   return (
     <div className="search" role="search">
+      <svg className="sicon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+      </svg>
       <input
         ref={input}
         type="search"
         value={q}
-        placeholder="Search flights, aircraft, places, events…  ( / )"
+        placeholder="Search anything: flights, callsigns, ships, places…"
         aria-label="Search"
         aria-expanded={showList}
         aria-controls="search-results"
@@ -114,6 +124,9 @@ export default function SearchBox({ onPick }: Props) {
         onBlur={() => window.setTimeout(() => setOpen(false), 150)}
         onKeyDown={onKeyDown}
       />
+      <span className="kbd" aria-hidden="true">
+        {/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘ K' : 'Ctrl K'}
+      </span>
       {showList && (
         <ul id="search-results" className="sresults" role="listbox">
           {results.map((r, i) => (

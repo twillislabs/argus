@@ -6,6 +6,7 @@ import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
+import { CursorReadout, ScaleBar, Timeline } from '../components/MapFooter';
 import NewsPlayer from '../components/NewsPlayer';
 import { DEFAULT_TABS } from '../config/newsChannels';
 import SatelliteInspector from '../components/SatelliteInspector';
@@ -446,8 +447,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   // Airspace areas, while any airspace layer is on (every 10 minutes).
   const airspaceOn = filters.airspace.tfr || filters.airspace.sigmet || filters.airspace.czib;
+  // GPS cells load even with the layer off: Situation counts them.
   useEffect(() => {
-    if (!filters.airspace.gps) return;
     let cancelled = false;
     const load = () =>
       getGps()
@@ -459,7 +460,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [filters.airspace.gps]);
+  }, []);
   useEffect(() => {
     if (!airspaceOn) return;
     let cancelled = false;
@@ -786,7 +787,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   return (
     <div className="app">
-      <AppHeader me={me} onSignedOut={onSignedOut} live={live} />
+      <AppHeader me={me} onSignedOut={onSignedOut} live={live} search={<SearchBox onPick={onSearch} />} />
       <main className={'ws' + (leftOpen ? '' : ' noL') + (rightOpen ? '' : ' noR')}>
         {leftOpen && (
           <LayerPanel
@@ -800,6 +801,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             seaStatus={seaStatus}
             airspaceCounts={airspaceCounts}
             structureStatus={structureStatus}
+            sources={summary?.sources ?? []}
             onChange={changeFilters}
           />
         )}
@@ -864,9 +866,15 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 </button>
               ))}
             </div>
-          </div>
-          <div className="mc tc">
-            <SearchBox onPick={onSearch} />
+            <button
+              className={'btn mapbtn' + (newsPlayers.length ? ' on' : '')}
+              title="Live news channels"
+              aria-label="Live news"
+              aria-pressed={newsPlayers.length > 0}
+              onClick={() => saveNews(newsPlayers.length ? [] : [savedNews.channel ?? newsTabs[0] ?? DEFAULT_TABS[0]], newsTabs)}
+            >
+              ▶ News
+            </button>
           </div>
           <div className="mc tr">
             <button
@@ -912,16 +920,6 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             </button>
             <button className="iconbtn small" title="North up ( N )" aria-label="North up" onClick={() => camPreset('north')}>
               N↑
-            </button>
-            <span className="mc-gap" />
-            <button
-              className={'iconbtn small' + (newsPlayers.length ? ' on' : '')}
-              title="Live news channels"
-              aria-label="Live news"
-              aria-pressed={newsPlayers.length > 0}
-              onClick={() => saveNews(newsPlayers.length ? [] : [savedNews.channel ?? newsTabs[0] ?? DEFAULT_TABS[0]], newsTabs)}
-            >
-              TV
             </button>
             <button className="iconbtn" title="Copy a link to this view" aria-label="Copy link" onClick={() => void copyLink()}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -981,7 +979,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               <small>V next view · Esc exit</small>
             </div>
           )}
+          <div className="mc bl">
+            <CursorReadout />
+          </div>
+          <div className="mc br">
+            <ScaleBar />
+          </div>
         </section>
+        <Timeline events={shown} />
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
             {selectedBase ? (
@@ -1061,6 +1066,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 onSelectAircraft={(hex) => selectAircraft(hex, 'follow')}
                 tension={tension}
                 view={viewBox}
+                kpis={{
+                  military: military.length,
+                  tankers: military.filter((a) => a.role === 'Tanker').length,
+                  vessels: seaOn ? vessels.length : null,
+                  gps: gpsCells.filter((c) => c.level !== 'low').length,
+                }}
               />
             )}
           </aside>

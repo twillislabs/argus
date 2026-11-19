@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import { logout, type Me } from '../lib/api';
@@ -19,9 +19,11 @@ interface Props {
   me: Me;
   onSignedOut: () => Promise<void>;
   live?: LiveState;
+  // The map page's search, shown in the bar as in the mock-up.
+  search?: ReactNode;
 }
 
-export default function AppHeader({ me, onSignedOut, live }: Props) {
+export default function AppHeader({ me, onSignedOut, live, search }: Props) {
   const now = useClock();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -50,7 +52,7 @@ export default function AppHeader({ me, onSignedOut, live }: Props) {
 
   return (
     <>
-      {me.preferences.show_banner === true && (
+      {me.preferences.show_banner !== false && (
         <div className="banner">UNCLASSIFIED // OPEN SOURCE</div>
       )}
       <header className="cmdbar">
@@ -63,6 +65,7 @@ export default function AppHeader({ me, onSignedOut, live }: Props) {
             Settings
           </Link>
         </nav>
+        {search}
         <div className="clocks">
           {live && (
             <span className={'livepill ' + live} title="Live updates">

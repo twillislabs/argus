@@ -35,18 +35,22 @@
 .cesium-credit-logoContainer { display: none !important; }
 .cesium-widget, .cesium-widget canvas { width: 100%; height: 100%; }
 
-/* Universal search, top centre of the map. */
-/* Below the projection and base map controls, like a map app. */
-.mc.tc { top: 46px; left: 10px; width: min(400px, calc(100% - 70px)); }
-.search { position: relative; width: 100%; }
-.search input {
-  width: 100%; background: rgba(11, 14, 19, 0.92); border: 1px solid var(--line-2); border-radius: 4px;
-  padding: 8px 11px; font-size: 12.5px; color: var(--text);
+/* Universal search, in the command bar (as in the mock-up). */
+.search {
+  position: relative; flex: 1 1 280px; max-width: 520px; display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line-2); border-radius: 5px; padding: 0 10px; color: var(--dim);
 }
-.search input:focus { outline: none; border-color: var(--accent); }
+.search:focus-within { border-color: var(--accent); }
+.search .sicon { flex: none; }
+.search input {
+  flex: 1; min-width: 0; background: none; border: 0; padding: 7px 0; font-size: 13px; color: var(--text);
+}
+.search input::-webkit-search-cancel-button { display: none; }
+.search input:focus { outline: none; }
+.kbd { font: 500 10.5px/1 var(--f-mono); border: 1px solid var(--line-2); border-radius: 3px; padding: 3px 5px; color: var(--muted); flex: none; }
 .search input::placeholder { color: var(--dim); }
 .sresults {
-  position: absolute; top: calc(100% + 4px); left: 0; right: 0; list-style: none; margin: 0; padding: 4px 0;
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40; list-style: none; margin: 0; padding: 4px 0;
   background: rgba(13, 17, 23, 0.98); border: 1px solid var(--line-2); border-radius: 5px; max-height: 360px; overflow: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
@@ -153,18 +157,14 @@
 .newspage .np-video { aspect-ratio: auto; }
 
 /* World tension (Situation, Brief, Wall). */
-.tgauge { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; }
-.tnum { font-size: 30px; font-weight: 600; line-height: 1; }
 .tband { font: 600 12px/1 var(--f-head); letter-spacing: 0.1em; text-transform: uppercase; }
 .b-normal { color: var(--muted); }
 .b-elevated { color: #e3c04b; }
 .b-high { color: #ff8a3d; }
 .b-severe { color: var(--crit); }
-.tdelta { margin-left: auto; font-size: 11px; color: var(--dim); }
-.tdelta.up { color: var(--crit); }
-.tdelta.down { color: #4fc1b0; }
-.tbar { position: relative; height: 6px; margin: 10px 0 12px; border-radius: 3px; background: linear-gradient(90deg, #2a3442 0 50%, #e3c04b 60%, #ff8a3d 75%, #ff5260 90%); }
-.tbar i { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--text); transform: translateX(-1px); }
+.tdelta { font: 11px var(--f-mono); color: var(--dim); }
+.tdelta.up { color: var(--high); }
+.tdelta.down { color: var(--ok); }
 .tlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .tlist li { display: grid; grid-template-columns: 1fr 90px 26px; gap: 8px; align-items: center; font-size: 12.5px; }
 .tname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -172,3 +172,19 @@
 .tmeter i { display: block; height: 100%; background: currentColor; }
 .tmeter i.b-normal { background: #4a5668; }
 .tval { text-align: right; color: var(--muted); }
+
+/* Under-map timeline, cursor readout and scale bar (mock-up). */
+.tl { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 12px; }
+.tltitle { font-size: 11px; color: var(--dim); }
+.tlplot { position: relative; height: 46px; }
+.tlplot svg { position: absolute; inset: 0; width: 100%; height: 34px; }
+.tlaxis { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; font-size: 10px; color: var(--dim); }
+.tlaxis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.tlaxis span:first-child { transform: none; }
+.tlaxis span:last-child { transform: translateX(-100%); }
+.tltime { font: 12px var(--f-mono); color: var(--muted); white-space: nowrap; text-align: right; }
+.mc.br { bottom: 26px; right: 12px; }
+.scalebar { display: grid; gap: 3px; font: 10.5px var(--f-mono); color: var(--muted); text-align: right; }
+.scalebar i { display: block; height: 6px; border: 1px solid var(--muted); border-top: 0; justify-self: end; }
+.btn.mapbtn { background: rgba(11, 14, 19, 0.88); padding: 6px 10px; font-size: 12px; }
+.btn.mapbtn.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }

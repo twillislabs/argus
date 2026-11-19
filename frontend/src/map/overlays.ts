@@ -46,7 +46,8 @@ export const DEFAULT_REFERENCE: ReferenceLayers = {
 
 // Line colours differ over imagery (light) and the dark map (muted).
 const STYLE = {
-  dark: { border: 'rgba(150,165,185,0.55)', state: 'rgba(120,135,155,0.38)', city: '#c2cad6', country: '#7d8898' },
+  // The mock-up's dark map: borders a faint blue-grey, names muted.
+  dark: { border: 'rgba(120,135,155,0.42)', state: 'rgba(120,135,155,0.24)', city: '#c2cad6', country: '#6f7a89' },
   imagery: { border: 'rgba(255,255,255,0.75)', state: 'rgba(255,255,255,0.45)', city: '#ffffff', country: '#e8edf3' },
 };
 
@@ -138,6 +139,7 @@ export type LabelMode = 'dark' | 'satellite' | 'hybrid';
 // aside, so names are never doubled. With Basemap labels off, Argus
 // labels all the way down.
 export const TILE_LABELS_BELOW = 3.0e5;
+const COUNTRY_LABELS_BELOW = 9.0e6;
 
 export interface Overlays {
   setLayers: (layers: ReferenceLayers) => void;
@@ -325,8 +327,11 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     for (const { label, area } of countryLabels) {
       const range = countryRange(area);
       const near = tiles ? Math.max(range.near, TILE_LABELS_BELOW) : range.near;
-      label.show = range.far > near;
-      if (label.show) label.distanceDisplayCondition = new DistanceDisplayCondition(near, range.far);
+      // The whole-globe view stays clean, as in the mock-up: country
+      // names appear once you're zoomed in to a continent.
+      const far = Math.min(range.far, COUNTRY_LABELS_BELOW);
+      label.show = far > near;
+      if (label.show) label.distanceDisplayCondition = new DistanceDisplayCondition(near, far);
     }
   }
   function apply() {

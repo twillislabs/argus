@@ -104,7 +104,8 @@ export function addTensionLayer(scene: Scene): TensionLayer {
           const polys = byName.get(naturalEarthName(c.name));
           if (!polys) continue;
           // Elevated (55) faint, severe (90+) strongest.
-          const alpha = 0.08 + Math.min(1, (c.level - TINT_FROM) / 35) * 0.2;
+          // As in the mock-up: up to about a third opaque at the top.
+          const alpha = 0.1 + Math.min(1, (c.level - TINT_FROM) / 40) * 0.24;
           for (const rings of polys) {
             instances.push(
               new GeometryInstance({

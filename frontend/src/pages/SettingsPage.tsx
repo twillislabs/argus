@@ -202,7 +202,7 @@ function HomeSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) 
 }
 
 function DisplaySection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
-  const [banner, setBanner] = useState(me.preferences.show_banner === true);
+  const [banner, setBanner] = useState(me.preferences.show_banner !== false);
 
   async function toggleBanner(next: boolean) {
     setBanner(next);

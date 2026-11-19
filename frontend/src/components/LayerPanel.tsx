@@ -1,4 +1,6 @@
-import type { CivilStatus, EventType, SeaStatus } from '../lib/api';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+
+import type { CivilStatus, EventType, SeaStatus, SourceStatus } from '../lib/api';
 import { EVENT_TYPES, SEVERITY_NAME, TYPE_INFO } from '../lib/format';
 import { AIR_COLOR } from '../map/aircraftLayer';
 import { AIRSPACE_COLOR, type AirspaceFilters, DEFAULT_AIRSPACE } from '../map/airspaceLayer';
@@ -116,6 +118,7 @@ interface Props {
   seaStatus: SeaStatus;
   airspaceCounts: Partial<Record<keyof AirspaceFilters, number>>;
   structureStatus: 'ok' | 'zoom' | 'nokey' | 'error';
+  sources: SourceStatus[];
   onChange: (f: LayerFilters) => void;
 }
 
@@ -126,6 +129,98 @@ const CIVIL_HINT: Record<CivilStatus, string> = {
   error: 'adsb.lol unavailable, retrying',
   limited: 'adsb.lol is busy; showing recent positions',
 };
+
+// Which collectors feed each layer, for the health dot beside its count.
+const FEEDS: Record<string, string[]> = {
+  conflict: ['gdelt'],
+  unrest: ['gdelt'],
+  quake: ['usgs'],
+  fire: ['firms'],
+  hazard: ['gdacs', 'eonet', 'tsunami'],
+  maritime: ['nga'],
+  military: ['adsb_mil'],
+  tfr: ['faa_tfr'],
+  sigmet: ['sigmet'],
+  czib: ['czib'],
+  sea: ['aisstream'],
+  space: ['celestrak'],
+  cables: ['cables'],
+};
+
+function health(sources: SourceStatus[], id: string): { cls: string; title: string } | null {
+  const names = FEEDS[id];
+  if (!names || !sources.length) return null;
+  const mine = sources.filter((s) => names.includes(s.name));
+  if (!mine.length || mine.every((s) => !s.enabled)) return { cls: 'off', title: 'Not collecting' };
+  const now = Date.now();
+  const late = mine.filter((s) => {
+    if (!s.enabled) return false;
+    const ok = s.last_success_at ? Date.parse(s.last_success_at) : 0;
+    return s.last_error || now - ok > Math.max(3 * s.interval_s, 900) * 1000;
+  });
+  if (!late.length) return { cls: '', title: 'Source healthy' };
+  return { cls: 'warn', title: late.map((s) => s.label + ': ' + (s.last_error ?? 'no recent data')).join('\n') };
+}
+
+function Dot({ sources, id }: { sources: SourceStatus[]; id: string }) {
+  const h = health(sources, id);
+  return h ? <i className={'sdot ' + h.cls} title={h.title} /> : null;
+}
+
+const OPEN_KEY = 'argus-layer-groups';
+function loadClosed(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(OPEN_KEY) ?? '[]') as string[];
+  } catch {
+    return [];
+  }
+}
+
+// A collapsible layer group with "on / total" in its title, as in the
+// mock-up. Collapsed groups are remembered in this browser.
+function Group({
+  title,
+  on,
+  total,
+  forceOpen,
+  children,
+}: {
+  title: string;
+  on?: number;
+  total?: number;
+  forceOpen: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(() => !loadClosed().includes(title));
+  function toggle(e: React.MouseEvent) {
+    e.preventDefault();
+    const next = !open;
+    setOpen(next);
+    try {
+      const closed = new Set(loadClosed());
+      if (next) closed.delete(title);
+      else closed.add(title);
+      localStorage.setItem(OPEN_KEY, JSON.stringify([...closed]));
+    } catch {
+      // Storage blocked: the group just opens next time.
+    }
+  }
+  return (
+    <details className="lgroup" open={open || forceOpen}>
+      <summary onClick={toggle}>
+        {title}
+        {total !== undefined && (
+          <span className="mono">
+            {on}/{total}
+          </span>
+        )}
+      </summary>
+      {children}
+    </details>
+  );
+}
+
+const countOn = (o: object) => Object.values(o).filter((v) => v === true).length;
 
 export default function LayerPanel({
   filters,
@@ -138,14 +233,32 @@ export default function LayerPanel({
   seaStatus,
   airspaceCounts,
   structureStatus,
+  sources,
   onChange,
 }: Props) {
   const seaOn = Object.values(filters.sea).some(Boolean);
   const air = filters.air;
   const setAir = (next: Partial<AirFilters>) => onChange({ ...filters, air: { ...air, ...next } });
   const isDefault = JSON.stringify(filters) === JSON.stringify(DEFAULT_FILTERS);
+  const [q, setQ] = useState('');
+  const panel = useRef<HTMLElement>(null);
+  // Filter rows by their text; groups with nothing left are hidden.
+  useEffect(() => {
+    const root = panel.current;
+    if (!root) return;
+    const needle = q.trim().toLowerCase();
+    for (const g of root.querySelectorAll<HTMLElement>('.lgroup')) {
+      let any = false;
+      for (const row of g.querySelectorAll<HTMLElement>('.lrow')) {
+        const hit = !needle || (row.textContent ?? '').toLowerCase().includes(needle);
+        row.hidden = !hit;
+        any ||= hit;
+      }
+      g.hidden = Boolean(needle) && !any;
+    }
+  });
   return (
-    <aside className="side left" aria-label="Layers">
+    <aside ref={panel} className="side left" aria-label="Layers">
       <div className="ph">
         <h2>Layers</h2>
         <button
@@ -156,8 +269,16 @@ export default function LayerPanel({
           Reset filters
         </button>
       </div>
-      <div className="group">
-        <div className="gtitle">Events</div>
+      <div className="lfilter">
+        <input
+          type="search"
+          value={q}
+          placeholder="Filter layers"
+          aria-label="Filter layers"
+          onChange={(e) => setQ(e.target.value)}
+        />
+      </div>
+      <Group title="Events" on={countOn(filters.types) + (filters.tension ? 1 : 0)} total={EVENT_TYPES.length + 1} forceOpen={Boolean(q)}>
         {EVENT_TYPES.map((t) => (
           <label key={t} className="lrow">
             <input
@@ -173,7 +294,10 @@ export default function LayerPanel({
               <span>{TYPE_INFO[t].label}</span>
               <small>{TYPE_INFO[t].source}</small>
             </span>
-            <span className="lcount mono">{counts[t] ?? 0}</span>
+            <span className="lcount mono">
+              {counts[t] ?? 0}
+              <Dot sources={sources} id={t} />
+            </span>
           </label>
         ))}
         <label className="lrow">
@@ -190,9 +314,8 @@ export default function LayerPanel({
           </span>
           <span className="lcount mono">{tensionCount ?? '–'}</span>
         </label>
-      </div>
-      <div className="group">
-        <div className="gtitle">Air</div>
+      </Group>
+      <Group title="Air" on={countOn({ m: air.military, c: air.civil })} total={2} forceOpen={Boolean(q)}>
         <label className="lrow">
           <input
             type="checkbox"
@@ -205,7 +328,10 @@ export default function LayerPanel({
             <span>Military aircraft</span>
             <small>adsb.lol · worldwide</small>
           </span>
-          <span className="lcount mono">{airCounts.military}</span>
+          <span className="lcount mono">
+            {airCounts.military}
+            <Dot sources={sources} id="military" />
+          </span>
         </label>
         <label className="lrow">
           <input
@@ -233,9 +359,8 @@ export default function LayerPanel({
             ))}
           </select>
         </div>
-      </div>
-      <div className="group">
-        <div className="gtitle">Airspace</div>
+      </Group>
+      <Group title="Airspace" on={countOn(filters.airspace)} total={AIRSPACE_ROWS.length} forceOpen={Boolean(q)}>
         {AIRSPACE_ROWS.map((r) => (
           <label key={r.id} className="lrow">
             <input
@@ -258,12 +383,14 @@ export default function LayerPanel({
                   : r.source}
               </small>
             </span>
-            <span className="lcount mono">{airspaceCounts[r.id] ?? '–'}</span>
+            <span className="lcount mono">
+              {airspaceCounts[r.id] ?? '–'}
+              <Dot sources={sources} id={r.id} />
+            </span>
           </label>
         ))}
-      </div>
-      <div className="group">
-        <div className="gtitle">Sea</div>
+      </Group>
+      <Group title="Sea" on={countOn(filters.sea)} total={SEA_ROWS.length} forceOpen={Boolean(q)}>
         {seaOn && <p className={'ghint' + (seaStatus === 'ok' ? '' : ' warn')}>{SEA_HINT[seaStatus]}</p>}
         {SEA_ROWS.map((r) => (
           <label key={r.id} className="lrow">
@@ -277,12 +404,14 @@ export default function LayerPanel({
             <span className="lname">
               <span>{r.label}</span>
             </span>
-            <span className="lcount mono">{seaOn && seaStatus === 'ok' ? (seaCounts[r.id] ?? 0) : '–'}</span>
+            <span className="lcount mono">
+              {seaOn && seaStatus === 'ok' ? (seaCounts[r.id] ?? 0) : '–'}
+              {seaOn && <Dot sources={sources} id="sea" />}
+            </span>
           </label>
         ))}
-      </div>
-      <div className="group">
-        <div className="gtitle">Space</div>
+      </Group>
+      <Group title="Space" on={countOn(filters.space)} total={SPACE_ROWS.length} forceOpen={Boolean(q)}>
         {SPACE_ROWS.map((r) => (
           <label key={r.id} className="lrow">
             <input
@@ -296,12 +425,14 @@ export default function LayerPanel({
               <span>{r.label}</span>
               <small>{r.source}</small>
             </span>
-            <span className="lcount mono">{satCounts[r.id] ?? '–'}</span>
+            <span className="lcount mono">
+              {satCounts[r.id] ?? '–'}
+              <Dot sources={sources} id="space" />
+            </span>
           </label>
         ))}
-      </div>
-      <div className="group">
-        <div className="gtitle">Infrastructure</div>
+      </Group>
+      <Group title="Infrastructure" on={countOn(filters.infra)} total={INFRA_ROWS.length} forceOpen={Boolean(q)}>
         {INFRA_ROWS.map((r) => (
           <label key={r.id} className="lrow">
             <input
@@ -315,11 +446,13 @@ export default function LayerPanel({
               <span>{r.label}</span>
               <small>{r.source}</small>
             </span>
+            <span className="lcount mono">
+              <Dot sources={sources} id={r.id} />
+            </span>
           </label>
         ))}
-      </div>
-      <div className="group">
-        <div className="gtitle">Reference</div>
+      </Group>
+      <Group title="Reference" on={countOn(filters.reference)} total={REFERENCE_ROWS.length} forceOpen={Boolean(q)}>
         {REFERENCE_ROWS.map((r) => (
           <label key={r.id} className="lrow">
             <input
@@ -337,9 +470,8 @@ export default function LayerPanel({
             </span>
           </label>
         ))}
-      </div>
-      <div className="group">
-        <div className="gtitle">Filters</div>
+      </Group>
+      <Group title="Filters" forceOpen={Boolean(q)}>
         <div className="field pad">
           <label htmlFor="f-sev">Minimum severity</label>
           <select
@@ -381,9 +513,8 @@ export default function LayerPanel({
             <small>GDELT, single outlet</small>
           </span>
         </label>
-      </div>
-      <div className="group">
-        <div className="gtitle">Severity</div>
+      </Group>
+      <Group title="Severity" forceOpen={Boolean(q)}>
         <ul className="legend">
           {[5, 4, 3, 2, 1].map((s) => (
             <li key={s}>
@@ -392,7 +523,7 @@ export default function LayerPanel({
             </li>
           ))}
         </ul>
-      </div>
+      </Group>
     </aside>
   );
 }

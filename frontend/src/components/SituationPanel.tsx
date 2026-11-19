@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
+
 import type { Aircraft, Bbox, EventItem, Home, Summary, Tension } from '../lib/api';
 import { aircraftColor } from '../map/aircraftLayer';
-import { ago, EVENT_TYPES, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
+import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
 
 interface Props {
   summary: Summary | null;
@@ -12,6 +14,7 @@ interface Props {
   tension: Tension | null;
   // The area on screen when zoomed in; events there are listed.
   view: Bbox | null;
+  kpis: Kpis;
 }
 
 function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number) {
@@ -52,24 +55,38 @@ function Delta({ v }: { v: number }) {
   );
 }
 
-// World tension: the index for the world, then the countries furthest
-// above their own normal.
-export function TensionSection({ tension }: { tension: Tension | null }) {
+// World tension, as in the mock-up: the score out of 100 with its band,
+// change over 24 hours and a bar from calm to severe.
+export function TensionGauge({ tension }: { tension: Tension | null }) {
   if (!tension) return null;
   const w = tension.world;
   return (
+    <div className="gauge" title="World tension: 50 is normal, 67 twice normal">
+      <div className="big mono">
+        {w.level}
+        <small>/100</small>
+      </div>
+      <div className="gside">
+        <div className="grow">
+          <span className={'cap tband b-' + w.band}>{BAND_LABEL[w.band]}</span>
+          <Delta v={w.change_24h} />
+        </div>
+        <div className="gbar">
+          <i style={{ left: w.level + '%' }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The countries furthest above their own normal.
+export function TensionCountries({ tension, limit = 5 }: { tension: Tension | null; limit?: number }) {
+  if (!tension || !tension.countries.length) return null;
+  return (
     <section className="isec">
-      <h3>World tension</h3>
-      <div className="tgauge">
-        <span className="mono tnum">{w.level}</span>
-        <span className={'tband b-' + w.band}>{BAND_LABEL[w.band]}</span>
-        <Delta v={w.change_24h} />
-      </div>
-      <div className="tbar">
-        <i style={{ left: w.level + '%' }} />
-      </div>
+      <h3>Tension by country</h3>
       <ul className="tlist">
-        {tension.countries.slice(0, 5).map((c) => (
+        {tension.countries.slice(0, limit).map((c) => (
           <li key={c.key} title={c.top.map((t) => t.title).join('\n')}>
             <span className="tname">{c.name}</span>
             <span className="tmeter">
@@ -89,6 +106,128 @@ export function TensionSection({ tension }: { tension: Tension | null }) {
   );
 }
 
+// A small line-and-area chart of recent values.
+export function Spark({ values, color }: { values: number[]; color: string }) {
+  if (values.length < 2) return <svg className="spark" aria-hidden="true" />;
+  const w = 160;
+  const h = 22;
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const span = hi - lo || 1;
+  const pts = values.map((v, i) => [1 + (i / (values.length - 1)) * (w - 4), h - 2 - ((v - lo) / span) * (h - 5)]);
+  const line = pts.map(([x, y], i) => (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join(' ');
+  const area = line + ' L' + pts[pts.length - 1][0].toFixed(1) + ' ' + h + ' L1 ' + h + ' Z';
+  return (
+    <svg className="spark" viewBox={'0 0 ' + w + ' ' + h} preserveAspectRatio="none" aria-hidden="true">
+      <path d={area} fill={color} fillOpacity="0.1" />
+      <path d={line} fill="none" stroke={color} strokeWidth="1.3" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+// Samples of a number while the page is open: at most one a minute, the
+// last 30, for sparklines of things Argus doesn't keep history for.
+function useSamples(value: number | null): number[] {
+  const [samples, setSamples] = useState<{ t: number; v: number }[]>([]);
+  useEffect(() => {
+    if (value === null) return;
+    setSamples((prev) => {
+      const now = Date.now();
+      const last = prev[prev.length - 1];
+      if (last && now - last.t < 60_000) return [...prev.slice(0, -1), { t: last.t, v: value }];
+      return [...prev, { t: now, v: value }].slice(-30);
+    });
+  }, [value]);
+  return samples.map((x) => x.v);
+}
+
+function Tile({
+  label,
+  value,
+  delta,
+  spark,
+  color,
+}: {
+  label: string;
+  value: string | number;
+  delta?: number | null;
+  spark: number[];
+  color: string;
+}) {
+  return (
+    <div className="tile">
+      <small>{label}</small>
+      <div className="row">
+        <span className="mono">{value}</span>
+        {delta ? <span className={'delta ' + (delta > 0 ? 'up' : 'down')}>{(delta > 0 ? '+' : '') + delta}</span> : null}
+      </div>
+      <Spark values={spark} color={color} />
+    </div>
+  );
+}
+
+// Events per hour over the last 24 hours, oldest first.
+function hourly(events: EventItem[]): number[] {
+  const now = Date.now();
+  const out = new Array<number>(24).fill(0);
+  for (const e of events) {
+    const h = Math.floor((now - Date.parse(e.first_seen)) / 3_600_000);
+    if (h >= 0 && h < 24) out[23 - h] += 1;
+  }
+  return out;
+}
+
+// "Last 60 minutes": plain sentences from what changed in the past hour.
+function digest(events: EventItem[], kpis: Kpis): { color: string; text: string }[] {
+  const hourAgo = Date.now() - 3_600_000;
+  const recent = events.filter((e) => Date.parse(e.first_seen) >= hourAgo);
+  const out: { color: string; text: string }[] = [];
+  const byType = new Map<string, EventItem[]>();
+  for (const e of recent) byType.set(e.type, [...(byType.get(e.type) ?? []), e]);
+  for (const [type, list] of [...byType.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 3)) {
+    const info = TYPE_INFO[type as keyof typeof TYPE_INFO];
+    const top = [...list].sort((a, b) => b.severity - a.severity)[0];
+    const where = [...new Set(list.map((e) => e.country).filter(Boolean))].slice(0, 2).join(' and ');
+    out.push({
+      color: info.color,
+      text:
+        list.length === 1
+          ? info.label + ': ' + top.title + '.'
+          : list.length + ' new ' + info.label.toLowerCase() + ' reports' + (where ? ', in ' + where : '') + '. Most severe: ' + top.title + '.',
+    });
+  }
+  if (kpis.military) {
+    out.push({
+      color: '#8cc8ff',
+      text: kpis.military + ' military aircraft tracked' + (kpis.tankers ? ', ' + kpis.tankers + ' of them tankers' : '') + '.',
+    });
+  }
+  if (kpis.gps) {
+    out.push({ color: '#ff6ba1', text: kpis.gps + ' areas with GPS interference in the last hour.' });
+  }
+  return out;
+}
+
+export interface Kpis {
+  military: number;
+  tankers: number;
+  vessels: number | null;
+  gps: number;
+}
+
+function dtg(d: Date): string {
+  const mon = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+  return (
+    String(d.getUTCDate()).padStart(2, '0') +
+    String(d.getUTCHours()).padStart(2, '0') +
+    String(d.getUTCMinutes()).padStart(2, '0') +
+    'Z ' +
+    mon +
+    ' ' +
+    String(d.getUTCFullYear()).slice(2)
+  );
+}
+
 function inBox(b: Bbox, lat: number, lon: number): boolean {
   const [w, s, e, n] = b;
   if (lat < s || lat > n) return false;
@@ -104,7 +243,18 @@ export default function SituationPanel({
   onSelectAircraft,
   tension,
   view,
+  kpis,
 }: Props) {
+  const milSpark = useSamples(kpis.military);
+  const seaSpark = useSamples(kpis.vessels);
+  const gpsSpark = useSamples(kpis.gps);
+  const perHour = hourly(events);
+  const lastHour = digest(events, kpis);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
   // Events in the area on screen: most severe first, then newest.
   const inView = view
     ? events
@@ -133,25 +283,41 @@ export default function SituationPanel({
     <div className="inspector-body">
       <div className="ph">
         <h2>Situation</h2>
-        <span className="mono">last {summary?.hours ?? 24}h</span>
+        <span className="mono">{dtg(now)}</span>
       </div>
-      <TensionSection tension={tension} />
       <section className="isec">
+        <TensionGauge tension={tension} />
         <div className="tiles">
-          <div className="tile">
-            <small>Events</small>
-            <span className="mono big">{summary?.total ?? '—'}</span>
-          </div>
-          {EVENT_TYPES.map((t) => (
-            <div className="tile" key={t}>
-              <small>
-                <i className="dot" style={{ background: TYPE_INFO[t].color }} /> {TYPE_INFO[t].label}
-              </small>
-              <span className="mono">{summary?.by_type[t] ?? 0}</span>
-            </div>
-          ))}
+          <Tile
+            label={'Events · ' + (summary?.hours ?? 24) + 'h'}
+            value={summary?.total ?? '—'}
+            delta={perHour[23] || null}
+            spark={perHour}
+            color="#ff5260"
+          />
+          <Tile label="Military aircraft" value={kpis.military} spark={milSpark} color="#8cc8ff" />
+          <Tile
+            label="Vessels in view"
+            value={kpis.vessels ?? '—'}
+            spark={seaSpark}
+            color="#4fc1b0"
+          />
+          <Tile label="GPS interference cells" value={kpis.gps} spark={gpsSpark} color="#ff6ba1" />
         </div>
       </section>
+      {lastHour.length > 0 && (
+        <section className="isec">
+          <h3>Last 60 minutes</h3>
+          <ul className="digest">
+            {lastHour.map((d, i) => (
+              <li key={i} style={{ ['--c' as string]: d.color }}>
+                <i />
+                <span>{d.text}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {view && (
         <section className="isec">
           <h3>In view · {inView.length}</h3>
@@ -218,6 +384,7 @@ export default function SituationPanel({
           )}
         </section>
       )}
+      <TensionCountries tension={tension} />
       <section className="isec">
         <h3>Live feed · {events.length}</h3>
         {latest.length ? (

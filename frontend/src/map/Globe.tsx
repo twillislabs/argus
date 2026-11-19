@@ -3,6 +3,7 @@ import '@cesium/engine/Source/Widget/CesiumWidget.css';
 import {
   Cartesian2,
   Cartesian3,
+  Cartographic,
   Color,
   Math as CesiumMath,
   Matrix4,
@@ -50,6 +51,7 @@ import { addTensionLayer, type TensionLayer } from './tensionLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
 import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './closeModels';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
+import { setCursor } from '../lib/cursor';
 import { addOverlays, type Overlays, type ReferenceLayers, TILE_LABELS_BELOW } from './overlays';
 import { addVesselLayer, VESSEL_COLOR, type VesselLayer } from './vesselLayer';
 import {
@@ -522,8 +524,22 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       applyDepth();
     });
 
+    // Eye altitude and map scale for the readout and scale bar.
+    function applyScale() {
+      const canvas = scene.canvas;
+      const y = canvas.clientHeight - 30;
+      const x = canvas.clientWidth / 2;
+      const a = v.camera.pickEllipsoid(new Cartesian2(x - 50, y), scene.globe.ellipsoid);
+      const b = v.camera.pickEllipsoid(new Cartesian2(x + 50, y), scene.globe.ellipsoid);
+      setCursor({
+        eyeAlt: v.camera.positionCartographic.height,
+        metresPerPixel: a && b ? Cartesian3.distance(a, b) / 100 : null,
+      });
+    }
+
     // Cross-fade vector countries and street tiles with camera height.
     function applyFade() {
+      applyScale();
       const h = v.camera.positionCartographic.height;
       const t = Math.min(1, Math.max(0, (FADE_TOP - h) / (FADE_TOP - FADE_BOTTOM)));
       const lt = Math.min(1, Math.max(0, (LABELS_TOP - h) / (LABELS_TOP - LABELS_BOTTOM)));
@@ -588,9 +604,21 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       const picked = scene.pick(e.position);
       if (picked && typeof picked.id === 'string') onFocusRef.current?.(picked.id);
     }, ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+    let pendingMove: Cartesian2 | null = null;
     handler.setInputAction((e: { endPosition: Cartesian2 }) => {
       const picked = scene.pick(e.endPosition);
       scene.canvas.style.cursor = picked && typeof picked.id === 'string' ? 'pointer' : '';
+      // The cursor readout: at most once a frame.
+      if (!pendingMove) {
+        window.requestAnimationFrame(() => {
+          const at = pendingMove && v.camera.pickEllipsoid(pendingMove, scene.globe.ellipsoid);
+          pendingMove = null;
+          if (!at) return setCursor({ lat: null, lon: null });
+          const c = Cartographic.fromCartesian(at);
+          setCursor({ lat: CesiumMath.toDegrees(c.latitude), lon: CesiumMath.toDegrees(c.longitude) });
+        });
+      }
+      pendingMove = Cartesian2.clone(e.endPosition);
     }, ScreenSpaceEventType.MOUSE_MOVE);
 
     viewer.current = v;
@@ -707,7 +735,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       sky.show = true;
       sky.hueShift = isDark ? -0.04 : 0;
       sky.saturationShift = isDark ? -0.35 : 0;
-      sky.brightnessShift = isDark ? -0.62 : 0;
+      sky.brightnessShift = isDark ? -0.45 : 0;
     }
     (v as unknown as { applyFade?: () => void }).applyFade?.();
     return () => {

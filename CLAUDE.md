@@ -116,6 +116,11 @@ parts connect.
   it the basemap's label tiles (`LABEL_LAYERS` in Globe.tsx) and the
   self-hosted street map fade in. Mark any new label-carrying imagery
   layer with `labelLayer()`, or names double up.
+- Look: match `docs/mockup/` (local only; render argus-mock.html in
+  headless Chrome to compare). Colours are the mock's tokens
+  (`styles/tokens.css`); the cursor readout and scale bar read
+  `lib/cursor.ts`, which Globe.tsx writes, so mouse moves don't
+  re-render the map page.
 - 3D models: one per kind (`build_models.py`), chosen by
   `aircraftModel`/`shipModel` in `map/closeModels.ts` and loaded on
   first use.
