@@ -19,7 +19,7 @@ const REF_LAYERS = ['borders', 'states', 'labels', 'airports', 'ports', 'advisor
 const SPACE_LAYERS = ['iss', 'leo', 'meo', 'geo', 'heo', 'starlink'] as const;
 const SEA_LAYERS = ['cargo', 'tanker', 'passenger', 'fishing', 'military', 'other'] as const;
 const AIRSPACE_LAYERS = ['tfr', 'sigmet', 'czib', 'gps', 'structure'] as const;
-const INFRA_LAYERS = ['nuclear', 'power', 'cables', 'bases'] as const;
+const INFRA_LAYERS = ['nuclear', 'power', 'cables', 'bases', 'alpr'] as const;
 
 export interface Share {
   camera?: string;
@@ -92,7 +92,7 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
       gps: has('gps'),
       structure: has('structure'),
     },
-    infra: { nuclear: has('nuclear'), power: has('power'), cables: has('cables'), bases: has('bases') },
+    infra: { nuclear: has('nuclear'), power: has('power'), cables: has('cables'), bases: has('bases'), alpr: has('alpr') },
     tension: has('tension'),
     wiki: has('wiki'),
   };

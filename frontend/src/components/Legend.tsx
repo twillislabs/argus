@@ -3,6 +3,7 @@ import { SEVERITY_COLOR, SEVERITY_NAME } from '../lib/format';
 import { AIR_COLOR } from '../map/aircraftLayer';
 import { ADVISORY_COLOR } from '../map/advisoryLayer';
 import { AIRSPACE_COLOR, STRUCTURE_COLOR } from '../map/airspaceLayer';
+import { ALPR_COLOR } from '../map/alprLayer';
 import { BASE_COLOR, FUEL_COLOR } from '../map/infraLayer';
 import { SAT_COLOR } from '../map/satellites';
 import { VESSEL_COLOR } from '../map/vesselLayer';
@@ -128,7 +129,11 @@ export default function Legend({ filters, onClose }: { filters: LayerFilters; on
             ]}
           />
         )}
-        {(filters.infra.nuclear || filters.infra.power || filters.infra.bases || filters.infra.cables) && (
+        {(filters.infra.nuclear ||
+          filters.infra.power ||
+          filters.infra.bases ||
+          filters.infra.cables ||
+          filters.infra.alpr) && (
           <Section
             title="Infrastructure"
             rows={[
@@ -143,6 +148,7 @@ export default function Legend({ filters, onClose }: { filters: LayerFilters; on
                 : []),
               ...(filters.infra.bases ? [{ color: BASE_COLOR, label: 'Military base' }] : []),
               ...(filters.infra.cables ? [{ color: '#7fd1c7', label: 'Submarine cable', shape: 'line' as const }] : []),
+              ...(filters.infra.alpr ? [{ color: ALPR_COLOR, label: 'Plate reader camera (wedge: facing)' }] : []),
             ]}
           />
         )}

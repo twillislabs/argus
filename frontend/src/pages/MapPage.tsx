@@ -39,6 +39,9 @@ import {
   getEvents,
   getAirspace,
   getAirspaceStructure,
+  getAlpr,
+  type AlprCamera,
+  type AlprStatus,
   getGps,
   type GpsCell,
   getOutlook,
@@ -70,6 +73,7 @@ import type { SatCatalog, SpaceFilters } from '../map/satellites';
 import { TINT_FROM } from '../map/tensionLayer';
 import { ADVISORY_COLOR } from '../map/advisoryLayer';
 import { WIKI_COLOR, WIKI_CONFLICT_COLOR } from '../map/wikiLayer';
+import { ALPR_COLOR } from '../map/alprLayer';
 import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { aircraftColor } from '../map/aircraftLayer';
 import { BASE_KINDS, FUEL_COLOR } from '../map/infraLayer';
@@ -117,6 +121,10 @@ function initialFilters(me: Me): LayerFilters {
     wiki: typeof me.preferences.wiki === 'boolean' ? me.preferences.wiki : base.wiki,
     weather: { ...base.weather, ...((me.preferences.weather as Partial<LayerFilters['weather']> | undefined) ?? {}) },
   };
+}
+
+function alprLinks(c: AlprCamera | undefined): { label: string; url: string }[] {
+  return c ? [{ label: 'OpenStreetMap entry', url: c.osm_url }] : [];
 }
 
 function wikiNote(w: WikiItem | undefined): string {
@@ -216,6 +224,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [outlook, setOutlook] = useState<OutlookArea[]>([]);
   const [weatherNow, setWeatherNow] = useState<WeatherNow | null>(null);
   const [structureItems, setStructureItems] = useState<AirspaceItem[]>([]);
+  const [alprCameras, setAlprCameras] = useState<AlprCamera[]>([]);
+  const [alprStatus, setAlprStatus] = useState<AlprStatus>('zoom');
+  const alprTimer = useRef<number | undefined>(undefined);
   const [structureStatus, setStructureStatus] = useState<'ok' | 'zoom' | 'nokey' | 'blocked' | 'error'>('zoom');
   const [selectedInfra, setSelectedInfra] = useState<string | null>(null);
   const [selectedNorad, setSelectedNorad] = useState<number | null>(null);
@@ -277,6 +288,28 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       if (r.status === 'ok') setStructureItems(r.items);
     } catch {
       setStructureStatus('error');
+    }
+  }, []);
+
+  // ALPR cameras for the view (regional views only). The API fetches a
+  // couple of new tiles per call, so while it says "partial" ask again.
+  const loadAlpr = useCallback(async () => {
+    window.clearTimeout(alprTimer.current);
+    const bbox = viewRef.current;
+    if (!filtersRef.current.infra.alpr) return;
+    if (!bbox) {
+      setAlprStatus('zoom');
+      setAlprCameras([]);
+      return;
+    }
+    try {
+      const r = await getAlpr(bbox);
+      if (viewRef.current !== bbox) return; // the view moved on
+      setAlprStatus(r.status);
+      setAlprCameras(r.cameras);
+      if (r.status === 'partial') alprTimer.current = window.setTimeout(() => void loadAlpr(), 3000);
+    } catch {
+      // Keep what's shown; the next view change retries.
     }
   }, []);
 
@@ -462,13 +495,18 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         void loadCivil();
         void loadVessels();
         void loadStructure();
+        void loadAlpr();
       }, 400);
     },
-    [loadCivil, loadVessels, loadStructure],
+    [loadCivil, loadVessels, loadStructure, loadAlpr],
   );
   useEffect(() => {
     if (filters.airspace.structure) void loadStructure();
   }, [filters.airspace.structure, loadStructure]);
+  useEffect(() => {
+    if (filters.infra.alpr) void loadAlpr();
+    else setAlprCameras([]);
+  }, [filters.infra.alpr, loadAlpr]);
 
   // Live updates: merge changed events, replace the military picture.
   useEffect(
@@ -940,6 +978,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         id.startsWith('tension:') ||
         id.startsWith('adv:') ||
         id.startsWith('wiki:') ||
+        id.startsWith('alpr:') ||
         id.startsWith('draw:') ||
         id.startsWith('wx:') ||
         id.startsWith('spc:'))
@@ -1045,6 +1084,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             title: 'GPS interference',
             color: '#ff6ba1',
             lines: [Math.round(c.share * 100) + '% of ' + c.aircraft + ' aircraft degraded · last hour'],
+          }
+        : null;
+    }
+    if (id.startsWith('alpr:')) {
+      const c = alprCameras.find((x) => 'alpr:' + x.id === id);
+      return c
+        ? {
+            title: 'Plate reader · ' + c.vendor,
+            color: ALPR_COLOR,
+            lines: [
+              c.operator ? 'Operator: ' + c.operator : 'Operator not mapped',
+              (c.direction !== null ? 'Faces ' + Math.round(c.direction) + '°' : 'Direction not mapped') +
+                (c.mapped ? ' · mapped ' + c.mapped : ''),
+            ],
           }
         : null;
     }
@@ -1251,6 +1304,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             tensionCount={tension ? tension.countries.filter((c) => c.level >= TINT_FROM).length : undefined}
             advisoryCount={advisoriesOn ? advisories.filter((a) => a.level >= 2).length : undefined}
             wikiCount={wikiOn ? wikiItems.length : undefined}
+            alprCount={filters.infra.alpr && alprStatus !== 'zoom' ? alprCameras.length : undefined}
             weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
             zoneCount={filters.weather.zones ? wxZoned.length : undefined}
             airCounts={airCounts}
@@ -1286,6 +1340,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             advisories={advisories}
             wikiItems={wikiItems}
             showWiki={filters.wiki}
+            alprCameras={alprCameras}
             wxAlerts={wxAlerts}
             wxZoned={wxZoned}
             outlook={outlook}
@@ -1549,7 +1604,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                         ' (National Weather Service; open the alert for its full text and instructions.)'
                       : selectedInfo.startsWith('spc:')
                         ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'
-                        : selectedInfo.startsWith('wiki:')
+                        : selectedInfo.startsWith('alpr:')
+                          ? 'An automatic licence plate reader as mapped in OpenStreetMap (the DeFlock dataset). Locations only: Argus has no plate data and never looks for any. Mapping can be out of date; check the OpenStreetMap entry.'
+                          : selectedInfo.startsWith('wiki:')
                           ? wikiNote(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
                           : selectedInfo.startsWith('adv:')
                           ? (advisories.find((x) => 'adv:' + x.country === selectedInfo)?.us?.summary ?? '') +
@@ -1559,7 +1616,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                       : 'A shape you drew. Delete it with the Delete tool.'
                 }
                 links={
-                  selectedInfo.startsWith('wiki:')
+                  selectedInfo.startsWith('alpr:')
+                    ? alprLinks(alprCameras.find((x) => 'alpr:' + x.id === selectedInfo))
+                    : selectedInfo.startsWith('wiki:')
                     ? wikiLinks(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
                     : advisoryLinks(advisories.find((x) => 'adv:' + x.country === selectedInfo))
                 }

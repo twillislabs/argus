@@ -27,6 +27,7 @@ M2–M3), patterns and alerts.
 | `sigmet` | 10 min | International and US SIGMETs from aviationweather.gov; `airspace` raw records |
 | `czib` | 6 h | EASA conflict zone bulletins (parsed from EASA's table); `airspace` raw records |
 | cables | 30 days | TeleGeography cables and landing points, kept in `server_settings["layer:cables"]` |
+| ALPR cameras (API, per view) | 24 h cache | OpenStreetMap `surveillance:type=ALPR` from the Overpass API, in 2° tiles for the area being viewed, one request at a time (a second apart), at most two new tiles per call, cached a day in API memory and shared by every user (`argus/alpr.py`) |
 | wikipedia | 1 h | Wikipedia's Current events portal, the last three days, through the MediaWiki API; each entry placed from its linked articles' coordinates; kept in `server_settings["layer:wikipedia"]` |
 | advisories | 6 h | US State Department travel advisories (cadataapi.state.gov) and UK FCDO travel advice (GOV.UK content API; only countries updated since the last pass are re-read), kept in `server_settings["layer:advisories"]` |
 | receivers | 2 s / 10 s | Your readsb `aircraft.json` (NATS `argus.local_air`) and AIS-catcher `ships.json` (`argus.sea`) |

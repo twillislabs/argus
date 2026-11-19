@@ -544,6 +544,23 @@ export interface AirspaceItem {
   upper?: string | null;
 }
 
+// ALPR cameras mapped in OpenStreetMap (/api/alpr), for a regional view.
+export interface AlprCamera {
+  id: string;
+  lat: number;
+  lon: number;
+  vendor: string;
+  operator: string | null;
+  direction: number | null;
+  zone: string | null;
+  mapped: string | null;
+  osm_url: string;
+}
+export type AlprStatus = 'ok' | 'partial' | 'zoom';
+
+export const getAlpr = (bbox: Bbox) =>
+  api<{ cameras: AlprCamera[]; status: AlprStatus }>('/api/alpr?bbox=' + bbox.map((v) => v.toFixed(3)).join(','));
+
 export function getAirspaceStructure(bbox: Bbox) {
   return api<{ items: AirspaceItem[]; status: 'ok' | 'zoom' | 'nokey' | 'blocked' | 'error' }>(
     '/api/airspace/structure?bbox=' + bbox.map((v) => v.toFixed(3)).join(','),

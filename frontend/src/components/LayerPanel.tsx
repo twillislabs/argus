@@ -9,6 +9,7 @@ import { DEFAULT_REFERENCE, type ReferenceLayers } from '../map/overlays';
 import { DEFAULT_SPACE, SAT_COLOR, type SpaceFilters } from '../map/satellites';
 import { TENSION_COLOR } from '../map/tensionLayer';
 import { WIKI_COLOR } from '../map/wikiLayer';
+import { ALPR_COLOR } from '../map/alprLayer';
 import { DEFAULT_WEATHER, type WeatherFilters } from '../map/wxLayer';
 import { distance } from '../lib/units';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
@@ -89,6 +90,7 @@ const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color
   { id: 'power', label: 'Power plants (300 MW+)', source: 'Coal, gas, oil, hydro, renewables', color: FUEL_COLOR.Gas },
   { id: 'cables', label: 'Submarine cables', source: 'TeleGeography', color: '#7fd1c7' },
   { id: 'bases', label: 'Military bases', source: 'OpenStreetMap', color: BASE_COLOR },
+  { id: 'alpr', label: 'Plate reader cameras', source: 'Flock and other ALPR · OpenStreetMap', color: ALPR_COLOR },
 ];
 
 const AIRSPACE_ROWS: { id: keyof AirspaceFilters; label: string; source: string }[] = [
@@ -153,6 +155,8 @@ interface Props {
   // Countries tinted (above their normal level).
   tensionCount?: number;
   wikiCount?: number;
+  // Cameras in view, or undefined while the view is too wide.
+  alprCount?: number;
   advisoryCount?: number;
   // Storm warnings and zone alerts drawn on the map.
   weatherCount?: number;
@@ -280,6 +284,7 @@ export default function LayerPanel({
   counts,
   tensionCount,
   wikiCount,
+  alprCount,
   advisoryCount,
   weatherCount,
   zoneCount,
@@ -551,6 +556,7 @@ export default function LayerPanel({
               <small>{r.source}</small>
             </span>
             <span className="lcount mono">
+              {r.id === 'alpr' && filters.infra.alpr ? (alprCount ?? 'zoom in') : null}
               <Dot sources={sources} id={r.id} />
             </span>
           </label>

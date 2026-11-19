@@ -105,6 +105,10 @@ parts connect.
   current events (`argus/wikipedia.py`, `wikipedia_loop`, hourly) too, in
   `layer:wikipedia`; entries are placed at the linked article with the
   smallest coordinate `dim`. They're not events.
+- ALPR cameras (`argus/alpr.py`, `/api/alpr`) come from Overpass per
+  2-degree tile for the view, serialised with a lock and a gap, at most
+  `NEW_PER_CALL` new tiles a call (status `partial`, the map asks again),
+  cached a day in API memory. Locations only; never add plate data.
 - openAIP (key in Data sources) is fetched per 2-degree tile for the
   view and cached a day in API memory (`argus/openaip.py`); its licence
   is non-commercial, so don't persist it. Its Cloudflare can 403 whole IPs (an HTML

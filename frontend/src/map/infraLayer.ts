@@ -20,9 +20,11 @@ export interface InfraFilters {
   power: boolean;
   cables: boolean;
   bases: boolean;
+  // ALPR cameras (map/alprLayer.ts), fetched for the view.
+  alpr: boolean;
 }
 
-export const DEFAULT_INFRA: InfraFilters = { nuclear: false, power: false, cables: false, bases: false };
+export const DEFAULT_INFRA: InfraFilters = { nuclear: false, power: false, cables: false, bases: false, alpr: false };
 
 export const BASE_COLOR = '#ff5d8f';
 export const BASE_KINDS: Record<string, string> = {

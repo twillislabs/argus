@@ -129,6 +129,32 @@ async def wikipedia_events(session: SessionDep, db: DbDep):
     }
 
 
+@router.get("/api/alpr")
+async def alpr_cameras(
+    request: Request,
+    session: SessionDep,
+    bbox: str = Query(..., description="west,south,east,north"),
+):
+    """ALPR cameras mapped in OpenStreetMap for a regional view (ODbL).
+    status: ok, partial (more tiles still to come: ask again shortly)
+    or zoom (view too big)."""
+    from argus.events import parse_bbox
+
+    try:
+        box = parse_bbox(bbox)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    result = await request.app.state.alpr.area(box)
+    if result is None:
+        return {"cameras": [], "status": "zoom"}
+    cameras, complete = result
+    return {
+        "cameras": cameras,
+        "status": "ok" if complete else "partial",
+        "attribution": "© OpenStreetMap contributors (ODbL), via DeFlock",
+    }
+
+
 @router.get("/api/airspace/structure")
 async def airspace_structure(
     request: Request,
