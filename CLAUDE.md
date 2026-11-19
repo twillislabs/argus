@@ -124,7 +124,8 @@ parts connect.
   field names aren't public: `parse_tdot` guesses and logs the keys of
   the first record when nothing parses.
 - ALPR cameras (`argus/alpr.py`, `/api/alpr`) come from Overpass per
-  2-degree tile for the view, serialised with a lock and a gap, filled
+  1-degree tile for the view (main server, then overpass.kumi.systems),
+  kept a day in `alpr_tiles` too, serialised with a lock and a gap, filled
   in background tasks (Overpass can take ~40 s a tile, past nginx's 60 s
   proxy timeout), so `/api/alpr` returns cached tiles at once with status
   `partial` and the map asks again; cached a day in API memory.

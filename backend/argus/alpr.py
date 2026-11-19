@@ -3,8 +3,10 @@ the dataset DeFlock (deflock.me) maintains: man_made=surveillance with
 surveillance:type=ALPR, Flock Safety and other vendors.
 
 Locations only: there's no public plate data and Argus never looks for
-any. Fetched from the Overpass API by area for the map view, in 2-degree
-tiles, one request at a time, cached a day and shared by every user.
+any. Fetched from the Overpass API by area for the map view, in 1-degree
+tiles, one request at a time, in the background, and kept a day in the
+database (alpr_tiles) so restarts don't refetch. When the main Overpass
+server is busy or failing, a second public instance is tried.
 Data (c) OpenStreetMap contributors, ODbL.
 """
 
@@ -17,12 +19,15 @@ import httpx
 
 log = logging.getLogger("argus.alpr")
 
-OVERPASS = "https://overpass-api.de/api/interpreter"
-TILE_DEG = 2
+OVERPASS = (
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+)
+TILE_DEG = 1
 TTL_S = 24 * 3600
 # Overpass is busy (429/504): don't ask about that tile again for a while.
 BUSY_S = 300
-MAX_TILES = 16
+MAX_TILES = 36
 GAP_S = 1.0
 QUERY = (
     "[out:json][timeout:60];"
@@ -150,7 +155,9 @@ class Busy(Exception):
 
 
 class Alpr:
-    def __init__(self, user_agent: str) -> None:
+    def __init__(self, user_agent: str, db=None) -> None:
+        # db: argus.db.Database, for the day-long tile store (optional).
+        self.db = db
         self.client = httpx.AsyncClient(
             timeout=httpx.Timeout(70.0, connect=10.0),
             headers={"User-Agent": user_agent},
@@ -187,11 +194,18 @@ class Alpr:
                 (y + 1) * TILE_DEG,
                 (x + 1) * TILE_DEG,
             )
-            try:
-                r = await self.client.post(OVERPASS, data={"data": query})
-            finally:
-                self.last = time.monotonic()
-            if r.status_code in (429, 503, 504):
+            r = None
+            for server in OVERPASS:
+                try:
+                    r = await self.client.post(server, data={"data": query})
+                except httpx.HTTPError:
+                    r = None
+                    continue
+                finally:
+                    self.last = time.monotonic()
+                if r.status_code == 200:
+                    break
+            if r is None or r.status_code in (429, 503, 504):
                 self.busy_until[tile] = time.time() + BUSY_S
                 raise Busy()
             r.raise_for_status()
@@ -201,6 +215,7 @@ class Alpr:
                 if c is not None
             ]
             self.cache[tile] = (time.time(), items)
+            await self._store(tile, items)
             if len(self.cache) > 3000:
                 oldest = min(self.cache, key=lambda k: self.cache[k][0])
                 self.cache.pop(oldest, None)
@@ -209,6 +224,58 @@ class Alpr:
     def cached(self, tile: tuple[int, int]) -> list[dict] | None:
         hit = self.cache.get(tile)
         return hit[1] if hit and time.time() - hit[0] < TTL_S else None
+
+    @staticmethod
+    def _key(tile: tuple[int, int]) -> str:
+        return "{0}:{1}:{2}".format(TILE_DEG, tile[0], tile[1])
+
+    async def _store(self, tile: tuple[int, int], items: list[dict]) -> None:
+        if self.db is None:
+            return
+        from argus.db import utcnow
+        from argus.models import AlprTile
+
+        try:
+            async with self.db.sessionmaker() as session:
+                row = await session.get(AlprTile, self._key(tile))
+                if row is None:
+                    row = AlprTile(tile=self._key(tile))
+                    session.add(row)
+                row.cameras = items
+                row.fetched_at = utcnow()
+                await session.commit()
+        except Exception as exc:  # noqa: BLE001 - the memory cache still works
+            log.warning("ALPR tile store failed: {0}".format(exc))
+
+    async def _load(self, covering: list[tuple[int, int]]) -> None:
+        """Fill the memory cache from the stored tiles still fresh."""
+        if self.db is None:
+            return
+        from sqlalchemy import select
+
+        from argus.models import AlprTile
+
+        missing = {self._key(t): t for t in covering if self.cached(t) is None}
+        if not missing:
+            return
+        try:
+            async with self.db.sessionmaker() as session:
+                rows = (
+                    await session.execute(
+                        select(AlprTile).where(
+                            AlprTile.tile.in_(list(missing))
+                        )
+                    )
+                ).scalars()
+                for row in rows:
+                    age = time.time() - row.fetched_at.timestamp()
+                    if age < TTL_S:
+                        self.cache[missing[row.tile]] = (
+                            row.fetched_at.timestamp(),
+                            row.cameras,
+                        )
+        except Exception as exc:  # noqa: BLE001 - fall back to fetching
+            log.warning("ALPR tile load failed: {0}".format(exc))
 
     def _start(self, tile: tuple[int, int]) -> None:
         """Fetch a tile in the background (one at a time, through the
@@ -236,6 +303,7 @@ class Alpr:
         covering = tiles(bbox)
         if covering is None:
             return None
+        await self._load(covering)
         w, s, e, n = bbox
         out, complete = [], True
         for t in covering:

@@ -276,6 +276,17 @@ class TensionDaily(Base):
     samples: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class AlprTile(Base):
+    """ALPR cameras in one tile of the Overpass cache (argus/alpr.py),
+    OpenStreetMap data (ODbL), refreshed after a day."""
+
+    __tablename__ = "alpr_tiles"
+
+    tile: Mapped[str] = mapped_column(String(24), primary_key=True)
+    cameras: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    fetched_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class NwsZone(Base):
     """An NWS forecast, marine or county zone's outline (simplified), for
     drawing zone-based alerts. Fetched by the worker as alerts need them."""

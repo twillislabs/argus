@@ -44,8 +44,8 @@ def test_normalise_and_helpers():
     assert b["vendor"] == "Motorola Solutions" and b["direction"] is None
     assert (b["lat"], b["lon"]) == (36.5, -86.2)
     assert alpr.direction({"direction": "270;90"}) == 270.0
-    assert alpr.tiles((-90, 34, -84, 38)) == [
-        (x, y) for x in (-45, -44, -43) for y in (17, 18)
+    assert alpr.tiles((-90, 34, -87, 36)) == [
+        (x, y) for x in (-90, -89, -88) for y in (34, 35)
     ]
     assert alpr.tiles((-130, 20, -60, 50)) is None
 
@@ -62,7 +62,7 @@ async def test_area_fills_tiles_in_the_background_and_caches():
     client = alpr.Alpr("test")
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     alpr.GAP_S = 0
-    box = (-88, 34, -82, 38)  # 3 x 2 tiles
+    box = (-88, 35, -85, 37)  # 3 x 2 tiles
     cams, complete = await client.area(box)
     assert (cams, complete) == ([], False)  # nothing waited on
     for _ in range(50):
@@ -78,7 +78,8 @@ async def test_area_fills_tiles_in_the_background_and_caches():
     await client.close()
 
 
-async def test_busy_overpass_is_not_retried_at_once():
+async def test_busy_overpass_is_not_retried_at_once(monkeypatch):
+    monkeypatch.setattr(alpr, "OVERPASS", ("https://overpass.test/api",))
     calls = []
 
     def handler(request):
@@ -102,3 +103,31 @@ async def test_busy_overpass_is_not_retried_at_once():
 async def test_alpr_api(app, admin_client):
     r = await admin_client.get("/api/alpr", params={"bbox": "-130,20,-60,50"})
     assert r.json()["status"] == "zoom"
+
+
+async def test_tiles_survive_a_restart(app):
+    import asyncio
+
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(200, json={"elements": ELEMENTS})
+
+    box = (-87, 36, -86.5, 36.5)
+    first = alpr.Alpr("test", app.state.db)
+    first.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    alpr.GAP_S = 0
+    await first.area(box)
+    for _ in range(50):
+        await asyncio.sleep(0.01)
+        if not first.pending:
+            break
+    await first.close()
+    # A new API process: the stored tile answers without Overpass.
+    second = alpr.Alpr("test", app.state.db)
+    second.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    cams, complete = await second.area(box)
+    assert complete and {c["id"] for c in cams} == {"node/101"}
+    assert len(calls) == 1
+    await second.close()
