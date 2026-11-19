@@ -124,6 +124,7 @@ const REFERENCE_ROWS: { id: keyof ReferenceLayers; label: string; source: string
   { id: 'basemapLabels', label: 'Basemap labels', source: 'Names and roads in the map tiles' },
   { id: 'airports', label: 'Airports', source: 'OurAirports, large airports' },
   { id: 'ports', label: 'Ports', source: 'UN/LOCODE, sea and inland' },
+  { id: 'advisories', label: 'Travel advisories', source: 'US State Dept · UK FCDO' },
 ];
 
 export const AIR_FOCUS = [
@@ -145,6 +146,7 @@ interface Props {
   counts: Partial<Record<EventType, number>>;
   // Countries tinted (above their normal level).
   tensionCount?: number;
+  advisoryCount?: number;
   // Storm warnings and zone alerts drawn on the map.
   weatherCount?: number;
   zoneCount?: number;
@@ -187,6 +189,7 @@ const FEEDS: Record<string, string[]> = {
   'wx-alerts': ['nws'],
   'wx-zones': ['nws'],
   'wx-outlook': ['spc'],
+  advisories: ['advisories'],
 };
 
 function health(sources: SourceStatus[], id: string): { cls: string; title: string } | null {
@@ -268,6 +271,7 @@ export default function LayerPanel({
   filters,
   counts,
   tensionCount,
+  advisoryCount,
   weatherCount,
   zoneCount,
   airCounts,
@@ -541,6 +545,12 @@ export default function LayerPanel({
               <span>{r.label}</span>
               <small>{r.source}</small>
             </span>
+            {r.id === 'advisories' && (
+              <span className="lcount mono">
+                {advisoryCount ?? '–'}
+                <Dot sources={sources} id="advisories" />
+              </span>
+            )}
           </label>
         ))}
       </Group>

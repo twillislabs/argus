@@ -47,6 +47,7 @@ import type {
   AirspaceItem,
   Bbox,
   EventItem,
+  Advisory,
   GpsCell,
   Home,
   MapConfig,
@@ -62,6 +63,7 @@ import { addAirspaceLayer, type AirspaceFilters, type AirspaceLayer } from './ai
 import { addGpsLayer, type GpsLayer } from './gpsLayer';
 import { createDrawTools, type DrawCallbacks, type Drawing, type DrawTools } from './drawTools';
 import { addTensionLayer, type TensionLayer } from './tensionLayer';
+import { addAdvisoryLayer, type AdvisoryLayer } from './advisoryLayer';
 import { addWxLayer, type WeatherFilters, type WxLayer } from './wxLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
 import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './closeModels';
@@ -361,6 +363,8 @@ interface Props {
   selectedAirspace: string | null;
   gpsCells: GpsCell[];
   tensionCountries: TensionCountry[];
+  // Travel advisories, drawn while reference.advisories is on.
+  advisories?: Advisory[];
   // Weather (map/wxLayer.ts).
   wxAlerts?: WxAlert[];
   wxZoned?: WxAlert[];
@@ -410,6 +414,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     selectedAirspace,
     gpsCells,
     tensionCountries,
+    advisories,
     wxAlerts,
     wxZoned,
     outlook,
@@ -451,6 +456,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const areas = useRef<AirspaceLayer | null>(null);
   const gps = useRef<GpsLayer | null>(null);
   const tensionLayer = useRef<TensionLayer | null>(null);
+  const advisoryLayer = useRef<AdvisoryLayer | null>(null);
   const wx = useRef<WxLayer | null>(null);
   const weatherRef = useRef(weather);
   weatherRef.current = weather;
@@ -546,6 +552,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     areas.current = addAirspaceLayer(scene);
     gps.current = addGpsLayer(scene);
     tensionLayer.current = addTensionLayer(scene);
+    advisoryLayer.current = addAdvisoryLayer(scene);
     wx.current = addWxLayer(scene, () => ({
       add: (l) => v.scene.imageryLayers.add(l),
       remove: (l) => {
@@ -781,6 +788,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['airspace', () => areas.current?.destroy()],
         ['gps', () => gps.current?.destroy()],
         ['tension', () => tensionLayer.current?.destroy()],
+        ['advisories', () => advisoryLayer.current?.destroy()],
         ['weather', () => wx.current?.destroy()],
         ['infrastructure', () => infraLayer.current?.destroy()],
         ['pulse listener', removePulse],
@@ -807,6 +815,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       areas.current = null;
       gps.current = null;
       tensionLayer.current = null;
+      advisoryLayer.current = null;
       infraLayer.current = null;
       air.current = null;
       tracker.current = null;
@@ -979,6 +988,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     tensionLayer.current?.update(tensionCountries, showTension);
   }, [tensionCountries, showTension]);
+
+  useEffect(() => {
+    advisoryLayer.current?.update(advisories ?? [], reference.advisories);
+  }, [advisories, reference.advisories]);
 
   useEffect(() => {
     draw.current?.setDrawings(drawings ?? []);

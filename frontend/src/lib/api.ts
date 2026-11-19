@@ -69,6 +69,17 @@ export const putScreenWall = (id: number, wall: WallPrefs, home: Home | null) =>
     body: { wall, home },
   });
 
+// Travel advisories (/api/advisories), per Natural Earth country name.
+export interface Advisory {
+  country: string;
+  level: number;
+  us: { level: number; label: string; title: string; summary: string; updated: string | null; url: string } | null;
+  uk: { level: number; label: string; change: string; updated: string | null; url: string } | null;
+}
+
+export const getAdvisories = () =>
+  api<{ fetched: string | null; countries: Advisory[]; attribution: string }>('/api/advisories');
+
 export interface Preferences {
   home?: Home;
   basemap?: string;

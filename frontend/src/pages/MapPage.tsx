@@ -52,6 +52,8 @@ import {
   getVessels,
   getSummary,
   getTension,
+  getAdvisories,
+  type Advisory,
   type Me,
   savePreferences,
   type SearchResult,
@@ -63,6 +65,7 @@ import { connectLive, type LiveState } from '../lib/live';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import type { SatCatalog, SpaceFilters } from '../map/satellites';
 import { TINT_FROM } from '../map/tensionLayer';
+import { ADVISORY_COLOR } from '../map/advisoryLayer';
 import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { aircraftColor } from '../map/aircraftLayer';
 import { BASE_KINDS, FUEL_COLOR } from '../map/infraLayer';
@@ -109,6 +112,14 @@ function initialFilters(me: Me): LayerFilters {
     tension: typeof me.preferences.tension === 'boolean' ? me.preferences.tension : base.tension,
     weather: { ...base.weather, ...((me.preferences.weather as Partial<LayerFilters['weather']> | undefined) ?? {}) },
   };
+}
+
+function advisoryLinks(a: Advisory | undefined): { label: string; url: string }[] {
+  if (!a) return [];
+  const out = [];
+  if (a.us?.url) out.push({ label: 'US State Department advisory', url: a.us.url });
+  if (a.uk?.url) out.push({ label: 'UK foreign travel advice', url: a.uk.url });
+  return out;
 }
 
 function matchesFocus(a: Aircraft, focus: string): boolean {
@@ -171,6 +182,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [selectedInfo, setSelectedInfo] = useState<string | null>(null);
   const [gpsCells, setGpsCells] = useState<GpsCell[]>([]);
   const [tension, setTension] = useState<Tension | null>(null);
+  const [advisories, setAdvisories] = useState<Advisory[]>([]);
   // Weather: NWS warnings (mapped, and those for home), SPC outlooks and
   // current conditions at home.
   const [wxAlerts, setWxAlerts] = useState<WxAlert[]>([]);
@@ -611,6 +623,24 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     };
   }, []);
 
+  // Travel advisories while the layer is on (the worker refreshes them
+  // every six hours; check every half hour).
+  const advisoriesOn = filters.reference.advisories;
+  useEffect(() => {
+    if (!advisoriesOn) return;
+    let cancelled = false;
+    const load = () =>
+      getAdvisories()
+        .then((r) => !cancelled && setAdvisories(r.countries))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 1_800_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [advisoriesOn]);
+
   // Airspace areas, while any airspace layer is on (every 10 minutes).
   const airspaceOn = filters.airspace.tfr || filters.airspace.sigmet || filters.airspace.czib;
   // GPS cells load even with the layer off: Situation counts them.
@@ -855,7 +885,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     // lookup (it would only say there's no such event).
     if (
       id &&
-      (id.startsWith('gps:') || id.startsWith('tension:') || id.startsWith('draw:') || id.startsWith('wx:') || id.startsWith('spc:'))
+      (id.startsWith('gps:') ||
+        id.startsWith('tension:') ||
+        id.startsWith('adv:') ||
+        id.startsWith('draw:') ||
+        id.startsWith('wx:') ||
+        id.startsWith('spc:'))
     ) {
       clearSelection();
       setSelectedInfo(id);
@@ -958,6 +993,19 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             title: 'GPS interference',
             color: '#ff6ba1',
             lines: [Math.round(c.share * 100) + '% of ' + c.aircraft + ' aircraft degraded · last hour'],
+          }
+        : null;
+    }
+    if (id.startsWith('adv:')) {
+      const a = advisories.find((x) => x.country === id.slice(4));
+      return a
+        ? {
+            title: a.country + ' · travel advisories',
+            color: ADVISORY_COLOR[a.level],
+            lines: [
+              a.us ? 'US: Level ' + a.us.level + ', ' + a.us.label.toLowerCase() : 'US: no advisory listed',
+              a.uk ? 'UK: ' + a.uk.label : 'UK: no advice listed',
+            ],
           }
         : null;
     }
@@ -1139,6 +1187,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             filters={filters}
             counts={counts}
             tensionCount={tension ? tension.countries.filter((c) => c.level >= TINT_FROM).length : undefined}
+            advisoryCount={advisoriesOn ? advisories.filter((a) => a.level >= 2).length : undefined}
             weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
             zoneCount={filters.weather.zones ? wxZoned.length : undefined}
             airCounts={airCounts}
@@ -1171,6 +1220,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             selectedAirspace={selectedAirspace}
             gpsCells={gpsCells}
             tensionCountries={tension?.countries ?? []}
+            advisories={advisories}
             wxAlerts={wxAlerts}
             wxZoned={wxZoned}
             outlook={outlook}
@@ -1426,10 +1476,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                         ' (National Weather Service; open the alert for its full text and instructions.)'
                       : selectedInfo.startsWith('spc:')
                         ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'
-                        : selectedInfo.startsWith('tension:')
+                        : selectedInfo.startsWith('adv:')
+                          ? (advisories.find((x) => 'adv:' + x.country === selectedInfo)?.us?.summary ?? '') +
+                            ' (US Department of State and UK FCDO; open the advice for the full text.)'
+                          : selectedInfo.startsWith('tension:')
                       ? 'Tension: organised violence over the last year (UCDP) plus confirmed live events. See World tension in the Situation panel.'
                       : 'A shape you drew. Delete it with the Delete tool.'
                 }
+                links={advisoryLinks(advisories.find((x) => 'adv:' + x.country === selectedInfo))}
                 onBack={() => setSelectedInfo(null)}
               />
             ) : areaSel ? (

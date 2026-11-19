@@ -26,6 +26,8 @@ export interface ReferenceLayers {
   ports: boolean;
   // The basemap's own names and roads (Esri / Google reference tiles).
   basemapLabels: boolean;
+  // US / UK travel advisories (map/advisoryLayer.ts).
+  advisories: boolean;
 }
 
 export const DEFAULT_REFERENCE: ReferenceLayers = {
@@ -35,6 +37,7 @@ export const DEFAULT_REFERENCE: ReferenceLayers = {
   airports: false,
   ports: false,
   basemapLabels: true,
+  advisories: false,
 };
 
 // Line colours differ over imagery (light) and the dark map (muted).

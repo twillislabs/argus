@@ -1,6 +1,7 @@
 import type { LayerFilters } from './LayerPanel';
 import { SEVERITY_COLOR, SEVERITY_NAME } from '../lib/format';
 import { AIR_COLOR } from '../map/aircraftLayer';
+import { ADVISORY_COLOR } from '../map/advisoryLayer';
 import { AIRSPACE_COLOR, STRUCTURE_COLOR } from '../map/airspaceLayer';
 import { BASE_COLOR, FUEL_COLOR } from '../map/infraLayer';
 import { SAT_COLOR } from '../map/satellites';
@@ -115,6 +116,16 @@ export default function Legend({ filters, onClose }: { filters: LayerFilters; on
               color: k === 'starlink' ? '#9aa7ba' : SAT_COLOR[k as keyof typeof SAT_COLOR],
               label: k === 'starlink' ? 'Starlink' : k.toUpperCase(),
             }))}
+          />
+        )}
+        {filters.reference.advisories && (
+          <Section
+            title="Travel advisories"
+            rows={[
+              { color: ADVISORY_COLOR[2], label: 'Increased caution (US 2)', shape: 'area' },
+              { color: ADVISORY_COLOR[3], label: 'Reconsider, or avoid parts (US 3)', shape: 'area' },
+              { color: ADVISORY_COLOR[4], label: 'Do not travel (US 4)', shape: 'area' },
+            ]}
           />
         )}
         {(filters.infra.nuclear || filters.infra.power || filters.infra.bases || filters.infra.cables) && (

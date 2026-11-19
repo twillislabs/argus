@@ -97,6 +97,23 @@ async def submarine_cables(session: SessionDep, db: DbDep):
     }
 
 
+@router.get("/api/advisories")
+async def travel_advisories(session: SessionDep, db: DbDep):
+    """US State Department and UK FCDO travel advisories per country
+    (Natural Earth names), as last fetched by the worker."""
+    from argus.advisories import merged
+    from argus.models import ServerSetting
+
+    row = await db.get(ServerSetting, "layer:advisories")
+    value = dict(row.value) if row else {}
+    return {
+        "fetched": value.get("fetched"),
+        "countries": merged(value),
+        "attribution": "US Department of State (public domain); "
+        "UK FCDO (Open Government Licence v3.0)",
+    }
+
+
 @router.get("/api/airspace/structure")
 async def airspace_structure(
     request: Request,

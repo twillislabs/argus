@@ -236,6 +236,7 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .sw.ref.borders { border-top: 2px solid #d4dae2; height: 2px; margin-top: 4px; }
 .sw.ref.states { border-top: 2px dashed #8a94a2; height: 2px; margin-top: 4px; }
 .sw.ref.labels::before { content: 'Aa'; font: 600 9px var(--f-body); color: #d4dae2; }
+.sw.ref.advisories { width: 10px; height: 10px; border: 1.5px solid #ff9447; background: rgba(255, 148, 71, 0.15); }
 .sw.ref.airports { width: 8px; height: 8px; border: 1.5px solid #b4c2d4; background: #0b0e13; border-radius: 50%; }
 
 /* Aircraft contacts in the Situation panel. */

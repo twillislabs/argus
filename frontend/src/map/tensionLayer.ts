@@ -44,7 +44,7 @@ export const naturalEarthName = (name: string) => NE_NAME[name] ?? name;
 type Rings = number[][][];
 let shapes: Promise<Map<string, Rings[]>> | null = null;
 
-function loadShapes(): Promise<Map<string, Rings[]>> {
+export function loadShapes(): Promise<Map<string, Rings[]>> {
   shapes ??= fetch('/data/countries-50m.json')
     .then((r) => (r.ok ? (r.json() as Promise<Topology>) : null))
     .then((topo) => {
@@ -64,7 +64,7 @@ function loadShapes(): Promise<Map<string, Rings[]>> {
   return shapes;
 }
 
-function hierarchy(rings: Rings): PolygonHierarchy {
+export function hierarchy(rings: Rings): PolygonHierarchy {
   const pos = (ring: number[][]) => Cartesian3.fromDegreesArray(ring.slice(0, -1).flatMap(([x, y]) => [x, y]));
   return new PolygonHierarchy(
     pos(rings[0]),

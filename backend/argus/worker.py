@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 import httpx
 from sqlalchemy import select
 
-from argus import __version__, sea, secrets, space, tension
+from argus import __version__, advisories, sea, secrets, space, tension
 from argus.aviation import (
     GPS_HOTSPOTS,
     POLL_ORDER,
@@ -373,6 +373,61 @@ async def cables_loop(db: Database, client: httpx.AsyncClient) -> None:
         await asyncio.sleep(6 * 3600)
 
 
+ADVISORIES_EVERY = timedelta(hours=6)
+
+
+async def advisories_loop(db: Database, client: httpx.AsyncClient) -> None:
+    """US and UK travel advisories every six hours, kept in
+    server_settings["layer:advisories"] (argus/advisories.py)."""
+    while True:
+        async with db.sessionmaker() as session:
+            row = await session.get(ServerSetting, "layer:advisories")
+            previous = dict(row.value or {}) if row else {}
+            fetched = previous.get("fetched")
+            due = (
+                fetched is None
+                or utcnow() - datetime.fromisoformat(fetched)
+                >= ADVISORIES_EVERY
+            )
+            source = await session.get(Source, "advisories")
+            if source is None:
+                source = Source(
+                    name="advisories",
+                    label="Travel advisories (US State Dept, UK FCDO)",
+                    interval_s=int(ADVISORIES_EVERY.total_seconds()),
+                    enabled=True,
+                    last_count=0,
+                )
+                session.add(source)
+            await session.commit()
+        if due:
+            started = utcnow()
+            error, value = None, None
+            try:
+                value = await advisories.fetch(client, previous)
+            except (httpx.HTTPError, ValueError) as exc:
+                error = "{0}: {1}".format(type(exc).__name__, str(exc)[:300])
+            async with db.sessionmaker() as session:
+                source = await session.get(Source, "advisories")
+                source.last_run_at = started
+                if value is not None:
+                    row = await session.get(ServerSetting, "layer:advisories")
+                    if row is None:
+                        row = ServerSetting(key="layer:advisories")
+                        session.add(row)
+                    row.value = {"fetched": utcnow().isoformat(), **value}
+                    row.updated_at = utcnow()
+                    source.last_success_at = utcnow()
+                    source.last_count = len(advisories.merged(value))
+                    source.last_error = None
+                    log.info("advisories: {0}".format(source.last_count))
+                else:
+                    source.last_error = error
+                    log.warning("advisories failed: {0}".format(error))
+                await session.commit()
+        await asyncio.sleep(1800)
+
+
 ZONE_TOLERANCE = 0.01  # degrees, about 1 km
 ZONES_PER_PASS = 60
 ZONE_RETRY = timedelta(days=1)
@@ -720,6 +775,7 @@ async def run(settings: Settings) -> None:
         )
         cables_task = asyncio.create_task(cables_loop(db, client))
         tension_task = asyncio.create_task(tension_loop(db))
+        advisories_task = asyncio.create_task(advisories_loop(db, client))
         zones_task = (
             asyncio.create_task(zones_loop(db, client))
             if "nws" in names
@@ -772,6 +828,7 @@ async def run(settings: Settings) -> None:
                 receivers_task,
                 cables_task,
                 tension_task,
+                advisories_task,
                 zones_task,
             ):
                 if task is not None:

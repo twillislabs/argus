@@ -27,6 +27,7 @@ M2–M3), patterns and alerts.
 | `sigmet` | 10 min | International and US SIGMETs from aviationweather.gov; `airspace` raw records |
 | `czib` | 6 h | EASA conflict zone bulletins (parsed from EASA's table); `airspace` raw records |
 | cables | 30 days | TeleGeography cables and landing points, kept in `server_settings["layer:cables"]` |
+| advisories | 6 h | US State Department travel advisories (cadataapi.state.gov) and UK FCDO travel advice (GOV.UK content API; only countries updated since the last pass are re-read), kept in `server_settings["layer:advisories"]` |
 | receivers | 2 s / 10 s | Your readsb `aircraft.json` (NATS `argus.local_air`) and AIS-catcher `ships.json` (`argus.sea`) |
 | `nga` | 1 h | NGA navigational warnings with positions, as `maritime` events |
 | vessels (`aisstream`) | stream | AISStream WebSocket for the whole world (an admin's key); changes published on `argus.sea` every 5 s, kept in API memory (`LiveSea`), not stored |

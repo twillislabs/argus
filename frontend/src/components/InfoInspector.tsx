@@ -5,10 +5,12 @@ import type { HoverInfo } from './HoverCard';
 export default function InfoInspector({
   info,
   note,
+  links = [],
   onBack,
 }: {
   info: HoverInfo | null;
   note: string;
+  links?: { label: string; url: string }[];
   onBack: () => void;
 }) {
   return (
@@ -32,6 +34,15 @@ export default function InfoInspector({
           <p className="quiet small" style={{ marginTop: 10 }}>
             {note}
           </p>
+          {links.length > 0 && (
+            <div className="actions" style={{ marginTop: 10 }}>
+              {links.map((l) => (
+                <a key={l.url} className="btn small" href={l.url} target="_blank" rel="noreferrer noopener">
+                  {l.label} ↗
+                </a>
+              ))}
+            </div>
+          )}
         </section>
       ) : (
         <p className="quiet pad">This item is no longer on the map.</p>

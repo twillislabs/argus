@@ -182,6 +182,7 @@ The **Reference** group in the layer panel draws over any base map:
 | **Basemap labels** | The map tiles' own names and roads, which fade in below about 450 km and take over from Argus's labels there. Turn off for Argus's labels only, at every height | on |
 | **Airports** | Large airports with their IATA code, below about 1,200 km | off |
 | **Ports** | UN/LOCODE ports: sea ports (near the coast) below about 1,500 km, named when close; river and inland ports only close in | off |
+| **Travel advisories** | Countries the US State Department or the UK FCDO warn about, outlined and lightly shaded in the worse of the two: yellow for increased caution (US level 2), orange for reconsider travel or "avoid travel to parts" (US 3), red for do not travel (US 4). Hover for both governments' advice; click for the summary and links to the full advice. Refreshed every six hours | off |
 
 ## World tension
 
