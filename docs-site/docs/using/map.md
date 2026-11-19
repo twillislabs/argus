@@ -398,7 +398,7 @@ test that confirms them.
 
 **Source records** on a GDELT event are the articles GDELT itself coded it
 from. GDELT matches articles to events automatically, so some are about
-something else. Each is tagged: **names <place>** when its link mentions
+something else. Each is tagged: **names** the place when its link mentions
 the place, **doesn't name the place** when the link has a headline that
 doesn't (shown dimmed, at the bottom), **headline not in link** when the
 link is only a number, and **coded as …** when GDELT coded that article as
