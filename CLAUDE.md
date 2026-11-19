@@ -53,6 +53,9 @@ parts connect.
 
 ## Gotchas
 
+- Child rows of `User` rely on ON DELETE CASCADE; ORM relationships to
+  them need `cascade="all, delete-orphan", passive_deletes=True`, or
+  deleting a user fails (SQLite tests don't enforce foreign keys).
 - `schemas.Preferences` forbids unknown keys: a new preference saved by the
   frontend needs a field there, or the PATCH fails with 422.
 - Cesium keeps moving classes from `@cesium/engine` to `@cesium/core`

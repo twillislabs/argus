@@ -103,6 +103,10 @@ async def load_session(
     session = await db.get(UserSession, token_digest(token))
     if session is None:
         return None
+    if session.user is None:  # the account is gone
+        await db.delete(session)
+        await db.commit()
+        return None
     now = utcnow()
     idle = timedelta(hours=settings.session_idle_hours)
     expired = session.expires_at <= now

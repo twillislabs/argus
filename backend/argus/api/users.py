@@ -253,6 +253,8 @@ async def delete_user(
         target=user.id,
         username=user.username,
     )
+    # Signed out everywhere at once, whatever the database cascades.
+    await db.execute(delete(UserSession).where(UserSession.user_id == user.id))
     await db.delete(user)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

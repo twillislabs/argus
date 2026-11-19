@@ -218,3 +218,32 @@ async def test_audit_log(admin_client, client):
     assert all(
         e["action"].startswith("users.") for e in only.json()["entries"]
     )
+
+
+async def test_delete_user_with_preferences_and_sessions(admin_client, app):
+    """Someone who has used the map has preferences and sessions; deleting
+    them must take both with them."""
+    r = await create(admin_client, username="tester", display_name="Test")
+    user_id = r.json()["user"]["id"]
+    temp = r.json()["temporary_password"]
+    c, _ = await sign_in(app, "tester", temp)
+    await c.post(
+        "/api/me/password",
+        json={"current_password": temp, "new_password": NEW_PASSWORD},
+        headers=csrf(c),
+    )
+    saved = await c.patch(
+        "/api/me/preferences",
+        json={"units": "metric", "tension": False},
+        headers=csrf(c),
+    )
+    assert saved.status_code == 200, saved.text
+
+    r = await admin_client.delete(
+        "/api/admin/users/{0}".format(user_id), headers=csrf(admin_client)
+    )
+    assert r.status_code == 204, r.text
+    assert (await c.get("/api/me")).status_code == 401
+    await c.aclose()
+    users = (await admin_client.get("/api/admin/users")).json()
+    assert "tester" not in [u["username"] for u in users]

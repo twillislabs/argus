@@ -47,8 +47,14 @@ class User(Base):
         UTCDateTime, nullable=True
     )
 
+    # The database deletes preferences with the user (ON DELETE CASCADE);
+    # without this the ORM tries to blank their key first and fails.
     preferences: Mapped["UserPreferences | None"] = relationship(
-        back_populates="user", uselist=False, lazy="selectin"
+        back_populates="user",
+        uselist=False,
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
 
