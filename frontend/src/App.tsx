@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { ApiError, getMe, getSetupStatus, type Me } from './lib/api';
+import ChangePasswordPage from './pages/ChangePasswordPage';
 import LoginPage from './pages/LoginPage';
 import MapPage from './pages/MapPage';
 import SettingsPage from './pages/SettingsPage';
@@ -66,6 +67,11 @@ export default function App() {
   }
   if (boot.state === 'signedIn' && (path === '/login' || path === '/setup')) {
     return <Navigate to="/" replace />;
+  }
+
+  // A temporary password must be replaced before anything else.
+  if (boot.state === 'signedIn' && boot.me.user.must_change_password) {
+    return <ChangePasswordPage me={boot.me} onDone={refresh} />;
   }
 
   return (

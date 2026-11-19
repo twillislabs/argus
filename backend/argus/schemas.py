@@ -1,6 +1,7 @@
 """Request and response bodies."""
 
-from typing import Any
+from datetime import datetime
+from typing import Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
@@ -9,7 +10,10 @@ from pydantic import (
     EmailStr,
     Field,
     field_validator,
+    model_validator,
 )
+
+from argus.roles import capabilities
 
 USERNAME_PATTERN = r"^[A-Za-z0-9._-]{3,32}$"
 
@@ -60,6 +64,55 @@ class UserOut(BaseModel):
     display_name: str
     email: str | None
     role: str
+    must_change_password: bool = False
+    capabilities: list[str] = []
+
+    @model_validator(mode="after")
+    def fill_capabilities(self):
+        self.capabilities = capabilities(self.role)
+        return self
+
+
+class AdminUserOut(UserOut):
+    is_active: bool
+    created_at: datetime
+    last_login_at: datetime | None
+    locked_until: datetime | None
+
+
+Role = Literal["admin", "analyst", "viewer", "display"]
+
+
+class UserCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(pattern=USERNAME_PATTERN)
+    display_name: str = Field(min_length=1, max_length=80)
+    email: EmailStr | None = None
+    role: Role = "viewer"
+
+
+class UserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    email: EmailStr | None = None
+    role: Role | None = None
+    is_active: bool | None = None
+
+
+class ProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    email: EmailStr | None = None
+
+
+class PasswordChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=1, max_length=256)
 
 
 class AirPreferences(BaseModel):

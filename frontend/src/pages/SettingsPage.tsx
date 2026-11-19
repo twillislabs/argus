@@ -1,9 +1,11 @@
 import { useState } from 'react';
 
 import AppHeader from '../components/AppHeader';
+import AccountCard from '../components/AccountCard';
 import HomePicker from '../components/HomePicker';
 import ImageryCard from '../components/ImageryCard';
-import { type Home, type Me, savePreferences } from '../lib/api';
+import UsersCard from '../components/UsersCard';
+import { can, type Home, type Me, savePreferences } from '../lib/api';
 
 interface Props {
   me: Me;
@@ -93,7 +95,9 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
             </label>
           </div>
         </section>
-        {me.user.role === 'admin' && <ImageryCard />}
+        <AccountCard me={me} onSaved={onSaved} />
+        {can(me.user, 'users.manage') && <UsersCard me={me} />}
+        {can(me.user, 'settings.manage') && <ImageryCard />}
       </main>
     </div>
   );

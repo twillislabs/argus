@@ -16,6 +16,31 @@ title: Security model
   matching the session. JSON-only request bodies block form-based CSRF on the
   sign-in and setup endpoints.
 
+## Users and roles
+
+Administrators manage accounts in **Settings → Users**. Every role can use
+the map, search and follow aircraft, and keep its own preferences:
+
+| Role | Can also |
+|---|---|
+| **Administrator** | Manage users and roles, change server-wide settings (map imagery, the Google key) |
+| **Analyst** | Use analyst tools as they arrive (alerts, notes, watchlists, AI) |
+| **Viewer** | Nothing more: the map, read-only |
+| **Display** | For a wall screen: read-only, its sessions never time out when idle, and only an admin can change its details or password |
+
+- **New accounts** get a temporary password, shown to the admin once. At
+  first sign-in the user must choose their own; until then the server
+  refuses every other request.
+- **Reset password** issues a new temporary password the same way and signs
+  the user out on every device.
+- **Deactivate** blocks sign-in and ends the user's sessions but keeps the
+  account; **Delete** removes it (audit entries stay, without the user).
+- **Unlock** clears a lockout from failed sign-ins.
+- **Guards:** you can't change your own role, or deactivate or delete
+  yourself, and Argus always keeps at least one active administrator.
+- **Changing your password** (Settings → Account) signs out your other
+  devices.
+
 ## Brute-force protection
 
 - After 5 failed sign-ins an account is locked for 15 minutes.
@@ -26,7 +51,9 @@ title: Security model
 ## Audit log
 
 Setup, sign-in, failed sign-in, lockout and sign-out events are recorded with
-the time, user and client address.
+the time, user and client address, as are password changes, every user
+management action (create, role or status change, reset, unlock, delete)
+and server setting changes.
 
 ## Transport
 

@@ -166,3 +166,30 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .notes { margin: 0; padding-left: 18px; display: grid; gap: 5px; font-size: 12px; color: var(--muted); line-height: 1.5; }
 .notes b { color: var(--text); font-weight: 600; }
 .cbody > .seg { justify-self: start; }
+
+/* Users and roles (Settings). */
+.card.wide { max-width: 1040px; }
+.utable { display: grid; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.urow { display: grid; grid-template-columns: minmax(160px, 1.4fr) 170px 160px 100px minmax(240px, 1.6fr); gap: 10px; align-items: center; padding: 8px 10px; border-top: 1px solid var(--line); font-size: 12.5px; }
+.urow:first-child { border-top: 0; }
+.urow.head { background: var(--surface-2); font: 600 10.5px/1 var(--f-head); letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+.urow.off { opacity: 0.55; }
+.urow select { width: 100%; background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 5px 8px; font-size: 12px; }
+.urow select:disabled { opacity: 0.6; }
+.uname { display: grid; gap: 2px; min-width: 0; }
+.uname small { color: var(--dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uactions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.btn.danger:hover { border-color: var(--crit); color: var(--crit); }
+.mono.dim { color: var(--dim); font-size: 11.5px; }
+.issued { display: grid; gap: 8px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-soft); border-radius: 4px; padding: 10px 12px; font-size: 12.5px; }
+.issued-pw { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.issued-pw code { font: 600 15px var(--f-mono); letter-spacing: 0.04em; background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 5px 9px; user-select: all; }
+.roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; margin: 0; font-size: 12px; }
+.roles dt { color: var(--text); font-weight: 600; }
+.roles dd { margin: 0; color: var(--dim); }
+@media (max-width: 1100px) {
+  .urow { grid-template-columns: minmax(0, 1fr) 150px; }
+  .urow.head span:nth-child(n + 3) { display: none; }
+  .uactions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+.ustatus .badge { white-space: nowrap; }

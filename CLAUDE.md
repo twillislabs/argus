@@ -14,6 +14,12 @@ parts connect.
   - `aviation.py`: airports/airlines, adsb.lol + adsbdb client, live
     military picture (`LiveAir`). The worker polls `/v2/mil` and publishes
     on NATS `argus.air`; civil traffic is fetched by the API per view.
+  - `roles.py`: roles and their capabilities. Gate endpoints with
+    `Depends(require("capability"))` from `api/deps.py`, never by
+    comparing role names; the frontend checks `can(user, "...")`.
+  - `api/users.py`: user management (admins) and your own account.
+    While `must_change_password` is set, `current_session` refuses every
+    path except `PASSWORD_CHANGE_PATHS`.
   - `api/admin.py`: server-wide settings (admins) and `/api/map/config`
     (everyone). Settings live in the `server_settings` table; secrets in
     them go through `argus/secrets.py` (Fernet, keyed from

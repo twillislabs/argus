@@ -9,7 +9,7 @@ from datetime import timedelta
 from fastapi import FastAPI, Request
 
 from argus import __version__
-from argus.api import admin, air, auth, events, health, me, setup
+from argus.api import admin, air, auth, events, health, me, setup, users
 from argus.api.deps import RateLimiter
 from argus.aviation import AirClient, LiveAir
 from argus.config import DEFAULT_SECRET, Settings, get_settings
@@ -102,6 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         events.router,
         air.router,
         admin.router,
+        users.router,
     ):
         app.include_router(router)
     return app

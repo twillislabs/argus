@@ -15,9 +15,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from argus import secrets
-from argus.api.deps import DbDep, SessionDep, SettingsDep, client_ip
+from argus.api.deps import (
+    DbDep,
+    SessionDep,
+    SettingsDep,
+    client_ip,
+    require,
+)
 from argus.db import utcnow
-from argus.models import ServerSetting, User, UserSession
+from argus.models import ServerSetting, UserSession
 from argus.services import audit
 
 router = APIRouter(tags=["admin"])
@@ -27,14 +33,7 @@ IMAGERY = "imagery"
 GOOGLE_SESSION_URL = "https://tile.googleapis.com/v1/createSession"
 
 
-async def admin_session(session: SessionDep, db: DbDep) -> UserSession:
-    user = await db.get(User, session.user_id)
-    if user is None or user.role != "admin":
-        raise HTTPException(403, "Only administrators can change this.")
-    return session
-
-
-AdminDep = Depends(admin_session)
+AdminDep = Depends(require("settings.manage"))
 
 
 class ImageryIn(BaseModel):

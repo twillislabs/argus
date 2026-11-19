@@ -17,8 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from argus.db import Base, UTCDateTime, utcnow
-
-ROLES = ("admin", "analyst", "viewer", "display")
+from argus.roles import ROLES  # noqa: F401 - kept importable from here
 
 
 class User(Base):
@@ -34,6 +33,12 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     last_login_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime, nullable=True
+    )
+    # Set when an admin creates the account or resets its password: the
+    # user must choose their own before doing anything else.
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    password_changed_at: Mapped[datetime | None] = mapped_column(
         UTCDateTime, nullable=True
     )
     failed_logins: Mapped[int] = mapped_column(Integer, default=0)

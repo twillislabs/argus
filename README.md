@@ -51,6 +51,8 @@ What it does today:
   - A one-time setup token from the server log
   - Argon2id passwords and sessions with CSRF protection
   - Lockout and rate limiting, plus an audit log
+  - More users with roles (admin, analyst, viewer, wall display) and temporary passwords
+    they replace at first sign-in
 - **Built-in documentation** at `/docs/`, including how every part connects.
 
 Coming next: ships, satellites with live orbits,

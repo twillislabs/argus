@@ -75,6 +75,20 @@ def normalize_setup_token(token: str) -> str:
     return "".join(c for c in token.upper() if c.isalnum())
 
 
+# No 0/O, 1/l/I: temporary passwords are read out or copied by hand.
+TEMP_ALPHABET = "abcdefghijkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def new_temp_password() -> str:
+    """A one-time password an admin hands to a user: four groups of
+    five, about 115 bits."""
+    groups = [
+        "".join(secrets.choice(TEMP_ALPHABET) for _ in range(5))
+        for _ in range(4)
+    ]
+    return "-".join(groups)
+
+
 def password_problem(password: str, username: str) -> str | None:
     """Return a user-facing reason the password is unacceptable."""
     if len(password) < MIN_PASSWORD_LENGTH:

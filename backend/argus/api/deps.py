@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from argus.config import Settings
 from argus.db import utcnow
 from argus.models import UserSession
+from argus.roles import can
 from argus.security import digests_match
 from argus.services import load_session
 
@@ -95,10 +96,41 @@ async def current_session(
                 status.HTTP_403_FORBIDDEN,
                 "Missing or wrong CSRF token. Reload the page and retry.",
             )
+    # A temporary password (set by an admin) must be replaced before the
+    # account can do anything else.
+    if (
+        session.user.must_change_password
+        and request.url.path not in PASSWORD_CHANGE_PATHS
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Choose a new password to continue.",
+            headers={"X-Argus-Reason": "password-change"},
+        )
     return session
 
 
 SessionDep = Annotated[UserSession, Depends(current_session)]
+
+PASSWORD_CHANGE_PATHS = {
+    "/api/me",
+    "/api/me/password",
+    "/api/auth/logout",
+}
+
+
+def require(capability: str):
+    """Dependency: the signed-in user's role must have capability."""
+
+    async def check(session: SessionDep) -> UserSession:
+        if not can(session.user.role, capability):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Your role can't do this. Ask an administrator.",
+            )
+        return session
+
+    return check
 
 
 class RateLimiter:

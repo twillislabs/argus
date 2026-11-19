@@ -5,8 +5,14 @@ export interface User {
   username: string;
   display_name: string;
   email: string | null;
-  role: string;
+  role: Role;
+  must_change_password: boolean;
+  capabilities: string[];
 }
+
+export type Role = 'admin' | 'analyst' | 'viewer' | 'display';
+
+export const can = (user: User, capability: string) => user.capabilities.includes(capability);
 
 export interface Home {
   name: string;
@@ -303,3 +309,35 @@ export const saveImagerySettings = (body: {
   google_key?: string;
   google_3d: boolean;
 }) => api<ImagerySettings>('/api/admin/imagery', { method: 'PUT', body });
+
+// --- Users and accounts ------------------------------------------------------
+
+export interface AdminUser extends User {
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+  locked_until: string | null;
+}
+
+export const ROLE_INFO: Record<Role, { label: string; detail: string }> = {
+  admin: { label: 'Administrator', detail: 'Everything, including users and server settings' },
+  analyst: { label: 'Analyst', detail: 'The map and analyst tools (alerts, notes, AI as they arrive)' },
+  viewer: { label: 'Viewer', detail: 'The map, read-only' },
+  display: { label: 'Display', detail: 'A wall screen: read-only, never idles out, managed by admins' },
+};
+
+export const listUsers = () => api<AdminUser[]>('/api/admin/users');
+export const createUser = (body: { username: string; display_name: string; email?: string; role: Role }) =>
+  api<{ user: AdminUser; temporary_password: string }>('/api/admin/users', { method: 'POST', body });
+export const updateUser = (
+  id: number,
+  body: Partial<{ display_name: string; email: string | null; role: Role; is_active: boolean }>,
+) => api<AdminUser>('/api/admin/users/' + id, { method: 'PATCH', body });
+export const resetUserPassword = (id: number) =>
+  api<{ temporary_password: string }>('/api/admin/users/' + id + '/reset-password', { method: 'POST' });
+export const unlockUser = (id: number) => api<AdminUser>('/api/admin/users/' + id + '/unlock', { method: 'POST' });
+export const deleteUser = (id: number) => api<void>('/api/admin/users/' + id, { method: 'DELETE' });
+export const changePassword = (current_password: string, new_password: string) =>
+  api<void>('/api/me/password', { method: 'POST', body: { current_password, new_password } });
+export const updateProfile = (body: { display_name?: string; email?: string | null }) =>
+  api<User>('/api/me/profile', { method: 'PATCH', body });

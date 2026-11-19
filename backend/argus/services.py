@@ -106,7 +106,10 @@ async def load_session(
     now = utcnow()
     idle = timedelta(hours=settings.session_idle_hours)
     expired = session.expires_at <= now
-    if not session.remember and now - session.last_seen_at > idle:
+    # Wall screens (display role) sit unattended, so they don't idle out;
+    # the absolute lifetime still applies.
+    idle_ok = session.remember or session.user.role == "display"
+    if not idle_ok and now - session.last_seen_at > idle:
         expired = True
     if expired or not session.user.is_active:
         await db.delete(session)
