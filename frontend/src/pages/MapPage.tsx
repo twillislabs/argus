@@ -8,6 +8,7 @@ import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
 import { CursorReadout, ScaleBar, Timeline } from '../components/MapFooter';
 import { type HoverInfo, HoverLayer } from '../components/HoverCard';
+import Legend from '../components/Legend';
 import NewsPlayer from '../components/NewsPlayer';
 import { DEFAULT_TABS } from '../config/newsChannels';
 import SatelliteInspector from '../components/SatelliteInspector';
@@ -325,6 +326,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }, [satCatalog]);
 
   const viewTimer = useRef<number | undefined>(undefined);
+  const [legendOpen, setLegendOpen] = useState(false);
+
   // The map item under the pointer, for the hover card (lib/hover.ts).
   const onHover = useCallback((id: string | null, x: number, y: number) => {
     setHover(id ? { id, x, y } : null);
@@ -985,6 +988,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             >
               ▶ News
             </button>
+            <button
+              className={'btn mapbtn' + (legendOpen ? ' on' : '')}
+              aria-pressed={legendOpen}
+              title="What the colours mean"
+              onClick={() => setLegendOpen(!legendOpen)}
+            >
+              Legend
+            </button>
           </div>
           <div className="mc tr">
             <button
@@ -1090,6 +1101,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             </div>
           )}
           <HoverLayer describe={hoverInfo} />
+          {legendOpen && <Legend filters={filters} onClose={() => setLegendOpen(false)} />}
           <div className="mc bl">
             <CursorReadout />
           </div>

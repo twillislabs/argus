@@ -66,6 +66,11 @@ Distances, lengths and heights are in **imperial** units (miles, feet) by
 default; switch to metric in Settings > Display. Aircraft altitude and
 speed stay in feet and knots, and ship speed in knots, either way.
 
+## Legend
+
+**Legend** beside the base map buttons shows what the colours and shapes
+on the map mean, for the layers that are on.
+
 ## The layer panel
 
 Type in **Filter layers** to find a layer by name or source. Click a group

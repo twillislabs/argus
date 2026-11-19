@@ -46,7 +46,7 @@ export const AIRSPACE_COLOR = {
   structure: '#5b9bff',
 };
 
-const STRUCTURE_COLOR: Record<string, string> = {
+export const STRUCTURE_COLOR: Record<string, string> = {
   Restricted: '#ff5260',
   Prohibited: '#ff2d3d',
   Danger: '#ff9447',

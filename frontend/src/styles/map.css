@@ -175,7 +175,7 @@
 .tval { text-align: right; color: var(--muted); }
 
 /* Under-map timeline, cursor readout and scale bar (mock-up). */
-.tl { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 12px; }
+.tlrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 12px; }
 .tltitle { font-size: 11px; color: var(--dim); }
 .tlplot { position: relative; height: 46px; }
 .tlplot svg { position: absolute; inset: 0; width: 100%; height: 34px; }
@@ -198,3 +198,20 @@
 }
 .hovercard b { display: flex; align-items: center; gap: 6px; color: var(--text); font-size: 12.5px; font-weight: 600; }
 .hovercard b i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+/* Map legend for the layers that are on. */
+.legend-panel {
+  position: absolute; right: 56px; top: 10px; z-index: 6; width: 260px; max-height: calc(100% - 120px); display: grid; grid-template-rows: auto 1fr;
+  background: rgba(13, 17, 23, 0.96); border: 1px solid var(--line-2); border-radius: 6px; box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+}
+.lg-head { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+.lg-head b { font: 600 12px/1 var(--f-head); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.lg-body { overflow: auto; padding: 4px 12px 10px; }
+.lg-sec h4 { margin: 10px 0 5px; font: 600 10.5px/1 var(--f-head); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+.lg-sec ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.lg-sec li { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.lg-sec li i { flex: none; width: 10px; height: 10px; }
+.lg-dot { border-radius: 50%; background: var(--c); }
+.lg-area { border-radius: 2px; background: color-mix(in srgb, var(--c) 30%, transparent); border: 1px solid var(--c); }
+.lg-hex { background: var(--c); opacity: 0.6; clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0 50%); }
+.lg-line { height: 2px !important; background: var(--c); }

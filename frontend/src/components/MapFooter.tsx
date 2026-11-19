@@ -68,7 +68,7 @@ export function Timeline({ events }: { events: EventItem[] }) {
   const w = 100 / hours;
   return (
     <div className="timeline">
-      <div className="tl">
+      <div className="tlrow">
         <span className="tltitle cap">Activity · 24h</span>
         <div className="tlplot">
           <svg viewBox="0 0 100 34" preserveAspectRatio="none" aria-hidden="true">
