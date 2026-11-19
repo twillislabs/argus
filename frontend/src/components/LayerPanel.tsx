@@ -8,6 +8,7 @@ import { BASE_COLOR, DEFAULT_INFRA, FUEL_COLOR, type InfraFilters } from '../map
 import { DEFAULT_REFERENCE, type ReferenceLayers } from '../map/overlays';
 import { DEFAULT_SPACE, SAT_COLOR, type SpaceFilters } from '../map/satellites';
 import { TENSION_COLOR } from '../map/tensionLayer';
+import { WIKI_COLOR } from '../map/wikiLayer';
 import { DEFAULT_WEATHER, type WeatherFilters } from '../map/wxLayer';
 import { distance } from '../lib/units';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
@@ -31,6 +32,8 @@ export interface LayerFilters {
   airspace: AirspaceFilters;
   infra: InfraFilters;
   tension: boolean;
+  // Wikipedia current events (map/wikiLayer.ts).
+  wiki: boolean;
   weather: WeatherFilters;
 }
 
@@ -46,6 +49,7 @@ export const DEFAULT_FILTERS: LayerFilters = {
   airspace: DEFAULT_AIRSPACE,
   infra: DEFAULT_INFRA,
   tension: true,
+  wiki: false,
   weather: DEFAULT_WEATHER,
 };
 
@@ -65,6 +69,7 @@ export function serverFilters(layers: Record<string, unknown> | undefined): Laye
     infra: part(DEFAULT_FILTERS.infra, d.infra),
     weather: part(DEFAULT_FILTERS.weather, d.weather),
     tension: typeof d.tension === 'boolean' ? d.tension : DEFAULT_FILTERS.tension,
+    wiki: typeof d.wiki === 'boolean' ? d.wiki : DEFAULT_FILTERS.wiki,
     hours: typeof d.hours === 'number' ? d.hours : DEFAULT_FILTERS.hours,
     minSeverity: typeof d.minSeverity === 'number' ? d.minSeverity : DEFAULT_FILTERS.minSeverity,
     candidates: typeof d.candidates === 'boolean' ? d.candidates : DEFAULT_FILTERS.candidates,
@@ -147,6 +152,7 @@ interface Props {
   counts: Partial<Record<EventType, number>>;
   // Countries tinted (above their normal level).
   tensionCount?: number;
+  wikiCount?: number;
   advisoryCount?: number;
   // Storm warnings and zone alerts drawn on the map.
   weatherCount?: number;
@@ -191,6 +197,7 @@ const FEEDS: Record<string, string[]> = {
   'wx-zones': ['nws'],
   'wx-outlook': ['spc'],
   advisories: ['advisories'],
+  wikipedia: ['wikipedia'],
 };
 
 function health(sources: SourceStatus[], id: string): { cls: string; title: string } | null {
@@ -272,6 +279,7 @@ export default function LayerPanel({
   filters,
   counts,
   tensionCount,
+  wikiCount,
   advisoryCount,
   weatherCount,
   zoneCount,
@@ -328,7 +336,12 @@ export default function LayerPanel({
           onChange={(e) => setQ(e.target.value)}
         />
       </div>
-      <Group title="Events" on={countOn(filters.types) + (filters.tension ? 1 : 0)} total={EVENT_TYPES.length + 1} forceOpen={Boolean(q)}>
+      <Group
+        title="Events"
+        on={countOn(filters.types) + (filters.tension ? 1 : 0) + (filters.wiki ? 1 : 0)}
+        total={EVENT_TYPES.length + 2}
+        forceOpen={Boolean(q)}
+      >
         {EVENT_TYPES.map((t) => (
           <label key={t} className="lrow">
             <input
@@ -363,6 +376,19 @@ export default function LayerPanel({
             <small>UCDP violence + live events</small>
           </span>
           <span className="lcount mono">{tensionCount ?? '–'}</span>
+        </label>
+        <label className="lrow">
+          <input type="checkbox" checked={filters.wiki} onChange={(e) => onChange({ ...filters, wiki: e.target.checked })} />
+          <span className="tog" />
+          <span className="sw" style={{ background: WIKI_COLOR }} />
+          <span className="lname">
+            <span>Wikipedia events</span>
+            <small>Portal:Current events, last 3 days</small>
+          </span>
+          <span className="lcount mono">
+            {wikiCount ?? '–'}
+            <Dot sources={sources} id="wikipedia" />
+          </span>
         </label>
       </Group>
       <Group title="Air" on={countOn({ m: air.military, c: air.civil })} total={2} forceOpen={Boolean(q)}>

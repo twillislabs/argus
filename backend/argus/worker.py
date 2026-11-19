@@ -14,7 +14,15 @@ from datetime import datetime, timedelta
 import httpx
 from sqlalchemy import select
 
-from argus import __version__, advisories, sea, secrets, space, tension
+from argus import (
+    __version__,
+    advisories,
+    sea,
+    secrets,
+    space,
+    tension,
+    wikipedia,
+)
 from argus.aviation import (
     GPS_HOTSPOTS,
     POLL_ORDER,
@@ -428,6 +436,52 @@ async def advisories_loop(db: Database, client: httpx.AsyncClient) -> None:
         await asyncio.sleep(1800)
 
 
+WIKIPEDIA_EVERY = timedelta(hours=1)
+
+
+async def wikipedia_loop(db: Database, client: httpx.AsyncClient) -> None:
+    """Wikipedia's Current events portal (the last few days) every hour,
+    kept in server_settings["layer:wikipedia"] (argus/wikipedia.py)."""
+    while True:
+        async with db.sessionmaker() as session:
+            source = await session.get(Source, "wikipedia")
+            if source is None:
+                source = Source(
+                    name="wikipedia",
+                    label="Wikipedia current events",
+                    interval_s=int(WIKIPEDIA_EVERY.total_seconds()),
+                    enabled=True,
+                    last_count=0,
+                )
+                session.add(source)
+            await session.commit()
+        started = utcnow()
+        error, items = None, None
+        try:
+            items = await wikipedia.fetch(client, started.date())
+        except (httpx.HTTPError, ValueError, KeyError) as exc:
+            error = "{0}: {1}".format(type(exc).__name__, str(exc)[:300])
+        async with db.sessionmaker() as session:
+            source = await session.get(Source, "wikipedia")
+            source.last_run_at = started
+            if items is not None:
+                row = await session.get(ServerSetting, "layer:wikipedia")
+                if row is None:
+                    row = ServerSetting(key="layer:wikipedia")
+                    session.add(row)
+                row.value = {"fetched": utcnow().isoformat(), "items": items}
+                row.updated_at = utcnow()
+                source.last_success_at = utcnow()
+                source.last_count = len(items)
+                source.last_error = None
+                log.info("wikipedia: {0} entries".format(len(items)))
+            else:
+                source.last_error = error
+                log.warning("wikipedia failed: {0}".format(error))
+            await session.commit()
+        await asyncio.sleep(WIKIPEDIA_EVERY.total_seconds())
+
+
 ZONE_TOLERANCE = 0.01  # degrees, about 1 km
 ZONES_PER_PASS = 60
 ZONE_RETRY = timedelta(days=1)
@@ -776,6 +830,7 @@ async def run(settings: Settings) -> None:
         cables_task = asyncio.create_task(cables_loop(db, client))
         tension_task = asyncio.create_task(tension_loop(db))
         advisories_task = asyncio.create_task(advisories_loop(db, client))
+        wikipedia_task = asyncio.create_task(wikipedia_loop(db, client))
         zones_task = (
             asyncio.create_task(zones_loop(db, client))
             if "nws" in names
@@ -829,6 +884,7 @@ async def run(settings: Settings) -> None:
                 cables_task,
                 tension_task,
                 advisories_task,
+                wikipedia_task,
                 zones_task,
             ):
                 if task is not None:

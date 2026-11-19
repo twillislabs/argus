@@ -114,6 +114,21 @@ async def travel_advisories(session: SessionDep, db: DbDep):
     }
 
 
+@router.get("/api/wikipedia")
+async def wikipedia_events(session: SessionDep, db: DbDep):
+    """Wikipedia's Current events (the last few days, newest first), as
+    last fetched by the worker."""
+    from argus.models import ServerSetting
+
+    row = await db.get(ServerSetting, "layer:wikipedia")
+    value = dict(row.value) if row else {}
+    return {
+        "fetched": value.get("fetched"),
+        "items": value.get("items") or [],
+        "attribution": "Wikipedia, Portal:Current events (CC BY-SA 4.0)",
+    }
+
+
 @router.get("/api/airspace/structure")
 async def airspace_structure(
     request: Request,

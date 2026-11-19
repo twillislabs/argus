@@ -42,6 +42,7 @@ export function enabledLayers(f: LayerFilters): string[] {
   for (const r of AIRSPACE_LAYERS) if (f.airspace[r]) on.push(r);
   for (const r of INFRA_LAYERS) if (f.infra[r]) on.push(r);
   if (f.tension) on.push('tension');
+  if (f.wiki) on.push('wiki');
   return on;
 }
 
@@ -93,6 +94,7 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
     },
     infra: { nuclear: has('nuclear'), power: has('power'), cables: has('cables'), bases: has('bases') },
     tension: has('tension'),
+    wiki: has('wiki'),
   };
 }
 

@@ -55,6 +55,8 @@ import {
   getTension,
   getAdvisories,
   type Advisory,
+  getWikipedia,
+  type WikiItem,
   type Me,
   savePreferences,
   type SearchResult,
@@ -67,6 +69,7 @@ import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import type { SatCatalog, SpaceFilters } from '../map/satellites';
 import { TINT_FROM } from '../map/tensionLayer';
 import { ADVISORY_COLOR } from '../map/advisoryLayer';
+import { WIKI_COLOR, WIKI_CONFLICT_COLOR } from '../map/wikiLayer';
 import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { aircraftColor } from '../map/aircraftLayer';
 import { BASE_KINDS, FUEL_COLOR } from '../map/infraLayer';
@@ -111,8 +114,28 @@ function initialFilters(me: Me): LayerFilters {
       ...((me.preferences.airspace as Partial<AirspaceFilters> | undefined) ?? {}),
     },
     tension: typeof me.preferences.tension === 'boolean' ? me.preferences.tension : base.tension,
+    wiki: typeof me.preferences.wiki === 'boolean' ? me.preferences.wiki : base.wiki,
     weather: { ...base.weather, ...((me.preferences.weather as Partial<LayerFilters['weather']> | undefined) ?? {}) },
   };
+}
+
+function wikiNote(w: WikiItem | undefined): string {
+  if (!w) return '';
+  const thread = w.topics.length ? ' Story: ' + w.topics.join(' › ') + '.' : '';
+  return (
+    w.text +
+    thread +
+    (w.place ? ' Placed at ' + w.place + '.' : '') +
+    ' (Wikipedia, Portal:Current events, CC BY-SA 4.0.)'
+  );
+}
+
+function wikiLinks(w: WikiItem | undefined): { label: string; url: string }[] {
+  if (!w) return [];
+  return [
+    { label: 'Wikipedia, ' + w.date, url: w.url },
+    ...w.sources.slice(0, 4).map((s) => ({ label: s.name || 'Source', url: s.url })),
+  ];
 }
 
 function advisoryLinks(a: Advisory | undefined): { label: string; url: string }[] {
@@ -184,6 +207,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [gpsCells, setGpsCells] = useState<GpsCell[]>([]);
   const [tension, setTension] = useState<Tension | null>(null);
   const [advisories, setAdvisories] = useState<Advisory[]>([]);
+  const [wikiItems, setWikiItems] = useState<WikiItem[]>([]);
   // Weather: NWS warnings (mapped, and those for home), SPC outlooks and
   // current conditions at home.
   const [wxAlerts, setWxAlerts] = useState<WxAlert[]>([]);
@@ -649,6 +673,24 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     };
   }, [advisoriesOn]);
 
+  // Wikipedia current events while the layer is on (the worker reads
+  // them hourly).
+  const wikiOn = filters.wiki;
+  useEffect(() => {
+    if (!wikiOn) return;
+    let cancelled = false;
+    const load = () =>
+      getWikipedia()
+        .then((r) => !cancelled && setWikiItems(r.items))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 1_800_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [wikiOn]);
+
   // Airspace areas, while any airspace layer is on (every 10 minutes).
   const airspaceOn = filters.airspace.tfr || filters.airspace.sigmet || filters.airspace.czib;
   // GPS cells load even with the layer off: Situation counts them.
@@ -710,6 +752,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       airspace: next.airspace,
       infra: next.infra,
       tension: next.tension,
+      wiki: next.wiki,
       weather: next.weather,
     }).catch(
       () => undefined,
@@ -896,6 +939,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       (id.startsWith('gps:') ||
         id.startsWith('tension:') ||
         id.startsWith('adv:') ||
+        id.startsWith('wiki:') ||
         id.startsWith('draw:') ||
         id.startsWith('wx:') ||
         id.startsWith('spc:'))
@@ -1001,6 +1045,16 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             title: 'GPS interference',
             color: '#ff6ba1',
             lines: [Math.round(c.share * 100) + '% of ' + c.aircraft + ' aircraft degraded · last hour'],
+          }
+        : null;
+    }
+    if (id.startsWith('wiki:')) {
+      const w = wikiItems.find((x) => 'wiki:' + x.id === id);
+      return w
+        ? {
+            title: w.topics[w.topics.length - 1] || w.category,
+            color: w.category.startsWith('Armed') ? WIKI_CONFLICT_COLOR : WIKI_COLOR,
+            lines: [w.text.length > 160 ? w.text.slice(0, 157) + '…' : w.text, w.category + ' · ' + w.date],
           }
         : null;
     }
@@ -1196,6 +1250,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             counts={counts}
             tensionCount={tension ? tension.countries.filter((c) => c.level >= TINT_FROM).length : undefined}
             advisoryCount={advisoriesOn ? advisories.filter((a) => a.level >= 2).length : undefined}
+            wikiCount={wikiOn ? wikiItems.length : undefined}
             weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
             zoneCount={filters.weather.zones ? wxZoned.length : undefined}
             airCounts={airCounts}
@@ -1229,6 +1284,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             gpsCells={gpsCells}
             tensionCountries={tension?.countries ?? []}
             advisories={advisories}
+            wikiItems={wikiItems}
+            showWiki={filters.wiki}
             wxAlerts={wxAlerts}
             wxZoned={wxZoned}
             outlook={outlook}
@@ -1492,14 +1549,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                         ' (National Weather Service; open the alert for its full text and instructions.)'
                       : selectedInfo.startsWith('spc:')
                         ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'
-                        : selectedInfo.startsWith('adv:')
+                        : selectedInfo.startsWith('wiki:')
+                          ? wikiNote(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
+                          : selectedInfo.startsWith('adv:')
                           ? (advisories.find((x) => 'adv:' + x.country === selectedInfo)?.us?.summary ?? '') +
                             ' (US Department of State and UK FCDO; open the advice for the full text.)'
                           : selectedInfo.startsWith('tension:')
                       ? 'Tension: organised violence over the last year (UCDP) plus confirmed live events. See World tension in the Situation panel.'
                       : 'A shape you drew. Delete it with the Delete tool.'
                 }
-                links={advisoryLinks(advisories.find((x) => 'adv:' + x.country === selectedInfo))}
+                links={
+                  selectedInfo.startsWith('wiki:')
+                    ? wikiLinks(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
+                    : advisoryLinks(advisories.find((x) => 'adv:' + x.country === selectedInfo))
+                }
                 onBack={() => setSelectedInfo(null)}
               />
             ) : areaSel ? (

@@ -9,10 +9,12 @@ import {
   getEvents,
   getSummary,
   getTension,
+  getWikipedia,
   type Me,
   type SourceStatus,
   type Summary,
   type Tension,
+  type WikiItem,
 } from '../lib/api';
 import { ago, SEVERITY_COLOR, SEVERITY_NAME, TYPE_INFO } from '../lib/format';
 import { FLY_KEY } from '../lib/share';
@@ -35,6 +37,15 @@ function flyToBbox(navigate: (to: string) => void, bbox: [number, number, number
 function openEvent(navigate: (to: string) => void, e: EventItem) {
   try {
     sessionStorage.setItem(FLY_KEY, JSON.stringify({ lat: e.lat, lon: e.lon, height: 600_000, event: e.id }));
+  } catch {
+    // Storage blocked: the map just opens.
+  }
+  navigate('/');
+}
+
+function openPlace(navigate: (to: string) => void, lat: number, lon: number) {
+  try {
+    sessionStorage.setItem(FLY_KEY, JSON.stringify({ lat, lon, height: 600_000 }));
   } catch {
     // Storage blocked: the map just opens.
   }
@@ -112,6 +123,24 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
   const [events, setEvents] = useState<EventItem[]>([]);
   const [history, setHistory] = useState<History>({});
   const [error, setError] = useState('');
+  const [wiki, setWiki] = useState<WikiItem[]>([]);
+  useEffect(() => {
+    getWikipedia()
+      .then((r) => setWiki(r.items))
+      .catch(() => setWiki([]));
+  }, []);
+  // The newest day with entries, grouped by Wikipedia's categories.
+  const wikiDay = wiki[0]?.date ?? null;
+  const wikiGroups = useMemo(() => {
+    const groups = new Map<string, WikiItem[]>();
+    for (const w of wiki) {
+      if (w.date !== wikiDay) continue;
+      const list = groups.get(w.category) ?? [];
+      list.push(w);
+      groups.set(w.category, list);
+    }
+    return [...groups];
+  }, [wiki, wikiDay]);
 
   useEffect(() => {
     document.title = 'Brief · Argus';
@@ -254,6 +283,53 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
               </ul>
             </div>
           </section>
+
+          {wikiGroups.length > 0 && (
+            <section className="card">
+              <div className="ph">
+                <h2>Wikipedia current events · {wikiDay}</h2>
+                <a className="quiet small" href={wiki[0].url} target="_blank" rel="noreferrer noopener">
+                  Portal ↗
+                </a>
+              </div>
+              <div className="cbody wikilist">
+                {wikiGroups.map(([category, items]) => (
+                  <div key={category}>
+                    <h3>{category}</h3>
+                    <ul>
+                      {items.map((w) => (
+                        <li
+                          key={w.id}
+                          className={w.lat !== null ? 'clickrow' : undefined}
+                          title={w.lat !== null ? 'Show ' + w.place + ' on the map' : undefined}
+                          onClick={() => w.lat !== null && w.lon !== null && openPlace(navigate, w.lat, w.lon)}
+                        >
+                          {w.topics.length > 0 && <small>{w.topics[w.topics.length - 1]}</small>}
+                          <span>{w.text}</span>
+                          {w.sources.length > 0 && (
+                            <span className="srcs">
+                              {w.sources.slice(0, 3).map((src) => (
+                                <a
+                                  key={src.url}
+                                  href={src.url}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {src.name || 'source'}
+                                </a>
+                              ))}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+                <p className="quiet small">From Wikipedia, CC BY-SA 4.0.</p>
+              </div>
+            </section>
+          )}
 
           <section className="card">
             <div className="ph">

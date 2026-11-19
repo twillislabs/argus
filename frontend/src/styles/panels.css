@@ -362,3 +362,12 @@ tr.dimrow td { color: var(--dim); }
 .wlayers { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 16px; }
 .wlayer { display: flex !important; align-items: center; gap: 8px; cursor: pointer; }
 .numin { width: 80px; background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 4px 6px; color: var(--text); }
+.wikilist h3 { margin: 10px 0 4px; font: 600 10.5px/1 var(--f-head); letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+.wikilist h3:first-child { margin-top: 0; }
+.wikilist ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.wikilist li { display: grid; gap: 2px; padding: 6px 8px; border-radius: 4px; font-size: 12.5px; line-height: 1.4; }
+.wikilist li small { color: var(--muted); font-size: 11px; }
+.wikilist li.clickrow { cursor: pointer; }
+.wikilist li.clickrow:hover { background: var(--surface-2); }
+.wikilist .srcs { display: flex; gap: 8px; font-size: 11px; }
+.wikilist .srcs a { color: var(--accent); }

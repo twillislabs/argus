@@ -49,6 +49,7 @@ import type {
   EventItem,
   Advisory,
   GpsCell,
+  WikiItem,
   Home,
   MapConfig,
   OutlookArea,
@@ -64,6 +65,7 @@ import { addGpsLayer, type GpsLayer } from './gpsLayer';
 import { createDrawTools, type DrawCallbacks, type Drawing, type DrawTools } from './drawTools';
 import { addTensionLayer, type TensionLayer } from './tensionLayer';
 import { addAdvisoryLayer, type AdvisoryLayer } from './advisoryLayer';
+import { addWikiLayer, type WikiLayer } from './wikiLayer';
 import { addWxLayer, type WeatherFilters, type WxLayer } from './wxLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
 import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './closeModels';
@@ -367,6 +369,9 @@ interface Props {
   tensionCountries: TensionCountry[];
   // Travel advisories, drawn while reference.advisories is on.
   advisories?: Advisory[];
+  // Wikipedia current events (map/wikiLayer.ts).
+  wikiItems?: WikiItem[];
+  showWiki?: boolean;
   // Weather (map/wxLayer.ts).
   wxAlerts?: WxAlert[];
   wxZoned?: WxAlert[];
@@ -417,6 +422,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     gpsCells,
     tensionCountries,
     advisories,
+    wikiItems,
+    showWiki,
     wxAlerts,
     wxZoned,
     outlook,
@@ -459,6 +466,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const gps = useRef<GpsLayer | null>(null);
   const tensionLayer = useRef<TensionLayer | null>(null);
   const advisoryLayer = useRef<AdvisoryLayer | null>(null);
+  const wikiLayer = useRef<WikiLayer | null>(null);
   const wx = useRef<WxLayer | null>(null);
   const weatherRef = useRef(weather);
   weatherRef.current = weather;
@@ -555,6 +563,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     gps.current = addGpsLayer(scene);
     tensionLayer.current = addTensionLayer(scene);
     advisoryLayer.current = addAdvisoryLayer(scene);
+    wikiLayer.current = addWikiLayer(scene);
     wx.current = addWxLayer(scene, () => ({
       add: (l) => v.scene.imageryLayers.add(l),
       remove: (l) => {
@@ -670,6 +679,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         for (let i = 0; i < c.length; i++) c.get(i).disableDepthTestDistance = d;
       }
       air.current?.setDepthDistance(d);
+      wikiLayer.current?.setDepthDistance(d);
       ships.current?.setDepthDistance(d);
       overlays.current?.setDepthDistance(d);
     }
@@ -798,6 +808,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['gps', () => gps.current?.destroy()],
         ['tension', () => tensionLayer.current?.destroy()],
         ['advisories', () => advisoryLayer.current?.destroy()],
+        ['wikipedia', () => wikiLayer.current?.destroy()],
         ['weather', () => wx.current?.destroy()],
         ['infrastructure', () => infraLayer.current?.destroy()],
         ['pulse listener', removePulse],
@@ -825,6 +836,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       gps.current = null;
       tensionLayer.current = null;
       advisoryLayer.current = null;
+      wikiLayer.current = null;
       infraLayer.current = null;
       air.current = null;
       tracker.current = null;
@@ -997,6 +1009,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     tensionLayer.current?.update(tensionCountries, showTension);
   }, [tensionCountries, showTension]);
+
+  useEffect(() => {
+    wikiLayer.current?.update(wikiItems ?? [], Boolean(showWiki));
+  }, [wikiItems, showWiki]);
 
   useEffect(() => {
     advisoryLayer.current?.update(advisories ?? [], reference.advisories);

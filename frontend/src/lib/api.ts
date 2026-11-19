@@ -69,6 +69,24 @@ export const putScreenWall = (id: number, wall: WallPrefs, home: Home | null) =>
     body: { wall, home },
   });
 
+// Wikipedia's Current events (/api/wikipedia), newest first.
+export interface WikiItem {
+  id: string;
+  date: string;
+  category: string;
+  topics: string[];
+  text: string;
+  links: string[];
+  sources: { name: string; url: string }[];
+  lat: number | null;
+  lon: number | null;
+  place: string;
+  url: string;
+}
+
+export const getWikipedia = () =>
+  api<{ fetched: string | null; items: WikiItem[]; attribution: string }>('/api/wikipedia');
+
 // Travel advisories (/api/advisories), per Natural Earth country name.
 export interface Advisory {
   country: string;

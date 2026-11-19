@@ -97,6 +97,10 @@ speed stay in feet and knots, and ship speed in knots, either way.
 - **Top events · 24h** by severity, **Changes since yesterday** in plain
   sentences, **Source health** for every collector and **Tension by
   country**.
+- **Wikipedia current events** for the latest day, grouped as Wikipedia
+  groups them (armed conflicts and attacks, politics, disasters...), with
+  each entry's story thread and news sources. Click an entry to open the
+  map at its place.
 
 It refreshes every two minutes.
 
@@ -484,6 +488,15 @@ the place, **doesn't name the place** when the link has a headline that
 doesn't (shown dimmed, at the bottom), **headline not in link** when the
 link is only a number, and **coded as …** when GDELT coded that article as
 a different kind of event.
+
+**Wikipedia events** (in Events, off by default) puts the last
+three days of Wikipedia's Current events portal on the map: each entry at
+the most specific place it links to (a city or a bridge before a
+country), a ring for armed conflicts and attacks and a dot for anything
+else. Hover for the entry; click for its story thread, the Wikipedia page
+and its news sources. Entries are edited by Wikipedia's volunteers and
+refreshed hourly; they aren't events, so they don't count towards
+tension.
 
 The small **Data attribution** link at the bottom left lists the imagery
 providers, who require credit on the map.
