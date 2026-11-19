@@ -31,6 +31,16 @@ function flyToBbox(navigate: (to: string) => void, bbox: [number, number, number
   navigate('/');
 }
 
+// Open the map on an event, selected (picked up by MapPage's applyShare).
+function openEvent(navigate: (to: string) => void, e: EventItem) {
+  try {
+    sessionStorage.setItem(FLY_KEY, JSON.stringify({ lat: e.lat, lon: e.lon, height: 600_000, event: e.id }));
+  } catch {
+    // Storage blocked: the map just opens.
+  }
+  navigate('/');
+}
+
 function dtg(d: Date): string {
   const mon = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
   const p = (n: number) => String(n).padStart(2, '0');
@@ -199,9 +209,16 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
                 </thead>
                 <tbody>
                   {top.map((e) => (
-                    <tr key={e.id}>
+                    <tr
+                      key={e.id}
+                      className="clickrow"
+                      tabIndex={0}
+                      title="Open on the map"
+                      onClick={() => openEvent(navigate, e)}
+                      onKeyDown={(k) => k.key === 'Enter' && openEvent(navigate, e)}
+                    >
                       <td>
-                        <span className="badge sev" style={{ ['--c' as string]: SEVERITY_COLOR[e.severity] }}>
+                        <span className="sevtag mono" style={{ color: SEVERITY_COLOR[e.severity] }}>
                           {SEVERITY_NAME[e.severity]}
                         </span>
                       </td>
@@ -257,7 +274,12 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
                   {sources.map((s) => {
                     const st = sourceState(s);
                     return (
-                      <tr key={s.name} title={s.last_error ?? undefined}>
+                      <tr
+                        key={s.name}
+                        className="clickrow"
+                        title={s.last_error ?? 'Open Data sources'}
+                        onClick={() => navigate('/settings/sources')}
+                      >
                         <td>{s.label}</td>
                         <td className="mono">{s.last_success_at ? ago(s.last_success_at) : '—'}</td>
                         <td className="mono">{s.last_count.toLocaleString()}</td>

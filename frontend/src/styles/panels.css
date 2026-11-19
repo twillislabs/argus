@@ -317,9 +317,6 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .badge.sev { color: var(--c); border-color: var(--c); }
 @media (max-width: 960px) { .bgrid { grid-template-columns: minmax(0, 1fr); } }
 .brief .card { max-width: none; }
-.brief th { text-align: left; }
-.brief td:first-child { width: 1%; white-space: nowrap; }
-.badge.sev { display: inline-block; white-space: nowrap; font-size: 10.5px; padding: 1px 6px; }
 .zonelist { display: grid; gap: 6px; justify-items: start; }
 .zonerow { display: flex; gap: 6px; align-items: center; }
 .zonerow input { width: 110px; background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 4px 6px; color: var(--text); }
@@ -336,3 +333,13 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .pairform .field { margin: 0; }
 tr.dimrow td { color: var(--dim); }
 .wxtiles .tile .mono { font-size: 15px; }
+
+/* Brief tables (mock-up): compact rows, quiet headers, clickable rows. */
+.brief table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.brief th { text-align: left; font-weight: 500; font-size: 10.5px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.07em; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+.brief td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.brief td:first-child { width: 1%; white-space: nowrap; }
+.brief td.mono { white-space: nowrap; }
+.sevtag { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.brief tr.clickrow { cursor: pointer; }
+.brief tr.clickrow:hover td, .brief tr.clickrow:focus-visible td { background: var(--surface-2); }

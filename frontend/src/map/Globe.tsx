@@ -363,6 +363,7 @@ interface Props {
   tensionCountries: TensionCountry[];
   // Weather (map/wxLayer.ts).
   wxAlerts?: WxAlert[];
+  wxZoned?: WxAlert[];
   outlook?: OutlookArea[];
   weather?: WeatherFilters;
   showTension: boolean;
@@ -410,6 +411,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     gpsCells,
     tensionCountries,
     wxAlerts,
+    wxZoned,
     outlook,
     weather,
     showTension,
@@ -951,11 +953,11 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
 
   // Weather: warning and outlook shapes, and cloud / rain imagery (kept
   // fresh: clouds every 10 minutes, rain hourly).
-  const weatherKey = weather ? [weather.alerts, weather.outlook, weather.clouds, weather.precip].join('') : '';
+  const weatherKey = weather ? [weather.alerts, weather.zones, weather.outlook, weather.clouds, weather.precip].join('') : '';
   useEffect(() => {
     if (!weather) return;
-    wx.current?.update(wxAlerts ?? [], outlook ?? [], weather);
-  }, [wxAlerts, outlook, weatherKey]);
+    wx.current?.update(wxAlerts ?? [], wxZoned ?? [], outlook ?? [], weather);
+  }, [wxAlerts, wxZoned, outlook, weatherKey]);
   useEffect(() => {
     if (!weather) return;
     wx.current?.setImagery(weather);

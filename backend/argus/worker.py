@@ -26,8 +26,9 @@ from argus.config import Settings, get_settings
 from argus.db import Database, utcnow
 from argus.events import event_dict
 from argus.fusion import expire_and_prune, fuse, store_raw
+from argus.geo import simplify
 from argus.main import configure_logging
-from argus.models import Event, ServerSetting, Source
+from argus.models import Event, NwsZone, RawRecord, ServerSetting, Source
 
 log = logging.getLogger("argus.worker")
 
@@ -331,6 +332,106 @@ async def cables_loop(db: Database, client: httpx.AsyncClient) -> None:
         await asyncio.sleep(6 * 3600)
 
 
+ZONE_TOLERANCE = 0.01  # degrees, about 1 km
+ZONES_PER_PASS = 60
+ZONE_RETRY = timedelta(days=1)
+
+
+def zone_rings(geometry: dict | None) -> list[list[list[float]]]:
+    """A zone's outer rings, simplified to about a kilometre."""
+    if not geometry:
+        return []
+    kind = geometry.get("type")
+    if kind == "Polygon":
+        polys = [geometry["coordinates"]]
+    elif kind == "MultiPolygon":
+        polys = geometry["coordinates"]
+    else:
+        return []
+    out = []
+    for poly in polys:
+        ring = [[float(x), float(y)] for x, y, *_ in poly[0]]
+        ring = simplify(ring, ZONE_TOLERANCE)
+        if len(ring) >= 4:
+            out.append([[round(x, 3), round(y, 3)] for x, y in ring])
+    return out
+
+
+async def zones_once(db: Database, client: httpx.AsyncClient) -> int:
+    """Fetch outlines for zones that current NWS alerts name and Argus
+    doesn't have yet (or that failed over a day ago). Polite: one request
+    a second, at most ZONES_PER_PASS a pass."""
+    async with db.sessionmaker() as session:
+        rows = (
+            await session.execute(
+                select(RawRecord).where(
+                    RawRecord.kind == "wxalert",
+                    RawRecord.fetched_at >= utcnow() - timedelta(minutes=15),
+                )
+            )
+        ).scalars()
+        wanted: dict[str, str] = {}
+        for r in rows:
+            for url in (r.payload or {}).get("zone_urls") or []:
+                wanted[url.rsplit("/", 1)[-1][:16]] = url
+        if not wanted:
+            return 0
+        have = {
+            z.id: z
+            for z in (
+                await session.execute(
+                    select(NwsZone).where(NwsZone.id.in_(list(wanted)))
+                )
+            ).scalars()
+        }
+    todo = [
+        (zid, url)
+        for zid, url in wanted.items()
+        if zid not in have
+        or (
+            not have[zid].rings
+            and utcnow() - have[zid].fetched_at > ZONE_RETRY
+        )
+    ][:ZONES_PER_PASS]
+    fetched = 0
+    for zid, url in todo:
+        rings: list = []
+        name = ""
+        try:
+            response = await client.get(
+                url, headers={"Accept": "application/geo+json"}
+            )
+            if response.status_code == 200:
+                body = response.json()
+                rings = zone_rings(body.get("geometry"))
+                name = str((body.get("properties") or {}).get("name") or "")
+        except (httpx.HTTPError, ValueError) as exc:
+            log.warning("zone {0}: {1}".format(zid, exc))
+        async with db.sessionmaker() as session:
+            row = await session.get(NwsZone, zid)
+            if row is None:
+                row = NwsZone(id=zid)
+                session.add(row)
+            row.name = name[:120]
+            row.rings = rings
+            row.fetched_at = utcnow()
+            await session.commit()
+        fetched += 1
+        await asyncio.sleep(1.0)
+    if fetched:
+        log.info("nws zones: fetched {0}".format(fetched))
+    return fetched
+
+
+async def zones_loop(db: Database, client: httpx.AsyncClient) -> None:
+    while True:
+        try:
+            await zones_once(db, client)
+        except Exception:  # noqa: BLE001 - keep going next pass
+            log.exception("nws zones pass failed")
+        await asyncio.sleep(60)
+
+
 async def tension_once(db: Database) -> bool:
     """Sample the tension index once per clock hour. The hour sampled is
     kept in server_settings, so a restart doesn't sample it twice."""
@@ -578,6 +679,11 @@ async def run(settings: Settings) -> None:
         )
         cables_task = asyncio.create_task(cables_loop(db, client))
         tension_task = asyncio.create_task(tension_loop(db))
+        zones_task = (
+            asyncio.create_task(zones_loop(db, client))
+            if "nws" in names
+            else None
+        )
         if settings.sea_enabled:
             sea_task = asyncio.create_task(sea_loop(db, settings, publisher))
         if settings.space_enabled:
@@ -625,6 +731,7 @@ async def run(settings: Settings) -> None:
                 receivers_task,
                 cables_task,
                 tension_task,
+                zones_task,
             ):
                 if task is not None:
                     task.cancel()

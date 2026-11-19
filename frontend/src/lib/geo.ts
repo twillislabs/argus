@@ -88,3 +88,34 @@ export function densify(points: LonLat[], stepKm = 40): LonLat[] {
   }
   return out;
 }
+
+// Diagonal hatching for an area: 45° line segments `spacing` degrees apart,
+// clipped to the ring (even-odd), in lon/lat. Each segment is [a, b].
+export function hatchLines(ring: LonLat[], spacing: number): LonLat[][] {
+  // Lines x - y = c. Project each edge onto that family.
+  const cs = ring.map(([x, y]) => x - y);
+  const lo = Math.ceil(Math.min(...cs) / spacing) * spacing;
+  const hi = Math.max(...cs);
+  const out: LonLat[][] = [];
+  for (let c = lo; c <= hi; c += spacing) {
+    const hits: number[] = []; // positions along the line, as y
+    for (let i = 0; i < ring.length - 1; i++) {
+      const [x1, y1] = ring[i];
+      const [x2, y2] = ring[i + 1];
+      const d1 = x1 - y1 - c;
+      const d2 = x2 - y2 - c;
+      if ((d1 > 0) === (d2 > 0) || d1 === d2) continue;
+      const t = d1 / (d1 - d2);
+      hits.push(y1 + t * (y2 - y1));
+    }
+    hits.sort((a, b) => a - b);
+    for (let i = 0; i + 1 < hits.length; i += 2) {
+      if (hits[i + 1] - hits[i] < 1e-9) continue;
+      out.push([
+        [hits[i] + c, hits[i]],
+        [hits[i + 1] + c, hits[i + 1]],
+      ]);
+    }
+  }
+  return out;
+}

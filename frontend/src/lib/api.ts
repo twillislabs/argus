@@ -577,10 +577,15 @@ export interface WeatherNow {
   low_c?: number | null;
   rain_chance?: number | null;
 }
-export const getWxAlerts = (home: { lat: number; lon: number } | null) =>
-  api<{ alerts: WxAlert[]; local: WxAlert[] }>(
-    '/api/weather/alerts' + (home ? '?lat=' + home.lat.toFixed(4) + '&lon=' + home.lon.toFixed(4) : ''),
-  );
+export const getWxAlerts = (home: { lat: number; lon: number } | null, zones = false) => {
+  const p = new URLSearchParams();
+  if (home) {
+    p.set('lat', home.lat.toFixed(4));
+    p.set('lon', home.lon.toFixed(4));
+  }
+  if (zones) p.set('zones', '1');
+  return api<{ alerts: WxAlert[]; zoned: WxAlert[]; local: WxAlert[] }>('/api/weather/alerts?' + p.toString());
+};
 export const getOutlook = () => api<{ areas: OutlookArea[] }>('/api/weather/outlook');
 export const getWeatherNow = (lat: number, lon: number) =>
   api<WeatherNow>('/api/weather/now?lat=' + lat.toFixed(2) + '&lon=' + lon.toFixed(2));

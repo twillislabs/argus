@@ -327,6 +327,7 @@ allowed.
 | Layer | Shows | Source |
 |---|---|---|
 | **Storm warnings** | NWS warnings that come with their own area (tornado, severe thunderstorm, flash flood, special marine and similar), in the NWS's colours. Hover or click for the text | NWS (US) |
+| **Watches and advisories** | NWS watches, warnings and advisories issued for whole forecast zones or counties (winter storms, heat, wind, flood watches, red flag warnings), drawn on those zones' outlines. Zone shapes are fetched from the NWS as alerts need them, so a fresh install fills in over the first few minutes | NWS (US) |
 | **Severe weather outlook** | Today's Storm Prediction Center risk areas on its 1–5 scale (Marginal, Slight, Enhanced, Moderate, High), in SPC's colours | SPC (US) |
 | **Clouds (infrared)** | The latest geostationary infrared scan (cloud tops, colder = higher), about 40 minutes behind, refreshed every 10 minutes. Covers the Americas, the Pacific and East Asia; GIBS has no Meteosat for Europe and Africa | NASA GIBS (GOES-East, GOES-West, Himawari) |
 | **Precipitation** | Rain and snow rate from satellites, half-hourly, a few hours behind | NASA GIBS (IMERG) |

@@ -70,9 +70,12 @@ def parse_alerts(doc: dict, now: datetime) -> list[RawIn]:
             continue
         rings = _rings(f.get("geometry"))
         lat, lon = _centre(rings[0]) if rings else (None, None)
-        zones = [
-            str(z).rsplit("/", 1)[-1] for z in p.get("affectedZones") or []
-        ]
+        zone_urls = [
+            str(z)
+            for z in p.get("affectedZones") or []
+            if str(z).startswith("https://api.weather.gov/zones/")
+        ][:60]
+        zones = [u.rsplit("/", 1)[-1] for u in zone_urls]
         out.append(
             RawIn(
                 source="nws",
@@ -94,7 +97,8 @@ def parse_alerts(doc: dict, now: datetime) -> list[RawIn]:
                     "description": (p.get("description") or "")[:1500],
                     "instruction": (p.get("instruction") or "")[:800],
                     "polygons": rings,
-                    "zones": zones[:60],
+                    "zones": zones,
+                    "zone_urls": zone_urls,
                     "url": "https://alerts.weather.gov/search?id={0}".format(
                         alert_id.rsplit("/", 1)[-1]
                     ),

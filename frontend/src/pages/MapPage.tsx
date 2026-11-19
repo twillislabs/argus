@@ -174,6 +174,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   // Weather: NWS warnings (mapped, and those for home), SPC outlooks and
   // current conditions at home.
   const [wxAlerts, setWxAlerts] = useState<WxAlert[]>([]);
+  const [wxZoned, setWxZoned] = useState<WxAlert[]>([]);
   const [homeAlerts, setHomeAlerts] = useState<WxAlert[]>([]);
   const [outlook, setOutlook] = useState<OutlookArea[]>([]);
   const [weatherNow, setWeatherNow] = useState<WeatherNow | null>(null);
@@ -550,10 +551,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     let cancelled = false;
     const h = me.preferences.home ?? null;
     const load = () =>
-      getWxAlerts(h)
+      getWxAlerts(h, filters.weather.zones)
         .then((r) => {
           if (cancelled) return;
           setWxAlerts(r.alerts);
+          setWxZoned(r.zoned ?? []);
           setHomeAlerts(r.local);
         })
         .catch(() => undefined);
@@ -563,7 +565,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [homeKey]);
+  }, [homeKey, filters.weather.zones]);
   useEffect(() => {
     if (!filters.weather.outlook) return;
     let cancelled = false;
@@ -790,8 +792,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       const fly = sessionStorage.getItem(FLY_KEY);
       if (fly) {
         sessionStorage.removeItem(FLY_KEY);
-        const f = JSON.parse(fly) as { lat: number; lon: number; height: number };
+        const f = JSON.parse(fly) as { lat: number; lon: number; height: number; event?: string };
         globe.current?.flyTo(f.lat, f.lon, f.height);
+        if (f.event) select(f.event);
       }
     } catch {
       // Storage blocked or bad value: stay where the map is.
@@ -983,7 +986,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       return b ? { title: b[0], lines: [BASE_KINDS[b[1]] ?? b[1], b[4]] } : null;
     }
     if (id.startsWith('wx:')) {
-      const a = wxAlerts.find((x) => x.key === id.slice(3));
+      const a = [...wxAlerts, ...wxZoned].find((x) => x.key === id.slice(3));
       return a
         ? {
             title: a.event,
@@ -1137,6 +1140,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             counts={counts}
             tensionCount={tension ? tension.countries.filter((c) => c.level >= TINT_FROM).length : undefined}
             weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
+            zoneCount={filters.weather.zones ? wxZoned.length : undefined}
             airCounts={airCounts}
             civilStatus={civilStatus}
             satCounts={satCounts}
@@ -1168,6 +1172,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             gpsCells={gpsCells}
             tensionCountries={tension?.countries ?? []}
             wxAlerts={wxAlerts}
+            wxZoned={wxZoned}
             outlook={outlook}
             weather={filters.weather}
             showTension={filters.tension}
@@ -1417,7 +1422,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                   selectedInfo.startsWith('gps:')
                     ? 'GPS interference: the share of aircraft in this hexagon reporting a degraded position (NACp below 8) over the last hour, from the aircraft Argus sees. Not for navigation.'
                     : selectedInfo.startsWith('wx:')
-                      ? (wxAlerts.find((x) => 'wx:' + x.key === selectedInfo)?.description ?? '') +
+                      ? ([...wxAlerts, ...wxZoned].find((x) => 'wx:' + x.key === selectedInfo)?.description ?? '') +
                         ' (National Weather Service; open the alert for its full text and instructions.)'
                       : selectedInfo.startsWith('spc:')
                         ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'

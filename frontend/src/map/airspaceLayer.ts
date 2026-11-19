@@ -12,7 +12,6 @@ import {
 } from '@cesium/core';
 import {
   Material,
-  MaterialAppearance,
   PerInstanceColorAppearance,
   PolylineCollection,
   Primitive,
@@ -22,6 +21,8 @@ import { feature } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 
 import type { AirspaceItem } from '../lib/api';
+import { hatchLines, type LonLat } from '../lib/geo';
+import { lineBatch } from './lineBatch';
 
 export interface AirspaceFilters {
   tfr: boolean;
@@ -108,8 +109,8 @@ export interface AirspaceLayer {
 
 export function addAirspaceLayer(scene: Scene): AirspaceLayer {
   let fill: Primitive | null = null;
-  // Closed airspace (conflict zone bulletins): diagonal hatching, one
-  // primitive per area so the stripes keep a steady spacing.
+  // Closed airspace (conflict zone bulletins): diagonal hatch lines, one
+  // batched primitive per colour.
   let hatches: Primitive[] = [];
   const outlines = new PolylineCollection();
   scene.primitives.add(outlines);
@@ -126,6 +127,7 @@ export function addAirspaceLayer(scene: Scene): AirspaceLayer {
       hatches = [];
       outlines.removeAll();
       const instances: GeometryInstance[] = [];
+      const hatchSegments: { lines: LonLat[][]; css: string; selected: boolean }[] = [];
       for (const item of items) {
         if (!filters[item.kind]) continue;
         const rings: number[][][] = [];
@@ -161,35 +163,26 @@ export function addAirspaceLayer(scene: Scene): AirspaceLayer {
               : Material.fromType('Color', { color: color.withAlpha(selected ? 1 : 0.75) }),
           });
           if (closed) {
-            const lons = ring.map((p) => p[0]);
-            const lats = ring.map((p) => p[1]);
-            const span = Math.max(Math.max(...lons) - Math.min(...lons), Math.max(...lats) - Math.min(...lats));
-            const hatch = new Primitive({
-              geometryInstances: new GeometryInstance({
-                id: 'air:' + item.key,
-                geometry: new PolygonGeometry({
-                  polygonHierarchy: new PolygonHierarchy(positions),
-                  height: 950,
-                  stRotation: Math.PI / 4,
-                  vertexFormat: MaterialAppearance.MaterialSupport.TEXTURED.vertexFormat,
-                }),
-              }),
-              appearance: new MaterialAppearance({
-                material: Material.fromType('Stripe', {
-                  evenColor: color.withAlpha(selected ? 0.55 : 0.38),
-                  oddColor: Color.TRANSPARENT,
-                  // About one stripe pair every quarter degree.
-                  repeat: Math.min(240, Math.max(8, span * 4)),
-                }),
-                translucent: true,
-                flat: true,
-              }),
-              asynchronous: true,
-            });
-            hatches.push(hatch);
-            scene.primitives.add(hatch);
+            // Diagonal hatching, as in the mock-up: about 0.4° apart.
+            const lines = hatchLines(ring as LonLat[], 0.4);
+            if (lines.length) hatchSegments.push({ lines, css: airspaceColor(item), selected });
           }
         }
+      }
+      // One batch per colour, so the whole hatch is a few draw calls.
+      const byColour = new Map<string, LonLat[][]>();
+      for (const h of hatchSegments) {
+        const css = Color.fromCssColorString(h.css)
+          .withAlpha(h.selected ? 0.7 : 0.45)
+          .toCssColorString();
+        const list = byColour.get(css) ?? [];
+        for (const l of h.lines) list.push(l);
+        byColour.set(css, list);
+      }
+      for (const [css, lines] of byColour) {
+        const batch = lineBatch(scene, lines, css, 1, 1000);
+        hatches.push(batch.primitive);
+        scene.primitives.add(batch.primitive);
       }
       if (!instances.length) return;
       fill = new Primitive({

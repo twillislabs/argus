@@ -7,7 +7,9 @@ import { channelById, DEFAULT_TABS } from '../config/newsChannels';
 import {
   type Aircraft,
   type EventItem,
+  type AirspaceItem,
   getAircraft,
+  getAirspace,
   getEvents,
   getGps,
   getMapConfig,
@@ -113,6 +115,7 @@ export default function WallPage({ me }: { me: Me }) {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [aircraft, setAircraft] = useState<Aircraft[]>([]);
   const [gpsCells, setGpsCells] = useState<GpsCell[]>([]);
+  const [airspace, setAirspace] = useState<AirspaceItem[]>([]);
   const home = me.preferences.home ?? null;
   const wall = me.preferences.wall ?? {};
   const zones = (wall.zones ?? []).slice(0, 4);
@@ -126,11 +129,18 @@ export default function WallPage({ me }: { me: Me }) {
   }, []);
 
   const load = useCallback(async () => {
-    const [t, e, a, g] = await Promise.allSettled([getTension(), getEvents({ hours: 24 }), getAircraft(null, false), getGps()]);
+    const [t, e, a, g, s] = await Promise.allSettled([
+      getTension(),
+      getEvents({ hours: 24 }),
+      getAircraft(null, false),
+      getGps(),
+      getAirspace(),
+    ]);
     if (t.status === 'fulfilled') setTension(t.value);
     if (e.status === 'fulfilled') setEvents(e.value.events);
     if (a.status === 'fulfilled') setAircraft(a.value.aircraft.filter((x) => x.mil));
     if (g.status === 'fulfilled') setGpsCells(g.value.cells);
+    if (s.status === 'fulfilled') setAirspace(s.value.items);
   }, []);
   useEffect(() => {
     void load();
@@ -254,13 +264,15 @@ export default function WallPage({ me }: { me: Me }) {
           vessels={[]}
           selectedMmsi={null}
           trackTarget={null}
-          airspace={[]}
-          airspaceFilters={{ ...DEFAULT_AIRSPACE, gps: true }}
+          airspace={airspace}
+          // As in the mock-up: closed airspace hatched, GPS hexes, nuclear
+          // plants and submarine cables.
+          airspaceFilters={{ ...DEFAULT_AIRSPACE, czib: true, gps: true }}
           selectedAirspace={null}
           gpsCells={gpsCells}
           tensionCountries={tension?.countries ?? []}
           showTension
-          infra={DEFAULT_INFRA}
+          infra={{ ...DEFAULT_INFRA, nuclear: true, cables: true }}
           home={home}
           events={events}
           selectedId={interrupt?.event.id ?? null}

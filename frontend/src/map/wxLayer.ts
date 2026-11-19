@@ -26,12 +26,14 @@ import type { OutlookArea, WxAlert } from '../lib/api';
 
 export interface WeatherFilters {
   alerts: boolean;
+  // Zone-based watches, warnings and advisories (NWS zone outlines).
+  zones: boolean;
   outlook: boolean;
   clouds: boolean;
   precip: boolean;
 }
 
-export const DEFAULT_WEATHER: WeatherFilters = { alerts: true, outlook: false, clouds: false, precip: false };
+export const DEFAULT_WEATHER: WeatherFilters = { alerts: true, zones: false, outlook: false, clouds: false, precip: false };
 
 // The NWS's colours for the warnings people look for; others by severity.
 const EVENT_COLOR: Record<string, string> = {
@@ -100,7 +102,7 @@ function gibs(layer: string, time: string): ImageryLayer {
 }
 
 export interface WxLayer {
-  update: (alerts: WxAlert[], outlook: OutlookArea[], f: WeatherFilters) => void;
+  update: (alerts: WxAlert[], zoned: WxAlert[], outlook: OutlookArea[], f: WeatherFilters) => void;
   setImagery: (f: WeatherFilters) => void;
   // The base map was rebuilt (its imagery layers were all removed).
   forget: () => void;
@@ -126,7 +128,7 @@ export function addWxLayer(
   };
 
   return {
-    update(alerts, outlook, f) {
+    update(alerts, zoned, outlook, f) {
       clear();
       const instances: GeometryInstance[] = [];
       const shape = (id: string, ring: number[][], color: Color, alpha: number, width: number) => {
@@ -155,6 +157,13 @@ export function addWxLayer(
         for (const a of outlook.filter((o) => o.day === 1)) {
           const c = Color.fromCssColorString(a.fill || '#66a366');
           for (const ring of a.polygons) shape('spc:' + a.key, ring, c, a.level ? 0.22 : 0.1, 1);
+        }
+      }
+      // Zone alerts under the storm warnings: lighter, thinner edges.
+      if (f.zones) {
+        for (const a of [...zoned].sort((x, y) => x.severity - y.severity)) {
+          const c = Color.fromCssColorString(alertColor(a));
+          for (const ring of a.polygons) shape('wx:' + a.key, ring, c, 0.12, 1);
         }
       }
       if (f.alerts) {

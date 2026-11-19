@@ -73,6 +73,7 @@ export function serverFilters(layers: Record<string, unknown> | undefined): Laye
 
 const WEATHER_ROWS: { id: keyof WeatherFilters; label: string; source: string; color: string }[] = [
   { id: 'alerts', label: 'Storm warnings', source: 'NWS · tornado, thunderstorm, flood', color: '#ff2d3d' },
+  { id: 'zones', label: 'Watches and advisories', source: 'NWS · by forecast zone and county', color: '#e3c04b' },
   { id: 'outlook', label: 'Severe weather outlook', source: 'SPC · today, level 1–5', color: '#66a366' },
   { id: 'clouds', label: 'Clouds (infrared)', source: 'NASA GIBS · GOES, Himawari', color: '#9aa7ba' },
   { id: 'precip', label: 'Precipitation', source: 'NASA GIBS · IMERG, a few hours behind', color: '#3fa7ff' },
@@ -144,8 +145,9 @@ interface Props {
   counts: Partial<Record<EventType, number>>;
   // Countries tinted (above their normal level).
   tensionCount?: number;
-  // Storm warnings drawn on the map.
+  // Storm warnings and zone alerts drawn on the map.
   weatherCount?: number;
+  zoneCount?: number;
   airCounts: { military: number; civil: number };
   civilStatus: CivilStatus;
   satCounts: Partial<Record<keyof SpaceFilters, number>>;
@@ -183,6 +185,7 @@ const FEEDS: Record<string, string[]> = {
   space: ['celestrak'],
   cables: ['cables'],
   'wx-alerts': ['nws'],
+  'wx-zones': ['nws'],
   'wx-outlook': ['spc'],
 };
 
@@ -266,6 +269,7 @@ export default function LayerPanel({
   counts,
   tensionCount,
   weatherCount,
+  zoneCount,
   airCounts,
   civilStatus,
   satCounts,
@@ -495,7 +499,7 @@ export default function LayerPanel({
               <small>{r.source}</small>
             </span>
             <span className="lcount mono">
-              {r.id === 'alerts' ? (weatherCount ?? '–') : ''}
+              {r.id === 'alerts' ? (weatherCount ?? '–') : r.id === 'zones' ? (zoneCount ?? '–') : ''}
               <Dot sources={sources} id={'wx-' + r.id} />
             </span>
           </label>

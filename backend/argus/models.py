@@ -268,3 +268,15 @@ class TensionDaily(Base):
     area: Mapped[str] = mapped_column(String(80), primary_key=True)
     total: Mapped[float] = mapped_column(Float, default=0.0)
     samples: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class NwsZone(Base):
+    """An NWS forecast, marine or county zone's outline (simplified), for
+    drawing zone-based alerts. Fetched by the worker as alerts need them."""
+
+    __tablename__ = "nws_zones"
+
+    id: Mapped[str] = mapped_column(String(16), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), default="")
+    rings: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    fetched_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

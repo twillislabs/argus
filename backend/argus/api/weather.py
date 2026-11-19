@@ -17,7 +17,7 @@ from sqlalchemy import select
 
 from argus.api.deps import DbDep, SessionDep
 from argus.db import utcnow
-from argus.models import RawRecord
+from argus.models import NwsZone, RawRecord
 
 router = APIRouter(tags=["weather"])
 
@@ -81,6 +81,7 @@ async def alerts(
     request: Request,
     lat: float | None = Query(None, ge=-90, le=90),
     lon: float | None = Query(None, ge=-180, le=180),
+    zones: bool = Query(False, description="add zone-based alerts' shapes"),
 ):
     now = utcnow()
     rows = (
@@ -92,7 +93,20 @@ async def alerts(
         )
     ).scalars()
     home = await _home_zones(request, lat, lon) if lat is not None else set()
-    mapped, local = [], []
+    rows = list(rows)
+    shapes: dict[str, list] = {}
+    if zones:
+        ids = {z for r in rows for z in (r.payload or {}).get("zones") or []}
+        if ids:
+            shapes = {
+                z.id: z.rings
+                for z in (
+                    await db.execute(
+                        select(NwsZone).where(NwsZone.id.in_(list(ids)))
+                    )
+                ).scalars()
+            }
+    mapped, local, zoned = [], [], []
     for r in rows:
         p = r.payload
         if _ended(p.get("expires"), now):
@@ -116,12 +130,26 @@ async def alerts(
         }
         if item["polygons"]:
             mapped.append(item)
+        elif zones:
+            rings = [
+                ring
+                for z in p.get("zones") or []
+                for ring in shapes.get(z, [])
+            ]
+            if rings:
+                zoned.append({**item, "polygons": rings, "zoned": True})
         if home and home & set(p.get("zones") or []):
             local.append(item)
     order = lambda i: (-(i["severity"] or 0), i["expires"] or "")  # noqa: E731
     mapped.sort(key=order)
     local.sort(key=order)
-    return {"alerts": mapped, "local": local, "home_zones": sorted(home)}
+    zoned.sort(key=order)
+    return {
+        "alerts": mapped,
+        "zoned": zoned,
+        "local": local,
+        "home_zones": sorted(home),
+    }
 
 
 @router.get("/api/weather/outlook")
