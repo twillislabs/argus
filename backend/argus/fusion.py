@@ -8,12 +8,13 @@
 - RSS items become articles, not map events.
 """
 
+import re
 import secrets
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 
-from sqlalchemy import and_, delete, select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from argus import places
@@ -330,19 +331,42 @@ async def fuse_gdelt(db: AsyncSession, row: RawRecord) -> Event | None:
             actors.append(actor)
     articles = event.article_count + max(1, int(p.get("articles") or 1))
 
-    top_code = max(codes, key=lambda c: (gdelt_severity(c, c[:2]), codes[c]))
-    severity = max(event.severity, sev)
+    code_outlets = {
+        c: list(v) for c, v in (data.get("code_outlets") or {}).items()
+    }
+    this_code = p.get("code", "")
+    if domain and domain not in code_outlets.setdefault(this_code, []):
+        code_outlets[this_code].append(domain)
+
+    # The label is what most outlets agree on, not the most alarming code
+    # anyone used: a cluster of political stories with one "fight with
+    # artillery" coding must not be called artillery fighting.
+    top_code = max(
+        codes,
+        key=lambda c: (
+            len(code_outlets.get(c, [])),
+            codes[c],
+            gdelt_severity(c, c[:2]),
+        ),
+    )
+    severity = gdelt_severity(top_code, top_code[:2])
     if articles >= 30:
         severity = min(4, severity + 1)
+    # Eligible for promotion when enough outlets report the same kind of
+    # event (same CAMEO root). review_gdelt() then also asks the news feeds.
+    root_outlets = {
+        o
+        for c, os_ in code_outlets.items()
+        if c[:2] == top_code[:2]
+        for o in os_
+    }
+    root_articles = sum(n for c, n in codes.items() if c[:2] == top_code[:2])
     generic_only = set(codes) <= GENERIC_CODES
     needed = PROMOTE_ARTICLES_GENERIC if generic_only else PROMOTE_ARTICLES
+    eligible = len(root_outlets) >= PROMOTE_OUTLETS and (
+        articles >= needed and root_articles >= PROMOTE_OUTLETS
+    )
     status = event.status
-    if (
-        status == "candidate"
-        and len([o for o in outlets if o]) >= PROMOTE_OUTLETS
-        and articles >= needed
-    ):
-        status = "active"
 
     place = event.place or p.get("place", "")
     event.title = "{0} reported in {1}".format(label_for(top_code), place)[
@@ -360,9 +384,12 @@ async def fuse_gdelt(db: AsyncSession, row: RawRecord) -> Event | None:
     event.last_updated = max(event.last_updated, row.observed_at)
     event.data = {
         "codes": dict(codes),
+        "code_outlets": {c: v[:50] for c, v in code_outlets.items()},
         "outlets": outlets[:50],
         "urls": [u for u in urls if u][:50],
         "actors": actors[:20],
+        "eligible": eligible,
+        "corroboration": data.get("corroboration", []),
     }
     db.add(EventSource(event_id=event.id, raw_record_id=row.id))
     return event
@@ -389,6 +416,143 @@ async def store_article(db: AsyncSession, row: RawRecord) -> None:
 FUSERS = {"quake": fuse_quake, "fire_cluster": fuse_fire, "gdelt": fuse_gdelt}
 
 
+# --- GDELT corroboration ---------------------------------------------------
+
+# GDELT pins national political coverage on these places, so "fighting at
+# the White House" is usually a story about a political fight.
+SEAT_OF_GOVERNMENT = (
+    "white house",
+    "capitol",
+    "pentagon",
+    "kremlin",
+    "downing street",
+    "westminster",
+    "elysee",
+    "élysée",
+    "zhongnanhai",
+    "blue house",
+)
+CONFLICT_WORDS = re.compile(
+    r"\b(attack(s|ed)?|air ?strikes?|strikes?|shell(s|ed|ing)|missiles?|"
+    r"drones?|rockets?|fighting|clash(es|ed)?|killed|troops|offensive|"
+    r"bomb(s|ed|ing)?|artillery|militants?|insurgents?|war|invasion|"
+    r"ceasefire|frontline|front line|raid(s|ed)?)\b",
+    re.IGNORECASE,
+)
+UNREST_WORDS = re.compile(
+    r"\b(protest(s|ers|ed|ing)?|demonstrat(ion|ions|ors|ed)|rall(y|ies)|"
+    r"march(es|ed)?|riot(s|ing|ers)?|unrest|walkout|strike|strikers)\b",
+    re.IGNORECASE,
+)
+CORROBORATION_WINDOW = timedelta(hours=24)
+REVIEW_HOURS = 48
+
+
+def seat_of_government(place: str) -> bool:
+    lowered = (place or "").lower()
+    return any(name in lowered for name in SEAT_OF_GOVERNMENT)
+
+
+def _place_terms(event: Event) -> list[str]:
+    """The city for a city-level event; the country only when the event
+    is placed at country level (a country name alone backs anything)."""
+    parts = [p.strip() for p in (event.place or "").split(",") if p.strip()]
+    if len(parts) >= 2 and len(parts[0]) >= 4:
+        return [parts[0]]
+    if event.country and len(event.country) >= 4:
+        return [event.country]
+    return []
+
+
+async def corroborating_articles(
+    db: AsyncSession, event: Event
+) -> list[Article]:
+    """Headlines from the news feeds that back a GDELT event: they name
+    its city (or, for a country-level event, the country) in the headline
+    or summary, and use words for that kind of event in the headline.
+
+    Seat-of-government places need the place itself in the headline.
+    """
+    words = CONFLICT_WORDS if event.type == "conflict" else UNREST_WORDS
+    strict = seat_of_government(event.place)
+    terms = _place_terms(event)
+    if not terms:
+        return []
+    conditions = []
+    for term in terms:
+        like = "%{0}%".format(term.replace("%", "").replace("_", ""))
+        conditions.append(Article.title.ilike(like))
+        if not strict:
+            conditions.append(Article.summary.ilike(like))
+    rows = await db.execute(
+        select(Article)
+        .where(
+            Article.published_at >= event.first_seen - CORROBORATION_WINDOW,
+            Article.published_at
+            <= event.last_updated + CORROBORATION_WINDOW / 2,
+            or_(*conditions),
+        )
+        .order_by(Article.published_at.desc())
+        .limit(50)
+    )
+    # The kind of event must be in the headline itself: a summary that
+    # mentions the city and, somewhere, "war" is not a report of fighting.
+    return [a for a in rows.scalars() if words.search(a.title)]
+
+
+async def review_gdelt(db: AsyncSession) -> set[str]:
+    """Promote or demote recent GDELT events.
+
+    Active needs both: enough outlets reporting the same kind of event
+    (set at fusion as "eligible"), and corroboration from the news feeds,
+    one headline, or two from different outlets for seat-of-government
+    places. Events that lose either go back to unconfirmed.
+    """
+    since = utcnow() - timedelta(hours=REVIEW_HOURS)
+    rows = (
+        await db.execute(
+            select(Event).where(
+                Event.key.is_(None),
+                Event.type.in_(("conflict", "unrest")),
+                Event.status != "expired",
+                Event.last_updated >= since,
+            )
+        )
+    ).scalars()
+    changed: set[str] = set()
+    for event in rows:
+        data = dict(event.data or {})
+        backing = []
+        if data.get("eligible"):
+            backing = await corroborating_articles(db, event)
+        needed = 2 if seat_of_government(event.place) else 1
+        outlets = {a.outlet for a in backing}
+        corroborated = len(outlets) >= needed
+        status = (
+            "active"
+            if data.get("eligible") and corroborated
+            else ("candidate")
+        )
+        ids = [a.id for a in backing[:5]]
+        if status != event.status or ids != data.get("corroboration", []):
+            data["corroboration"] = ids
+            event.data = data
+            event.status = status
+            if corroborated:
+                event.summary = (
+                    "Machine-coded by GDELT from {0} articles across {1} "
+                    "outlets, and backed by {2} headline{3} from your news "
+                    "feeds."
+                ).format(
+                    event.article_count,
+                    event.source_count,
+                    len(backing),
+                    "" if len(backing) == 1 else "s",
+                )
+            changed.add(event.id)
+    return changed
+
+
 async def fuse(db: AsyncSession, rows: list[RawRecord]) -> set[str]:
     """Fuse rows into events. Returns ids of events that changed."""
     changed: set[str] = set()
@@ -404,6 +568,10 @@ async def fuse(db: AsyncSession, rows: list[RawRecord]) -> set[str]:
             continue
         await db.flush()
         changed.add(event.id)
+    # New GDELT reports or new headlines can change what's corroborated.
+    if any(r.kind in ("gdelt", "article") for r in rows):
+        await db.flush()
+        changed |= await review_gdelt(db)
     return changed
 
 

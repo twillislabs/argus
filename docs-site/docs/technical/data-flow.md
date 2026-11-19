@@ -18,7 +18,7 @@ M2–M3), patterns and alerts.
 |---|---|---|
 | `usgs` | 1 min | One event per quake (M2.5+, past day), updated when USGS revises it |
 | `gdelt` | 5 min (files every 15 min) | Conflict and protest reports, clustered within 25 km and 2 h |
-| `rss` | 10 min | Headlines in the `articles` table (15 outlets by default) |
+| `rss` | 10 min | Headlines in the `articles` table (16 outlets by default) |
 | `firms` | 3 h | Fire clusters (0.25 degree cells with 8+ detections); needs a key |
 | aircraft (`adsb_mil`) | 15 s | A snapshot of every military aircraft from adsb.lol, published on `argus.air`; not stored |
 
@@ -34,10 +34,18 @@ Privacy-flagged aircraft are dropped before anything is kept.
 - **Severity (1–5):** quakes by magnitude (M7+ is critical, M8+ catastrophic), bumped by a PAGER
   alert or tsunami flag. GDELT by event code, for example artillery or aerial attack is critical.
   Fires by detections and radiative power.
-- **GDELT corroboration:** only lead-paragraph ("root") events count. A cluster stays
-  *unconfirmed* until 3 independent outlets and 10 articles report it. Clusters made only of
-  GDELT's catch-all codes (military force, occupation, small arms) need 20 articles. Unconfirmed
-  reports are hidden unless you turn them on.
+- **GDELT corroboration:** only lead-paragraph ("root") events count. A cluster is labelled by
+  the kind of event most of its outlets reported, not the most alarming code any one used. It
+  stays *unconfirmed* until:
+  - 3 independent outlets report that same kind of event, with 10 articles in all (20 when the
+    cluster has only GDELT's catch-all codes: military force, occupation, small arms), **and**
+  - a headline from your news feeds backs it: it names the place (or country) and uses words
+    for that kind of event (attack, shelling, missile... or protest, rally, strike...).
+
+  GDELT pins national political coverage on seats of government (the White House, the
+  Capitol, the Kremlin, Downing Street...), so events there need the place in the headline
+  itself, from two different outlets. Events that lose their backing go back to unconfirmed.
+  Unconfirmed reports are hidden unless you turn them on.
 - **Expiry:** events expire after 24 h without updates (72 h for quakes) and are deleted after
   the retention period.
 - **Coverage:** an event's articles are headlines naming its place or country within 18 h.

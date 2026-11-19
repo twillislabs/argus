@@ -66,6 +66,9 @@ parts connect.
   data-driven in `symbol-placement`; tileserver logs invalid styles at start.
 - nginx only exposes `/tiles/styles/argus-dark/256/...png` and
   `/tiles/data/protomaps.json`; anything else under `/tiles/` is 404.
+- GDELT is noisy: `fusion.review_gdelt` decides active vs candidate from
+  outlet agreement on one CAMEO root *and* corroborating RSS headlines
+  (`corroborating_articles`). Don't promote GDELT events anywhere else.
 - adsb.lol's routeset endpoint is unusable (202, empty); routes come from
   adsbdb, which goes stale when flight numbers are reused
   (`route_progress` flags implausible routes).
