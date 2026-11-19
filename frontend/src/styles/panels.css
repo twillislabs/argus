@@ -477,3 +477,12 @@ tr.dimrow td { color: var(--dim); }
   color: var(--muted, #8a94a3);
   font-size: 12px;
 }
+
+/* Sign-in page: link for pairing a wall screen */
+.pairlink {
+  margin: 14px 0 0;
+  text-align: center;
+}
+.pairlink a {
+  color: var(--accent);
+}

@@ -197,6 +197,12 @@ parts connect.
   only (`FeedClient.get(..., only=)`), publishing a bare sample
   (`gps_sample`) on NATS `argus.gps`; the API feeds it to `GpsGrid` and
   nothing else (not stored, not pushed). `ARGUS_GPS_SWEEP=false` stops it.
+- Camera viewsheds (`map/camLayer.ts`): ground sectors in one Primitive,
+  rebuilt only when the cameras or selection change (it builds in a
+  worker; replacing it each render meant it never showed). It has no
+  depth test, since darkMap's land sits 300 m up. A per-instance
+  DistanceDisplayCondition attribute made the flat translucent
+  primitive draw nothing: don't add one back.
 - Recent imagery: `argus/imagery.py` + `api/imagery.py` (Planetary
   Computer STAC search, mosaic register, tile proxy cached a week on
   disk in `ARGUS_IMAGERY_CACHE_DIR`), `map/sentinelLayer.ts` (box-limited

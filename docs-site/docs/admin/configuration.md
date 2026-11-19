@@ -153,8 +153,10 @@ user can still change their own:
 To put the Wall on a TV, a Raspberry Pi in kiosk mode or a spare PC
 without typing a password on it:
 
-1. On the screen, open `https://your-argus/pair`. It shows a 6-character
-   code.
+1. On the screen, open `https://your-argus/pair` (or **Pair it as a wall
+   display** under the sign-in form). It shows a 6-character code. Nobody
+   signs in on the screen. A browser that's already signed in shows how
+   to sign out first instead.
 2. On your own device, open Settings > **Displays**, enter the code and a
    name ("Ops room TV"), and press **Pair**.
 3. Within a few seconds the screen signs itself in and opens the Wall.

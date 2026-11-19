@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import Brand from '../components/Brand';
-import { api, ApiError } from '../lib/api';
+import { api, ApiError, logout } from '../lib/api';
 
 // A wall screen pairs here without anyone typing a password on it: it
 // shows a code, an admin enters the code in Settings > Displays, and the
@@ -62,6 +62,39 @@ export default function PairPage({ onPaired }: { onPaired: () => Promise<void> }
         {code ? code.slice(0, 3) + ' ' + code.slice(3) : '······'}
       </div>
       {error ? <p className="err">{error}</p> : <p className="quiet">The code changes every ten minutes.</p>}
+    </div>
+  );
+}
+
+// /pair in a browser that's already signed in: pairing is for a screen
+// that isn't, so say how to get there, or where codes are approved.
+export function PairSignedIn({ name, onSignedOut }: { name: string; onSignedOut: () => void }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="pairpage">
+      <Brand />
+      <h1>Pair a screen</h1>
+      <p>
+        This browser is signed in as <b>{name}</b>. To make it a wall screen, sign out here (or open{' '}
+        <span className="mono">/pair</span> in a private window, or on the screen itself) and it shows a pairing code.
+      </p>
+      <p>To approve a code shown on another screen, open Settings › Displays.</p>
+      <div className="actions">
+        <button
+          className="btn primary"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            await logout().catch(() => undefined);
+            onSignedOut();
+          }}
+        >
+          Sign out and pair this browser
+        </button>
+        <a className="btn" href="/settings/displays">
+          Settings › Displays
+        </a>
+      </div>
     </div>
   );
 }

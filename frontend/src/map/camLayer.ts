@@ -1,8 +1,19 @@
 // Traffic cameras (agency CCTV): a small camera glyph, with a wedge for
 // the direction it looks where the agency says. Pickable as "cam:<id>".
+// Zoomed in, those cameras also get their estimated viewshed on the
+// ground: a VIEW_FOV sector VIEW_RANGE_M deep (agencies don't publish
+// zoom or tilt, so it's indicative), brighter for the selected camera.
 
-import { Cartesian3, NearFarScalar } from '@cesium/core';
-import { BillboardCollection, type Scene } from '@cesium/engine';
+import {
+  Cartesian3,
+  Color,
+  ColorGeometryInstanceAttribute,
+  GeometryInstance,
+  NearFarScalar,
+  PolygonGeometry,
+  PolygonHierarchy,
+} from '@cesium/core';
+import { BillboardCollection, PerInstanceColorAppearance, Primitive, type Scene } from '@cesium/engine';
 
 import type { TrafficCam } from '../lib/api';
 
@@ -47,6 +58,23 @@ function icon(wedge: boolean, color = CAM_COLOR): HTMLCanvasElement {
   return c;
 }
 
+const VIEW_FOV = 60;
+const VIEW_RANGE_M = 300;
+const EARTH_M = 6_371_000;
+
+// The sector's outline: the camera, then an arc VIEW_RANGE_M out.
+function sector(lat: number, lon: number, bearing: number): Cartesian3[] {
+  const pts = [Cartesian3.fromDegrees(lon, lat, 4)];
+  const steps = 8;
+  for (let i = 0; i <= steps; i++) {
+    const b = (bearing - VIEW_FOV / 2 + (VIEW_FOV * i) / steps) * DEG;
+    const dLat = (VIEW_RANGE_M * Math.cos(b)) / EARTH_M / DEG;
+    const dLon = (VIEW_RANGE_M * Math.sin(b)) / (EARTH_M * Math.cos(lat * DEG)) / DEG;
+    pts.push(Cartesian3.fromDegrees(lon + dLon, lat + dLat, 4));
+  }
+  return pts;
+}
+
 // Anything with a position, an id and maybe a facing.
 type Placed = Pick<TrafficCam, 'id' | 'lat' | 'lon'> & { direction?: number | null };
 
@@ -64,10 +92,57 @@ export function addCamLayer(scene: Scene, color = CAM_COLOR, prefix = 'cam:'): C
   const plain = icon(false, color);
   const scale = new NearFarScalar(2e3, 0.9, 2e5, 0.4);
   let depth = 0;
+  let views: Primitive | null = null;
+  // What the views were built for: rebuilding on every call would
+  // replace them before they finish building (they build in a worker).
+  let viewsKey = '';
+  const base = Color.fromCssColorString(color);
+  const dropViews = () => {
+    if (views && !scene.isDestroyed() && scene.primitives.contains(views)) scene.primitives.remove(views);
+    views = null;
+  };
   return {
     update(cams, visible, selected) {
       billboards.removeAll();
+      const key = visible
+        ? selected + '|' + cams.map((c) => (c.direction != null ? c.id + '@' + c.direction : '')).join(',')
+        : '';
+      if (key !== viewsKey) {
+        dropViews();
+        viewsKey = key;
+      }
       if (!visible) return;
+      const instances = views
+        ? []
+        : cams
+            .filter((c) => c.direction !== null && c.direction !== undefined)
+            .map(
+              (c) =>
+                new GeometryInstance({
+                  geometry: new PolygonGeometry({
+                    polygonHierarchy: new PolygonHierarchy(sector(c.lat, c.lon, c.direction ?? 0)),
+                    height: 4,
+                    vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
+                  }),
+                  attributes: {
+                    color: ColorGeometryInstanceAttribute.fromColor(base.withAlpha(c.id === selected ? 0.45 : 0.16)),
+                  },
+                }),
+            );
+      if (instances.length && !views) {
+        views = new Primitive({
+          geometryInstances: instances,
+          // No depth test: the dark map's land shapes sit 300 m up
+          // and would hide a sector on the ground.
+          appearance: new PerInstanceColorAppearance({
+            flat: true,
+            translucent: true,
+            renderState: { depthTest: { enabled: false } },
+          }),
+          asynchronous: true,
+        });
+        scene.primitives.add(views);
+      }
       for (const c of cams) {
         const facing = c.direction !== null && c.direction !== undefined;
         billboards.add({
@@ -87,6 +162,7 @@ export function addCamLayer(scene: Scene, color = CAM_COLOR, prefix = 'cam:'): C
       for (let i = 0; i < billboards.length; i++) billboards.get(i).disableDepthTestDistance = metres;
     },
     destroy() {
+      dropViews();
       if (!scene.isDestroyed() && scene.primitives.contains(billboards)) scene.primitives.remove(billboards);
     },
   };
