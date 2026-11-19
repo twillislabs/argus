@@ -449,7 +449,7 @@ export interface AirspaceItem {
 }
 
 export function getAirspaceStructure(bbox: Bbox) {
-  return api<{ items: AirspaceItem[]; status: 'ok' | 'zoom' | 'nokey' | 'error' }>(
+  return api<{ items: AirspaceItem[]; status: 'ok' | 'zoom' | 'nokey' | 'blocked' | 'error' }>(
     '/api/airspace/structure?bbox=' + bbox.map((v) => v.toFixed(3)).join(','),
   );
 }

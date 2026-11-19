@@ -130,6 +130,11 @@ def tiles(bbox) -> list[tuple[int, int]] | None:
     return out if len(out) <= MAX_TILES else None
 
 
+class Blocked(Exception):
+    """openAIP's Cloudflare front end refused this server (a 403 page, not
+    an API answer), whatever the key."""
+
+
 class OpenAip:
     def __init__(self, user_agent: str) -> None:
         self.client = httpx.AsyncClient(
@@ -156,6 +161,8 @@ class OpenAip:
                 params={"bbox": bbox, "limit": 1000, "page": page},
                 headers={"x-openaip-api-key": key},
             )
+            if response.status_code == 403 and "cdn-cgi" in response.text:
+                raise Blocked()
             response.raise_for_status()
             body = response.json()
             for raw in body.get("items", []):

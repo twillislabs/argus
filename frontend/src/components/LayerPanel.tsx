@@ -118,7 +118,7 @@ interface Props {
   seaCounts: Partial<Record<keyof SeaFilters, number>>;
   seaStatus: SeaStatus;
   airspaceCounts: Partial<Record<keyof AirspaceFilters, number>>;
-  structureStatus: 'ok' | 'zoom' | 'nokey' | 'error';
+  structureStatus: 'ok' | 'zoom' | 'nokey' | 'blocked' | 'error';
   sources: SourceStatus[];
   onChange: (f: LayerFilters) => void;
 }
@@ -385,6 +385,7 @@ export default function LayerPanel({
                       ok: 'openAIP · area in view',
                       zoom: 'openAIP · zoom in to load',
                       nokey: 'Needs an openAIP key (Settings)',
+                      blocked: 'openAIP is refusing this server (403)',
                       error: 'openAIP unavailable',
                     }[structureStatus]
                   : r.source}

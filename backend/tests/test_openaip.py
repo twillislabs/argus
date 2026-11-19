@@ -84,3 +84,22 @@ async def test_structure_api(admin_client, app):
         await admin_client.get("/api/airspace/structure?bbox=-120,20,-60,50")
     ).json()
     assert wide["status"] == "zoom"
+
+
+async def test_cloudflare_block_is_reported():
+    import httpx
+    import pytest
+
+    from argus.openaip import Blocked, OpenAip
+
+    def handler(request):
+        return httpx.Response(
+            403,
+            text='<title>403</title><a href="/cdn-cgi/content?id=x">',
+        )
+
+    client = OpenAip("test")
+    client.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    with pytest.raises(Blocked):
+        await client.tile("key", (0, 0))
+    await client.close()

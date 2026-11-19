@@ -10,6 +10,7 @@ from sqlalchemy import select
 from argus.api.deps import DbDep, SessionDep
 from argus.db import utcnow
 from argus.models import RawRecord
+from argus.openaip import Blocked
 
 router = APIRouter(tags=["airspace"])
 log = logging.getLogger("argus.airspace")
@@ -104,7 +105,8 @@ async def airspace_structure(
     bbox: str = Query(..., description="west,south,east,north"),
 ):
     """openAIP airspace (restricted areas, CTRs, TMAs...) for a regional
-    view. status: ok, zoom (view too big), nokey or error."""
+    view. status: ok, zoom (view too big), nokey, blocked (openAIP's
+    Cloudflare refuses this server) or error."""
     from argus import secrets
     from argus.events import parse_bbox
     from argus.models import ServerSetting
@@ -124,6 +126,9 @@ async def airspace_structure(
         return {"items": [], "status": "nokey"}
     try:
         items = await request.app.state.openaip.area(key, box)
+    except Blocked:
+        log.warning("openAIP's Cloudflare is refusing this server (403)")
+        return {"items": [], "status": "blocked"}
     except (httpx.HTTPError, ValueError) as exc:
         log.warning("openAIP failed: {0}".format(exc))
         return {"items": [], "status": "error"}

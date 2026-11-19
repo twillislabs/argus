@@ -95,7 +95,9 @@ parts connect.
   their non-commercial licence; never bundle them.
 - openAIP (key in Data sources) is fetched per 2-degree tile for the
   view and cached a day in API memory (`argus/openaip.py`); its licence
-  is non-commercial, so don't persist it. Military bases are bundled
+  is non-commercial, so don't persist it. Its Cloudflare can 403 whole IPs (an HTML
+  `cdn-cgi` page, status `blocked`); never work around it (no spoofed
+  browser user agents). Military bases are bundled
   from an Overpass query by `build_bases.py` (ODbL).
 - Your own receivers: `receivers_loop` in the worker; local aircraft go to
   `app.state.local_air` (NATS `argus.local_air`), ships into `LiveSea`.
