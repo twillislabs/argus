@@ -530,6 +530,26 @@ Two more event layers:
   such as rocket launches, live firing, exercises, cable work, piracy and
   hazards to shipping. Select one to see the area it covers.
 
+## Patterns
+
+When military aircraft or ships are on, the Situation panel lists
+behaviour worth a look, with a ring on the map; click an entry to select
+the aircraft or ship:
+
+- **Orbit** or **Racetrack:** a military aircraft that has turned 1.5
+  times or more within about 40 km over the last 45 minutes, above
+  3,000 ft. Tankers, AWACS and surveillance aircraft fly these.
+- **Loitering on a cable:** a ship that has stayed within 3 km for two
+  hours or more, slowly, within 10 km of a submarine cable and away from
+  towns (harbours and anchorages). Several Baltic cable cuts involved
+  ships behaving this way.
+
+They're indicators, not conclusions: aircraft also train in circuits and
+ships wait out weather. Argus works them out from the tracks it already
+holds (about the last hour for aircraft, eight hours for ships), so a
+pattern needs that long in view. AIS "gaps" (ships going dark) aren't
+flagged: with shore-based AIS most gaps are just ships out of range.
+
 ## Cyber
 
 Two layers at the end of the **Infrastructure** group, off by default,

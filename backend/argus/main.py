@@ -22,6 +22,7 @@ from argus.api import (
     health,
     imagery,
     me,
+    patterns,
     setup,
     users,
     video,
@@ -165,6 +166,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         displays.router,
         weather.router,
         imagery.router,
+        patterns.router,
     ):
         app.include_router(router)
     return app

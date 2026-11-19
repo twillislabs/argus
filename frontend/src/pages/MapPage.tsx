@@ -75,6 +75,8 @@ import {
   getWikipedia,
   getLaunches,
   getCyber,
+  getPatterns,
+  type Patterns,
   type Cyber,
   type Launch,
   type WikiItem,
@@ -927,6 +929,29 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     };
   }, [launchesOn]);
 
+  // Behaviour patterns (military orbits, ships loitering on cables),
+  // every minute; the API works them out from what it already holds.
+  const [patterns, setPatterns] = useState<Patterns | null>(null);
+  const seaShown = Object.values(filters.sea).some(Boolean);
+  const patternsOn = filters.air.military || seaShown;
+  useEffect(() => {
+    if (!patternsOn) {
+      setPatterns(null);
+      return;
+    }
+    let cancelled = false;
+    const load = () =>
+      getPatterns()
+        .then((r) => !cancelled && setPatterns(r))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [patternsOn]);
+
   // Cyber (outages, ransomware) while either layer is on; the worker
   // refreshes it every half hour.
   const cyberOn = filters.infra.outages || filters.infra.ransomware;
@@ -1759,6 +1784,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             launches={launchItems}
             showLaunches={launchesOn}
             cyber={cyber}
+            patterns={patterns}
+            showAirPatterns={filters.air.military}
+            showSeaPatterns={seaShown}
             showWiki={filters.wiki}
             alprCameras={alprCameras}
             trafficCams={filters.cams.traffic ? trafficCams : []}
@@ -2240,6 +2268,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 onSelect={selectAndFly}
                 aircraft={aircraft}
                 onSelectAircraft={(hex) => selectAircraft(hex, 'follow')}
+                patterns={patterns}
+                onSelectVessel={(mmsi) => selectVessel(mmsi, 'follow')}
                 tension={tension}
                 view={viewBox}
                 kpis={{

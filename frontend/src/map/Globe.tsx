@@ -56,6 +56,7 @@ import type {
   Home,
   Launch,
   Cyber,
+  Patterns,
   MapConfig,
   OutlookArea,
   TensionCountry,
@@ -73,6 +74,7 @@ import { addAdvisoryLayer, type AdvisoryLayer } from './advisoryLayer';
 import { addWikiLayer, type WikiLayer } from './wikiLayer';
 import { addLaunchLayer, type LaunchLayer } from './launchLayer';
 import { addCyberLayer, type CyberLayer } from './cyberLayer';
+import { addPatternLayer, type PatternLayer } from './patternLayer';
 import { addAlprLayer, type AlprLayer } from './alprLayer';
 import { addCamLayer, type CamLayer, WEBCAM_COLOR } from './camLayer';
 import { addWxLayer, type WeatherFilters, type WxLayer } from './wxLayer';
@@ -401,6 +403,10 @@ interface Props {
   showLaunches?: boolean;
   // Cyber: outages and ransomware (map/cyberLayer.ts), shown per infra.
   cyber?: Cyber | null;
+  // Behaviour pattern rings (map/patternLayer.ts).
+  patterns?: Patterns | null;
+  showAirPatterns?: boolean;
+  showSeaPatterns?: boolean;
   // ALPR cameras for the view, drawn while infra.alpr is on.
   alprCameras?: AlprCamera[];
   // Traffic cameras for the view (empty when the layer is off).
@@ -466,6 +472,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     launches,
     showLaunches,
     cyber,
+    patterns,
+    showAirPatterns,
+    showSeaPatterns,
     alprCameras,
     trafficCams,
     selectedCam,
@@ -519,6 +528,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const wikiLayer = useRef<WikiLayer | null>(null);
   const launchLayer = useRef<LaunchLayer | null>(null);
   const cyberLayer = useRef<CyberLayer | null>(null);
+  const patternLayer = useRef<PatternLayer | null>(null);
   const alprLayer = useRef<AlprLayer | null>(null);
   const camLayer = useRef<CamLayer | null>(null);
   const webcamLayer = useRef<CamLayer | null>(null);
@@ -621,6 +631,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     wikiLayer.current = addWikiLayer(scene);
     launchLayer.current = addLaunchLayer(scene);
     cyberLayer.current = addCyberLayer(scene);
+    patternLayer.current = addPatternLayer(scene);
     alprLayer.current = addAlprLayer(scene);
     camLayer.current = addCamLayer(scene);
     webcamLayer.current = addCamLayer(scene, WEBCAM_COLOR, 'webcam:');
@@ -885,6 +896,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['wikipedia', () => wikiLayer.current?.destroy()],
         ['launches', () => launchLayer.current?.destroy()],
         ['cyber', () => cyberLayer.current?.destroy()],
+        ['patterns', () => patternLayer.current?.destroy()],
         ['alpr', () => alprLayer.current?.destroy()],
         ['traffic cameras', () => camLayer.current?.destroy()],
         ['webcams', () => webcamLayer.current?.destroy()],
@@ -1104,6 +1116,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     cyberLayer.current?.update(cyber?.outages ?? [], infra.outages, cyber?.ransomware ?? [], infra.ransomware);
   }, [cyber, infra.outages, infra.ransomware]);
+
+  useEffect(() => {
+    patternLayer.current?.update(patterns ?? null, Boolean(showAirPatterns), Boolean(showSeaPatterns));
+  }, [patterns, showAirPatterns, showSeaPatterns]);
 
   useEffect(() => {
     alprLayer.current?.update(alprCameras ?? [], infra.alpr);

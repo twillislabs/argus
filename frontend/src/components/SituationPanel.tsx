@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import SpaceWeatherCard, { useSpaceWeather } from './SpaceWeatherCard';
+import { PATTERN_COLOR } from '../map/patternLayer';
 
-import type { Aircraft, Bbox, EventItem, Home, Summary, Tension, WeatherNow, WxAlert } from '../lib/api';
+import type { Aircraft, Bbox, EventItem, Home, Patterns, Summary, Tension, WeatherNow, WxAlert } from '../lib/api';
 import { getLiveNear } from '../lib/api';
 import { aircraftColor } from '../map/aircraftLayer';
 import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
@@ -22,6 +23,8 @@ interface Props {
   kpis: Kpis;
   weatherNow: WeatherNow | null;
   homeAlerts: WxAlert[];
+  patterns: Patterns | null;
+  onSelectVessel: (mmsi: number) => void;
 }
 
 function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number) {
@@ -303,6 +306,8 @@ export default function SituationPanel({
   kpis,
   weatherNow,
   homeAlerts,
+  patterns,
+  onSelectVessel,
 }: Props) {
   const spaceWx = useSpaceWeather();
   const milSpark = useSamples(kpis.military);
@@ -523,6 +528,39 @@ export default function SituationPanel({
               region.
             </p>
           )}
+        </section>
+      )}
+      {patterns && patterns.air.length + patterns.sea.length > 0 && (
+        <section className="isec">
+          <h3>Patterns · {patterns.air.length + patterns.sea.length}</h3>
+          <ul className="patlist">
+            {patterns.air.map((p) => (
+              <li key={'a' + p.hex}>
+                <button onClick={() => onSelectAircraft(p.hex)}>
+                  <b style={{ color: PATTERN_COLOR.air }}>{p.kind === 'racetrack' ? 'Racetrack' : 'Orbit'}</b>{' '}
+                  {p.callsign || p.hex.toUpperCase()}
+                  {p.type ? ' · ' + p.type : ''}
+                  {p.role ? ' (' + p.role + ')' : ''}
+                  <small>
+                    {p.laps} laps in {p.minutes} min, {distance(p.radius_km * 2)} across
+                    {p.near ? ' · near ' + p.near : ''}
+                  </small>
+                </button>
+              </li>
+            ))}
+            {patterns.sea.map((p) => (
+              <li key={'s' + p.mmsi}>
+                <button onClick={() => onSelectVessel(p.mmsi)}>
+                  <b style={{ color: PATTERN_COLOR.sea }}>Loitering on a cable</b> {p.name || 'MMSI ' + p.mmsi}
+                  <small>
+                    {p.hours} h within 3 km, {distance(p.cable_km)} from {p.cable}
+                    {p.status ? ' · ' + p.status : ''}
+                  </small>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="quiet small">Indicators, not conclusions: aircraft train in circuits and ships wait out weather.</p>
         </section>
       )}
       <TensionCountries tension={tension} />

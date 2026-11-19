@@ -135,6 +135,40 @@ export const putScreenWall = (id: number, wall: WallPrefs, home: Home | null, pr
     body: { wall, home, profile },
   });
 
+// Behaviour patterns (/api/patterns): military orbits and racetracks,
+// ships loitering near submarine cables.
+export interface AirPattern {
+  kind: 'orbit' | 'racetrack';
+  hex: string;
+  callsign: string | null;
+  type: string | null;
+  role: string | null;
+  lat: number;
+  lon: number;
+  radius_km: number;
+  laps: number;
+  minutes: number;
+  alt_ft: number | null;
+  near: string | null;
+}
+export interface SeaPattern {
+  kind: 'loiter_cable';
+  mmsi: number;
+  name: string | null;
+  status: string | null;
+  lat: number;
+  lon: number;
+  hours: number;
+  cable: string;
+  cable_km: number;
+  near: string | null;
+}
+export interface Patterns {
+  air: AirPattern[];
+  sea: SeaPattern[];
+}
+export const getPatterns = () => api<Patterns>('/api/patterns');
+
 // Cyber (/api/cyber): IODA internet outages, ransomware.live counts per
 // country (no victim names), CISA's newest exploited vulnerabilities.
 export interface InternetOutage {

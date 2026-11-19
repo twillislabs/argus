@@ -12,6 +12,7 @@ Message shapes follow AISStream's v0 JSON: {"MessageType": ...,
 """
 
 import time
+from collections import deque
 from typing import Any
 
 AISSTREAM_URL = "wss://stream.aisstream.io/v0/stream"
@@ -405,10 +406,16 @@ def public(v: dict) -> dict:
 
 
 class LiveSea:
-    """Latest state per vessel, merged from position and static data."""
+    """Latest state per vessel, merged from position and static data,
+    plus a short track (a position every TRACK_EVERY_S, about eight
+    hours) for pattern checks (argus/patterns.py)."""
+
+    TRACK_EVERY_S = 300
+    TRACK_POINTS = 96
 
     def __init__(self) -> None:
         self.vessels: dict[int, dict] = {}
+        self.tracks: dict[int, deque] = {}
         self.updated = 0.0
 
     def apply(self, updates: list[dict], now: float | None = None) -> None:
@@ -416,6 +423,13 @@ class LiveSea:
         for u in updates:
             v = self.vessels.setdefault(u["mmsi"], {"mmsi": u["mmsi"]})
             v.update({k: val for k, val in u.items() if val is not None})
+            if u.get("lat") is not None and u.get("lon") is not None:
+                at = u.get("pos_at") or now
+                track = self.tracks.setdefault(
+                    u["mmsi"], deque(maxlen=self.TRACK_POINTS)
+                )
+                if not track or at - track[-1][2] >= self.TRACK_EVERY_S:
+                    track.append((u["lon"], u["lat"], at))
         self.updated = now
 
     def prune(self, now: float | None = None) -> int:
@@ -428,6 +442,7 @@ class LiveSea:
                 drop.append(mmsi)
         for mmsi in drop:
             self.vessels.pop(mmsi, None)
+            self.tracks.pop(mmsi, None)
         return len(drop)
 
     def positioned(self) -> list[dict]:
