@@ -108,13 +108,31 @@ room, readable from a few metres away:
 - The map tours your home, then each theatre (most tense first), 25 seconds
   a stop, with a caption showing the theatre's tension and top event. A
   new critical event interrupts the tour, flies to the event and holds it
-  for a minute.
+  for a minute. The tour, its timing and the layers can all be changed
+  (below).
 - The right column shows world tension, events, military aircraft,
   critical events and GPS jam cells in large type, the top five events and
   a live news channel.
 
-Settings > Display > **Wall** turns the live news on or off, picks its
-channel (your news player's by default) and adds up to four clocks.
+Settings > Display > **Wall** sets how the Wall looks when you open it;
+each paired screen has the same settings of its own under Settings >
+Displays (**Wall settings** next to the screen):
+
+- **Tour:** any mix of home, every theatre, one theatre, or places. Add a
+  place by searching for it, typing coordinates, or pasting a map link
+  (the Map's share button) to use that exact view; choose City, Region,
+  Country or Continent zoom for searched places. Reorder with the arrows.
+  Leave a single stop to keep the screen on that area (the caption reads
+  *Watching*).
+- **Seconds per stop** (10 to 600) and whether **new critical events
+  interrupt** the tour.
+- **Map layers:** country tension, events, military aircraft, conflict
+  zone bulletins, GPS interference, nuclear plants, submarine cables,
+  military bases and SIGMETs.
+- **Live news** on or off, its **channel**, and up to four extra
+  **clocks**.
+
+Press **Save**; a running screen picks the change up within a minute.
 - A ticker of the latest events runs along the bottom, with clocks for UTC
   and home at the top.
 - For long hours on screen: the layout drifts a pixel or two every few

@@ -10,6 +10,11 @@
 
 Pairings live in API memory for ten minutes. Unpairing a screen disables
 its account and ends its sessions, so nothing on the device keeps working.
+
+Each screen's wall settings (tour, layers, news, clocks) are its display
+account's "wall" preference; admins read and set them through
+/api/admin/displays/{id}/wall, and the screen re-reads /api/me each
+minute.
 """
 
 import secrets as pysecrets
@@ -28,7 +33,8 @@ from argus.api.deps import (
     set_session_cookies,
 )
 from argus.db import utcnow
-from argus.models import User, UserSession
+from argus.models import User, UserPreferences, UserSession
+from argus.schemas import HomeLocation, WallPrefs
 from argus.security import hash_password, new_token, token_digest
 from argus.services import audit, create_session
 
@@ -229,3 +235,61 @@ async def unpair(
     )
     await db.commit()
     return {"ok": True}
+
+
+async def _screen(db, user_id: int) -> User:
+    user = await db.get(User, user_id)
+    if user is None or user.role != "display":
+        raise HTTPException(404, "No screen with that id.")
+    return user
+
+
+class ScreenWallIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    wall: WallPrefs
+    # The screen's home: its home tour stop, clock and night dimming.
+    home: HomeLocation | None = None
+
+
+@router.get("/api/admin/displays/{user_id}/wall", dependencies=[ManageUsers])
+async def get_wall(user_id: int, db: DbDep):
+    """A screen's wall settings ({} means the built-in wall) and home."""
+    await _screen(db, user_id)
+    prefs = await db.get(UserPreferences, user_id)
+    data = (prefs.data or {}) if prefs else {}
+    return {"wall": data.get("wall") or {}, "home": data.get("home")}
+
+
+@router.put("/api/admin/displays/{user_id}/wall")
+async def set_wall(
+    user_id: int,
+    body: ScreenWallIn,
+    request: Request,
+    db: DbDep,
+    session: UserSession = ManageUsers,
+):
+    """Replace a screen's wall settings and home."""
+    user = await _screen(db, user_id)
+    prefs = await db.get(UserPreferences, user_id)
+    if prefs is None:
+        prefs = UserPreferences(user_id=user_id, data={})
+        db.add(prefs)
+    wall = body.wall.model_dump(exclude_none=True)
+    home = body.home.model_dump() if body.home else None
+    data = dict(prefs.data or {})
+    for key, value in (("wall", wall), ("home", home)):
+        if value:
+            data[key] = value
+        else:
+            data.pop(key, None)
+    prefs.data = data
+    await audit(
+        db,
+        "display.wall",
+        user_id=session.user_id,
+        ip=client_ip(request),
+        display=user.id,
+    )
+    await db.commit()
+    return {"wall": wall, "home": home}

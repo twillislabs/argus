@@ -143,7 +143,12 @@ parts connect.
   (`app.state.pairings`, one uvicorn process); approving creates a
   display-role user, and the screen's poll gets a remember-me session.
   `/pair` is the only page shown signed out besides login and setup;
-  display users are redirected to `/wall`.
+  display users are redirected to `/wall`. What a wall shows is the
+  `wall` preference (`schemas.WallPrefs`: stops, stop_s, interrupt,
+  layers, news, channel, zones), edited by `components/WallEditor.tsx`;
+  admins set a screen's (and its home) via
+  `/api/admin/displays/{id}/wall`. WallPage re-reads `/api/me` each
+  minute. New wall layers go in `WALL_LAYERS` (schemas.py and api.ts).
 - Weather: NWS alerts (`nws`, raw kind `wxalert`) and SPC outlooks
   (`spc`, kind `outlook`) in `collectors/weather.py`, served by
   `api/weather.py` (also Open-Meteo `/api/weather/now` and the home's NWS

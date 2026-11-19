@@ -334,6 +334,12 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 tr.dimrow td { color: var(--dim); }
 .wxtiles .tile .mono { font-size: 15px; }
 
+/* Tables in cards (Settings, Brief): left-aligned columns, quiet headers. */
+.tblwrap table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.tblwrap th { text-align: left; font-weight: 500; font-size: 10.5px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.07em; padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tblwrap td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tblwrap td.mono { white-space: nowrap; }
+.tblwrap th:last-child:empty, .tblwrap td:last-child:has(.btn) { text-align: right; width: 1%; white-space: nowrap; }
 /* Brief tables (mock-up): compact rows, quiet headers, clickable rows. */
 .brief table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .brief th { text-align: left; font-weight: 500; font-size: 10.5px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.07em; padding: 5px 8px; border-bottom: 1px solid var(--line); }
@@ -343,3 +349,15 @@ tr.dimrow td { color: var(--dim); }
 .sevtag { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .brief tr.clickrow { cursor: pointer; }
 .brief tr.clickrow:hover td, .brief tr.clickrow:focus-visible td { background: var(--surface-2); }
+/* Wall settings (components/WallEditor.tsx). */
+.srow.col { flex-direction: column; align-items: stretch; }
+.stoplist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.stoplist li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 8px; background: var(--surface-2); border-radius: 4px; }
+.stopbtns, .rowbtns { display: inline-flex; gap: 4px; }
+.stopadd, .stopfind { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.stopadd select, .stopfind select { background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 4px 6px; color: var(--text); }
+.stopfind input { flex: 1; min-width: 220px; background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 5px 8px; color: var(--text); }
+.stopresults { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; justify-items: start; }
+.wlayers { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 16px; }
+.wlayer { display: flex !important; align-items: center; gap: 8px; cursor: pointer; }
+.numin { width: 80px; background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 4px 6px; color: var(--text); }

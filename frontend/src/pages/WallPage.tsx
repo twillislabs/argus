@@ -13,10 +13,14 @@ import {
   getEvents,
   getGps,
   getMapConfig,
+  getMe,
   getTension,
   type GpsCell,
   type Me,
   type Tension,
+  type TensionTheatre,
+  wallLayerOn,
+  type WallStop,
 } from '../lib/api';
 import { ago, SEVERITY_COLOR, SEVERITY_NAME, zoneTime } from '../lib/format';
 import { DEFAULT_AIRSPACE } from '../map/airspaceLayer';
@@ -36,6 +40,27 @@ interface Stop {
 }
 
 const STOP_S = 25;
+const NO_EVENTS: EventItem[] = [];
+const DEFAULT_STOPS: WallStop[] = [{ kind: 'home' }, { kind: 'theatres' }];
+
+function theatreStop(t: TensionTheatre): Stop {
+  const [w, s, e, n] = t.bbox;
+  return {
+    key: t.key,
+    name: t.name,
+    lat: (s + n) / 2,
+    lon: (w + e) / 2,
+    height: Math.max(e - w, n - s) * 140_000,
+    caption:
+      'Tension ' +
+      t.level +
+      ' (' +
+      (t.change_24h >= 0 ? '+' : '') +
+      t.change_24h +
+      ' in 24h)' +
+      (t.top[0] ? ' · ' + t.top[0].title : ''),
+  };
+}
 // A new critical event holds the screen this long before the tour resumes.
 const HOLD_S = 60;
 
@@ -112,14 +137,30 @@ export default function WallPage({ me }: { me: Me }) {
   useIdleCursor();
   const [imagery, setImagery] = useState<Imagery | null>(null);
   const [tension, setTension] = useState<Tension | null>(null);
-  const [events, setEvents] = useState<EventItem[]>([]);
+  // null until the first answer.
+  const [loadedEvents, setEvents] = useState<EventItem[] | null>(null);
+  const events = loadedEvents ?? NO_EVENTS;
   const [aircraft, setAircraft] = useState<Aircraft[]>([]);
   const [gpsCells, setGpsCells] = useState<GpsCell[]>([]);
   const [airspace, setAirspace] = useState<AirspaceItem[]>([]);
-  const home = me.preferences.home ?? null;
-  const wall = me.preferences.wall ?? {};
+  // Settings can change while the screen runs (an admin edits it in
+  // Settings > Displays): re-read them every minute.
+  const [prefs, setPrefs] = useState(me.preferences);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      getMe()
+        .then((m) => setPrefs(m.preferences))
+        .catch(() => undefined);
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const home = prefs.home ?? null;
+  const wall = prefs.wall ?? {};
+  const stopS = wall.stop_s ?? STOP_S;
+  const interrupts = wall.interrupt !== false;
+  const on = (id: Parameters<typeof wallLayerOn>[1]) => wallLayerOn(wall, id);
   const zones = (wall.zones ?? []).slice(0, 4);
-  const channel = channelById(wall.channel ?? (me.preferences.news as { channel?: string } | undefined)?.channel ?? DEFAULT_TABS[0]);
+  const channel = channelById(wall.channel ?? (prefs.news as { channel?: string } | undefined)?.channel ?? DEFAULT_TABS[0]);
 
   useEffect(() => {
     document.title = 'Wall · Argus';
@@ -138,6 +179,7 @@ export default function WallPage({ me }: { me: Me }) {
     ]);
     if (t.status === 'fulfilled') setTension(t.value);
     if (e.status === 'fulfilled') setEvents(e.value.events);
+    else setEvents((x) => x ?? []);
     if (a.status === 'fulfilled') setAircraft(a.value.aircraft.filter((x) => x.mil));
     if (g.status === 'fulfilled') setGpsCells(g.value.cells);
     if (s.status === 'fulfilled') setAirspace(s.value.items);
@@ -148,30 +190,35 @@ export default function WallPage({ me }: { me: Me }) {
     return () => window.clearInterval(id);
   }, [load]);
 
-  // The tour: home, then each theatre, most tense first.
+  // The tour, from the screen's settings; by default home, then each
+  // theatre, most tense first.
+  const plan = JSON.stringify(wall.stops?.length ? wall.stops : DEFAULT_STOPS);
   const stops = useMemo<Stop[]>(() => {
     const out: Stop[] = [];
-    if (home) out.push({ key: 'home', name: home.name, lat: home.lat, lon: home.lon, height: 1_800_000, caption: 'Home' });
-    for (const t of [...(tension?.theatres ?? [])].sort((a, b) => b.level - a.level)) {
-      const [w, s, e, n] = t.bbox;
-      out.push({
-        key: t.key,
-        name: t.name,
-        lat: (s + n) / 2,
-        lon: (w + e) / 2,
-        height: Math.max(e - w, n - s) * 140_000,
-        caption:
-          'Tension ' +
-          t.level +
-          ' (' +
-          (t.change_24h >= 0 ? '+' : '') +
-          t.change_24h +
-          ' in 24h)' +
-          (t.top[0] ? ' · ' + t.top[0].title : ''),
-      });
-    }
-    return out;
-  }, [home, tension]);
+    const theatres = tension?.theatres ?? [];
+    (JSON.parse(plan) as WallStop[]).forEach((st, i) => {
+      if (st.kind === 'home' && home) {
+        out.push({ key: 'home', name: home.name, lat: home.lat, lon: home.lon, height: 1_800_000, caption: 'Home' });
+      } else if (st.kind === 'theatres') {
+        for (const t of [...theatres].sort((a, b) => b.level - a.level)) out.push(theatreStop(t));
+      } else if (st.kind === 'theatre') {
+        const t = theatres.find((x) => x.key === st.key);
+        if (t) out.push(theatreStop(t));
+      } else if (st.kind === 'place' && st.lat != null && st.lon != null) {
+        out.push({
+          key: 'place:' + i,
+          name: st.name ?? 'Place',
+          lat: st.lat,
+          lon: st.lon,
+          height: st.height ?? 1_500_000,
+          caption: '',
+        });
+      }
+    });
+    // The same theatre twice in a row (listed and in "every theatre") once.
+    return out.filter((x, i) => i === 0 || out[i - 1].key !== x.key);
+  }, [plan, home, tension]);
+  const pinned = stops.length === 1;
 
   const [stopIndex, setStopIndex] = useState(0);
   const [stopAt, setStopAt] = useState(() => Date.now());
@@ -180,35 +227,37 @@ export default function WallPage({ me }: { me: Me }) {
 
   // New critical events interrupt the tour (not the ones there at start).
   useEffect(() => {
-    const critical = events.filter((e) => e.severity >= 4);
+    // Wait for the first answer: what's there when the wall opens is old.
+    if (loadedEvents === null) return;
+    const critical = loadedEvents.filter((e) => e.severity >= 4);
     if (seenCritical.current === null) {
       seenCritical.current = new Set(critical.map((e) => e.id));
       return;
     }
     const fresh = critical.find((e) => !seenCritical.current?.has(e.id));
     for (const e of critical) seenCritical.current.add(e.id);
-    if (fresh) {
+    if (fresh && interrupts) {
       setInterrupt({ event: fresh, until: Date.now() + HOLD_S * 1000 });
       globe.current?.flyTo(fresh.lat, fresh.lon, 600_000);
     }
-  }, [events]);
+  }, [loadedEvents, interrupts]);
 
-  // Advance the tour every STOP_S seconds (paused while interrupted).
+  // Advance the tour every stopS seconds (paused while interrupted).
   useEffect(() => {
     if (!stops.length) return;
     if (interrupt && interrupt.until > now.getTime()) return;
     if (interrupt) setInterrupt(null);
-    if (now.getTime() - stopAt >= STOP_S * 1000) {
+    if (!pinned && now.getTime() - stopAt >= stopS * 1000) {
       const next = (stopIndex + 1) % stops.length;
       setStopIndex(next);
       setStopAt(now.getTime());
     }
-  }, [now, stops, stopIndex, stopAt, interrupt]);
+  }, [now, stops, stopIndex, stopAt, interrupt, pinned, stopS]);
   const stop = stops[stopIndex % Math.max(1, stops.length)];
   useEffect(() => {
     if (stop && !interrupt) globe.current?.flyTo(stop.lat, stop.lon, stop.height);
     // Fly when the stop changes, not on every tension refresh.
-  }, [stop?.key, interrupt]);
+  }, [stop?.key, stop?.lat, stop?.lon, stop?.height, interrupt]);
 
   const top = useMemo(
     () => [...events].sort((a, b) => b.severity - a.severity || Date.parse(b.last_updated) - Date.parse(a.last_updated)).slice(0, 5),
@@ -219,7 +268,7 @@ export default function WallPage({ me }: { me: Me }) {
     [events],
   );
   const w = tension?.world;
-  const nextIn = Math.max(0, STOP_S - Math.floor((now.getTime() - stopAt) / 1000));
+  const nextIn = Math.max(0, stopS - Math.floor((now.getTime() - stopAt) / 1000));
   // Dim at night (home time, 22:00 to 06:00).
   const hour = Number(zoneTime(home?.tz ?? 'UTC').slice(0, 2));
   const night = hour >= 22 || hour < 6;
@@ -267,17 +316,17 @@ export default function WallPage({ me }: { me: Me }) {
           airspace={airspace}
           // As in the mock-up: closed airspace hatched, GPS hexes, nuclear
           // plants and submarine cables.
-          airspaceFilters={{ ...DEFAULT_AIRSPACE, czib: true, gps: true }}
+          airspaceFilters={{ ...DEFAULT_AIRSPACE, czib: on('czib'), gps: on('gps'), sigmet: on('sigmet') }}
           selectedAirspace={null}
           gpsCells={gpsCells}
           tensionCountries={tension?.countries ?? []}
-          showTension
-          infra={{ ...DEFAULT_INFRA, nuclear: true, cables: true }}
+          showTension={on('tension')}
+          infra={{ ...DEFAULT_INFRA, nuclear: on('nuclear'), cables: on('cables'), bases: on('bases') }}
           home={home}
-          events={events}
+          events={on('events') ? events : []}
           selectedId={interrupt?.event.id ?? null}
           onSelect={() => undefined}
-          aircraft={aircraft}
+          aircraft={on('aircraft') ? aircraft : []}
           selectedHex={null}
           trail={null}
           camera="free"
@@ -287,10 +336,14 @@ export default function WallPage({ me }: { me: Me }) {
             <small className="mono">
               {interrupt
                 ? 'NEW ' + SEVERITY_NAME[interrupt.event.severity].toUpperCase() + ' EVENT'
-                : 'TOUR ' + (stopIndex + 1) + '/' + stops.length + ' · NEXT IN ' + nextIn + ' S'}
+                : pinned
+                  ? 'WATCHING'
+                  : 'TOUR ' + (stopIndex + 1) + '/' + stops.length + ' · NEXT IN ' + nextIn + ' S'}
             </small>
             <b>{interrupt ? interrupt.event.title : stop?.name}</b>
-            <span>{interrupt ? interrupt.event.place + ' · ' + ago(interrupt.event.first_seen) : stop?.caption}</span>
+            {(interrupt || stop?.caption) && (
+              <span>{interrupt ? interrupt.event.place + ' · ' + ago(interrupt.event.first_seen) : stop?.caption}</span>
+            )}
           </div>
         )}
       </section>

@@ -6,6 +6,7 @@ import AppHeader from '../components/AppHeader';
 import HomePicker from '../components/HomePicker';
 import ImageryCard from '../components/ImageryCard';
 import UsersCard from '../components/UsersCard';
+import WallEditor from '../components/WallEditor';
 import { CHANNELS, DEFAULT_TABS } from '../config/newsChannels';
 import {
   api,
@@ -13,6 +14,9 @@ import {
   getDefaults,
   getKeys,
   getReceivers,
+  getScreenWall,
+  putScreenWall,
+  type WallPrefs,
   type Home,
   type KeyState,
   type Me,
@@ -241,8 +245,32 @@ interface DisplayRow {
 
 // Pair wall screens: the screen opens /pair and shows a code; enter it
 // here with a name. Unpair to cut a screen off.
+// One paired screen's wall settings, loaded when opened.
+function ScreenWall({ row }: { row: DisplayRow }) {
+  const [data, setData] = useState<{ wall: WallPrefs; home: Home | null } | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    getScreenWall(row.id)
+      .then(setData)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Could not load.'));
+  }, [row.id]);
+  if (error) return <p className="quiet small pad">{error}</p>;
+  if (!data) return <p className="quiet small pad">Loading…</p>;
+  return (
+    <WallEditor
+      value={data.wall}
+      home={data.home}
+      withHome
+      onSave={async (wall, home) => {
+        setData(await putScreenWall(row.id, wall, home));
+      }}
+    />
+  );
+}
+
 function DisplaysSection() {
   const [rows, setRows] = useState<DisplayRow[]>([]);
+  const [open, setOpen] = useState<number | null>(null);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [status, setStatus] = useState('');
@@ -340,9 +368,14 @@ function DisplaysSection() {
                   <td className="mono">{r.last_seen ? ago(r.last_seen) : '—'}</td>
                   <td>
                     {r.active ? (
-                      <button className="btn small" onClick={() => void unpair(r)}>
-                        Unpair
-                      </button>
+                      <span className="rowbtns">
+                        <button className="btn small" onClick={() => setOpen(open === r.id ? null : r.id)}>
+                          {open === r.id ? 'Close' : 'Wall settings'}
+                        </button>
+                        <button className="btn small" onClick={() => void unpair(r)}>
+                          Unpair
+                        </button>
+                      </span>
                     ) : (
                       <span className="quiet small">Unpaired</span>
                     )}
@@ -360,6 +393,16 @@ function DisplaysSection() {
           </table>
         </div>
       </section>
+      {rows
+        .filter((r) => r.active && r.id === open)
+        .map((r) => (
+          <section className="card" key={r.id}>
+            <div className="ph">
+              <h2>Wall settings · {r.name}</h2>
+            </div>
+            <ScreenWall row={r} />
+          </section>
+        ))}
     </>
   );
 }
@@ -571,24 +614,6 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
 // The Wall page (/wall): live news on or off, which channel, and up to
 // four extra clocks.
 function WallSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
-  const saved = me.preferences.wall ?? {};
-  const [news, setNews] = useState(saved.news !== false);
-  const [channel, setChannel] = useState(saved.channel ?? '');
-  const [zones, setZones] = useState<{ label: string; tz: string }[]>(saved.zones ?? []);
-  const [status, setStatus] = useState('');
-  const zoneNames = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.('timeZone') ?? [];
-
-  async function save(next: { news?: boolean; channel?: string; zones?: { label: string; tz: string }[] }) {
-    const wall = { news, channel: channel || undefined, zones, ...next };
-    try {
-      await savePreferences({ wall });
-      await onSaved();
-      setStatus('Saved.');
-    } catch (err) {
-      setStatus(err instanceof Error ? err.message : 'Could not save.');
-    }
-  }
-
   return (
     <section className="card">
       <div className="ph">
@@ -597,105 +622,17 @@ function WallSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) 
           Open the wall
         </Link>
       </div>
-      <div className="srows">
-        <label className="srow">
-          <span className="srow-label">
-            <b>Live news</b>
-            <small>A live channel in the wall&apos;s right column</small>
-          </span>
-          <span className="lrow flat">
-            <input
-              type="checkbox"
-              checked={news}
-              onChange={(e) => {
-                setNews(e.target.checked);
-                void save({ news: e.target.checked });
-              }}
-            />
-            <span className="tog" />
-          </span>
-        </label>
-        <div className="srow">
-          <span className="srow-label">
-            <b>Channel</b>
-            <small>Defaults to the first channel of your news player</small>
-          </span>
-          <select
-            value={channel}
-            disabled={!news}
-            onChange={(e) => {
-              setChannel(e.target.value);
-              void save({ channel: e.target.value || undefined });
-            }}
-          >
-            <option value="">Your news player&apos;s channel</option>
-            {CHANNELS.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="srow">
-          <span className="srow-label">
-            <b>Clocks</b>
-            <small>UTC and home always show; add up to four more</small>
-          </span>
-          <div className="zonelist">
-            {zones.map((z, i) => (
-              <div key={i} className="zonerow">
-                <input
-                  value={z.label}
-                  maxLength={16}
-                  placeholder="Label"
-                  aria-label="Clock label"
-                  onChange={(e) => setZones(zones.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
-                  onBlur={() => void save({})}
-                />
-                <select
-                  value={z.tz}
-                  aria-label="Time zone"
-                  onChange={(e) => {
-                    const next = zones.map((x, j) => (j === i ? { ...x, tz: e.target.value } : x));
-                    setZones(next);
-                    void save({ zones: next });
-                  }}
-                >
-                  {zoneNames.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="btn small"
-                  aria-label="Remove clock"
-                  onClick={() => {
-                    const next = zones.filter((_, j) => j !== i);
-                    setZones(next);
-                    void save({ zones: next });
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            {zones.length < 4 && (
-              <button
-                className="btn small"
-                onClick={() => {
-                  const next = [...zones, { label: 'Kyiv', tz: 'Europe/Kyiv' }];
-                  setZones(next);
-                  void save({ zones: next });
-                }}
-              >
-                Add clock
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-      {status && <p className="quiet small pad">{status}</p>}
+      <p className="quiet small pad">
+        How <span className="mono">/wall</span> looks when you open it. Paired screens have their own settings under
+        Displays.
+      </p>
+      <WallEditor
+        value={me.preferences.wall ?? {}}
+        onSave={async (wall) => {
+          await savePreferences({ wall });
+          await onSaved();
+        }}
+      />
     </section>
   );
 }

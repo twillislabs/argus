@@ -68,5 +68,6 @@ password. The code is valid for ten minutes and only works once; the
 screen holds a secret token that never leaves it, and the code alone
 can't sign anything in. Each screen has its own *display* account that can
 only open the Wall. Pairing, approving and unpairing are in the audit log
-(`display.approved`, `display.paired`, `display.unpaired`), and unpairing
+(`display.approved`, `display.paired`, `display.unpaired`; changes to a
+screen's wall settings are `display.wall`), and unpairing
 ends the screen's sessions straight away.

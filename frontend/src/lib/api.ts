@@ -22,6 +22,53 @@ export interface Home {
   tz: string;
 }
 
+// A wall screen's tour stop: home, every theatre (most tense first), one
+// theatre, or a place.
+export interface WallStop {
+  kind: 'home' | 'theatres' | 'theatre' | 'place';
+  key?: string;
+  name?: string;
+  lat?: number;
+  lon?: number;
+  height?: number;
+}
+
+export type WallLayer = 'tension' | 'events' | 'aircraft' | 'czib' | 'gps' | 'nuclear' | 'cables' | 'bases' | 'sigmet';
+
+// What the wall shows (backend schemas.WallPrefs). Unset: the built-in wall.
+export interface WallPrefs {
+  news?: boolean;
+  channel?: string;
+  zones?: { label: string; tz: string }[];
+  stops?: WallStop[];
+  stop_s?: number;
+  interrupt?: boolean;
+  layers?: Partial<Record<WallLayer, boolean>>;
+}
+
+export const WALL_LAYERS: { id: WallLayer; label: string; on: boolean }[] = [
+  { id: 'tension', label: 'Country tension', on: true },
+  { id: 'events', label: 'Events', on: true },
+  { id: 'aircraft', label: 'Military aircraft', on: true },
+  { id: 'czib', label: 'Conflict zone bulletins', on: true },
+  { id: 'gps', label: 'GPS interference', on: true },
+  { id: 'nuclear', label: 'Nuclear plants', on: true },
+  { id: 'cables', label: 'Submarine cables', on: true },
+  { id: 'bases', label: 'Military bases', on: false },
+  { id: 'sigmet', label: 'SIGMETs', on: false },
+];
+
+export const wallLayerOn = (w: WallPrefs | undefined, id: WallLayer): boolean =>
+  w?.layers?.[id] ?? WALL_LAYERS.find((l) => l.id === id)?.on ?? false;
+
+export const getScreenWall = (id: number) =>
+  api<{ wall: WallPrefs; home: Home | null }>('/api/admin/displays/' + id + '/wall');
+export const putScreenWall = (id: number, wall: WallPrefs, home: Home | null) =>
+  api<{ wall: WallPrefs; home: Home | null }>('/api/admin/displays/' + id + '/wall', {
+    method: 'PUT',
+    body: { wall, home },
+  });
+
 export interface Preferences {
   home?: Home;
   basemap?: string;
@@ -31,7 +78,7 @@ export interface Preferences {
   units?: 'imperial' | 'metric';
   drawings?: unknown[];
   show_route?: boolean;
-  wall?: { zones?: { label: string; tz: string }[]; channel?: string; news?: boolean };
+  wall?: WallPrefs;
   video?: { muted: boolean; volume: number };
   [key: string]: unknown;
 }

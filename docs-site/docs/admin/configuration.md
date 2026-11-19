@@ -155,6 +155,10 @@ without typing a password on it:
 
 Each screen gets its own *display* account: it can only see the Wall, its
 session doesn't time out when idle, and no password is kept on the device.
-**Unpair** in Settings > Displays signs it out at once and disables its
-account. Codes last ten minutes; the screen fetches a new one when its
+**Wall settings** next to a screen sets what it shows: its home (for the
+home stop, home clock and night dimming), the tour, seconds per stop,
+critical-event interruptions, map layers, news and clocks (see
+[the Wall](../using/map.md#wall)). The screen picks changes up within a
+minute; nothing needs re-pairing. **Unpair** in Settings > Displays signs
+it out at once and disables its account. Codes last ten minutes; the screen fetches a new one when its
 code runs out.

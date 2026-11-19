@@ -161,3 +161,13 @@ export function takeShareLink(): Share | null {
 // Where the map should open next (set by the Brief page's theatre cards,
 // picked up once by MapPage's applyShare).
 export const FLY_KEY = 'argus-fly';
+
+// The camera in a map link (the Map's share button), for wall stops.
+export function linkCamera(link: string): { lat: number; lon: number; height: number } | null {
+  const i = link.indexOf('#');
+  const p = new URLSearchParams(i >= 0 ? link.slice(i + 1) : link);
+  const [lon, lat, height] = (p.get('v') ?? '').split(',').map(Number);
+  if (![lon, lat, height].every(Number.isFinite)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180 || height < 500) return null;
+  return { lat, lon, height: Math.min(height, 40_000_000) };
+}

@@ -123,6 +123,87 @@ class AirPreferences(BaseModel):
     focus: str = Field(default="", max_length=24)
 
 
+class WallClock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=24)
+    tz: str = Field(min_length=1, max_length=64)
+
+    @field_validator("tz")
+    @classmethod
+    def known_zone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError("unknown time zone") from exc
+        return value
+
+
+class WallStop(BaseModel):
+    """One stop on a wall screen's tour: home, every theatre (most tense
+    first), one theatre by key, or a place."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["home", "theatres", "theatre", "place"]
+    key: str | None = Field(default=None, max_length=40)
+    name: str | None = Field(default=None, max_length=80)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lon: float | None = Field(default=None, ge=-180, le=180)
+    height: float | None = Field(default=None, ge=500, le=40_000_000)
+
+    @model_validator(mode="after")
+    def complete(self) -> "WallStop":
+        if self.kind == "theatre" and not self.key:
+            raise ValueError("a theatre stop needs its key")
+        if self.kind == "place" and (
+            self.lat is None or self.lon is None or not self.name
+        ):
+            raise ValueError("a place stop needs a name, lat and lon")
+        return self
+
+
+WALL_LAYERS = (
+    "tension",
+    "events",
+    "aircraft",
+    "czib",
+    "gps",
+    "nuclear",
+    "cables",
+    "bases",
+    "sigmet",
+)
+
+
+class WallPrefs(BaseModel):
+    """What a wall screen shows. Unset fields keep the built-in wall."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    news: bool | None = None
+    channel: str | None = Field(default=None, max_length=40)
+    zones: list[WallClock] | None = Field(default=None, max_length=4)
+    # None: home, then every theatre. One stop pins the screen there.
+    stops: list[WallStop] | None = Field(default=None, max_length=30)
+    stop_s: int | None = Field(default=None, ge=10, le=600)
+    interrupt: bool | None = None
+    layers: dict[str, bool] | None = None
+
+    @field_validator("layers")
+    @classmethod
+    def known_layers(cls, value: dict[str, bool] | None):
+        if value is not None:
+            unknown = set(value) - set(WALL_LAYERS)
+            if unknown:
+                raise ValueError(
+                    "unknown wall layers: {0}".format(
+                        ", ".join(sorted(unknown))
+                    )
+                )
+        return value
+
+
 class Preferences(BaseModel):
     """Per-user settings. Unknown keys are rejected to keep this small."""
 
@@ -144,8 +225,8 @@ class Preferences(BaseModel):
     weather: dict[str, bool] | None = None
     units: Literal["imperial", "metric"] | None = None
     show_route: bool | None = None
-    # Wall page: live news, channel and extra clocks.
-    wall: dict[str, Any] | None = None
+    # Wall page (/wall): news, clocks, tour and layers.
+    wall: WallPrefs | None = None
     # Shapes and notes drawn on the map (map/drawTools.ts).
     drawings: list[dict[str, Any]] | None = Field(default=None, max_length=200)
     show_banner: bool | None = None
