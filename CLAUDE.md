@@ -170,6 +170,9 @@ parts connect.
 - The globe is created with `orderIndependentTranslucency: false`; add
   `?fps=1` to the URL for a frame-rate counter (our own `.fpsbox`;
   Cesium's needs its widget CSS, which isn't loaded).
+  MSAA is 4x in 3D and off in 2D (`applyMsaa`): 2D fills the canvas.
+  `MapMode2D.ROTATE` looked like it stalled 2D tile loading; leave
+  infinite scroll.
 - 3D models: one per kind (`build_models.py`), chosen by
   `aircraftModel`/`shipModel` in `map/closeModels.ts` and loaded on
   first use.

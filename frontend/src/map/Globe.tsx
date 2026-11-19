@@ -680,10 +680,17 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       applyFade();
       applyDepth();
     });
+    // 2D fills the whole canvas, so 4x MSAA (Cesium's default) quadruples
+    // the pixel work for lines that are flat anyway: off in 2D.
+    const applyMsaa = () => {
+      scene.msaaSamples = scene.mode === SceneMode.SCENE2D ? 1 : 4;
+    };
     const removeMorph = scene.morphComplete.addEventListener(() => {
       depthNow = -1;
       applyDepth();
+      applyMsaa();
     });
+    applyMsaa();
     const removeMoveEnd = v.camera.moveEnd.addEventListener(() => {
       onViewRef.current?.(viewBbox(v), v.camera.positionCartographic.height);
     });
