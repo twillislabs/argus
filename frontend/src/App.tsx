@@ -1,49 +1,46 @@
-import { useCallback, useEffect, useState } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useCallback, useEffect, useState } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
-import { ApiError, getMe, getSetupStatus, type Me } from "./lib/api";
-import { stashShareLink } from "./lib/share";
+import { ApiError, getMe, getSetupStatus, type Me } from './lib/api';
+import { stashShareLink } from './lib/share';
 
 // Keep a share link through the sign-in redirect.
 stashShareLink();
-import ChangePasswordPage from "./pages/ChangePasswordPage";
-import LoginPage from "./pages/LoginPage";
-import MapPage from "./pages/MapPage";
-import NewsPage from "./pages/NewsPage";
-import SettingsPage from "./pages/SettingsPage";
-import SetupPage from "./pages/SetupPage";
-import { setUnits } from "./lib/units";
-import Tooltips from "./components/Tooltips";
+import ChangePasswordPage from './pages/ChangePasswordPage';
+import LoginPage from './pages/LoginPage';
+import MapPage from './pages/MapPage';
+import NewsPage from './pages/NewsPage';
+import SettingsPage from './pages/SettingsPage';
+import SetupPage from './pages/SetupPage';
+import { setUnits } from './lib/units';
+import Tooltips from './components/Tooltips';
 
 type Boot =
-  | { state: "loading" }
-  | { state: "setup" }
-  | { state: "signedOut" }
-  | { state: "signedIn"; me: Me }
-  | { state: "error"; message: string };
+  | { state: 'loading' }
+  | { state: 'setup' }
+  | { state: 'signedOut' }
+  | { state: 'signedIn'; me: Me }
+  | { state: 'error'; message: string };
 
 export default function App() {
-  const [boot, setBoot] = useState<Boot>({ state: "loading" });
+  const [boot, setBoot] = useState<Boot>({ state: 'loading' });
   const location = useLocation();
 
   const refresh = useCallback(async () => {
     try {
       const status = await getSetupStatus();
       if (status.needs_setup) {
-        setBoot({ state: "setup" });
+        setBoot({ state: 'setup' });
         return;
       }
-      setBoot({ state: "signedIn", me: await getMe() });
+      setBoot({ state: 'signedIn', me: await getMe() });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        setBoot({ state: "signedOut" });
+        setBoot({ state: 'signedOut' });
       } else {
         setBoot({
-          state: "error",
-          message:
-            err instanceof Error
-              ? err.message
-              : "Argus could not reach its API.",
+          state: 'error',
+          message: err instanceof Error ? err.message : 'Argus could not reach its API.',
         });
       }
     }
@@ -53,10 +50,10 @@ export default function App() {
     void refresh();
   }, [refresh]);
 
-  if (boot.state === "loading") {
+  if (boot.state === 'loading') {
     return <div className="boot">Connecting to Argus…</div>;
   }
-  if (boot.state === "error") {
+  if (boot.state === 'error') {
     return (
       <div className="boot">
         <p>{boot.message}</p>
@@ -68,21 +65,21 @@ export default function App() {
   }
 
   const path = location.pathname;
-  if (boot.state === "setup" && path !== "/setup") {
+  if (boot.state === 'setup' && path !== '/setup') {
     return <Navigate to="/setup" replace />;
   }
-  if (boot.state === "signedOut" && path !== "/login") {
+  if (boot.state === 'signedOut' && path !== '/login') {
     return <Navigate to="/login" replace />;
   }
-  if (boot.state === "signedIn" && (path === "/login" || path === "/setup")) {
+  if (boot.state === 'signedIn' && (path === '/login' || path === '/setup')) {
     return <Navigate to="/" replace />;
   }
 
   // Display units for every page (Settings > Display).
-  if (boot.state === "signedIn") setUnits(boot.me.preferences.units);
+  if (boot.state === 'signedIn') setUnits(boot.me.preferences.units);
 
   // A temporary password must be replaced before anything else.
-  if (boot.state === "signedIn" && boot.me.user.must_change_password) {
+  if (boot.state === 'signedIn' && boot.me.user.must_change_password) {
     return <ChangePasswordPage me={boot.me} onDone={refresh} />;
   }
 
@@ -92,30 +89,14 @@ export default function App() {
       <Routes>
         <Route path="/setup" element={<SetupPage onDone={refresh} />} />
         <Route path="/login" element={<LoginPage onDone={refresh} />} />
-        <Route
-          path="/"
-          element={
-            boot.state === "signedIn" ? (
-              <MapPage me={boot.me} onSignedOut={refresh} />
-            ) : null
-          }
-        />
+        <Route path="/" element={boot.state === 'signedIn' ? <MapPage me={boot.me} onSignedOut={refresh} /> : null} />
         <Route
           path="/settings/:section?"
           element={
-            boot.state === "signedIn" ? (
-              <SettingsPage
-                me={boot.me}
-                onSaved={refresh}
-                onSignedOut={refresh}
-              />
-            ) : null
+            boot.state === 'signedIn' ? <SettingsPage me={boot.me} onSaved={refresh} onSignedOut={refresh} /> : null
           }
         />
-        <Route
-          path="/news"
-          element={boot.state === "signedIn" ? <NewsPage /> : null}
-        />
+        <Route path="/news" element={boot.state === 'signedIn' ? <NewsPage /> : null} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

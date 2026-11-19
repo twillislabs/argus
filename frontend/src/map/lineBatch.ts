@@ -11,8 +11,8 @@ import {
   DistanceDisplayConditionGeometryInstanceAttribute,
   GeometryInstance,
   PolylineGeometry,
-} from "@cesium/core";
-import { PolylineColorAppearance, Primitive, type Scene } from "@cesium/engine";
+} from '@cesium/core';
+import { PolylineColorAppearance, Primitive, type Scene } from '@cesium/engine';
 
 export interface LineBatch {
   primitive: Primitive;
@@ -48,9 +48,7 @@ export function lineBatch(
           ...(range
             ? {
                 distanceDisplayCondition:
-                  DistanceDisplayConditionGeometryInstanceAttribute.fromDistanceDisplayCondition(
-                    range,
-                  ),
+                  DistanceDisplayConditionGeometryInstanceAttribute.fromDistanceDisplayCondition(range),
               }
             : {}),
         },

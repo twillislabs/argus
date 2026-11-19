@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 // Themed hover tips for every element with a title attribute: the
 // title moves to data-tip (so the browser's own grey tooltip doesn't
@@ -15,7 +15,7 @@ export default function Tooltips() {
 
   useEffect(() => {
     function show(el: Element) {
-      const text = el.getAttribute("data-tip");
+      const text = el.getAttribute('data-tip');
       if (!text) return;
       const r = el.getBoundingClientRect();
       const below = r.top < 60;
@@ -27,14 +27,13 @@ export default function Tooltips() {
       });
     }
     function onOver(e: PointerEvent) {
-      const el = (e.target as Element | null)?.closest?.("[title], [data-tip]");
+      const el = (e.target as Element | null)?.closest?.('[title], [data-tip]');
       if (!el || el === current.current) return;
-      const title = el.getAttribute("title");
+      const title = el.getAttribute('title');
       if (title) {
-        el.setAttribute("data-tip", title);
-        el.removeAttribute("title");
-        if (!el.getAttribute("aria-label"))
-          el.setAttribute("aria-label", title);
+        el.setAttribute('data-tip', title);
+        el.removeAttribute('title');
+        if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', title);
       }
       current.current = el;
       window.clearTimeout(timer.current);
@@ -55,25 +54,21 @@ export default function Tooltips() {
       window.clearTimeout(timer.current);
       setTip(null);
     }
-    document.addEventListener("pointerover", onOver);
-    document.addEventListener("pointerout", onOut);
-    document.addEventListener("pointerdown", hide, true);
-    window.addEventListener("scroll", hide, true);
+    document.addEventListener('pointerover', onOver);
+    document.addEventListener('pointerout', onOut);
+    document.addEventListener('pointerdown', hide, true);
+    window.addEventListener('scroll', hide, true);
     return () => {
-      document.removeEventListener("pointerover", onOver);
-      document.removeEventListener("pointerout", onOut);
-      document.removeEventListener("pointerdown", hide, true);
-      window.removeEventListener("scroll", hide, true);
+      document.removeEventListener('pointerover', onOver);
+      document.removeEventListener('pointerout', onOut);
+      document.removeEventListener('pointerdown', hide, true);
+      window.removeEventListener('scroll', hide, true);
     };
   }, []);
 
   if (!tip) return null;
   return (
-    <div
-      className={"tip" + (tip.below ? " below" : "")}
-      role="tooltip"
-      style={{ left: tip.x, top: tip.y }}
-    >
+    <div className={'tip' + (tip.below ? ' below' : '')} role="tooltip" style={{ left: tip.x, top: tip.y }}>
       {tip.text}
     </div>
   );

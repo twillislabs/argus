@@ -46,6 +46,8 @@ every user sees the same installed region.
   layers aren't changed.
 - **3D Globe / 2D World** switches between the globe and a flat map.
 - **[** and **]** collapse the layer panel and the situation panel.
+- **Hover** over anything on the map for a card with what it is and its
+  key facts; click for the full details.
 - **Double-click** an event to zoom in on its area, or an aircraft, ship or
   satellite to follow it.
 - **Esc** leaves an aircraft view, then closes the event or aircraft and

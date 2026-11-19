@@ -7,6 +7,7 @@ import { BaseInspector, CableInspector, PlantInspector } from '../components/Inf
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
 import { CursorReadout, ScaleBar, Timeline } from '../components/MapFooter';
+import { type HoverInfo, HoverLayer } from '../components/HoverCard';
 import NewsPlayer from '../components/NewsPlayer';
 import { DEFAULT_TABS } from '../config/newsChannels';
 import SatelliteInspector from '../components/SatelliteInspector';
@@ -17,7 +18,7 @@ import LayerPanel, {
   type LayerFilters,
 } from '../components/LayerPanel';
 import SearchBox from '../components/SearchBox';
-import SituationPanel from '../components/SituationPanel';
+import SituationPanel, { BAND_LABEL } from '../components/SituationPanel';
 import {
   type Aircraft,
   type AircraftDetail,
@@ -49,7 +50,11 @@ import { connectLive, type LiveState } from '../lib/live';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import { DEFAULT_SPACE, type SatCatalog, type SpaceFilters } from '../map/satellites';
 import { TINT_FROM } from '../map/tensionLayer';
-import type { SeaFilters } from '../map/vesselLayer';
+import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
+import { aircraftColor } from '../map/aircraftLayer';
+import { BASE_KINDS, FUEL_COLOR } from '../map/infraLayer';
+import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
+import { setHover } from '../lib/hover';
 import type { AirspaceFilters } from '../map/airspaceLayer';
 import Globe, { type Basemap, BASEMAPS, type GlobeHandle, type Imagery, PHOTO_3D } from '../map/Globe';
 import { applyLayers, buildShareLink, takeShareLink } from '../lib/share';
@@ -320,6 +325,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }, [satCatalog]);
 
   const viewTimer = useRef<number | undefined>(undefined);
+  // The map item under the pointer, for the hover card (lib/hover.ts).
+  const onHover = useCallback((id: string | null, x: number, y: number) => {
+    setHover(id ? { id, x, y } : null);
+  }, []);
+
   // The area on screen when zoomed in to a region (null for wide views).
   const [viewBox, setViewBox] = useState<Bbox | null>(null);
   // passive: reported while the camera rides along with an aircraft; the
@@ -691,6 +701,96 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }
 
   // Double-click: an event zooms in on its area, an aircraft is followed.
+  // What the hover card says about a map item.
+  function hoverInfo(id: string): HoverInfo | null {
+    if (id.startsWith('ac:')) {
+      const a = aircraft.find((x) => x.hex === id.slice(3));
+      if (!a) return null;
+      const alt = a.ground ? 'on ground' : a.alt_ft !== null ? 'FL' + Math.round(a.alt_ft / 100) : '';
+      return {
+        title: (a.callsign || a.reg || a.hex.toUpperCase()) + (a.type ? ' · ' + a.type : ''),
+        color: aircraftColor(a),
+        lines: [
+          [a.mil ? (a.role ?? 'Military') : 'Civil', alt, a.gs_kt !== null ? Math.round(a.gs_kt) + ' kt' : '']
+            .filter(Boolean)
+            .join(' · '),
+          a.emergency ? 'Emergency · squawk ' + a.squawk : '',
+        ],
+      };
+    }
+    if (id.startsWith('ship:')) {
+      const v = vessels.find((x) => x.mmsi === Number(id.slice(5)));
+      if (!v) return null;
+      return {
+        title: v.name || 'MMSI ' + v.mmsi,
+        color: VESSEL_COLOR[v.category],
+        lines: [
+          [v.type, v.flag, v.sog !== null ? v.sog.toFixed(1) + ' kn' : ''].filter(Boolean).join(' · '),
+          v.destination ? '→ ' + v.destination : '',
+        ],
+      };
+    }
+    if (id.startsWith('sat:')) {
+      const m = satCatalog?.meta.find((x) => x.norad === Number(id.slice(4)));
+      return m ? { title: m.name, lines: [m.cls.toUpperCase() + ' · NORAD ' + m.norad + ' · ' + m.cospar] } : null;
+    }
+    if (id.startsWith('air:')) {
+      const item = [...airspaceItems, ...structureItems].find((x) => x.key === id.slice(4));
+      if (!item) return null;
+      const limits =
+        item.base_ft !== null || item.top_ft !== null ? (item.base_ft ?? 'SFC') + ' – ' + (item.top_ft ?? 'UNL') + ' ft' : '';
+      return { title: item.title || item.id, lines: [[item.hazard, item.area].filter(Boolean).join(' · '), limits] };
+    }
+    if (id.startsWith('gps:')) {
+      const c = gpsCells.find((x) => 'gps:' + x.id === id);
+      return c
+        ? {
+            title: 'GPS interference',
+            color: '#ff6ba1',
+            lines: [Math.round(c.share * 100) + '% of ' + c.aircraft + ' aircraft degraded · last hour'],
+          }
+        : null;
+    }
+    if (id.startsWith('tension:')) {
+      const c = tension?.countries.find((x) => x.name === id.slice(8));
+      return c
+        ? {
+            title: c.name + ' · ' + c.level,
+            color: '#ff5260',
+            lines: [BAND_LABEL[c.band] + ' · ' + c.deaths_12m.toLocaleString() + ' deaths in 12 months (UCDP)'],
+          }
+        : null;
+    }
+    if (id.startsWith('pp:')) {
+      const p = globe.current?.plant(Number(id.slice(3)));
+      return p
+        ? {
+            title: p[0],
+            color: FUEL_COLOR[p[2]] ?? FUEL_COLOR.Other,
+            lines: [p[2] + ' · ' + p[3].toLocaleString() + ' MW · ' + p[1]],
+          }
+        : null;
+    }
+    if (id.startsWith('mil:')) {
+      const b = globe.current?.base(Number(id.slice(4)));
+      return b ? { title: b[0], lines: [BASE_KINDS[b[1]] ?? b[1], b[4]] } : null;
+    }
+    if (id.startsWith('cable:')) {
+      const c = globe.current?.cable(id.slice(6));
+      return c ? { title: c.name, lines: ['Submarine cable'] } : null;
+    }
+    const e = events.find((x) => x.id === id);
+    if (!e) return null;
+    return {
+      title: e.title,
+      color: SEVERITY_COLOR[e.severity],
+      lines: [
+        TYPE_INFO[e.type].label + ' · ' + e.severity_name + (e.status === 'candidate' ? ' · unconfirmed' : ''),
+        e.place + ' · ' + ago(e.last_updated),
+      ],
+    };
+  }
+
   // Double-click: follow aircraft, ships and satellites; zoom to events.
   function focus(id: string) {
     if (id.startsWith('ac:')) {
@@ -839,6 +939,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             selectedId={selected}
             onSelect={select}
             onFocus={focus}
+            onHover={onHover}
             aircraft={aircraft}
             selectedHex={selectedHex}
             trail={trail}
@@ -988,6 +1089,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               <small>V next view · Esc exit</small>
             </div>
           )}
+          <HoverLayer describe={hoverInfo} />
           <div className="mc bl">
             <CursorReadout />
           </div>

@@ -349,6 +349,9 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onFocus?: (id: string) => void;
+  // The map item under the pointer (null when none), with its screen
+  // position relative to the map, for hover cards.
+  onHover?: (id: string | null, x: number, y: number) => void;
   aircraft: Aircraft[];
   selectedHex: string | null;
   trail: number[][] | null;
@@ -382,6 +385,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     selectedId,
     onSelect,
     onFocus,
+    onHover,
     aircraft,
     selectedHex,
     trail,
@@ -430,6 +434,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   onSelectRef.current = onSelect;
   const onFocusRef = useRef(onFocus);
   onFocusRef.current = onFocus;
+  const onHoverRef = useRef(onHover);
+  onHoverRef.current = onHover;
 
   useEffect(() => {
     if (!container.current) return;
@@ -604,15 +610,22 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       const picked = scene.pick(e.position);
       if (picked && typeof picked.id === 'string') onFocusRef.current?.(picked.id);
     }, ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+    // Pointer moves: hover card, cursor and readout, at most once a frame
+    // (picking renders the scene, so not on every mouse event).
     let pendingMove: Cartesian2 | null = null;
+    let hovered: string | null = null;
     handler.setInputAction((e: { endPosition: Cartesian2 }) => {
-      const picked = scene.pick(e.endPosition);
-      scene.canvas.style.cursor = picked && typeof picked.id === 'string' ? 'pointer' : '';
-      // The cursor readout: at most once a frame.
       if (!pendingMove) {
         window.requestAnimationFrame(() => {
-          const at = pendingMove && v.camera.pickEllipsoid(pendingMove, scene.globe.ellipsoid);
+          const pos = pendingMove;
           pendingMove = null;
+          if (!pos || v.isDestroyed()) return;
+          const picked = scene.pick(pos);
+          const id = picked && typeof picked.id === 'string' ? picked.id : null;
+          scene.canvas.style.cursor = id ? 'pointer' : '';
+          if (id !== hovered || id) onHoverRef.current?.(id, pos.x, pos.y);
+          hovered = id;
+          const at = v.camera.pickEllipsoid(pos, scene.globe.ellipsoid);
           if (!at) return setCursor({ lat: null, lon: null });
           const c = Cartographic.fromCartesian(at);
           setCursor({ lat: CesiumMath.toDegrees(c.latitude), lon: CesiumMath.toDegrees(c.longitude) });
@@ -620,6 +633,11 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       }
       pendingMove = Cartesian2.clone(e.endPosition);
     }, ScreenSpaceEventType.MOUSE_MOVE);
+    const onLeave = () => {
+      hovered = null;
+      onHoverRef.current?.(null, 0, 0);
+    };
+    scene.canvas.addEventListener('pointerleave', onLeave);
 
     viewer.current = v;
     // Test hook for automated screenshots: localStorage argusDebug=1.
@@ -651,6 +669,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['infrastructure', () => infraLayer.current?.destroy()],
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
+        ['pointer leave', () => scene.canvas.removeEventListener('pointerleave', onLeave)],
         ['widget', () => v.destroy()],
       ];
       for (const [name, step] of steps) {
