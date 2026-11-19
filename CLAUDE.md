@@ -197,6 +197,12 @@ parts connect.
   only (`FeedClient.get(..., only=)`), publishing a bare sample
   (`gps_sample`) on NATS `argus.gps`; the API feeds it to `GpsGrid` and
   nothing else (not stored, not pushed). `ARGUS_GPS_SWEEP=false` stops it.
+- Rocket launches: `argus/launches.py`, worker `launches_loop` (every
+  2 h, honouring the last success across restarts: Launch Library 2
+  allows 15 requests an hour per IP), `/api/launches`,
+  `map/launchLayer.ts` (one rocket per pad, its next launch or its
+  latest; pickable as `launch:<id>`, shown in InfoInspector). The
+  toggle is `SpaceFilters.launches`, which isn't a satellite class.
 - Director mode: `lib/tours.ts` (types, cleanTour, `/#tour=` links as
   base64url JSON), `components/TourPanel.tsx`, playback in MapPage
   (`playTour`, a token cancels it; `GlobeHandle.flyCamera` resolves

@@ -7,6 +7,7 @@ import { ALPR_COLOR } from '../map/alprLayer';
 import { BASE_COLOR, FUEL_COLOR } from '../map/infraLayer';
 import { SAT_COLOR } from '../map/satellites';
 import { VESSEL_COLOR } from '../map/vesselLayer';
+import { LAUNCH_COLOR } from '../map/launchLayer';
 
 interface Row {
   color: string;
@@ -35,7 +36,7 @@ function Section({ title, rows }: { title: string; rows: Row[] }) {
 export default function Legend({ filters, onClose }: { filters: LayerFilters; onClose: () => void }) {
   const anyEvents = Object.values(filters.types).some(Boolean);
   const sea = Object.entries(filters.sea).filter(([, on]) => on);
-  const space = Object.entries(filters.space).filter(([, on]) => on);
+  const space = Object.entries(filters.space).filter(([k, on]) => on && k !== 'launches');
   const airspace = (['tfr', 'sigmet', 'czib'] as const).filter((k) => filters.airspace[k]);
   return (
     <div className="legend-panel" role="dialog" aria-label="Legend">
@@ -117,6 +118,17 @@ export default function Legend({ filters, onClose }: { filters: LayerFilters; on
               color: k === 'starlink' ? '#9aa7ba' : SAT_COLOR[k as keyof typeof SAT_COLOR],
               label: k === 'starlink' ? 'Starlink' : k.toUpperCase(),
             }))}
+          />
+        )}
+        {filters.space.launches && (
+          <Section
+            title="Rocket launches"
+            rows={[
+              { color: LAUNCH_COLOR.soon, label: 'Within 48 hours (ringed)' },
+              { color: LAUNCH_COLOR.upcoming, label: 'Next two weeks' },
+              { color: LAUNCH_COLOR.success, label: 'Launched, success' },
+              { color: LAUNCH_COLOR.failure, label: 'Failure' },
+            ]}
           />
         )}
         {filters.reference.advisories && (

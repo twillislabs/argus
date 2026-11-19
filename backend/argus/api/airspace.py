@@ -7,9 +7,10 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import select
 
+from argus import launches
 from argus.api.deps import DbDep, SessionDep
 from argus.db import utcnow
-from argus.models import RawRecord
+from argus.models import RawRecord, ServerSetting
 from argus.openaip import Blocked
 
 router = APIRouter(tags=["airspace"])
@@ -126,6 +127,19 @@ async def wikipedia_events(session: SessionDep, db: DbDep):
         "fetched": value.get("fetched"),
         "items": value.get("items") or [],
         "attribution": "Wikipedia, Portal:Current events (CC BY-SA 4.0)",
+    }
+
+
+@router.get("/api/launches")
+async def rocket_launches(session: SessionDep, db: DbDep):
+    """Rocket launches, last three days and next two weeks (worker's
+    launches_loop)."""
+    row = await db.get(ServerSetting, "layer:launches")
+    value = row.value if row else {}
+    return {
+        "fetched": value.get("fetched"),
+        "items": value.get("items", []),
+        "attribution": launches.ATTRIBUTION,
     }
 
 

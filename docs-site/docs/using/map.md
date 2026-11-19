@@ -530,6 +530,25 @@ Two more event layers:
   such as rocket launches, live firing, exercises, cable work, piracy and
   hazards to shipping. Select one to see the area it covers.
 
+## Rocket launches
+
+**Rocket launches** (Space group, on by default) puts a rocket at each
+launch pad with a launch in the last three days or the next two weeks,
+worldwide:
+
+- **Gold, ringed:** launching within 48 hours.
+- **Violet:** later in the next two weeks.
+- **Green:** launched successfully; **red:** failed.
+
+The label names the rocket (+N when the pad has more launches coming).
+Hover for the mission, the countdown (T−) and the pad; click for the
+mission description, the launch window, the weather forecast where
+there is one, every launch at that pad and the pad's Wikipedia page.
+Times marked as a month or a day are not yet fixed.
+
+The data comes from The Space Devs' Launch Library 2 (free, no key), read
+by Argus's server every two hours.
+
 ## Satellites
 
 The **Space** group shows every active satellite CelesTrak tracks, about

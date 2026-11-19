@@ -135,6 +135,35 @@ export const putScreenWall = (id: number, wall: WallPrefs, home: Home | null, pr
     body: { wall, home, profile },
   });
 
+// Rocket launches (/api/launches): the last three days and next two
+// weeks, from Launch Library 2.
+export interface Launch {
+  id: string;
+  name: string;
+  net: string | null;
+  precision: string | null;
+  window_start: string | null;
+  window_end: string | null;
+  status: string;
+  status_name: string | null;
+  provider: string | null;
+  rocket: string | null;
+  mission: string | null;
+  description: string | null;
+  mission_type: string | null;
+  orbit: string | null;
+  pad: string | null;
+  location: string | null;
+  country: string | null;
+  pad_wiki: string | null;
+  lat: number;
+  lon: number;
+  probability: number | null;
+  webcast_live: boolean;
+}
+export const getLaunches = () =>
+  api<{ fetched: string | null; items: Launch[]; attribution: string }>('/api/launches');
+
 // Wikipedia's Current events (/api/wikipedia), newest first.
 export interface WikiItem {
   id: string;

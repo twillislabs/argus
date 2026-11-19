@@ -54,6 +54,7 @@ import type {
   Webcam,
   WikiItem,
   Home,
+  Launch,
   MapConfig,
   OutlookArea,
   TensionCountry,
@@ -69,6 +70,7 @@ import { createDrawTools, type DrawCallbacks, type Drawing, type DrawTools } fro
 import { addTensionLayer, type TensionLayer } from './tensionLayer';
 import { addAdvisoryLayer, type AdvisoryLayer } from './advisoryLayer';
 import { addWikiLayer, type WikiLayer } from './wikiLayer';
+import { addLaunchLayer, type LaunchLayer } from './launchLayer';
 import { addAlprLayer, type AlprLayer } from './alprLayer';
 import { addCamLayer, type CamLayer, WEBCAM_COLOR } from './camLayer';
 import { addWxLayer, type WeatherFilters, type WxLayer } from './wxLayer';
@@ -392,6 +394,9 @@ interface Props {
   // Wikipedia current events (map/wikiLayer.ts).
   wikiItems?: WikiItem[];
   showWiki?: boolean;
+  // Rocket launches (map/launchLayer.ts).
+  launches?: Launch[];
+  showLaunches?: boolean;
   // ALPR cameras for the view, drawn while infra.alpr is on.
   alprCameras?: AlprCamera[];
   // Traffic cameras for the view (empty when the layer is off).
@@ -454,6 +459,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     advisories,
     wikiItems,
     showWiki,
+    launches,
+    showLaunches,
     alprCameras,
     trafficCams,
     selectedCam,
@@ -505,6 +512,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const tensionLayer = useRef<TensionLayer | null>(null);
   const advisoryLayer = useRef<AdvisoryLayer | null>(null);
   const wikiLayer = useRef<WikiLayer | null>(null);
+  const launchLayer = useRef<LaunchLayer | null>(null);
   const alprLayer = useRef<AlprLayer | null>(null);
   const camLayer = useRef<CamLayer | null>(null);
   const webcamLayer = useRef<CamLayer | null>(null);
@@ -605,6 +613,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     tensionLayer.current = addTensionLayer(scene);
     advisoryLayer.current = addAdvisoryLayer(scene);
     wikiLayer.current = addWikiLayer(scene);
+    launchLayer.current = addLaunchLayer(scene);
     alprLayer.current = addAlprLayer(scene);
     camLayer.current = addCamLayer(scene);
     webcamLayer.current = addCamLayer(scene, WEBCAM_COLOR, 'webcam:');
@@ -731,6 +740,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       }
       air.current?.setDepthDistance(d);
       wikiLayer.current?.setDepthDistance(d);
+      launchLayer.current?.setDepthDistance(d);
       alprLayer.current?.setDepthDistance(d);
       camLayer.current?.setDepthDistance(d);
       webcamLayer.current?.setDepthDistance(d);
@@ -865,6 +875,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['tension', () => tensionLayer.current?.destroy()],
         ['advisories', () => advisoryLayer.current?.destroy()],
         ['wikipedia', () => wikiLayer.current?.destroy()],
+        ['launches', () => launchLayer.current?.destroy()],
         ['alpr', () => alprLayer.current?.destroy()],
         ['traffic cameras', () => camLayer.current?.destroy()],
         ['webcams', () => webcamLayer.current?.destroy()],
@@ -1076,6 +1087,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     wikiLayer.current?.update(wikiItems ?? [], Boolean(showWiki));
   }, [wikiItems, showWiki]);
+
+  useEffect(() => {
+    launchLayer.current?.update(launches ?? [], Boolean(showLaunches));
+  }, [launches, showLaunches]);
 
   useEffect(() => {
     alprLayer.current?.update(alprCameras ?? [], infra.alpr);

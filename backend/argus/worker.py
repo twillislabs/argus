@@ -17,6 +17,7 @@ from sqlalchemy import select
 from argus import (
     __version__,
     advisories,
+    launches,
     sea,
     secrets,
     space,
@@ -439,6 +440,59 @@ async def advisories_loop(db: Database, client: httpx.AsyncClient) -> None:
 
 
 WIKIPEDIA_EVERY = timedelta(hours=1)
+LAUNCHES_EVERY = timedelta(hours=2)
+
+
+async def launches_loop(db: Database, client: httpx.AsyncClient) -> None:
+    """Rocket launches every two hours into server_settings
+    ["layer:launches"] (argus/launches.py). Launch Library allows 15
+    requests an hour, so the last success is honoured across restarts.
+    """
+    while True:
+        async with db.sessionmaker() as session:
+            source = await session.get(Source, "launches")
+            if source is None:
+                source = Source(
+                    name="launches",
+                    label="Rocket launches (Launch Library 2)",
+                    interval_s=int(LAUNCHES_EVERY.total_seconds()),
+                    enabled=True,
+                    last_count=0,
+                )
+                session.add(source)
+            last = source.last_success_at
+            await session.commit()
+        if last is not None and utcnow() - last < LAUNCHES_EVERY:
+            wait = LAUNCHES_EVERY - (utcnow() - last)
+            await asyncio.sleep(max(60.0, wait.total_seconds()))
+            continue
+        started = utcnow()
+        error, items = None, None
+        try:
+            items = await launches.fetch(client)
+        except (httpx.HTTPError, ValueError, KeyError) as exc:
+            error = "{0}: {1}".format(type(exc).__name__, str(exc)[:300])
+        async with db.sessionmaker() as session:
+            source = await session.get(Source, "launches")
+            source.last_run_at = started
+            if items is not None:
+                row = await session.get(ServerSetting, "layer:launches")
+                if row is None:
+                    row = ServerSetting(key="layer:launches")
+                    session.add(row)
+                row.value = {"fetched": utcnow().isoformat(), "items": items}
+                row.updated_at = utcnow()
+                source.last_success_at = utcnow()
+                source.last_count = len(items)
+                source.last_error = None
+                log.info("launches: {0}".format(len(items)))
+            else:
+                source.last_error = error
+                log.warning("launches failed: {0}".format(error))
+            await session.commit()
+        if items is None:
+            # Rate limited or down: try again in half an hour.
+            await asyncio.sleep(1800)
 
 
 async def wikipedia_loop(db: Database, client: httpx.AsyncClient) -> None:
@@ -1013,6 +1067,7 @@ async def run(settings: Settings) -> None:
         tension_task = asyncio.create_task(tension_loop(db))
         advisories_task = asyncio.create_task(advisories_loop(db, client))
         wikipedia_task = asyncio.create_task(wikipedia_loop(db, client))
+        launches_task = asyncio.create_task(launches_loop(db, client))
         cams_task = asyncio.create_task(cams_loop(db, settings, client))
         alpr_task = asyncio.create_task(alpr_prefetch_loop(db, settings))
         zones_task = (
@@ -1069,6 +1124,7 @@ async def run(settings: Settings) -> None:
                 tension_task,
                 advisories_task,
                 wikipedia_task,
+                launches_task,
                 cams_task,
                 alpr_task,
                 zones_task,

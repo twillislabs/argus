@@ -43,11 +43,15 @@ export interface SpaceFilters {
   starlink: boolean;
   // Crewed stations (the ISS, drawn as a 3D model, and Tiangong).
   iss: boolean;
+  // Rocket launches at their pads (map/launchLayer.ts), not satellites.
+  launches: boolean;
 }
 
 export const DEFAULT_SPACE: SpaceFilters = {
   // On by default: on its own it loads only the few crewed stations.
   iss: true,
+  // A few dozen markers, refreshed every two hours: cheap.
+  launches: true,
   leo: false,
   meo: false,
   geo: false,

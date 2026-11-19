@@ -18,7 +18,7 @@ const BASEMAPS: Basemap[] = ['dark', 'satellite', 'hybrid', 'photo3d'];
 const VIEWS: CameraMode[] = ['free', 'follow', 'chase', 'orbit', 'cockpit'];
 const EVENT_LAYERS = ['conflict', 'unrest', 'quake', 'fire', 'hazard', 'maritime'] as const;
 const REF_LAYERS = ['borders', 'states', 'labels', 'airports', 'ports', 'advisories'] as const;
-const SPACE_LAYERS = ['iss', 'leo', 'meo', 'geo', 'heo', 'starlink'] as const;
+const SPACE_LAYERS = ['iss', 'launches', 'leo', 'meo', 'geo', 'heo', 'starlink'] as const;
 const SEA_LAYERS = ['cargo', 'tanker', 'passenger', 'fishing', 'military', 'other'] as const;
 const AIRSPACE_LAYERS = ['tfr', 'sigmet', 'czib', 'gps', 'structure'] as const;
 const INFRA_LAYERS = ['nuclear', 'power', 'cables', 'bases', 'alpr'] as const;
@@ -77,6 +77,7 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
     },
     space: {
       iss: has('iss'),
+      launches: has('launches'),
       leo: has('leo'),
       meo: has('meo'),
       geo: has('geo'),

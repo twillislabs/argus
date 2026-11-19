@@ -7,6 +7,7 @@ import { BaseInspector, CableInspector, PlantInspector } from '../components/Inf
 import PlaceInspector from '../components/PlaceInspector';
 import ImageryPanel, { type ImageryState, newImagery } from '../components/ImageryPanel';
 import TourPanel from '../components/TourPanel';
+import { launchColor, padKey } from '../map/launchLayer';
 import { cleanTour, type Tour } from '../lib/tours';
 import { FAA_COLOR, faaLevel, faaLine, type FaaStatus, getFaaStatus } from '../lib/faa';
 import AlprInspector from '../components/AlprInspector';
@@ -71,6 +72,8 @@ import {
   getAdvisories,
   type Advisory,
   getWikipedia,
+  getLaunches,
+  type Launch,
   type WikiItem,
   type Me,
   savePreferences,
@@ -135,6 +138,52 @@ function initialFilters(me: Me): LayerFilters {
     cams: { ...base.cams, ...((me.preferences.cams as Partial<LayerFilters['cams']> | undefined) ?? {}) },
     weather: { ...base.weather, ...((me.preferences.weather as Partial<LayerFilters['weather']> | undefined) ?? {}) },
   };
+}
+
+// "T−2 h 14 min · Thu 20 Nov 14:05", or "Launched 3 h ago" and so on.
+function launchWhen(l: Launch, now = Date.now()): string {
+  if (!l.net) return 'Date to be confirmed';
+  const t = Date.parse(l.net);
+  const when = new Date(t).toLocaleString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const mins = Math.round(Math.abs(t - now) / 60_000);
+  const span = mins < 60 ? mins + ' min' : mins < 2880 ? Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min' : Math.round(mins / 1440) + ' days';
+  const vague = l.precision && !/^(second|minute)/i.test(l.precision) ? ' (' + l.precision.toLowerCase() + ')' : '';
+  return (t >= now ? 'T−' + span : (l.status_name ?? 'Launched') + ', ' + span + ' ago') + ' · ' + when + vague;
+}
+
+// Every launch at the selected launch's pad, then its mission.
+function launchNote(items: Launch[], id: string): string {
+  const l = items.find((x) => x.id === id);
+  if (!l) return '';
+  const pad = items.filter((x) => padKey(x) === padKey(l));
+  const list =
+    pad.length > 1
+      ? ' At this pad: ' + pad.map((x) => (x.rocket ?? x.name) + ' (' + launchWhen(x) + ')').join('; ') + '.'
+      : '';
+  return (
+    (l.description ? l.description + ' ' : '') +
+    (l.probability !== null ? 'Weather ' + l.probability + '% go. ' : '') +
+    (l.window_start && l.window_end && l.window_start !== l.window_end
+      ? 'Window ' +
+        new Date(l.window_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
+        ' to ' +
+        new Date(l.window_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
+        '. '
+      : '') +
+    list +
+    ' (Launch Library 2, The Space Devs.)'
+  );
+}
+
+function launchLinks(l: Launch | undefined): { label: string; url: string }[] {
+  if (!l) return [];
+  return l.pad_wiki ? [{ label: (l.pad ?? 'Launch pad') + ' (Wikipedia)', url: l.pad_wiki }] : [];
 }
 
 function wikiNote(w: WikiItem | undefined): string {
@@ -856,6 +905,25 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     globe.current?.setAirportRings(rings);
   }, [faa]);
 
+  // Rocket launches while the layer is on (the worker reads them every
+  // two hours).
+  const launchesOn = filters.space.launches;
+  const [launchItems, setLaunchItems] = useState<Launch[]>([]);
+  useEffect(() => {
+    if (!launchesOn) return;
+    let cancelled = false;
+    const load = () =>
+      getLaunches()
+        .then((r) => !cancelled && setLaunchItems(r.items))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 900_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [launchesOn]);
+
   // Airspace areas, while any airspace layer is on (every 10 minutes).
   const airspaceOn = filters.airspace.tfr || filters.airspace.sigmet || filters.airspace.czib;
   // GPS cells load even with the layer off: Situation counts them.
@@ -1205,6 +1273,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         id.startsWith('tension:') ||
         id.startsWith('adv:') ||
         id.startsWith('wiki:') ||
+        id.startsWith('launch:') ||
         id.startsWith('draw:') ||
         id.startsWith('wx:') ||
         id.startsWith('spc:'))
@@ -1346,6 +1415,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             ],
           }
         : null;
+    }
+    if (id.startsWith('launch:')) {
+      const l = launchItems.find((x) => 'launch:' + x.id === id);
+      if (!l) return null;
+      const others = launchItems.filter((x) => x.id !== l.id && padKey(x) === padKey(l)).length;
+      return {
+        title: l.name,
+        color: launchColor(l),
+        lines: [
+          launchWhen(l),
+          [l.provider, l.orbit ? l.orbit + ' orbit' : null].filter(Boolean).join(' · '),
+          [l.pad, l.country].filter(Boolean).join(', ') + (others ? ' · ' + others + ' more at this pad' : ''),
+        ],
+      };
     }
     if (id.startsWith('wiki:')) {
       const w = wikiItems.find((x) => 'wiki:' + x.id === id);
@@ -1618,6 +1701,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             tensionCountries={tension?.countries ?? []}
             advisories={advisories}
             wikiItems={wikiItems}
+            launches={launchItems}
+            showLaunches={launchesOn}
             showWiki={filters.wiki}
             alprCameras={alprCameras}
             trafficCams={filters.cams.traffic ? trafficCams : []}
@@ -1906,6 +1991,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                         ' (National Weather Service; open the alert for its full text and instructions.)'
                       : selectedInfo.startsWith('spc:')
                         ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'
+                        : selectedInfo.startsWith('launch:')
+                          ? launchNote(launchItems, selectedInfo.slice(7))
                         : selectedInfo.startsWith('wiki:')
                           ? wikiNote(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
                           : selectedInfo.startsWith('adv:')
@@ -1916,7 +2003,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                       : 'A shape you drew. Delete it with the Delete tool.'
                 }
                 links={
-                  selectedInfo.startsWith('wiki:')
+                  selectedInfo.startsWith('launch:')
+                    ? launchLinks(launchItems.find((x) => 'launch:' + x.id === selectedInfo))
+                    : selectedInfo.startsWith('wiki:')
                     ? wikiLinks(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
                     : advisoryLinks(advisories.find((x) => 'adv:' + x.country === selectedInfo))
                 }
