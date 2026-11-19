@@ -961,6 +961,14 @@ function SourcesSection() {
           for non-commercial use.
         </p>
       </KeyCard>
+      <KeyCard name="tdot" title="TDOT (Tennessee traffic cameras)" state={keys?.tdot} onSaved={setKeys}>
+        <p>
+          Tennessee&apos;s SmartWay cameras come from the <b>TDOT open-data API</b>, which needs a free API key holder
+          account: request one through <b>tdot.tn.gov/opendata</b> and paste the key here. The camera list is read
+          within ten minutes and then once a day; still images go through this server. Caltrans (California) cameras
+          need no key.
+        </p>
+      </KeyCard>
       <p className="quiet small">Keys are stored encrypted and used only by the server; browsers never see them.</p>
       <ReceiversCard />
       <section className="card wide">

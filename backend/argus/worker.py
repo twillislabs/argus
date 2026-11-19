@@ -23,6 +23,7 @@ from argus import (
     tension,
     wikipedia,
 )
+from argus import cams as traffic_cams
 from argus.aviation import (
     GPS_HOTSPOTS,
     POLL_ORDER,
@@ -482,6 +483,78 @@ async def wikipedia_loop(db: Database, client: httpx.AsyncClient) -> None:
         await asyncio.sleep(WIKIPEDIA_EVERY.total_seconds())
 
 
+CAMS_EVERY = timedelta(days=1)
+
+
+async def cams_loop(
+    db: Database, settings: Settings, client: httpx.AsyncClient
+) -> None:
+    """Traffic camera catalogues daily (argus/cams.py), kept in
+    server_settings["layer:trafficcams"]. Each feed fails on its own;
+    a feed that fails keeps its last cameras."""
+    while True:
+        async with db.sessionmaker() as session:
+            row = await session.get(ServerSetting, "layer:trafficcams")
+            previous = dict(row.value or {}) if row else {}
+            source = await session.get(Source, "trafficcams")
+            if source is None:
+                source = Source(
+                    name="trafficcams",
+                    label="Traffic cameras (Caltrans, TDOT)",
+                    interval_s=int(CAMS_EVERY.total_seconds()),
+                    enabled=True,
+                    last_count=0,
+                )
+                session.add(source)
+            await session.commit()
+        fetched = previous.get("fetched")
+        tdot_key = await read_key(db, settings, "tdot")
+        key_changed = bool(tdot_key) != bool(previous.get("tdot_key"))
+        due = (
+            fetched is None
+            or key_changed
+            or utcnow() - datetime.fromisoformat(fetched) >= CAMS_EVERY
+        )
+        if due:
+            started = utcnow()
+            feeds = dict(previous.get("feeds") or {})
+            errors = []
+            try:
+                feeds["caltrans"] = await traffic_cams.fetch_caltrans(client)
+            except (httpx.HTTPError, ValueError) as exc:
+                errors.append("caltrans: {0}".format(str(exc)[:200]))
+            if tdot_key:
+                try:
+                    feeds["tdot"] = await traffic_cams.fetch_tdot(
+                        client, tdot_key
+                    )
+                except (httpx.HTTPError, ValueError) as exc:
+                    errors.append("tdot: {0}".format(str(exc)[:200]))
+            else:
+                feeds.pop("tdot", None)
+            count = sum(len(v) for v in feeds.values())
+            async with db.sessionmaker() as session:
+                row = await session.get(ServerSetting, "layer:trafficcams")
+                if row is None:
+                    row = ServerSetting(key="layer:trafficcams")
+                    session.add(row)
+                row.value = {
+                    "fetched": utcnow().isoformat(),
+                    "tdot_key": bool(tdot_key),
+                    "feeds": feeds,
+                }
+                row.updated_at = utcnow()
+                source = await session.get(Source, "trafficcams")
+                source.last_run_at = started
+                source.last_count = count
+                if count:
+                    source.last_success_at = utcnow()
+                source.last_error = "; ".join(errors) or None
+                await session.commit()
+            log.info("traffic cameras: {0}".format(count))
+        await asyncio.sleep(600)
+
+
 ZONE_TOLERANCE = 0.01  # degrees, about 1 km
 ZONES_PER_PASS = 60
 ZONE_RETRY = timedelta(days=1)
@@ -831,6 +904,7 @@ async def run(settings: Settings) -> None:
         tension_task = asyncio.create_task(tension_loop(db))
         advisories_task = asyncio.create_task(advisories_loop(db, client))
         wikipedia_task = asyncio.create_task(wikipedia_loop(db, client))
+        cams_task = asyncio.create_task(cams_loop(db, settings, client))
         zones_task = (
             asyncio.create_task(zones_loop(db, client))
             if "nws" in names
@@ -885,6 +959,7 @@ async def run(settings: Settings) -> None:
                 tension_task,
                 advisories_task,
                 wikipedia_task,
+                cams_task,
                 zones_task,
             ):
                 if task is not None:

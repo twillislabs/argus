@@ -175,6 +175,12 @@ many of its layers are on. The dot beside a layer's count is its source's
 health: green when it's collecting, yellow when its last fetch failed or
 is overdue (hover for the error), grey when it isn't collecting.
 
+## Cameras
+
+| Layer | Shows | Source |
+|---|---|---|
+| **Traffic cameras** | Government road cameras, with a wedge for the way each looks where the agency says. Click one for its latest still, refreshed every 30 seconds; Argus's server fetches the images, so your browser never contacts the agency. Loads for a regional view (zoom in to about a state). Off by default | Caltrans (California, no key); TDOT SmartWay (Tennessee) once an admin adds a TDOT key in Settings › Data sources |
+
 ## Reference layers
 
 The **Reference** group in the layer panel draws over any base map:

@@ -223,6 +223,7 @@ class Preferences(BaseModel):
     news: dict[str, Any] | None = None
     tension: bool | None = None
     wiki: bool | None = None
+    cams: dict[str, bool] | None = None
     weather: dict[str, bool] | None = None
     units: Literal["imperial", "metric"] | None = None
     show_route: bool | None = None

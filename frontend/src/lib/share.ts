@@ -43,6 +43,7 @@ export function enabledLayers(f: LayerFilters): string[] {
   for (const r of INFRA_LAYERS) if (f.infra[r]) on.push(r);
   if (f.tension) on.push('tension');
   if (f.wiki) on.push('wiki');
+  if (f.cams.traffic) on.push('cams-traffic');
   return on;
 }
 
@@ -95,6 +96,7 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
     infra: { nuclear: has('nuclear'), power: has('power'), cables: has('cables'), bases: has('bases'), alpr: has('alpr') },
     tension: has('tension'),
     wiki: has('wiki'),
+    cams: { traffic: has('cams-traffic') },
   };
 }
 

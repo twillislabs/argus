@@ -15,6 +15,7 @@ from argus.api import (
     air,
     airspace,
     auth,
+    cams,
     displays,
     events,
     health,
@@ -130,6 +131,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     for router in (
+        cams.router,
         health.router,
         setup.router,
         auth.router,

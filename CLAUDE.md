@@ -105,6 +105,12 @@ parts connect.
   current events (`argus/wikipedia.py`, `wikipedia_loop`, hourly) too, in
   `layer:wikipedia`; entries are placed at the linked article with the
   smallest coordinate `dim`. They're not events.
+- Traffic cameras: `argus/cams.py` (feed parsers), worker `cams_loop`
+  (daily, `layer:trafficcams`), `api/cams.py`. Browsers get our proxy
+  path (`/api/cams/{id}/image`), never agency URLs; the proxy only
+  fetches a camera's own catalogue image (`image_allowed`). TDOT's
+  field names aren't public: `parse_tdot` guesses and logs the keys of
+  the first record when nothing parses.
 - ALPR cameras (`argus/alpr.py`, `/api/alpr`) come from Overpass per
   2-degree tile for the view, serialised with a lock and a gap, at most
   `NEW_PER_CALL` new tiles a call (status `partial`, the map asks again),

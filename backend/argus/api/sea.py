@@ -20,6 +20,7 @@ KEYS = "keys"
 KNOWN_KEYS = {
     "aisstream": "Live vessels (AIS) from aisstream.io",
     "openaip": "Airspace structure (restricted areas, CTRs) from openaip.net",
+    "tdot": "Tennessee traffic cameras from the TDOT open-data API",
 }
 PRUNE_EVERY_S = 60
 ManageDep = Annotated[UserSession, Depends(require("settings.manage"))]
@@ -85,6 +86,7 @@ class KeysIn(BaseModel):
     # Omit a key to keep it, "" to remove it.
     aisstream: str | None = Field(default=None, max_length=200)
     openaip: str | None = Field(default=None, max_length=200)
+    tdot: str | None = Field(default=None, max_length=200)
 
 
 def _view(stored: dict, settings) -> dict:

@@ -5,6 +5,7 @@ import AirspaceInspector from '../components/AirspaceInspector';
 import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
 import BridgeHud from '../components/BridgeHud';
+import CamInspector from '../components/CamInspector';
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
 import { CursorReadout, LIVE, type Replay, ScaleBar, Timeline } from '../components/MapFooter';
@@ -40,6 +41,8 @@ import {
   getAirspace,
   getAirspaceStructure,
   getAlpr,
+  getCams,
+  type TrafficCam,
   type AlprCamera,
   type AlprStatus,
   getGps,
@@ -74,6 +77,7 @@ import { TINT_FROM } from '../map/tensionLayer';
 import { ADVISORY_COLOR } from '../map/advisoryLayer';
 import { WIKI_COLOR, WIKI_CONFLICT_COLOR } from '../map/wikiLayer';
 import { ALPR_COLOR } from '../map/alprLayer';
+import { CAM_COLOR } from '../map/camLayer';
 import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { aircraftColor } from '../map/aircraftLayer';
 import { BASE_KINDS, FUEL_COLOR } from '../map/infraLayer';
@@ -119,6 +123,7 @@ function initialFilters(me: Me): LayerFilters {
     },
     tension: typeof me.preferences.tension === 'boolean' ? me.preferences.tension : base.tension,
     wiki: typeof me.preferences.wiki === 'boolean' ? me.preferences.wiki : base.wiki,
+    cams: { ...base.cams, ...((me.preferences.cams as Partial<LayerFilters['cams']> | undefined) ?? {}) },
     weather: { ...base.weather, ...((me.preferences.weather as Partial<LayerFilters['weather']> | undefined) ?? {}) },
   };
 }
@@ -224,6 +229,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [outlook, setOutlook] = useState<OutlookArea[]>([]);
   const [weatherNow, setWeatherNow] = useState<WeatherNow | null>(null);
   const [structureItems, setStructureItems] = useState<AirspaceItem[]>([]);
+  const [trafficCams, setTrafficCams] = useState<TrafficCam[]>([]);
+  const [camStatus, setCamStatus] = useState<'ok' | 'zoom'>('zoom');
+  const [selectedCam, setSelectedCam] = useState<TrafficCam | null>(null);
   const [alprCameras, setAlprCameras] = useState<AlprCamera[]>([]);
   const [alprStatus, setAlprStatus] = useState<AlprStatus>('zoom');
   const alprTimer = useRef<number | undefined>(undefined);
@@ -308,6 +316,25 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       setAlprStatus(r.status);
       setAlprCameras(r.cameras);
       if (r.status === 'partial') alprTimer.current = window.setTimeout(() => void loadAlpr(), 3000);
+    } catch {
+      // Keep what's shown; the next view change retries.
+    }
+  }, []);
+
+  // Traffic cameras for the view (regional views only).
+  const loadCams = useCallback(async () => {
+    const bbox = viewRef.current;
+    if (!filtersRef.current.cams.traffic) return;
+    if (!bbox) {
+      setCamStatus('zoom');
+      setTrafficCams([]);
+      return;
+    }
+    try {
+      const r = await getCams(bbox);
+      if (viewRef.current !== bbox) return;
+      setCamStatus(r.status);
+      setTrafficCams(r.cameras);
     } catch {
       // Keep what's shown; the next view change retries.
     }
@@ -496,13 +523,18 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         void loadVessels();
         void loadStructure();
         void loadAlpr();
+        void loadCams();
       }, 400);
     },
-    [loadCivil, loadVessels, loadStructure, loadAlpr],
+    [loadCivil, loadVessels, loadStructure, loadAlpr, loadCams],
   );
   useEffect(() => {
     if (filters.airspace.structure) void loadStructure();
   }, [filters.airspace.structure, loadStructure]);
+  useEffect(() => {
+    if (filters.cams.traffic) void loadCams();
+    else setTrafficCams([]);
+  }, [filters.cams.traffic, loadCams]);
   useEffect(() => {
     if (filters.infra.alpr) void loadAlpr();
     else setAlprCameras([]);
@@ -791,6 +823,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       infra: next.infra,
       tension: next.tension,
       wiki: next.wiki,
+      cams: next.cams,
       weather: next.weather,
     }).catch(
       () => undefined,
@@ -822,6 +855,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     setTrackedVessel(null);
     setSelectedAirspace(null);
     setSelectedInfra(null);
+    setSelectedCam(null);
     setFollowSat(false);
     setCamera('free');
     setTracked(null);
@@ -964,6 +998,15 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       openRight();
       return;
     }
+    if (id && id.startsWith('cam:')) {
+      const cam = trafficCams.find((c) => 'cam:' + c.id === id);
+      if (cam) {
+        clearSelection();
+        setSelectedCam(cam);
+        openRight();
+      }
+      return;
+    }
     if (id && id.startsWith('air:')) {
       clearSelection();
       setSelectedAirspace(id.slice(4));
@@ -1085,6 +1128,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             color: '#ff6ba1',
             lines: [Math.round(c.share * 100) + '% of ' + c.aircraft + ' aircraft degraded · last hour'],
           }
+        : null;
+    }
+    if (id.startsWith('cam:')) {
+      const c = trafficCams.find((x) => 'cam:' + x.id === id);
+      return c
+        ? { title: c.name, color: CAM_COLOR, lines: [[c.road, c.place, c.agency].filter(Boolean).join(' · ')] }
         : null;
     }
     if (id.startsWith('alpr:')) {
@@ -1305,6 +1354,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             advisoryCount={advisoriesOn ? advisories.filter((a) => a.level >= 2).length : undefined}
             wikiCount={wikiOn ? wikiItems.length : undefined}
             alprCount={filters.infra.alpr && alprStatus !== 'zoom' ? alprCameras.length : undefined}
+            camCount={filters.cams.traffic && camStatus !== 'zoom' ? trafficCams.length : undefined}
             weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
             zoneCount={filters.weather.zones ? wxZoned.length : undefined}
             airCounts={airCounts}
@@ -1341,6 +1391,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             wikiItems={wikiItems}
             showWiki={filters.wiki}
             alprCameras={alprCameras}
+            trafficCams={filters.cams.traffic ? trafficCams : []}
+            selectedCam={selectedCam?.id ?? null}
             wxAlerts={wxAlerts}
             wxZoned={wxZoned}
             outlook={outlook}
@@ -1593,7 +1645,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         <Timeline events={shown} hours={filters.hours} replay={replay} onReplay={setReplay} />
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
-            {selectedInfo ? (
+            {selectedCam ? (
+              <CamInspector cam={selectedCam} onBack={() => setSelectedCam(null)} />
+            ) : selectedInfo ? (
               <InfoInspector
                 info={hoverInfo(selectedInfo)}
                 note={

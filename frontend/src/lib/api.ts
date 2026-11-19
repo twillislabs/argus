@@ -544,6 +544,25 @@ export interface AirspaceItem {
   upper?: string | null;
 }
 
+// Government traffic cameras (/api/cams), for a regional view. image is
+// our proxy path; agency URLs never reach the browser.
+export interface TrafficCam {
+  id: string;
+  name: string;
+  road: string | null;
+  place: string | null;
+  direction: number | null;
+  lat: number;
+  lon: number;
+  agency: string;
+  refresh_s: number;
+  image: string;
+  video: boolean;
+}
+
+export const getCams = (bbox: Bbox) =>
+  api<{ cameras: TrafficCam[]; status: 'ok' | 'zoom' }>('/api/cams?bbox=' + bbox.map((v) => v.toFixed(3)).join(','));
+
 // ALPR cameras mapped in OpenStreetMap (/api/alpr), for a regional view.
 export interface AlprCamera {
   id: string;

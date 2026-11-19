@@ -10,6 +10,7 @@ import { DEFAULT_SPACE, SAT_COLOR, type SpaceFilters } from '../map/satellites';
 import { TENSION_COLOR } from '../map/tensionLayer';
 import { WIKI_COLOR } from '../map/wikiLayer';
 import { ALPR_COLOR } from '../map/alprLayer';
+import { CAM_COLOR } from '../map/camLayer';
 import { DEFAULT_WEATHER, type WeatherFilters } from '../map/wxLayer';
 import { distance } from '../lib/units';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
@@ -35,6 +36,8 @@ export interface LayerFilters {
   tension: boolean;
   // Wikipedia current events (map/wikiLayer.ts).
   wiki: boolean;
+  // Cameras: government traffic cameras (map/camLayer.ts).
+  cams: { traffic: boolean };
   weather: WeatherFilters;
 }
 
@@ -51,6 +54,7 @@ export const DEFAULT_FILTERS: LayerFilters = {
   infra: DEFAULT_INFRA,
   tension: true,
   wiki: false,
+  cams: { traffic: false },
   weather: DEFAULT_WEATHER,
 };
 
@@ -71,6 +75,7 @@ export function serverFilters(layers: Record<string, unknown> | undefined): Laye
     weather: part(DEFAULT_FILTERS.weather, d.weather),
     tension: typeof d.tension === 'boolean' ? d.tension : DEFAULT_FILTERS.tension,
     wiki: typeof d.wiki === 'boolean' ? d.wiki : DEFAULT_FILTERS.wiki,
+    cams: part(DEFAULT_FILTERS.cams, d.cams),
     hours: typeof d.hours === 'number' ? d.hours : DEFAULT_FILTERS.hours,
     minSeverity: typeof d.minSeverity === 'number' ? d.minSeverity : DEFAULT_FILTERS.minSeverity,
     candidates: typeof d.candidates === 'boolean' ? d.candidates : DEFAULT_FILTERS.candidates,
@@ -157,6 +162,7 @@ interface Props {
   wikiCount?: number;
   // Cameras in view, or undefined while the view is too wide.
   alprCount?: number;
+  camCount?: number;
   advisoryCount?: number;
   // Storm warnings and zone alerts drawn on the map.
   weatherCount?: number;
@@ -202,6 +208,7 @@ const FEEDS: Record<string, string[]> = {
   'wx-outlook': ['spc'],
   advisories: ['advisories'],
   wikipedia: ['wikipedia'],
+  trafficcams: ['trafficcams'],
 };
 
 function health(sources: SourceStatus[], id: string): { cls: string; title: string } | null {
@@ -285,6 +292,7 @@ export default function LayerPanel({
   tensionCount,
   wikiCount,
   alprCount,
+  camCount,
   advisoryCount,
   weatherCount,
   zoneCount,
@@ -561,6 +569,25 @@ export default function LayerPanel({
             </span>
           </label>
         ))}
+      </Group>
+      <Group title="Cameras" on={countOn(filters.cams)} total={1} forceOpen={Boolean(q)}>
+        <label className="lrow">
+          <input
+            type="checkbox"
+            checked={filters.cams.traffic}
+            onChange={(e) => onChange({ ...filters, cams: { ...filters.cams, traffic: e.target.checked } })}
+          />
+          <span className="tog" />
+          <span className="sw" style={{ background: CAM_COLOR }} />
+          <span className="lname">
+            <span>Traffic cameras</span>
+            <small>Caltrans · TDOT with a key</small>
+          </span>
+          <span className="lcount mono">
+            {filters.cams.traffic ? (camCount ?? 'zoom in') : null}
+            <Dot sources={sources} id="trafficcams" />
+          </span>
+        </label>
       </Group>
       <Group title="Reference" on={countOn(filters.reference)} total={REFERENCE_ROWS.length} forceOpen={Boolean(q)}>
         {REFERENCE_ROWS.map((r) => (
