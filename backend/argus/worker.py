@@ -344,11 +344,13 @@ async def receivers_loop(
     """Poll your own receivers (Settings > Data sources): readsb or
     tar1090 aircraft.json, and an AIS-catcher ships.json."""
     config: dict = {}
-    checked = 0.0
-    last_ais = 0.0
+    # None until the first pass: monotonic time can be small just after
+    # boot, so comparing against 0 would skip the first check.
+    checked: float | None = None
+    last_ais: float | None = None
     while True:
         now = time.monotonic()
-        if now - checked > 60:
+        if checked is None or now - checked > 60:
             config = await read_receivers(db)
             checked = now
         adsb, ais = config.get("adsb_url"), config.get("ais_url")
@@ -369,7 +371,7 @@ async def receivers_loop(
             except (httpx.HTTPError, ValueError) as exc:
                 log.warning("Receiver {0}: {1}".format(adsb, exc))
                 await asyncio.sleep(10)
-        if ais and now - last_ais >= RECEIVER_AIS_S:
+        if ais and (last_ais is None or now - last_ais >= RECEIVER_AIS_S):
             last_ais = now
             try:
                 response = await client.get(ais, timeout=5.0)
