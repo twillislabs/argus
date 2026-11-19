@@ -241,6 +241,8 @@ export interface Aircraft {
   category?: string | null;
   // The feed it came from: adsb.lol, adsb.fi, or your own receiver.
   source?: string;
+  // When the position was observed, unix seconds.
+  seen_at?: number;
 }
 
 export interface RouteAirport {

@@ -6,6 +6,7 @@ import { stashShareLink } from './lib/share';
 
 // Keep a share link through the sign-in redirect.
 stashShareLink();
+import BriefPage from './pages/BriefPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import LoginPage from './pages/LoginPage';
 import MapPage from './pages/MapPage';
@@ -96,7 +97,11 @@ export default function App() {
             boot.state === 'signedIn' ? <SettingsPage me={boot.me} onSaved={refresh} onSignedOut={refresh} /> : null
           }
         />
-        <Route path="/news" element={boot.state === 'signedIn' ? <NewsPage /> : null} />
+        <Route
+        path="/brief"
+        element={boot.state === 'signedIn' ? <BriefPage me={boot.me} onSignedOut={refresh} /> : null}
+      />
+      <Route path="/news" element={boot.state === 'signedIn' ? <NewsPage /> : null} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

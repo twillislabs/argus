@@ -257,6 +257,11 @@ def normalise(
         "emergency": squawk in ("7500", "7600", "7700")
         or (ac.get("emergency") not in (None, "none")),
         "seen": ac.get("seen_pos", ac.get("seen")),
+        # When the position was observed (unix seconds), so a cached or
+        # relayed copy can't pass for a newer report.
+        "seen_at": round(
+            time.time() - float(ac.get("seen_pos", ac.get("seen")) or 0), 1
+        ),
         # ADS-B emitter category: A1 light ... A5 heavy, A7 rotorcraft.
         "category": ac.get("category"),
         # Navigation accuracy, for GPS interference (NACp < 8 means the

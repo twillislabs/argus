@@ -63,6 +63,9 @@ export default function AppHeader({ me, onSignedOut, live, search, replay }: Pro
           <Link to="/" aria-current={pathname === '/' ? 'page' : undefined}>
             Map
           </Link>
+          <Link to="/brief" aria-current={pathname === '/brief' ? 'page' : undefined}>
+            Brief
+          </Link>
           <Link to="/settings" aria-current={pathname.startsWith('/settings') ? 'page' : undefined}>
             Settings
           </Link>

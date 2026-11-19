@@ -493,6 +493,44 @@ async def baselines(
     return {area: total / hours for area, total in totals.all()}, days
 
 
+async def history(
+    db: AsyncSession, today: date, days: int = 14
+) -> dict[str, list[dict[str, Any]]]:
+    """Average hourly live activity (raw score) per world and theatre for
+    each of the last `days` days, oldest first, for trend lines."""
+    since = today - timedelta(days=days - 1)
+    rows = (
+        await db.execute(
+            select(TensionDaily).where(
+                TensionDaily.day >= since,
+                (TensionDaily.area == WORLD)
+                | TensionDaily.area.like("theatre:%"),
+            )
+        )
+    ).scalars()
+    hours: dict[date, int] = {}
+    totals: dict[str, dict[date, float]] = {}
+    for r in rows:
+        if r.area == WORLD:
+            hours[r.day] = r.samples
+        totals.setdefault(r.area, {})[r.day] = r.total
+    out: dict[str, list[dict[str, Any]]] = {}
+    for area, by_day in totals.items():
+        key = area.removeprefix("theatre:")
+        out[key] = [
+            {
+                "day": (since + timedelta(days=i)).isoformat(),
+                "raw": round(
+                    by_day.get(since + timedelta(days=i), 0.0)
+                    / max(1, hours.get(since + timedelta(days=i), 0)),
+                    2,
+                ),
+            }
+            for i in range(days)
+        ]
+    return out
+
+
 async def prune(db: AsyncSession, today: date) -> None:
     await db.execute(
         delete(TensionDaily).where(

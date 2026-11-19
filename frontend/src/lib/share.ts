@@ -157,3 +157,7 @@ export function takeShareLink(): Share | null {
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   return share;
 }
+
+// Where the map should open next (set by the Brief page's theatre cards,
+// picked up once by MapPage's applyShare).
+export const FLY_KEY = 'argus-fly';

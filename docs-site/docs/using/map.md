@@ -86,6 +86,20 @@ Distances, lengths and heights are in **imperial** units (miles, feet) by
 default; switch to metric in Settings > Display. Aircraft altitude and
 speed stay in feet and knots, and ship speed in knots, either way.
 
+## Brief
+
+**Brief** in the top bar is a one-page overview for the start of a shift:
+
+- **Theatres** (Middle East & Red Sea, Eastern Europe, Sahel, Indo-Pacific,
+  Americas): tension, change over 24 hours, a two-week trend of live
+  activity and the top event or most affected countries. Click one to
+  open the map there.
+- **Top events · 24h** by severity, **Changes since yesterday** in plain
+  sentences, **Source health** for every collector and **Tension by
+  country**.
+
+It refreshes every two minutes.
+
 ## Map tools
 
 The toolbar under the base map buttons, as in Palantir's Foundry Map:

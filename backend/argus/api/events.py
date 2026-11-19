@@ -17,6 +17,7 @@ from sqlalchemy import or_, select
 from argus import events as ev
 from argus import places, tension, youtube
 from argus.api.deps import SESSION_COOKIE, DbDep, SessionDep
+from argus.db import utcnow
 from argus.models import Article, Event
 from argus.services import load_session
 
@@ -88,6 +89,18 @@ async def get_tension(session: SessionDep, db: DbDep, request: Request):
     body = await tension.snapshot(db)
     state.tension_cache = (now, body)
     return body
+
+
+@router.get("/api/tension/history")
+async def get_tension_history(
+    session: SessionDep, db: DbDep, days: int = Query(14, ge=2, le=90)
+):
+    """Daily live activity per world and theatre, for the Brief's trend
+    lines."""
+    return {
+        "days": days,
+        "areas": await tension.history(db, utcnow().date(), days),
+    }
 
 
 @router.get("/api/sources")

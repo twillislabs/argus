@@ -220,3 +220,24 @@ async def test_live_news_alone_stays_moderate(app, admin_client):
     assert canada["level"] < 40
     assert canada["vs_normal"] is None
     assert body["countries"][0]["name"] in ("Ukraine", "Sudan")
+
+
+async def test_history_per_theatre(app, admin_client):
+    today = utcnow().date()
+    async with app.state.db.sessionmaker() as db:
+        for d in range(3):
+            day = today - timedelta(days=d)
+            db.add(TensionDaily(day=day, area="world", total=48, samples=24))
+            db.add(
+                TensionDaily(
+                    day=day,
+                    area="theatre:eastern-europe",
+                    total=24 * d,
+                    samples=24,
+                )
+            )
+        await db.commit()
+    body = (await admin_client.get("/api/tension/history?days=3")).json()
+    east = body["areas"]["eastern-europe"]
+    assert [p["raw"] for p in east] == [2.0, 1.0, 0.0]
+    assert len(body["areas"]["world"]) == 3

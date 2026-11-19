@@ -52,8 +52,23 @@ export function createAircraftCamera(
 ): AircraftCamera {
   let mode: CameraMode = 'free';
   let target: Aircraft | null = null;
-  // When the target's report was made, in performance.now() seconds.
+  // When the target's report was made, in performance.now() seconds, and
+  // in unix seconds (to tell newer reports from older copies).
   let reportedAt = 0;
+  let reportUnix = 0;
+  // A correction being eased out after a new report: the gap between where
+  // the aircraft was drawn and where the new report puts it.
+  let corr = { lat: 0, lon: 0, alt: 0, start: 0 };
+  const EASE_S = 1.5;
+  const SNAP_DEG = 0.05; // ~5 km: further than this, just jump
+
+  function drawn(now: number) {
+    if (!target) return null;
+    const p = extrapolate(target, now - reportedAt);
+    const k = corr.start ? Math.min(1, (now - corr.start) / EASE_S) : 1;
+    const f = 1 - k;
+    return { lon: p.lon + corr.lon * f, lat: p.lat + corr.lat * f, altM: p.altM + corr.alt * f };
+  }
   let fresh = false;
   let lastTick = 0;
 
@@ -76,13 +91,26 @@ export function createAircraftCamera(
       layer()?.setHidden(mode === 'cockpit' && target ? target.hex : null);
     },
     setTarget(a) {
-      const moved =
-        !target || !a || a.hex !== target.hex || a.lat !== target.lat || a.lon !== target.lon;
-      if (a && (!target || a.hex !== target.hex)) fresh = true;
+      const now = performance.now() / 1000;
+      const same = Boolean(a && target && a.hex === target.hex);
+      const unix = a ? (a.seen_at ?? Date.now() / 1000 - Math.max(0, a.seen ?? 0)) : 0;
+      // The same aircraft from another feed or a cached answer: an older
+      // (or the same) report must never pull it back along its track.
+      if (a && same && unix <= reportUnix + 0.05) return;
+      if (a && !same) fresh = true;
+      const before = same ? drawn(now) : null;
       target = a;
-      // Only restart the projection on a new report; the same report
-      // arriving again must not pull the aircraft back.
-      if (a && moved) reportedAt = performance.now() / 1000 - Math.max(0, a.seen ?? 0);
+      if (a) {
+        reportUnix = unix;
+        reportedAt = now - Math.max(0, Date.now() / 1000 - unix);
+        // Ease from where it was drawn to where the new report puts it.
+        const after = extrapolate(a, now - reportedAt);
+        if (before && Math.abs(before.lat - after.lat) + Math.abs(before.lon - after.lon) < SNAP_DEG) {
+          corr = { lat: before.lat - after.lat, lon: before.lon - after.lon, alt: before.altM - after.altM, start: now };
+        } else {
+          corr = { lat: 0, lon: 0, alt: 0, start: 0 };
+        }
+      }
       if (!a) release();
       else layer()?.setHidden(mode === 'cockpit' ? a.hex : null);
     },
@@ -92,7 +120,8 @@ export function createAircraftCamera(
       const frame = lastTick ? Math.min(0.25, now - lastTick) : 0;
       lastTick = now;
       if (!target) return;
-      const p = extrapolate(target, now - reportedAt);
+      const p = drawn(now);
+      if (!p) return;
       const position = Cartesian3.fromDegrees(p.lon, p.lat, p.altM);
       layer()?.moveTo(target.hex, position);
       onFrame?.(target, position, mode);

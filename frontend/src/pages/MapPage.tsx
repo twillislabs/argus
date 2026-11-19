@@ -64,7 +64,7 @@ import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
 import { setHover } from '../lib/hover';
 import type { AirspaceFilters } from '../map/airspaceLayer';
 import Globe, { type Basemap, BASEMAPS, type GlobeHandle, type Imagery, PHOTO_3D } from '../map/Globe';
-import { applyLayers, buildShareLink, takeShareLink } from '../lib/share';
+import { applyLayers, buildShareLink, takeShareLink, FLY_KEY } from '../lib/share';
 
 const REFRESH_MS = 60_000;
 const CIVIL_MS = 15_000;
@@ -717,6 +717,17 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   // A share link opens here: apply its base map, layers, selection and
   // camera once, without changing the user's saved preferences.
   function applyShare() {
+    // A theatre picked on the Brief page.
+    try {
+      const fly = sessionStorage.getItem(FLY_KEY);
+      if (fly) {
+        sessionStorage.removeItem(FLY_KEY);
+        const f = JSON.parse(fly) as { lat: number; lon: number; height: number };
+        globe.current?.flyTo(f.lat, f.lon, f.height);
+      }
+    } catch {
+      // Storage blocked or bad value: stay where the map is.
+    }
     const share = takeShareLink();
     if (!share) return;
     if (share.basemap) setBasemap(share.basemap);
