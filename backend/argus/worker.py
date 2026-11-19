@@ -24,6 +24,7 @@ from argus import (
     wikipedia,
 )
 from argus import cams as traffic_cams
+from argus.alpr import Alpr
 from argus.aviation import (
     GPS_HOTSPOTS,
     POLL_ORDER,
@@ -605,6 +606,64 @@ async def cams_loop(
         await asyncio.sleep(600)
 
 
+ALPR_PREFETCH_EVERY_S = 6 * 3600
+ALPR_PREFETCH_MAX = 60  # tiles a pass
+
+
+async def _prefetch_tile(alpr: Alpr, tile: tuple[int, int]) -> None:
+    # Alpr.tile itself keeps to one request per Overpass server.
+    try:
+        await alpr.tile(tile)
+    except Exception as exc:  # noqa: BLE001 - one tile failing is fine
+        log.info("ALPR prefetch {0}: {1}".format(tile, exc))
+
+
+async def alpr_prefetch_loop(db: Database, settings: Settings) -> None:
+    """Plate reader cameras around every saved home (and wall screen's
+    home), fetched ahead into the shared tile store, so those areas load
+    at once. Tiles still fresh are skipped; the rest go to Overpass one
+    per server at a time, like the API's."""
+    from argus.models import UserPreferences
+
+    alpr = Alpr(settings.user_agent, db)
+    try:
+        while True:
+            try:
+                async with db.sessionmaker() as session:
+                    rows = (
+                        await session.execute(select(UserPreferences))
+                    ).scalars()
+                    homes = {
+                        (round(h["lat"]), round(h["lon"]))
+                        for h in ((r.data or {}).get("home") for r in rows)
+                        if isinstance(h, dict) and "lat" in h and "lon" in h
+                    }
+                wanted = []
+                for lat, lon in sorted(homes):
+                    for dx in (-1, 0, 1):
+                        for dy in (-1, 0, 1):
+                            tile = (lon - 1 + dx, lat - 1 + dy)
+                            if tile not in wanted:
+                                wanted.append(tile)
+                wanted = wanted[:ALPR_PREFETCH_MAX]
+                await alpr._load(wanted)
+                missing = [t for t in wanted if alpr.cached(t) is None]
+                await asyncio.gather(
+                    *(_prefetch_tile(alpr, t) for t in missing)
+                )
+                if missing:
+                    log.info(
+                        "ALPR prefetch: {0} tile(s) around {1} home(s)".format(
+                            len(missing), len(homes)
+                        )
+                    )
+            except Exception:  # noqa: BLE001 - try again next pass
+                log.exception("ALPR prefetch failed")
+            await asyncio.sleep(ALPR_PREFETCH_EVERY_S)
+    finally:
+        await alpr.close()
+
+
 ZONE_TOLERANCE = 0.01  # degrees, about 1 km
 ZONES_PER_PASS = 60
 ZONE_RETRY = timedelta(days=1)
@@ -955,6 +1014,7 @@ async def run(settings: Settings) -> None:
         advisories_task = asyncio.create_task(advisories_loop(db, client))
         wikipedia_task = asyncio.create_task(wikipedia_loop(db, client))
         cams_task = asyncio.create_task(cams_loop(db, settings, client))
+        alpr_task = asyncio.create_task(alpr_prefetch_loop(db, settings))
         zones_task = (
             asyncio.create_task(zones_loop(db, client))
             if "nws" in names
@@ -1010,6 +1070,7 @@ async def run(settings: Settings) -> None:
                 advisories_task,
                 wikipedia_task,
                 cams_task,
+                alpr_task,
                 zones_task,
             ):
                 if task is not None:

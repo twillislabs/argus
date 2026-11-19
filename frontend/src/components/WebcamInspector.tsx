@@ -6,7 +6,9 @@ import { WEBCAM_COLOR } from '../map/camLayer';
 // A Windy webcam: its latest preview (linked to its Windy page, as
 // Windy's terms ask), and its timelapse player on request.
 export default function WebcamInspector({ cam, onBack }: { cam: Webcam; onBack: () => void }) {
-  const [player, setPlayer] = useState(false);
+  // Windy's player (live where the webcam has it, else its timelapse)
+  // opens straight away; the still is a click back.
+  const [player, setPlayer] = useState(Boolean(cam.player));
   const [broken, setBroken] = useState(false);
   return (
     <div className="inspector-body">

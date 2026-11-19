@@ -24,7 +24,8 @@ OVERPASS = (
     "https://overpass.kumi.systems/api/interpreter",
 )
 TILE_DEG = 1
-TTL_S = 24 * 3600
+# Mapping changes slowly: a fetched tile is good for a week.
+TTL_S = 7 * 24 * 3600
 # Overpass is busy (429/504): don't ask about that tile again for a while.
 BUSY_S = 300
 MAX_TILES = 36
@@ -164,8 +165,10 @@ class Alpr:
         )
         self.cache: dict[tuple[int, int], tuple[float, list[dict]]] = {}
         self.busy_until: dict[tuple[int, int], float] = {}
-        self.lock = asyncio.Lock()
-        self.last = 0.0
+        # One request at a time per Overpass server (their limit is per
+        # client), spaced GAP_S apart; two servers, so two tiles at once.
+        self.locks = {s: asyncio.Lock() for s in OVERPASS}
+        self.last = {s: 0.0 for s in OVERPASS}
         self.pending: dict[tuple[int, int], asyncio.Task] = {}
 
     async def close(self) -> None:
@@ -179,47 +182,46 @@ class Alpr:
             return hit[1]
         if self.busy_until.get(tile, 0) > time.time():
             raise Busy()
-        async with self.lock:
-            # Someone else may have fetched it while we waited.
-            hit = self.cache.get(tile)
-            if hit and time.time() - hit[0] < TTL_S:
-                return hit[1]
-            wait = self.last + GAP_S - time.monotonic()
-            if wait > 0:
-                await asyncio.sleep(wait)
-            x, y = tile
-            query = QUERY.format(
-                y * TILE_DEG,
-                x * TILE_DEG,
-                (y + 1) * TILE_DEG,
-                (x + 1) * TILE_DEG,
-            )
-            r = None
-            for server in OVERPASS:
+        x, y = tile
+        query = QUERY.format(
+            y * TILE_DEG, x * TILE_DEG, (y + 1) * TILE_DEG, (x + 1) * TILE_DEG
+        )
+        # Spread tiles over the servers; the other one is the fallback.
+        first = (x + y) % len(OVERPASS)
+        order = OVERPASS[first:] + OVERPASS[:first]
+        r = None
+        for server in order:
+            async with self.locks[server]:
+                hit = self.cache.get(tile)  # fetched while we waited?
+                if hit and time.time() - hit[0] < TTL_S:
+                    return hit[1]
+                wait = self.last[server] + GAP_S - time.monotonic()
+                if wait > 0:
+                    await asyncio.sleep(wait)
                 try:
                     r = await self.client.post(server, data={"data": query})
                 except httpx.HTTPError:
                     r = None
                     continue
                 finally:
-                    self.last = time.monotonic()
-                if r.status_code == 200:
-                    break
-            if r is None or r.status_code in (429, 503, 504):
-                self.busy_until[tile] = time.time() + BUSY_S
-                raise Busy()
-            r.raise_for_status()
-            items = [
-                c
-                for c in (normalise(el) for el in r.json().get("elements", []))
-                if c is not None
-            ]
-            self.cache[tile] = (time.time(), items)
-            await self._store(tile, items)
-            if len(self.cache) > 3000:
-                oldest = min(self.cache, key=lambda k: self.cache[k][0])
-                self.cache.pop(oldest, None)
-            return items
+                    self.last[server] = time.monotonic()
+            if r.status_code == 200:
+                break
+        if r is None or r.status_code in (429, 503, 504):
+            self.busy_until[tile] = time.time() + BUSY_S
+            raise Busy()
+        r.raise_for_status()
+        items = [
+            c
+            for c in (normalise(el) for el in r.json().get("elements", []))
+            if c is not None
+        ]
+        self.cache[tile] = (time.time(), items)
+        await self._store(tile, items)
+        if len(self.cache) > 3000:
+            oldest = min(self.cache, key=lambda k: self.cache[k][0])
+            self.cache.pop(oldest, None)
+        return items
 
     def cached(self, tile: tuple[int, int]) -> list[dict] | None:
         hit = self.cache.get(tile)

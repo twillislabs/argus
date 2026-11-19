@@ -63,10 +63,11 @@ export default function CamInspector({ cam, onBack }: { cam: TrafficCam; onBack:
   const [tick, setTick] = useState(() => Date.now());
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading');
   const [loadedAt, setLoadedAt] = useState<number | null>(null);
-  const [playing, setPlaying] = useState(false);
+  // Video starts by itself where the camera has it (live or a clip).
+  const [playing, setPlaying] = useState(cam.video !== null);
   useEffect(() => {
     setState('loading');
-    setPlaying(false);
+    setPlaying(cam.video !== null);
     const id = window.setInterval(() => setTick(Date.now()), REFRESH_S * 1000);
     return () => window.clearInterval(id);
   }, [cam.id]);
