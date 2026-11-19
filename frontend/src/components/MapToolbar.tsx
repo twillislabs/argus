@@ -72,6 +72,66 @@ function Menu({
   );
 }
 
+// Delete: click drawings one at a time, or all of them at once.
+function DeleteMenu({
+  active,
+  count,
+  onPick,
+  onAll,
+}: {
+  active: boolean;
+  count: number;
+  onPick: () => void;
+  onAll: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener('pointerdown', close);
+    return () => window.removeEventListener('pointerdown', close);
+  }, [open]);
+  return (
+    <div className="tbmenu" ref={box}>
+      <button
+        aria-pressed={active}
+        aria-expanded={open}
+        disabled={!count}
+        title={count ? 'Delete drawings and notes' : 'Nothing drawn yet'}
+        onClick={() => setOpen(!open)}
+      >
+        Delete{active ? ' · click one' : ''} ▾
+      </button>
+      {open && (
+        <div className="tbdrop" role="menu">
+          <button
+            role="menuitem"
+            aria-pressed={active}
+            onClick={() => {
+              onPick();
+              setOpen(false);
+            }}
+          >
+            Click to delete
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onAll();
+            }}
+          >
+            Delete all ({count})
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // The map toolbar (as in Foundry Map): select in an area, draw shapes,
 // measure, add notes, capture a screenshot, delete drawings.
 export default function MapToolbar({ tool, onTool, onCapture, onClear, drawingCount }: Props) {
@@ -93,17 +153,15 @@ export default function MapToolbar({ tool, onTool, onCapture, onClear, drawingCo
       <button title="Save a PNG of the map" onClick={onCapture}>
         Capture
       </button>
-      <button
-        aria-pressed={tool === 'delete'}
-        title={drawingCount ? 'Click a drawing to delete it (Shift-click: delete all)' : 'Nothing drawn yet'}
-        disabled={!drawingCount}
-        onClick={(e) => {
-          if (e.shiftKey) onClear();
-          else toggle('delete');
+      <DeleteMenu
+        active={tool === 'delete'}
+        count={drawingCount}
+        onPick={() => toggle('delete')}
+        onAll={() => {
+          if (tool === 'delete') onTool('none');
+          onClear();
         }}
-      >
-        Delete
-      </button>
+      />
     </div>
   );
 }

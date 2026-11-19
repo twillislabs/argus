@@ -152,7 +152,7 @@ The toolbar under the base map buttons, as in Palantir's Foundry Map:
 | **Measure** | Click points along a route; the running distance follows the cursor |
 | **Note** | Click the map, type a note, press Enter |
 | **Capture** | Saves a PNG of the map as it is now |
-| **Delete** | Click a drawing to delete it; Shift-click **Delete** to clear them all |
+| **Delete** | **Click to delete** removes drawings and notes one at a time; **Delete all** clears them (after a confirmation) |
 
 Lines and polygons: click to add points, double-click or **Enter** to
 finish, **Backspace** to undo the last point, **Esc** to cancel. Drawings
