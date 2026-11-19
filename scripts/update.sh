@@ -6,8 +6,10 @@
 # 1. Refuses if this checkout has uncommitted changes to tracked files
 #    (they'd block or be mixed into the update).
 # 2. Makes a backup first (scripts/backup.sh), unless --no-backup.
-# 3. git pull --ff-only, then docker compose up -d --build. The API
-#    applies any new database migrations as it starts.
+# 3. git pull --ff-only (if there's anything new), then always
+#    docker compose up -d --build, which recreates every container whose
+#    image or settings changed. The API applies new migrations as it
+#    starts.
 # 4. Waits for the API to report healthy.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -36,11 +38,12 @@ branch=$(git rev-parse --abbrev-ref HEAD)
 git fetch --quiet origin "$branch"
 behind=$(git rev-list --count "HEAD..origin/$branch")
 if [ "$behind" = 0 ]; then
-  echo "Already up to date ($(git log -1 --format='%h %s'))."
-  exit 0
+  echo "The code is up to date ($(git log -1 --format='%h %s'))."
+  backup=0
+else
+  echo "$behind new commit(s) on $branch:"
+  git log --oneline "HEAD..origin/$branch" | head -20
 fi
-echo "$behind new commit(s) on $branch:"
-git log --oneline "HEAD..origin/$branch" | head -20
 
 if [ "$backup" = 1 ]; then
   if "${compose[@]}" exec -T db pg_isready -U argus -d argus >/dev/null 2>&1; then
@@ -52,9 +55,12 @@ if [ "$backup" = 1 ]; then
   fi
 fi
 
-git pull --ff-only --quiet origin "$branch"
+[ "$behind" = 0 ] || git pull --ff-only --quiet origin "$branch"
+# Always: rebuild the images and recreate any container whose image or
+# settings changed, so the running containers match this checkout (also
+# after a manual git pull, or .env changes). Unchanged ones keep running.
 echo "Rebuilding..."
-"${compose[@]}" up -d --build
+"${compose[@]}" up -d --build --remove-orphans
 
 port=$(sed -n 's/^ARGUS_HTTP_PORT=//p' .env 2>/dev/null | tail -1)
 port=${port:-8080}

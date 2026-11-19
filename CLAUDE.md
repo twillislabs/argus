@@ -50,7 +50,10 @@ parts connect.
   (users, reset-password, unlock) in the API container.
 - `ARGUS_TLS=self-signed` (+ `ARGUS_TLS_NAMES`, `ARGUS_HTTPS_PORT`):
   `frontend/docker/30-argus-tls.sh` makes a cert into the `web-tls`
-  volume and adds `listen 443 ssl` to the server block. The sign-in page
+  volume and adds `listen 443 ssl` to the server block (plus an
+  http->https redirect when ARGUS_HTTPS_PORT is numeric, skipping
+  /healthz and X-Forwarded-Proto: https). ARGUS_HTTPS_PORT unset binds
+  a random loopback port, so it can't clash. The sign-in page
   explains Secure cookies on plain http (`/api/setup/status`
   `secure_cookies`).
 - `make update` (scripts/update.sh): refuses with local changes, backs

@@ -64,13 +64,17 @@ services:
       dockerfile: frontend/Dockerfile
     ports:
       - "${ARGUS_HTTP_PORT:-8080}:80"
-      - "${ARGUS_HTTPS_PORT:-8443}:443"
+      # HTTPS (ARGUS_TLS=self-signed) on ARGUS_HTTPS_PORT; unset, it goes
+      # to a random loopback port so it can't clash with anything.
+      - "${ARGUS_HTTPS_PORT:-127.0.0.1:}:443"
     volumes:
       - web-tls:/etc/nginx/tls
     environment:
       # HTTPS with a self-signed certificate (ARGUS_TLS=self-signed).
       ARGUS_TLS: ${ARGUS_TLS:-}
       ARGUS_TLS_NAMES: ${ARGUS_TLS_NAMES:-localhost}
+      ARGUS_HTTPS_PORT: ${ARGUS_HTTPS_PORT:-}
+      ARGUS_TLS_REDIRECT: ${ARGUS_TLS_REDIRECT:-true}
       # Reverse proxy in front (see Admin > Configuration > Behind a proxy).
       ARGUS_TRUSTED_PROXIES: ${ARGUS_TRUSTED_PROXIES:-}
       ARGUS_REAL_IP_HEADER: ${ARGUS_REAL_IP_HEADER:-X-Forwarded-For}

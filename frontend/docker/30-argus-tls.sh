@@ -5,6 +5,11 @@
 # ARGUS_TLS=self-signed   serve HTTPS on the container's port 443 too
 # ARGUS_TLS_NAMES         comma list of the names and IPs people use to
 #                         reach this server (default: localhost)
+# ARGUS_HTTPS_PORT        the host port HTTPS is published on; plain
+#                         http:// requests are redirected there unless
+#                         ARGUS_TLS_REDIRECT=false (the health check, and
+#                         requests a proxy marks X-Forwarded-Proto: https,
+#                         are never redirected)
 #
 # The certificate is made once and kept in /etc/nginx/tls (a volume), so
 # the exception you accept in the browser stays valid across rebuilds;
@@ -48,4 +53,17 @@ ssl_certificate $dir/cert.pem;
 ssl_certificate_key $dir/key.pem;
 ssl_protocols TLSv1.2 TLSv1.3;
 CONF
+port=${ARGUS_HTTPS_PORT:-}
+case "$port" in *[!0-9]*) port= ;; esac
+if [ -n "$port" ] && [ "${ARGUS_TLS_REDIRECT:-true}" != "false" ]; then
+  [ "$port" = 443 ] && suffix="" || suffix=":$port"
+  cat >> "$conf" <<CONF
+set \$argus_redirect "";
+if (\$scheme = http) { set \$argus_redirect "1"; }
+if (\$http_x_forwarded_proto = https) { set \$argus_redirect ""; }
+if (\$uri = /healthz) { set \$argus_redirect ""; }
+if (\$argus_redirect) { return 308 https://\$host$suffix\$request_uri; }
+CONF
+  echo "argus: redirecting http:// to https://...$suffix" >&2
+fi
 echo "argus: HTTPS on (self-signed, $names)" >&2

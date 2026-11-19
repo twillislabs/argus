@@ -14,7 +14,8 @@ All settings are environment variables, usually set in `.env`.
 | `ARGUS_COOKIE_SECURE` | `true` | Set `false` only for plain-HTTP local use |
 | `ARGUS_TLS` | (empty) | `self-signed` to serve HTTPS with a certificate Argus makes itself (see [Deployment](../technical/deployment.md#https-before-a-proxy-a-self-signed-certificate)) |
 | `ARGUS_TLS_NAMES` | `localhost` | Names and IPs for that certificate, comma list |
-| `ARGUS_HTTPS_PORT` | `8443` | Host port for HTTPS |
+| `ARGUS_TLS_REDIRECT` | `true` | With `ARGUS_TLS` and `ARGUS_HTTPS_PORT` set, send plain `http://` visitors to the HTTPS address (never the health check, nor requests a proxy marks `X-Forwarded-Proto: https`) |
+| `ARGUS_HTTPS_PORT` | (unset) | Host port for HTTPS, for example `8443`; unset, the container's HTTPS port isn't reachable from outside |
 | `ARGUS_TRUSTED_PROXIES` | (empty) | Reverse proxies in front of Argus (IPs or ranges, comma list) whose forwarded visitor address is believed; see [Deployment](../technical/deployment.md#real-visitor-addresses) |
 | `ARGUS_REAL_IP_HEADER` | `X-Forwarded-For` | Header those proxies use; `CF-Connecting-IP` when Cloudflare connects directly |
 | `ARGUS_LOG_LEVEL` | `INFO` | API log level |

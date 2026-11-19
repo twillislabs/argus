@@ -48,8 +48,10 @@ then `make up` and open `https://192.168.1.20:8443`. The browser warns
 once about the self-signed certificate; accept it and sign in. The
 certificate is made on first start and kept in the `web-tls` volume (so
 the exception stays valid across rebuilds); changing `ARGUS_TLS_NAMES`
-makes a new one. Plain HTTP on `ARGUS_HTTP_PORT` keeps working, for the
-proxy to use later. On a trusted LAN you can instead set
+makes a new one. Plain `http://` visitors are redirected to the HTTPS
+address (set `ARGUS_TLS_REDIRECT=false` to stop that). A reverse proxy
+can still use plain HTTP on `ARGUS_HTTP_PORT` later: requests it marks
+`X-Forwarded-Proto: https` aren't redirected. On a trusted LAN you can instead set
 `ARGUS_COOKIE_SECURE=false` and use plain HTTP.
 
 ### Real visitor addresses
