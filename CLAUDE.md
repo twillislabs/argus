@@ -112,9 +112,11 @@ parts connect.
   field names aren't public: `parse_tdot` guesses and logs the keys of
   the first record when nothing parses.
 - ALPR cameras (`argus/alpr.py`, `/api/alpr`) come from Overpass per
-  2-degree tile for the view, serialised with a lock and a gap, at most
-  `NEW_PER_CALL` new tiles a call (status `partial`, the map asks again),
-  cached a day in API memory. Locations only; never add plate data.
+  2-degree tile for the view, serialised with a lock and a gap, filled
+  in background tasks (Overpass can take ~40 s a tile, past nginx's 60 s
+  proxy timeout), so `/api/alpr` returns cached tiles at once with status
+  `partial` and the map asks again; cached a day in API memory.
+  Locations only; never add plate data.
 - openAIP (key in Data sources) is fetched per 2-degree tile for the
   view and cached a day in API memory (`argus/openaip.py`); its licence
   is non-commercial, so don't persist it. Its Cloudflare can 403 whole IPs (an HTML

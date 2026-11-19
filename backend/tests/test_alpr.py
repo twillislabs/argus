@@ -13,7 +13,10 @@ ELEMENTS = [
             "surveillance:type": "ALPR",
             "manufacturer": "Flock Safety",
             "operator": "Metro Nashville Police Department",
-            "camera:direction": "NE",
+            "camera:direction": "NE;200",
+            "camera:mount": "pole",
+            "operator:type": "government",
+            "name:es": "skip me",
             "check_date": "2026-05-01",
         },
     },
@@ -32,6 +35,10 @@ def test_normalise_and_helpers():
     assert cams[2] is None
     a, b = cams[0], cams[1]
     assert a["vendor"] == "Flock Safety" and a["direction"] == 45.0
+    assert a["directions"] == [45.0, 200.0]
+    assert a["mount"] == "pole" and a["operator_type"] == "government"
+    assert "name:es" not in a["tags"] and a["tags"]["manufacturer"]
+    assert a["deflock_url"].endswith("#map=18/36.160000/-86.780000")
     assert a["operator"].startswith("Metro Nashville")
     assert a["osm_url"].endswith("/node/101")
     assert b["vendor"] == "Motorola Solutions" and b["direction"] is None
@@ -43,7 +50,9 @@ def test_normalise_and_helpers():
     assert alpr.tiles((-130, 20, -60, 50)) is None
 
 
-async def test_area_fetches_a_few_tiles_per_call_and_caches():
+async def test_area_fills_tiles_in_the_background_and_caches():
+    import asyncio
+
     calls = []
 
     def handler(request):
@@ -55,10 +64,13 @@ async def test_area_fetches_a_few_tiles_per_call_and_caches():
     alpr.GAP_S = 0
     box = (-88, 34, -82, 38)  # 3 x 2 tiles
     cams, complete = await client.area(box)
-    assert not complete and len(calls) == alpr.NEW_PER_CALL
-    while not complete:
+    assert (cams, complete) == ([], False)  # nothing waited on
+    for _ in range(50):
+        await asyncio.sleep(0.01)
         cams, complete = await client.area(box)
-    assert len(calls) == 6
+        if complete:
+            break
+    assert complete and len(calls) == 6
     # Every tile returned the same two cameras; only those inside count.
     assert {c["id"] for c in cams} == {"node/101", "way/7"}
     await client.area(box)
@@ -77,8 +89,12 @@ async def test_busy_overpass_is_not_retried_at_once():
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     alpr.GAP_S = 0
     box = (-87, 36, -86.5, 36.5)
+    import asyncio
+
     assert await client.area(box) == ([], False)
+    await asyncio.sleep(0.05)
     assert await client.area(box) == ([], False)
+    await asyncio.sleep(0.05)
     assert len(calls) == 1
     await client.close()
 

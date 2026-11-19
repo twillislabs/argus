@@ -574,6 +574,12 @@ export interface AlprCamera {
   zone: string | null;
   mapped: string | null;
   osm_url: string;
+  deflock_url: string;
+  directions?: number[];
+  operator_type?: string | null;
+  mount?: string | null;
+  model?: string | null;
+  tags?: Record<string, string>;
 }
 export type AlprStatus = 'ok' | 'partial' | 'zoom';
 

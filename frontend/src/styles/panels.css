@@ -362,6 +362,12 @@ tr.dimrow td { color: var(--dim); }
 .wlayers { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 16px; }
 .wlayer { display: flex !important; align-items: center; gap: 8px; cursor: pointer; }
 .numin { width: 80px; background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 4px 6px; color: var(--text); }
+.alprsum { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.alprsum small { font-size: 10.5px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+.alprsum ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px; font-size: 12px; }
+.alprsum li { display: flex; justify-content: space-between; gap: 8px; }
+.alprsum li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kv.tags dt { font-size: 11px; }
 .camshot { margin: 10px 0 6px; background: #05080e; border: 1px solid var(--line); border-radius: 4px; min-height: 140px; display: grid; place-items: center; overflow: hidden; }
 .camshot img { display: block; width: 100%; height: auto; }
 .camshot figcaption { padding: 10px; font-size: 12px; }

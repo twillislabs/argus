@@ -4,6 +4,7 @@ import AircraftInspector from '../components/AircraftInspector';
 import AirspaceInspector from '../components/AirspaceInspector';
 import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
+import AlprInspector from '../components/AlprInspector';
 import BridgeHud from '../components/BridgeHud';
 import CamInspector from '../components/CamInspector';
 import CockpitHud from '../components/CockpitHud';
@@ -128,10 +129,6 @@ function initialFilters(me: Me): LayerFilters {
   };
 }
 
-function alprLinks(c: AlprCamera | undefined): { label: string; url: string }[] {
-  return c ? [{ label: 'OpenStreetMap entry', url: c.osm_url }] : [];
-}
-
 function wikiNote(w: WikiItem | undefined): string {
   if (!w) return '';
   const thread = w.topics.length ? ' Story: ' + w.topics.join(' › ') + '.' : '';
@@ -233,6 +230,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [camStatus, setCamStatus] = useState<'ok' | 'zoom'>('zoom');
   const [selectedCam, setSelectedCam] = useState<TrafficCam | null>(null);
   const [alprCameras, setAlprCameras] = useState<AlprCamera[]>([]);
+  const [selectedAlpr, setSelectedAlpr] = useState<string | null>(null);
   const [alprStatus, setAlprStatus] = useState<AlprStatus>('zoom');
   const alprTimer = useRef<number | undefined>(undefined);
   const [structureStatus, setStructureStatus] = useState<'ok' | 'zoom' | 'nokey' | 'blocked' | 'error'>('zoom');
@@ -862,6 +860,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     setSelectedAirspace(null);
     setSelectedInfra(null);
     setSelectedCam(null);
+    setSelectedAlpr(null);
     setFollowSat(false);
     setCamera('free');
     setTracked(null);
@@ -1004,6 +1003,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       openRight();
       return;
     }
+    if (id && id.startsWith('alpr:')) {
+      clearSelection();
+      setSelectedAlpr(id.slice(5));
+      openRight();
+      return;
+    }
     if (id && id.startsWith('cam:')) {
       const cam = trafficCams.find((c) => 'cam:' + c.id === id);
       if (cam) {
@@ -1027,7 +1032,6 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         id.startsWith('tension:') ||
         id.startsWith('adv:') ||
         id.startsWith('wiki:') ||
-        id.startsWith('alpr:') ||
         id.startsWith('draw:') ||
         id.startsWith('wx:') ||
         id.startsWith('spc:'))
@@ -1652,7 +1656,13 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         <Timeline events={shown} hours={filters.hours} replay={replay} onReplay={setReplay} />
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
-            {selectedCam ? (
+            {selectedAlpr && alprCameras.some((c) => c.id === selectedAlpr) ? (
+              <AlprInspector
+                cam={alprCameras.find((c) => c.id === selectedAlpr) as AlprCamera}
+                inView={alprCameras}
+                onBack={() => setSelectedAlpr(null)}
+              />
+            ) : selectedCam ? (
               <CamInspector cam={selectedCam} onBack={() => setSelectedCam(null)} />
             ) : selectedInfo ? (
               <InfoInspector
@@ -1665,9 +1675,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                         ' (National Weather Service; open the alert for its full text and instructions.)'
                       : selectedInfo.startsWith('spc:')
                         ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'
-                        : selectedInfo.startsWith('alpr:')
-                          ? 'An automatic licence plate reader as mapped in OpenStreetMap (the DeFlock dataset). Locations only: Argus has no plate data and never looks for any. Mapping can be out of date; check the OpenStreetMap entry.'
-                          : selectedInfo.startsWith('wiki:')
+                        : selectedInfo.startsWith('wiki:')
                           ? wikiNote(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
                           : selectedInfo.startsWith('adv:')
                           ? (advisories.find((x) => 'adv:' + x.country === selectedInfo)?.us?.summary ?? '') +
@@ -1677,9 +1685,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                       : 'A shape you drew. Delete it with the Delete tool.'
                 }
                 links={
-                  selectedInfo.startsWith('alpr:')
-                    ? alprLinks(alprCameras.find((x) => 'alpr:' + x.id === selectedInfo))
-                    : selectedInfo.startsWith('wiki:')
+                  selectedInfo.startsWith('wiki:')
                     ? wikiLinks(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
                     : advisoryLinks(advisories.find((x) => 'adv:' + x.country === selectedInfo))
                 }

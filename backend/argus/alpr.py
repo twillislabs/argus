@@ -23,7 +23,6 @@ TTL_S = 24 * 3600
 # Overpass is busy (429/504): don't ask about that tile again for a while.
 BUSY_S = 300
 MAX_TILES = 16
-NEW_PER_CALL = 2
 GAP_S = 1.0
 QUERY = (
     "[out:json][timeout:60];"
@@ -76,6 +75,31 @@ def direction(tags: dict) -> float | None:
         return None
 
 
+# Tags worth a label in the camera panel, in order; the rest are listed
+# as they are.
+TAG_MAX = 40
+
+
+def directions(tags: dict) -> list[float]:
+    raw = str(tags.get("camera:direction") or tags.get("direction") or "")
+    out = []
+    for part in raw.split(";"):
+        b = direction({"direction": part})
+        if b is not None:
+            out.append(b)
+    return out[:8]
+
+
+def clean_tags(tags: dict) -> dict:
+    """Every mapped tag except translated names, values trimmed."""
+    out = {}
+    for k in sorted(tags):
+        if k.startswith("name:") or len(out) >= TAG_MAX:
+            continue
+        out[k[:60]] = str(tags[k])[:200]
+    return out
+
+
 def normalise(el: dict) -> dict | None:
     tags = el.get("tags") or {}
     lat = el.get("lat", (el.get("center") or {}).get("lat"))
@@ -90,12 +114,20 @@ def normalise(el: dict) -> dict | None:
         "vendor": vendor(tags),
         "operator": (tags.get("operator") or "")[:120] or None,
         "direction": direction(tags),
+        "directions": directions(tags),
         "zone": tags.get("surveillance:zone"),
+        "operator_type": tags.get("operator:type"),
+        "mount": tags.get("camera:mount") or tags.get("support"),
+        "model": tags.get("model") or tags.get("camera:type"),
+        "tags": clean_tags(tags),
         "mapped": tags.get("check_date")
         or tags.get("survey:date")
         or tags.get("start_date"),
         "osm_url": "https://www.openstreetmap.org/{0}/{1}".format(
             kind, el.get("id")
+        ),
+        "deflock_url": "https://maps.deflock.org/#map=18/{0:.6f}/{1:.6f}".format(
+            float(lat), float(lon)
         ),
     }
 
@@ -127,8 +159,11 @@ class Alpr:
         self.busy_until: dict[tuple[int, int], float] = {}
         self.lock = asyncio.Lock()
         self.last = 0.0
+        self.pending: dict[tuple[int, int], asyncio.Task] = {}
 
     async def close(self) -> None:
+        for task in list(self.pending.values()):
+            task.cancel()
         await self.client.aclose()
 
     async def tile(self, tile: tuple[int, int]) -> list[dict]:
@@ -175,28 +210,41 @@ class Alpr:
         hit = self.cache.get(tile)
         return hit[1] if hit and time.time() - hit[0] < TTL_S else None
 
+    def _start(self, tile: tuple[int, int]) -> None:
+        """Fetch a tile in the background (one at a time, through the
+        lock), unless it's already on its way."""
+        if tile in self.pending:
+            return
+        task = asyncio.create_task(self._fill(tile))
+        self.pending[tile] = task
+        task.add_done_callback(lambda _: self.pending.pop(tile, None))
+
+    async def _fill(self, tile: tuple[int, int]) -> None:
+        try:
+            await self.tile(tile)
+        except (Busy, httpx.HTTPError, ValueError) as exc:
+            code = getattr(getattr(exc, "response", None), "status_code", "")
+            log.info(
+                "ALPR tile {0}: {1} {2}".format(tile, type(exc).__name__, code)
+            )
+
     async def area(self, bbox) -> tuple[list[dict], bool] | None:
-        """Cameras in a bbox, and whether every tile is in; None if the
-        view is too big. Cached tiles come back at once; at most
-        NEW_PER_CALL missing ones are fetched, so a call stays short and
-        the map asks again for the rest."""
+        """Cameras in a bbox from the cached tiles, and whether every
+        tile is in; None if the view is too big. Missing tiles are
+        fetched in the background (Overpass can take most of a minute),
+        so a call never waits on it; the map asks again."""
         covering = tiles(bbox)
         if covering is None:
             return None
         w, s, e, n = bbox
-        out, complete, fetched = [], True, 0
+        out, complete = [], True
         for t in covering:
             items = self.cached(t)
             if items is None:
-                if fetched >= NEW_PER_CALL:
-                    complete = False
-                    continue
-                fetched += 1
-                try:
-                    items = await self.tile(t)
-                except (Busy, httpx.HTTPError, ValueError):
-                    complete = False
-                    continue
+                complete = False
+                if self.busy_until.get(t, 0) <= time.time():
+                    self._start(t)
+                continue
             out += [
                 c for c in items if w <= c["lon"] <= e and s <= c["lat"] <= n
             ]
