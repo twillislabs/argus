@@ -494,8 +494,40 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       orderIndependentTranslucency: false,
     });
     const scene = v.scene;
-    // ?fps=1 shows Cesium's frame-rate counter, for performance reports.
-    scene.debugShowFramesPerSecond = new URLSearchParams(window.location.search).get('fps') === '1';
+    // ?fps=1 shows a frame-rate counter, for performance reports. (Cesium's
+    // own needs its widget stylesheet, which Argus doesn't load.)
+    let fpsOff: (() => void) | null = null;
+    if (new URLSearchParams(window.location.search).get('fps') === '1') {
+      const box = document.createElement('div');
+      box.className = 'fpsbox mono';
+      container.current.appendChild(box);
+      let frames = 0;
+      let since = performance.now();
+      let worst = 0;
+      let last = since;
+      const off = scene.postRender.addEventListener(() => {
+        const t = performance.now();
+        worst = Math.max(worst, t - last);
+        last = t;
+        frames++;
+        if (t - since >= 500) {
+          box.textContent =
+            Math.round((frames * 1000) / (t - since)) + ' FPS · ' + ((t - since) / frames).toFixed(1) + ' ms · worst ' + Math.round(worst) + ' ms';
+          frames = 0;
+          worst = 0;
+          since = t;
+        }
+      });
+      // Cesium only renders when something changes; keep it rendering so
+      // the counter measures the real rate.
+      const wasRequest = scene.requestRenderMode;
+      scene.requestRenderMode = false;
+      fpsOff = () => {
+        off();
+        box.remove();
+        scene.requestRenderMode = wasRequest;
+      };
+    }
     scene.backgroundColor = Color.fromCssColorString(DARK.background);
     scene.globe.baseColor = Color.fromCssColorString(DARK.ocean);
     if (scene.skyBox) scene.skyBox.show = false;
@@ -752,6 +784,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['weather', () => wx.current?.destroy()],
         ['infrastructure', () => infraLayer.current?.destroy()],
         ['pulse listener', removePulse],
+        ['fps counter', () => fpsOff?.()],
         ['input handler', () => handler.destroy()],
         ['drawings', () => draw.current?.destroy()],
         ['context menu', () => scene.canvas.removeEventListener('contextmenu', noMenu)],
