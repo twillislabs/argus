@@ -177,6 +177,8 @@ parts connect.
   zones via api.weather.gov/points, cached). GIBS imagery in
   `map/wxLayer.ts` needs GIBS's own 2 km tile grid (512 px, -180..396°)
   and the layer name in the URL (Cesium doesn't fill `{Layer}`).
+  GIBS imagery sits on the globe under `darkMap`'s land shapes, so while
+  clouds or precipitation are on the land is kept at `WX_LAND_ALPHA`.
   Zone-based alerts are drawn on NWS zone outlines (`nws_zones`, fetched
   by the worker's `zones_loop`, 60 a pass a second apart, simplified with
   `geo.simplify`); `/api/weather/alerts?zones=1` adds them as `zoned`.

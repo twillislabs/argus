@@ -310,14 +310,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       setAlprCameras([]);
       return;
     }
+    setAlprStatus((s) => (s === 'zoom' ? 'partial' : s));
     try {
       const r = await getAlpr(bbox);
-      if (viewRef.current !== bbox) return; // the view moved on
+      if (viewRef.current !== bbox) {
+        // The view moved while Overpass answered: ask for the new one.
+        alprTimer.current = window.setTimeout(() => void loadAlpr(), 500);
+        return;
+      }
       setAlprStatus(r.status);
       setAlprCameras(r.cameras);
       if (r.status === 'partial') alprTimer.current = window.setTimeout(() => void loadAlpr(), 3000);
     } catch {
-      // Keep what's shown; the next view change retries.
+      // A slow first fetch can time out: try again shortly.
+      alprTimer.current = window.setTimeout(() => void loadAlpr(), 5000);
     }
   }, []);
 
@@ -1354,6 +1360,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             advisoryCount={advisoriesOn ? advisories.filter((a) => a.level >= 2).length : undefined}
             wikiCount={wikiOn ? wikiItems.length : undefined}
             alprCount={filters.infra.alpr && alprStatus !== 'zoom' ? alprCameras.length : undefined}
+            alprLoading={filters.infra.alpr && alprStatus === 'partial'}
             camCount={filters.cams.traffic && camStatus !== 'zoom' ? trafficCams.length : undefined}
             weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
             zoneCount={filters.weather.zones ? wxZoned.length : undefined}

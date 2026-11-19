@@ -413,6 +413,9 @@ interface Props {
   onHistory?: (depth: number) => void;
 }
 
+// How opaque the dark map's land stays while cloud or rain imagery is on.
+const WX_LAND_ALPHA = 0.25;
+
 const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   {
     basemap,
@@ -679,7 +682,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       tensionLayer.current?.setHeight(h);
       const isDark = basemapRef.current === 'dark';
       dark.current?.setVisible(isDark);
-      if (isDark) dark.current?.setFade(1 - t);
+      // Weather imagery lies on the globe under the dark map's land
+      // shapes: while clouds or rain are on, keep the land see-through.
+      const wxOn = Boolean(weatherRef.current?.clouds || weatherRef.current?.precip);
+      if (isDark) dark.current?.setFade(Math.min(1 - t, wxOn ? WX_LAND_ALPHA : 1));
       for (const layer of tiles.current) {
         const base = (layer as ImageryLayer & { argusAlpha?: number }).argusAlpha ?? 1;
         const detail = LABEL_LAYERS.has(layer) || DETAIL_LAYERS.has(layer) ? lt : 1;
@@ -1063,6 +1069,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     if (!weather) return;
     wx.current?.setImagery(weather);
+    (viewer.current as unknown as { applyFade?: () => void } | null)?.applyFade?.();
     const id = window.setInterval(() => wx.current?.setImagery(weather), 60_000);
     return () => window.clearInterval(id);
   }, [weatherKey]);

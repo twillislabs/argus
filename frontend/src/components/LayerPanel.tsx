@@ -162,6 +162,7 @@ interface Props {
   wikiCount?: number;
   // Cameras in view, or undefined while the view is too wide.
   alprCount?: number;
+  alprLoading?: boolean;
   camCount?: number;
   advisoryCount?: number;
   // Storm warnings and zone alerts drawn on the map.
@@ -292,6 +293,7 @@ export default function LayerPanel({
   tensionCount,
   wikiCount,
   alprCount,
+  alprLoading,
   camCount,
   advisoryCount,
   weatherCount,
@@ -564,7 +566,11 @@ export default function LayerPanel({
               <small>{r.source}</small>
             </span>
             <span className="lcount mono">
-              {r.id === 'alpr' && filters.infra.alpr ? (alprCount ?? 'zoom in') : null}
+              {r.id === 'alpr' && filters.infra.alpr
+                ? alprLoading
+                  ? (alprCount ? alprCount + '…' : 'loading…')
+                  : (alprCount ?? 'zoom in')
+                : null}
               <Dot sources={sources} id={r.id} />
             </span>
           </label>
