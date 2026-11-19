@@ -88,6 +88,15 @@ parts connect.
   keeps them in `LiveSea` and serves them by bbox. They aren't stored or
   pushed to browsers. Data source keys live in Settings > Data sources
   (`/api/admin/keys`).
+- Airspace (TFRs, SIGMETs, CZIBs) are raw records of kind `airspace`,
+  not events; `/api/airspace` serves the ones still fresh and valid.
+  Infrastructure: power plants are bundled (`build_power.py`), cables are
+  fetched by the worker into `server_settings["layer:cables"]` because of
+  their non-commercial licence; never bundle them.
+- Your own receivers: `receivers_loop` in the worker; local aircraft go to
+  `app.state.local_air` (NATS `argus.local_air`), ships into `LiveSea`.
+- News channels live in `frontend/src/config/newsChannels.ts`; verify a new
+  channel ID with `https://www.youtube.com/feeds/videos.xml?channel_id=`.
 - Hazards (GDACS, EONET, tsunami) and NGA warnings are keyed events
   (`fuse_hazard`, `fuse_navwarn`) whose raw records update in place
   (`UPDATABLE_KINDS`).

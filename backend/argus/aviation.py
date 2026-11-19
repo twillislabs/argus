@@ -206,7 +206,76 @@ def normalise(ac: dict, military: bool | None = None) -> dict[str, Any] | None:
         "emergency": squawk in ("7500", "7600", "7700")
         or (ac.get("emergency") not in (None, "none")),
         "seen": ac.get("seen_pos", ac.get("seen")),
+        # Navigation accuracy, for GPS interference (NACp < 8 means the
+        # aircraft's own position is degraded).
+        "nac_p": ac.get("nac_p"),
+        "source": "adsb.lol",
     }
+
+
+class GpsGrid:
+    """GPS interference from ADS-B, the method gpsjam.org uses: in each
+    grid cell, the share of aircraft reporting a degraded position
+    (NACp below 8) over the last hour. Only cells with enough aircraft
+    count, and Argus sees only the aircraft it fetches (military
+    worldwide, civil where someone is looking, your own receiver).
+    """
+
+    CELL_DEG = 1.0
+    WINDOW_S = 3600
+    MIN_AIRCRAFT = 8
+
+    def __init__(self) -> None:
+        # (cell) -> {hex: (bad, time)}
+        self.cells: dict[tuple[int, int], dict[str, tuple[bool, float]]] = {}
+
+    def observe(self, aircraft: list[dict], now: float | None = None) -> None:
+        now = now or time.time()
+        for a in aircraft:
+            nac = a.get("nac_p")
+            if nac is None or a.get("ground") or a.get("lat") is None:
+                continue
+            key = (
+                math.floor(a["lat"] / self.CELL_DEG),
+                math.floor(a["lon"] / self.CELL_DEG),
+            )
+            self.cells.setdefault(key, {})[a["hex"]] = (nac < 8, now)
+
+    def summary(self, now: float | None = None) -> list[dict]:
+        now = now or time.time()
+        out = []
+        for key in list(self.cells):
+            seen = {
+                h: v
+                for h, v in self.cells[key].items()
+                if now - v[1] <= self.WINDOW_S
+            }
+            if not seen:
+                self.cells.pop(key, None)
+                continue
+            self.cells[key] = seen
+            if len(seen) < self.MIN_AIRCRAFT:
+                continue
+            bad = sum(1 for b, _ in seen.values() if b)
+            share = bad / len(seen)
+            out.append(
+                {
+                    "lat": key[0] * self.CELL_DEG,
+                    "lon": key[1] * self.CELL_DEG,
+                    "size": self.CELL_DEG,
+                    "aircraft": len(seen),
+                    "bad": bad,
+                    "share": round(share, 3),
+                    "level": (
+                        "high"
+                        if share > 0.10
+                        else "medium"
+                        if share > 0.02
+                        else "low"
+                    ),
+                }
+            )
+        return out
 
 
 class LiveAir:
@@ -324,6 +393,7 @@ class AirClient:
         self.details = TTLCache(24 * 3600)
         # hex -> (time seen, aircraft), from any area answer.
         self.recent: dict[str, tuple[float, dict]] = {}
+        self.gps: GpsGrid | None = None
         self.lock = asyncio.Lock()
         self.next_request = 0.0
         self.paused_until = 0.0
@@ -376,6 +446,8 @@ class AirClient:
             if a is not None
         ]
         self.areas.put(key, out)
+        if self.gps is not None:
+            self.gps.observe(out)
         now = time.time()
         for a in out:
             self.recent[a["hex"]] = (now, a)

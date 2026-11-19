@@ -1,5 +1,10 @@
 """Data-source collectors. One module per source."""
 
+from argus.collectors.airspace import (
+    CzibCollector,
+    SigmetCollector,
+    TfrCollector,
+)
 from argus.collectors.base import (
     Collector,
     CollectResult,
@@ -28,6 +33,9 @@ REGISTRY: dict[str, type[Collector]] = {
         EonetCollector,
         TsunamiCollector,
         NgaCollector,
+        TfrCollector,
+        SigmetCollector,
+        CzibCollector,
     )
 }
 

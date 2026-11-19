@@ -1,0 +1,93 @@
+"""Airspace areas in force: TFRs, SIGMETs and conflict zone bulletins."""
+
+from datetime import datetime, timedelta
+
+from fastapi import APIRouter
+from sqlalchemy import select
+
+from argus.api.deps import DbDep, SessionDep
+from argus.db import utcnow
+from argus.models import RawRecord
+
+router = APIRouter(tags=["airspace"])
+
+# How recently a record must have been refreshed to still count: TFRs
+# refresh hourly, CZIBs daily; SIGMETs carry their own end time.
+FRESH = {
+    "faa_tfr": timedelta(hours=2),
+    "czib": timedelta(hours=26),
+    "sigmet": timedelta(hours=12),
+}
+
+
+def _ended(valid_to: str | None, now: datetime) -> bool:
+    if not valid_to:
+        return False
+    try:
+        end = datetime.fromisoformat(valid_to.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if end.tzinfo is None:
+        # CZIBs give a date: valid through the end of that day.
+        end = end.replace(tzinfo=now.tzinfo) + timedelta(days=1)
+    return end < now
+
+
+@router.get("/api/airspace")
+async def list_airspace(session: SessionDep, db: DbDep):
+    now = utcnow()
+    oldest = now - max(FRESH.values())
+    rows = (
+        await db.execute(
+            select(RawRecord).where(
+                RawRecord.kind == "airspace",
+                RawRecord.fetched_at >= oldest,
+            )
+        )
+    ).scalars()
+    items = []
+    for r in rows:
+        if r.fetched_at < now - FRESH.get(r.source, timedelta(hours=2)):
+            continue
+        p = r.payload
+        if _ended(p.get("valid_to"), now):
+            continue
+        items.append(
+            {
+                "key": "{0}:{1}".format(r.source, r.external_id),
+                "kind": p.get("kind"),
+                "id": p.get("id"),
+                "title": p.get("title"),
+                "hazard": p.get("hazard"),
+                "area": p.get("area") or p.get("region"),
+                "countries": p.get("countries"),
+                "valid_from": p.get("valid_from") or p.get("issued"),
+                "valid_to": p.get("valid_to"),
+                "base_ft": p.get("base_ft"),
+                "top_ft": p.get("top_ft"),
+                "facility": p.get("facility"),
+                "polygon": p.get("polygon"),
+                "raw": p.get("raw"),
+                "url": p.get("url"),
+                "lat": r.lat,
+                "lon": r.lon,
+            }
+        )
+    items.sort(key=lambda i: (i["kind"] or "", i["id"] or ""))
+    return {"items": items}
+
+
+@router.get("/api/layers/cables")
+async def submarine_cables(session: SessionDep, db: DbDep):
+    """TeleGeography's submarine cables and landing points (CC BY-NC-SA),
+    as last fetched by the worker."""
+    from argus.models import ServerSetting
+
+    row = await db.get(ServerSetting, "layer:cables")
+    value = dict(row.value) if row else {}
+    return {
+        "fetched": value.get("fetched"),
+        "cables": value.get("cables") or {"features": []},
+        "landings": value.get("landings") or {"features": []},
+        "attribution": "TeleGeography (CC BY-NC-SA 4.0)",
+    }

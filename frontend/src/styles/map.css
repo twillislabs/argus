@@ -121,3 +121,26 @@
 .mc-gap { height: 4px; }
 .skind.k-satellite { color: #b49cff; }
 .skind.k-vessel { color: #4fc1b0; }
+
+/* Floating live news player. */
+.newsplayer {
+  position: absolute; right: 12px; bottom: 40px; z-index: 6; width: 440px; min-width: 300px; max-width: calc(100% - 24px);
+  resize: horizontal; overflow: hidden; display: grid;
+  background: rgba(13, 17, 23, 0.97); border: 1px solid var(--line-2); border-radius: 6px; box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+}
+.np-head { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 10px; cursor: move; user-select: none; border-bottom: 1px solid var(--line); }
+.np-head b { flex: 1; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-live { display: inline-flex; align-items: center; gap: 5px; font: 600 10px/1 var(--f-mono); letter-spacing: 0.1em; color: var(--crit); }
+.np-live i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.np-btn { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 4px; }
+.np-btn:hover { color: var(--text); }
+.np-tabs { display: flex; gap: 2px; padding: 4px 6px; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.np-tabs button { border: 0; background: none; color: var(--muted); font: 600 11px/1 var(--f-head); letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 8px; border-radius: 3px; cursor: pointer; white-space: nowrap; }
+.np-tabs button[aria-selected='true'] { background: var(--accent-soft); color: var(--accent); }
+.np-video { position: relative; aspect-ratio: 16 / 9; background: #000; }
+.np-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.np-pick { max-height: 260px; overflow: auto; padding: 6px 10px; display: grid; gap: 6px; }
+.np-group { font: 600 10.5px/1 var(--f-head); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); margin: 6px 0 3px; }
+.np-opt { display: flex; gap: 8px; align-items: center; font-size: 12.5px; padding: 2px 0; }
+.np-foot { padding: 4px 10px 6px; font-size: 10.5px; color: var(--dim); }
+.iconbtn.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }

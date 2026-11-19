@@ -137,6 +137,9 @@ class Preferences(BaseModel):
     reference: dict[str, bool] | None = None
     space: dict[str, bool] | None = None
     sea: dict[str, bool] | None = None
+    airspace: dict[str, bool] | None = None
+    infra: dict[str, bool] | None = None
+    news: dict[str, Any] | None = None
     show_banner: bool | None = None
 
 

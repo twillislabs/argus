@@ -59,7 +59,7 @@ PROMOTE_ARTICLES = 10
 GENERIC_CODES = {"190", "192", "193"}
 PROMOTE_ARTICLES_GENERIC = 20
 
-UPDATABLE_KINDS = {"quake", "fire_cluster", "hazard", "navwarn"}
+UPDATABLE_KINDS = {"quake", "fire_cluster", "hazard", "navwarn", "airspace"}
 
 
 def new_event_id() -> str:

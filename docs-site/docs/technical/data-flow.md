@@ -23,6 +23,11 @@ M2–M3), patterns and alerts.
 | `gdacs` | 15 min | GDACS disasters (floods, cyclones, volcanoes, droughts, wildfires), one `hazard` event each |
 | `eonet` | 30 min | NASA EONET natural events (storms with their tracks, volcanoes...) as `hazard` events |
 | `tsunami` | 5 min | Latest NTWC and PTWC bulletins; a warning is severity 5 |
+| `faa_tfr` | 15 min | FAA TFR list joined to their shapes; `airspace` raw records |
+| `sigmet` | 10 min | International and US SIGMETs from aviationweather.gov; `airspace` raw records |
+| `czib` | 6 h | EASA conflict zone bulletins (parsed from EASA's table); `airspace` raw records |
+| cables | 30 days | TeleGeography cables and landing points, kept in `server_settings["layer:cables"]` |
+| receivers | 2 s / 10 s | Your readsb `aircraft.json` (NATS `argus.local_air`) and AIS-catcher `ships.json` (`argus.sea`) |
 | `nga` | 1 h | NGA navigational warnings with positions, as `maritime` events |
 | vessels (`aisstream`) | stream | AISStream WebSocket for the whole world (an admin's key); changes published on `argus.sea` every 5 s, kept in API memory (`LiveSea`), not stored |
 | satellites (`celestrak`) | 6 h | The CelesTrak "active" catalogue (OMM elements, about 17,000), tagged from small groups (stations, weather, GNSS, military...). Stored in `satellites`; browsers propagate it with SGP4 |

@@ -12,6 +12,7 @@ from argus import __version__
 from argus.api import (
     admin,
     air,
+    airspace,
     auth,
     events,
     health,
@@ -22,7 +23,7 @@ from argus.api import (
 from argus.api import sea as sea_api
 from argus.api import space as space_api
 from argus.api.deps import RateLimiter
-from argus.aviation import AirClient, LiveAir
+from argus.aviation import AirClient, GpsGrid, LiveAir
 from argus.config import DEFAULT_SECRET, Settings, get_settings
 from argus.db import Database
 from argus.live import Hub, subscribe_forever
@@ -59,8 +60,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await ensure_setup_token(session, settings)
         app.state.hub = Hub()
         app.state.air = LiveAir()
+        app.state.local_air = LiveAir()
         app.state.sea = LiveSea()
+        app.state.gps = GpsGrid()
         app.state.air_client = AirClient(settings.user_agent)
+        app.state.air_client.gps = app.state.gps
         live_task = None
         if settings.nats_url:
             live_task = asyncio.create_task(
@@ -69,6 +73,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     app.state.hub,
                     app.state.air,
                     app.state.sea,
+                    app.state.local_air,
+                    app.state.gps,
                 )
             )
         yield
@@ -121,6 +127,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         users.router,
         space_api.router,
         sea_api.router,
+        airspace.router,
     ):
         app.include_router(router)
     return app

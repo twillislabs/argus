@@ -326,6 +326,57 @@ def parse(message: dict) -> dict | None:
     return update
 
 
+def _first(d: dict, *keys):
+    for k in keys:
+        if d.get(k) not in (None, ""):
+            return d[k]
+    return None
+
+
+def parse_aiscatcher(doc) -> list[dict]:
+    """Vessels from an AIS-catcher web server (ships.json), as updates in
+    the same shape parse() makes. Field names vary a little between
+    versions, so a few spellings are accepted."""
+    ships = doc.get("ships", []) if isinstance(doc, dict) else doc or []
+    now = time.time()
+    out = []
+    for s in ships:
+        mmsi = _first(s, "mmsi", "MMSI")
+        lat = _num(_first(s, "lat", "latitude"))
+        lon = _num(_first(s, "lon", "longitude"))
+        if not mmsi or lat is None or lon is None:
+            continue
+        if abs(lat) > 90 or abs(lon) > 180:
+            continue
+        age = _num(_first(s, "last_signal", "age"))
+        update = {
+            "mmsi": int(mmsi),
+            "lat": round(lat, 5),
+            "lon": round(lon, 5),
+            "sog": _num(_first(s, "speed", "sog"), invalid=102.3),
+            "cog": _num(_first(s, "cog", "course"), invalid=360),
+            "heading": _num(_first(s, "heading", "hdg"), invalid=511),
+            "pos_at": now - (age or 0),
+            "name": (str(_first(s, "shipname", "name") or "")).strip() or None,
+            "callsign": (str(_first(s, "callsign") or "")).strip() or None,
+            "destination": (str(_first(s, "destination") or "")).strip()
+            or None,
+            "draught": _num(_first(s, "draught")),
+            "source": "local",
+        }
+        imo = _first(s, "imo", "IMO")
+        if imo:
+            update["imo"] = int(imo)
+        ship_type = _first(s, "shiptype", "ship_type", "type")
+        if isinstance(ship_type, int | float) and ship_type:
+            update["ship_type"] = int(ship_type)
+        status = _first(s, "status", "nav_status")
+        if isinstance(status, int):
+            update["status"] = NAV_STATUS.get(status)
+        out.append(update)
+    return out
+
+
 def public(v: dict) -> dict:
     """A vessel as the API returns it."""
     t = v.get("ship_type")

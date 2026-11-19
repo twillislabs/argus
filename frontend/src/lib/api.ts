@@ -411,3 +411,43 @@ export interface KeyState {
 export const getKeys = () => api<Record<string, KeyState>>('/api/admin/keys');
 export const saveKeys = (body: Record<string, string>) =>
   api<Record<string, KeyState>>('/api/admin/keys', { method: 'PUT', body });
+
+// --- Airspace ----------------------------------------------------------------
+
+export interface AirspaceItem {
+  key: string;
+  kind: 'tfr' | 'sigmet' | 'czib';
+  id: string;
+  title: string;
+  hazard: string | null;
+  area: string | null;
+  countries: string[] | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  base_ft: number | null;
+  top_ft: number | null;
+  facility: string | null;
+  polygon: [number, number][] | null;
+  raw: string | null;
+  url: string | null;
+  lat: number | null;
+  lon: number | null;
+}
+
+export const getAirspace = () => api<{ items: AirspaceItem[] }>('/api/airspace');
+
+export interface GpsCell {
+  lat: number;
+  lon: number;
+  size: number;
+  aircraft: number;
+  bad: number;
+  share: number;
+  level: 'low' | 'medium' | 'high';
+}
+
+export const getGps = () => api<{ cells: GpsCell[]; window_s: number }>('/api/gps');
+
+export const getReceivers = () => api<{ adsb_url: string | null; ais_url: string | null }>('/api/admin/receivers');
+export const saveReceivers = (body: { adsb_url: string; ais_url: string }) =>
+  api<{ adsb_url: string | null; ais_url: string | null }>('/api/admin/receivers', { method: 'PUT', body });

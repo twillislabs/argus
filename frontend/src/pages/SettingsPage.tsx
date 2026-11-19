@@ -10,10 +10,12 @@ import {
   api,
   can,
   getKeys,
+  getReceivers,
   type Home,
   type KeyState,
   type Me,
   saveKeys,
+  saveReceivers,
   savePreferences,
   type SourceStatus,
 } from '../lib/api';
@@ -475,6 +477,7 @@ function SourcesSection() {
           )}
         </div>
       </section>
+      <ReceiversCard />
       <section className="card wide">
         <div className="ph">
           <h2>Source health</h2>
@@ -498,5 +501,76 @@ function SourcesSection() {
         </div>
       </section>
     </>
+  );
+}
+
+function ReceiversCard() {
+  const [adsb, setAdsb] = useState('');
+  const [ais, setAis] = useState('');
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    getReceivers()
+      .then((r) => {
+        setAdsb(r.adsb_url ?? '');
+        setAis(r.ais_url ?? '');
+      })
+      .catch(() => undefined);
+  }, []);
+  async function save() {
+    setMessage(null);
+    try {
+      await saveReceivers({ adsb_url: adsb.trim(), ais_url: ais.trim() });
+      setMessage({ ok: true, text: 'Saved. The worker picks them up within a minute.' });
+    } catch (err) {
+      setMessage({ ok: false, text: err instanceof Error ? err.message : 'Save failed.' });
+    }
+  }
+  return (
+    <section className="card">
+      <div className="ph">
+        <h2>Your receivers</h2>
+        <span className="mono">optional</span>
+      </div>
+      <div className="cbody">
+        <p>
+          If you run your own ADS-B or AIS receiver (an RTL-SDR on your network), Argus can read it. Aircraft and ships
+          it hears are added to the map for everyone, alongside adsb.lol and AISStream.
+        </p>
+        <div className="field">
+          <label htmlFor="rx-adsb">ADS-B: readsb or tar1090 aircraft.json</label>
+          <input
+            id="rx-adsb"
+            spellCheck={false}
+            placeholder="http://192.168.1.50/tar1090/data/aircraft.json"
+            value={adsb}
+            onChange={(e) => setAdsb(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="rx-ais">AIS: AIS-catcher web server ships.json</label>
+          <input
+            id="rx-ais"
+            spellCheck={false}
+            placeholder="http://192.168.1.50:8100/api/ships.json"
+            value={ais}
+            onChange={(e) => setAis(e.target.value)}
+          />
+        </div>
+        <p className="quiet small">
+          The worker container fetches these, so use an address it can reach (your receiver's LAN IP, not localhost).
+          Leave a box empty to turn that receiver off.
+        </p>
+        <div className="actions">
+          <button className="btn primary" onClick={() => void save()}>
+            Save receivers
+          </button>
+        </div>
+        {message && (
+          <div className={message.ok ? 'okmsg' : 'err'} role="status">
+            {message.text}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

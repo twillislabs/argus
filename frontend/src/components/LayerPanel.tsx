@@ -1,6 +1,8 @@
 import type { CivilStatus, EventType, SeaStatus } from '../lib/api';
 import { EVENT_TYPES, SEVERITY_NAME, TYPE_INFO } from '../lib/format';
 import { AIR_COLOR } from '../map/aircraftLayer';
+import { AIRSPACE_COLOR, type AirspaceFilters, DEFAULT_AIRSPACE } from '../map/airspaceLayer';
+import { DEFAULT_INFRA, FUEL_COLOR, type InfraFilters } from '../map/infraLayer';
 import { DEFAULT_REFERENCE, type ReferenceLayers } from '../map/overlays';
 import { DEFAULT_SPACE, SAT_COLOR, type SpaceFilters } from '../map/satellites';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
@@ -21,6 +23,8 @@ export interface LayerFilters {
   reference: ReferenceLayers;
   space: SpaceFilters;
   sea: SeaFilters;
+  airspace: AirspaceFilters;
+  infra: InfraFilters;
 }
 
 export const DEFAULT_FILTERS: LayerFilters = {
@@ -32,7 +36,22 @@ export const DEFAULT_FILTERS: LayerFilters = {
   reference: DEFAULT_REFERENCE,
   space: DEFAULT_SPACE,
   sea: { ...DEFAULT_SEA, cargo: false, tanker: false, passenger: false, fishing: false, military: false },
+  airspace: DEFAULT_AIRSPACE,
+  infra: DEFAULT_INFRA,
 };
+
+const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color: string }[] = [
+  { id: 'nuclear', label: 'Nuclear plants', source: 'WRI power plant database', color: FUEL_COLOR.Nuclear },
+  { id: 'power', label: 'Power plants (300 MW+)', source: 'Coal, gas, oil, hydro, renewables', color: FUEL_COLOR.Gas },
+  { id: 'cables', label: 'Submarine cables', source: 'TeleGeography', color: '#7fd1c7' },
+];
+
+const AIRSPACE_ROWS: { id: keyof AirspaceFilters; label: string; source: string }[] = [
+  { id: 'tfr', label: 'Flight restrictions (TFRs)', source: 'FAA, United States' },
+  { id: 'sigmet', label: 'SIGMETs', source: 'Storms, turbulence, icing, ash' },
+  { id: 'czib', label: 'Conflict zone bulletins', source: 'EASA' },
+  { id: 'gps', label: 'GPS interference', source: 'Argus, from ADS-B accuracy' },
+];
 
 const SEA_ROWS: { id: keyof SeaFilters; label: string }[] = [
   { id: 'military', label: 'Military and law enforcement' },
@@ -87,6 +106,7 @@ interface Props {
   satCounts: Partial<Record<keyof SpaceFilters, number>>;
   seaCounts: Partial<Record<keyof SeaFilters, number>>;
   seaStatus: SeaStatus;
+  airspaceCounts: Partial<Record<keyof AirspaceFilters, number>>;
   onChange: (f: LayerFilters) => void;
 }
 
@@ -106,6 +126,7 @@ export default function LayerPanel({
   satCounts,
   seaCounts,
   seaStatus,
+  airspaceCounts,
   onChange,
 }: Props) {
   const seaOn = Object.values(filters.sea).some(Boolean);
@@ -189,6 +210,25 @@ export default function LayerPanel({
         </div>
       </div>
       <div className="group">
+        <div className="gtitle">Airspace</div>
+        {AIRSPACE_ROWS.map((r) => (
+          <label key={r.id} className="lrow">
+            <input
+              type="checkbox"
+              checked={filters.airspace[r.id]}
+              onChange={(e) => onChange({ ...filters, airspace: { ...filters.airspace, [r.id]: e.target.checked } })}
+            />
+            <span className="tog" />
+            <span className="sw area" style={{ borderColor: AIRSPACE_COLOR[r.id] }} />
+            <span className="lname">
+              <span>{r.label}</span>
+              <small>{r.source}</small>
+            </span>
+            <span className="lcount mono">{airspaceCounts[r.id] ?? '–'}</span>
+          </label>
+        ))}
+      </div>
+      <div className="group">
         <div className="gtitle">Sea</div>
         {seaOn && <p className={'ghint' + (seaStatus === 'ok' ? '' : ' warn')}>{SEA_HINT[seaStatus]}</p>}
         {SEA_ROWS.map((r) => (
@@ -223,6 +263,24 @@ export default function LayerPanel({
               <small>{r.source}</small>
             </span>
             <span className="lcount mono">{satCounts[r.id] ?? '–'}</span>
+          </label>
+        ))}
+      </div>
+      <div className="group">
+        <div className="gtitle">Infrastructure</div>
+        {INFRA_ROWS.map((r) => (
+          <label key={r.id} className="lrow">
+            <input
+              type="checkbox"
+              checked={filters.infra[r.id]}
+              onChange={(e) => onChange({ ...filters, infra: { ...filters.infra, [r.id]: e.target.checked } })}
+            />
+            <span className="tog" />
+            <span className="sw" style={{ background: r.color }} />
+            <span className="lname">
+              <span>{r.label}</span>
+              <small>{r.source}</small>
+            </span>
           </label>
         ))}
       </div>

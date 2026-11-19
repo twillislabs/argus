@@ -36,7 +36,9 @@ class Settings(BaseSettings):
     nats_url: str = "nats://nats:4222"
 
     # Collectors (worker process).
-    collectors: str = "usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga"
+    collectors: str = (
+        "usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga,faa_tfr,sigmet,czib"
+    )
     user_agent: str = "Argus/0.1 (self-hosted OSINT visualizer)"
     firms_map_key: str | None = None
     # Optional JSON file overriding the default RSS feed list.

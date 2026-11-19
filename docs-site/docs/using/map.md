@@ -144,6 +144,50 @@ types come from adsbdb and are the *planned* route. Aircraft whose owners
 opted out of tracking (the FAA's PIA and LADD programmes) are not shown
 unless they are military, and Argus never shows registered owner names.
 
+## Airspace
+
+The **Airspace** group draws areas in force, translucent with an outline.
+Click one for its details and the source text.
+
+| Layer | Shows | Source |
+|---|---|---|
+| **Flight restrictions (TFRs)** | US temporary flight restrictions: VIP movements, security, space launches, hazards | FAA (tfr.faa.gov) |
+| **SIGMETs** | Thunderstorms, turbulence, icing, volcanic ash, tropical cyclones, coloured by hazard, with base and top | aviationweather.gov |
+| **Conflict zone bulletins** | EASA's warnings to airlines about conflict airspace, shown by tinting the countries they cover | EASA |
+| **GPS interference** | 1° cells where 2–10% (yellow) or over 10% (red) of aircraft report a degraded position, over the last hour | Argus, from ADS-B |
+
+GPS interference uses the method gpsjam.org uses, but only from the
+aircraft Argus sees: military aircraft worldwide, civil traffic where
+someone is looking, and your own receiver. Cells need at least eight
+aircraft. Not for navigation.
+
+## Infrastructure
+
+| Layer | Shows |
+|---|---|
+| **Nuclear plants** | Every nuclear power plant, named when you're close |
+| **Power plants (300 MW+)** | Coal, gas, oil, hydro and large renewables, coloured by fuel and sized by capacity |
+| **Submarine cables** | Undersea internet cables in their map colours, with landing points |
+
+Power plants come from the WRI Global Power Plant Database, last updated in
+2021, so newer plants are missing. Cables come from TeleGeography's
+submarine cable map; click one for a link to its owners and length.
+
+## Live news
+
+**TV** in the map controls opens a floating live player. It starts muted;
+unmute it in the player. Drag it by its title bar and resize it from the
+corner. Tabs switch channel; **⋯** chooses which channels have tabs:
+
+- **US:** LiveNOW from FOX, Fox News, Newsmax, NBC News, CBS News, MS NOW
+- **International:** Sky News, GB News, BBC News, Al Jazeera English, DW,
+  France 24, i24NEWS, TRT World, WION, NHK World
+- **Business:** Reuters, Bloomberg
+- **Weather:** Ryan Hall, Y'all
+
+Each tab plays the channel's current live stream through YouTube's embed.
+If a channel isn't live, YouTube says so.
+
 ## Ships
 
 The **Sea** group shows vessels from AIS, the position reports ships

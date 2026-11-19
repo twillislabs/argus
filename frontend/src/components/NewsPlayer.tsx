@@ -1,0 +1,143 @@
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
+
+import { CHANNELS, DEFAULT_TABS, embedUrl } from '../config/newsChannels';
+
+interface Props {
+  channel: string;
+  tabs: string[];
+  onChannel: (id: string) => void;
+  onTabs: (ids: string[]) => void;
+  onClose: () => void;
+}
+
+const POS_KEY = 'argus-news-pos';
+
+interface Box {
+  x: number;
+  y: number;
+  w: number;
+}
+
+function loadBox(): Box | null {
+  try {
+    const raw = localStorage.getItem(POS_KEY);
+    return raw ? (JSON.parse(raw) as Box) : null;
+  } catch {
+    return null;
+  }
+}
+
+// A floating live news player over the map: channel tabs, drag by the
+// header, resize from the corner. Muted until you unmute in the player.
+export default function NewsPlayer({ channel, tabs, onChannel, onTabs, onClose }: Props) {
+  const panel = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<Box | null>(loadBox);
+  const [picking, setPicking] = useState(false);
+  const drag = useRef<{ dx: number; dy: number } | null>(null);
+  const current = CHANNELS.find((c) => c.id === channel) ?? CHANNELS[0];
+  const shown = (tabs.length ? tabs : DEFAULT_TABS)
+    .map((id) => CHANNELS.find((c) => c.id === id))
+    .filter((c): c is (typeof CHANNELS)[number] => Boolean(c));
+
+  function save(next: Box) {
+    setBox(next);
+    try {
+      localStorage.setItem(POS_KEY, JSON.stringify(next));
+    } catch {
+      // Storage blocked: position resets next time.
+    }
+  }
+
+  function onDown(e: ReactPointerEvent) {
+    const el = panel.current;
+    if (!el || (e.target as HTMLElement).closest('button')) return;
+    const r = el.getBoundingClientRect();
+    drag.current = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function onMove(e: ReactPointerEvent) {
+    const el = panel.current;
+    const parent = el?.offsetParent as HTMLElement | null;
+    if (!drag.current || !el || !parent) return;
+    const pr = parent.getBoundingClientRect();
+    const x = Math.max(0, Math.min(pr.width - 120, e.clientX - pr.left - drag.current.dx));
+    const y = Math.max(0, Math.min(pr.height - 40, e.clientY - pr.top - drag.current.dy));
+    setBox({ x, y, w: el.offsetWidth });
+  }
+  function onUp() {
+    if (drag.current && box) save({ ...box, w: panel.current?.offsetWidth ?? box.w });
+    drag.current = null;
+  }
+
+  // Remember the size after a corner resize.
+  useEffect(() => {
+    const el = panel.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      if (!drag.current && box && Math.abs(el.offsetWidth - box.w) > 4) save({ ...box, w: el.offsetWidth });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+
+  const style = box ? { left: box.x, top: box.y, width: box.w, right: 'auto', bottom: 'auto' } : undefined;
+  return (
+    <div ref={panel} className="newsplayer" style={style} role="dialog" aria-label="Live news">
+      <div className="np-head" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
+        <span className="np-live">
+          <i /> LIVE
+        </span>
+        <b>{current.name}</b>
+        <button className="np-btn" title="Choose channels" onClick={() => setPicking(!picking)}>
+          ⋯
+        </button>
+        <button className="np-btn" title="Close" aria-label="Close news player" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <div className="np-tabs" role="tablist">
+        {shown.map((c) => (
+          <button key={c.id} role="tab" aria-selected={c.id === channel} onClick={() => onChannel(c.id)}>
+            {c.short}
+          </button>
+        ))}
+      </div>
+      {picking ? (
+        <div className="np-pick">
+          {(['US', 'International', 'Business', 'Weather'] as const).map((g) => (
+            <div key={g}>
+              <div className="np-group">{g}</div>
+              {CHANNELS.filter((c) => c.group === g).map((c) => {
+                const on = shown.some((s) => s.id === c.id);
+                return (
+                  <label key={c.id} className="np-opt">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() =>
+                        onTabs(on ? shown.filter((s) => s.id !== c.id).map((s) => s.id) : [...shown.map((s) => s.id), c.id])
+                      }
+                    />
+                    {c.name}
+                  </label>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="np-video">
+          <iframe
+            key={channel}
+            src={embedUrl(channel)}
+            title={current.name + ' live'}
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        </div>
+      )}
+      <div className="np-foot">If a channel isn&apos;t live, YouTube says so. Streams are the channels&apos; own.</div>
+    </div>
+  );
+}

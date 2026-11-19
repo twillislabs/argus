@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import AircraftInspector from '../components/AircraftInspector';
+import AirspaceInspector from '../components/AirspaceInspector';
 import AppHeader from '../components/AppHeader';
+import { CableInspector, PlantInspector } from '../components/InfraInspector';
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
+import NewsPlayer from '../components/NewsPlayer';
+import { DEFAULT_TABS } from '../config/newsChannels';
 import SatelliteInspector from '../components/SatelliteInspector';
 import VesselInspector from '../components/VesselInspector';
 import LayerPanel, {
@@ -16,12 +20,16 @@ import SituationPanel from '../components/SituationPanel';
 import {
   type Aircraft,
   type AircraftDetail,
+  type AirspaceItem,
   type Bbox,
   type CivilStatus,
   type EventItem,
   type EventType,
   getAircraft,
   getEvents,
+  getAirspace,
+  getGps,
+  type GpsCell,
   getMapConfig,
   getSatelliteCatalog,
   getVessels,
@@ -37,6 +45,7 @@ import { connectLive, type LiveState } from '../lib/live';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import { DEFAULT_SPACE, type SatCatalog, type SpaceFilters } from '../map/satellites';
 import type { SeaFilters } from '../map/vesselLayer';
+import type { AirspaceFilters } from '../map/airspaceLayer';
 import Globe, { type Basemap, BASEMAPS, type GlobeHandle, type Imagery, PHOTO_3D } from '../map/Globe';
 import { applyLayers, buildShareLink, takeShareLink } from '../lib/share';
 
@@ -65,6 +74,11 @@ function initialFilters(me: Me): LayerFilters {
     reference: { ...DEFAULT_FILTERS.reference, ...(reference ?? {}) },
     space: { ...DEFAULT_SPACE, ...((me.preferences.space as Partial<SpaceFilters> | undefined) ?? {}) },
     sea: { ...DEFAULT_FILTERS.sea, ...((me.preferences.sea as Partial<SeaFilters> | undefined) ?? {}) },
+    infra: { ...DEFAULT_FILTERS.infra, ...((me.preferences.infra as Record<string, boolean> | undefined) ?? {}) },
+    airspace: {
+      ...DEFAULT_FILTERS.airspace,
+      ...((me.preferences.airspace as Partial<AirspaceFilters> | undefined) ?? {}),
+    },
   };
 }
 
@@ -104,6 +118,16 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [vessels, setVessels] = useState<Vessel[]>([]);
   const [seaStatus, setSeaStatus] = useState<SeaStatus>('waiting');
   const [trackedVessel, setTrackedVessel] = useState<Vessel | null>(null);
+  const savedNews = (me.preferences.news ?? {}) as { open?: boolean; channel?: string; tabs?: string[] };
+  const [newsOpen, setNewsOpen] = useState(savedNews.open === true);
+  const [newsChannel, setNewsChannel] = useState(savedNews.channel ?? DEFAULT_TABS[0]);
+  const [newsTabs, setNewsTabs] = useState<string[]>(savedNews.tabs ?? DEFAULT_TABS);
+  const saveNews = (next: { open: boolean; channel: string; tabs: string[] }) =>
+    void savePreferences({ news: next }).catch(() => undefined);
+  const [airspaceItems, setAirspaceItems] = useState<AirspaceItem[]>([]);
+  const [selectedAirspace, setSelectedAirspace] = useState<string | null>(null);
+  const [gpsCells, setGpsCells] = useState<GpsCell[]>([]);
+  const [selectedInfra, setSelectedInfra] = useState<string | null>(null);
   const [selectedNorad, setSelectedNorad] = useState<number | null>(null);
   const [followSat, setFollowSat] = useState(false);
   const [satCatalog, setSatCatalog] = useState<SatCatalog | null>(null);
@@ -360,6 +384,47 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     };
   }, [aircraft, selectedHex, selectedMmsi, shownVessels]);
 
+  // Airspace areas, while any airspace layer is on (every 10 minutes).
+  const airspaceOn = filters.airspace.tfr || filters.airspace.sigmet || filters.airspace.czib;
+  useEffect(() => {
+    if (!filters.airspace.gps) return;
+    let cancelled = false;
+    const load = () =>
+      getGps()
+        .then((r) => !cancelled && setGpsCells(r.cells))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 300_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [filters.airspace.gps]);
+  useEffect(() => {
+    if (!airspaceOn) return;
+    let cancelled = false;
+    const load = () =>
+      getAirspace()
+        .then((r) => !cancelled && setAirspaceItems(r.items))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 600_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [airspaceOn]);
+  const airspaceCounts = useMemo(() => {
+    const c: Partial<Record<keyof AirspaceFilters, number>> = {};
+    for (const i of airspaceItems) c[i.kind] = (c[i.kind] ?? 0) + 1;
+    c.gps = gpsCells.filter((x) => x.level !== 'low').length;
+    return c;
+  }, [airspaceItems, gpsCells]);
+  const selectedAirspaceItem = airspaceItems.find((i) => i.key === selectedAirspace) ?? null;
+  const selectedPlant =
+    selectedInfra?.startsWith('pp:') ? (globe.current?.plant(Number(selectedInfra.slice(3))) ?? null) : null;
+  const selectedCable = selectedInfra?.startsWith('cable:') ? (globe.current?.cable(selectedInfra.slice(6)) ?? null) : null;
+
   const airCounts = useMemo(
     () => ({ military: military.length, civil: civil.length }),
     [military, civil],
@@ -373,6 +438,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       reference: next.reference,
       space: next.space,
       sea: next.sea,
+      airspace: next.airspace,
+      infra: next.infra,
     }).catch(
       () => undefined,
     );
@@ -399,6 +466,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     setSelectedNorad(null);
     setSelectedMmsi(null);
     setTrackedVessel(null);
+    setSelectedAirspace(null);
+    setSelectedInfra(null);
     setFollowSat(false);
     setCamera('free');
     setTracked(null);
@@ -507,6 +576,18 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     }
     if (id && id.startsWith('ship:')) {
       selectVessel(Number(id.slice(5)));
+      return;
+    }
+    if (id && (id.startsWith('pp:') || id.startsWith('cable:'))) {
+      clearSelection();
+      setSelectedInfra(id);
+      openRight();
+      return;
+    }
+    if (id && id.startsWith('air:')) {
+      clearSelection();
+      setSelectedAirspace(id.slice(4));
+      openRight();
       return;
     }
     clearSelection();
@@ -651,6 +732,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             satCounts={satCounts}
             seaCounts={seaCounts}
             seaStatus={seaStatus}
+            airspaceCounts={airspaceCounts}
             onChange={changeFilters}
           />
         )}
@@ -667,6 +749,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             vessels={shownVessels}
             selectedMmsi={selectedMmsi}
             trackTarget={trackTarget}
+            airspace={airspaceItems}
+            airspaceFilters={filters.airspace}
+            selectedAirspace={selectedAirspace}
+            gpsCells={gpsCells}
+            infra={filters.infra}
             home={home}
             events={shown}
             selectedId={selected}
@@ -758,6 +845,18 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               N↑
             </button>
             <span className="mc-gap" />
+            <button
+              className={'iconbtn small' + (newsOpen ? ' on' : '')}
+              title="Live news channels"
+              aria-label="Live news"
+              aria-pressed={newsOpen}
+              onClick={() => {
+                setNewsOpen(!newsOpen);
+                saveNews({ open: !newsOpen, channel: newsChannel, tabs: newsTabs });
+              }}
+            >
+              TV
+            </button>
             <button className="iconbtn" title="Copy a link to this view" aria-label="Copy link" onClick={() => void copyLink()}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
@@ -782,6 +881,24 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             {rightOpen ? '›' : '‹'}
           </button>
           {(loadError || notice) && <div className="notice">{loadError || notice}</div>}
+          {newsOpen && (
+            <NewsPlayer
+              channel={newsChannel}
+              tabs={newsTabs}
+              onChannel={(id) => {
+                setNewsChannel(id);
+                saveNews({ open: true, channel: id, tabs: newsTabs });
+              }}
+              onTabs={(ids) => {
+                setNewsTabs(ids);
+                saveNews({ open: true, channel: newsChannel, tabs: ids });
+              }}
+              onClose={() => {
+                setNewsOpen(false);
+                saveNews({ open: false, channel: newsChannel, tabs: newsTabs });
+              }}
+            />
+          )}
           {camera === 'cockpit' && tracked && (
             <CockpitHud aircraft={tracked} reportedAt={trackedAt} destination={trackedRoute?.destination ?? null} />
           )}
@@ -799,7 +916,24 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         </section>
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
-            {selectedMmsi !== null ? (
+            {selectedPlant ? (
+              <PlantInspector
+                plant={selectedPlant}
+                onBack={clearSelection}
+                onFly={() => globe.current?.flyTo(selectedPlant[5], selectedPlant[4], 25_000)}
+              />
+            ) : selectedCable ? (
+              <CableInspector cable={selectedCable} onBack={clearSelection} />
+            ) : selectedAirspaceItem ? (
+              <AirspaceInspector
+                item={selectedAirspaceItem}
+                onBack={clearSelection}
+                onFly={() => {
+                  const it = selectedAirspaceItem;
+                  if (it.lat !== null && it.lon !== null) globe.current?.flyTo(it.lat, it.lon, 900_000);
+                }}
+              />
+            ) : selectedMmsi !== null ? (
               <VesselInspector
                 mmsi={selectedMmsi}
                 camera={camera}

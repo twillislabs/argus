@@ -1,0 +1,148 @@
+// Airspace areas: FAA TFRs, SIGMETs (coloured by hazard) and EASA
+// conflict zone bulletins (the affected countries tinted). Translucent
+// fills with outlines; each is pickable as "air:<key>".
+
+import {
+  Cartesian3,
+  Color,
+  ColorGeometryInstanceAttribute,
+  GeometryInstance,
+  PolygonGeometry,
+  PolygonHierarchy,
+} from '@cesium/core';
+import {
+  Material,
+  PerInstanceColorAppearance,
+  PolylineCollection,
+  Primitive,
+  type Scene,
+} from '@cesium/engine';
+import { feature } from 'topojson-client';
+import type { GeometryCollection, Topology } from 'topojson-specification';
+
+import type { AirspaceItem } from '../lib/api';
+
+export interface AirspaceFilters {
+  tfr: boolean;
+  sigmet: boolean;
+  czib: boolean;
+  gps: boolean;
+}
+
+export const DEFAULT_AIRSPACE: AirspaceFilters = { tfr: false, sigmet: false, czib: false, gps: false };
+
+export const AIRSPACE_COLOR = {
+  tfr: '#ff5260',
+  czib: '#ff5d8f',
+  sigmet: '#f0c94a',
+  gps: '#ff6ba1',
+};
+
+const HAZARD_COLOR: Record<string, string> = {
+  Thunderstorms: '#f0c94a',
+  Turbulence: '#ff9447',
+  Icing: '#8cc8ff',
+  'Volcanic ash': '#b49cff',
+  'Tropical cyclone': '#ff5260',
+  'Mountain waves': '#7fd1c7',
+  'Low visibility': '#9aa7ba',
+};
+
+export function airspaceColor(item: AirspaceItem): string {
+  if (item.kind === 'sigmet') return HAZARD_COLOR[item.hazard ?? ''] ?? AIRSPACE_COLOR.sigmet;
+  return AIRSPACE_COLOR[item.kind];
+}
+
+let countryShapes: Promise<Map<string, number[][][]>> | null = null;
+
+// Country outer rings by name (Natural Earth 110m), for CZIBs.
+function countries(): Promise<Map<string, number[][][]>> {
+  countryShapes ??= fetch('/data/countries-110m.json')
+    .then((r) => r.json())
+    .then((topo: Topology) => {
+      const fc = feature(topo, topo.objects.countries as GeometryCollection) as unknown as GeoJSON.FeatureCollection;
+      const out = new Map<string, number[][][]>();
+      for (const f of fc.features) {
+        const name = String((f.properties as { name?: string })?.name ?? '').toLowerCase();
+        const g = f.geometry;
+        const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+        out.set(
+          name,
+          polys.map((rings) => rings[0] as number[][]),
+        );
+      }
+      return out;
+    })
+    .catch(() => new Map());
+  return countryShapes;
+}
+
+export interface AirspaceLayer {
+  update: (items: AirspaceItem[], filters: AirspaceFilters, selectedKey: string | null) => Promise<void>;
+  destroy: () => void;
+}
+
+export function addAirspaceLayer(scene: Scene): AirspaceLayer {
+  let fill: Primitive | null = null;
+  const outlines = new PolylineCollection();
+  scene.primitives.add(outlines);
+  let generation = 0;
+
+  return {
+    async update(items, filters, selectedKey) {
+      const mine = ++generation;
+      const shapes = await countries();
+      if (mine !== generation || scene.isDestroyed()) return;
+      if (fill && scene.primitives.contains(fill)) scene.primitives.remove(fill);
+      fill = null;
+      outlines.removeAll();
+      const instances: GeometryInstance[] = [];
+      for (const item of items) {
+        if (!filters[item.kind as 'tfr' | 'sigmet' | 'czib']) continue;
+        const rings: number[][][] = [];
+        if (item.polygon && item.polygon.length >= 4) rings.push(item.polygon);
+        if (item.kind === 'czib') {
+          for (const c of item.countries ?? []) rings.push(...(shapes.get(c.toLowerCase()) ?? []));
+        }
+        const selected = item.key === selectedKey;
+        const color = Color.fromCssColorString(airspaceColor(item));
+        for (const ring of rings) {
+          const positions = Cartesian3.fromDegreesArray(ring.slice(0, -1).flatMap(([lon, lat]) => [lon, lat]));
+          if (positions.length < 3) continue;
+          instances.push(
+            new GeometryInstance({
+              id: 'air:' + item.key,
+              geometry: new PolygonGeometry({
+                polygonHierarchy: new PolygonHierarchy(positions),
+                height: 900,
+                vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
+              }),
+              attributes: {
+                color: ColorGeometryInstanceAttribute.fromColor(color.withAlpha(selected ? 0.34 : 0.16)),
+              },
+            }),
+          );
+          outlines.add({
+            positions: Cartesian3.fromDegreesArrayHeights(ring.flatMap(([lon, lat]) => [lon, lat, 1200])),
+            width: selected ? 2.5 : 1.3,
+            material: Material.fromType('Color', { color: color.withAlpha(selected ? 1 : 0.75) }),
+          });
+        }
+      }
+      if (!instances.length) return;
+      fill = new Primitive({
+        geometryInstances: instances,
+        appearance: new PerInstanceColorAppearance({ flat: true, translucent: true }),
+        asynchronous: true,
+      });
+      scene.primitives.add(fill);
+    },
+    destroy() {
+      generation++;
+      if (scene.isDestroyed()) return;
+      for (const p of [fill, outlines]) {
+        if (p && !p.isDestroyed() && scene.primitives.contains(p)) scene.primitives.remove(p);
+      }
+    },
+  };
+}

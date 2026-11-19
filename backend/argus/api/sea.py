@@ -137,3 +137,60 @@ async def put_keys(
     )
     await db.commit()
     return _view(stored, settings)
+
+
+# --- your own receivers (admins) ---------------------------------------------
+
+RECEIVERS = "receivers"
+
+
+class ReceiversIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    adsb_url: str | None = Field(default=None, max_length=300)
+    ais_url: str | None = Field(default=None, max_length=300)
+
+
+def _url_ok(url: str) -> bool:
+    return url.startswith(("http://", "https://")) and " " not in url
+
+
+@router.get(
+    "/api/admin/receivers", dependencies=[Depends(require("settings.manage"))]
+)
+async def get_receivers(db: DbDep):
+    row = await db.get(ServerSetting, RECEIVERS)
+    value = dict(row.value) if row else {}
+    return {"adsb_url": value.get("adsb_url"), "ais_url": value.get("ais_url")}
+
+
+@router.put("/api/admin/receivers")
+async def put_receivers(
+    body: ReceiversIn, request: Request, db: DbDep, session: ManageDep
+):
+    value = {}
+    for name in ("adsb_url", "ais_url"):
+        url = (getattr(body, name) or "").strip()
+        if url and not _url_ok(url):
+            raise HTTPException(
+                422, "Receiver addresses start with http:// or https://."
+            )
+        if url:
+            value[name] = url
+    row = await db.get(ServerSetting, RECEIVERS)
+    if row is None:
+        row = ServerSetting(key=RECEIVERS)
+        db.add(row)
+    row.value = value
+    row.updated_at = utcnow()
+    row.updated_by = session.user_id
+    await audit(
+        db,
+        "settings.receivers",
+        session.user_id,
+        client_ip(request),
+        adsb=bool(value.get("adsb_url")),
+        ais=bool(value.get("ais_url")),
+    )
+    await db.commit()
+    return {"adsb_url": value.get("adsb_url"), "ais_url": value.get("ais_url")}

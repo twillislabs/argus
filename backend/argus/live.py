@@ -12,6 +12,7 @@ log = logging.getLogger("argus.live")
 SUBJECT = "argus.events"
 AIR_SUBJECT = "argus.air"
 SEA_SUBJECT = "argus.sea"
+LOCAL_AIR_SUBJECT = "argus.local_air"
 
 
 class Hub:
@@ -28,7 +29,9 @@ class Hub:
                 self.clients.discard(ws)
 
 
-async def subscribe_forever(url: str, hub: Hub, air=None, sea=None) -> None:
+async def subscribe_forever(
+    url: str, hub: Hub, air=None, sea=None, local_air=None, gps=None
+) -> None:
     """Keep NATS subscriptions alive, retrying while the bus is down.
 
     Event changes are forwarded to browsers as-is. Aircraft snapshots
@@ -53,7 +56,10 @@ async def subscribe_forever(url: str, hub: Hub, air=None, sea=None) -> None:
                 text = msg.data.decode("utf-8")
                 if air is not None:
                     try:
-                        air.apply(json.loads(text).get("aircraft", []))
+                        snapshot = json.loads(text).get("aircraft", [])
+                        air.apply(snapshot)
+                        if gps is not None:
+                            gps.observe(snapshot)
                     except (ValueError, KeyError, TypeError) as exc:
                         log.warning("Bad aircraft message: {0}".format(exc))
                         return
@@ -68,6 +74,19 @@ async def subscribe_forever(url: str, hub: Hub, air=None, sea=None) -> None:
                 except (ValueError, KeyError, TypeError) as exc:
                     log.warning("Bad vessel message: {0}".format(exc))
 
+            async def local_handler(msg) -> None:
+                # Your own receiver: kept in the API, not pushed out.
+                if local_air is None:
+                    return
+                try:
+                    snapshot = json.loads(msg.data).get("aircraft", [])
+                    local_air.apply(snapshot)
+                    if gps is not None:
+                        gps.observe(snapshot)
+                except (ValueError, KeyError, TypeError) as exc:
+                    log.warning("Bad receiver message: {0}".format(exc))
+
+            await nc.subscribe(LOCAL_AIR_SUBJECT, cb=local_handler)
             await nc.subscribe(SUBJECT, cb=handler)
             await nc.subscribe(SEA_SUBJECT, cb=sea_handler)
             await nc.subscribe(AIR_SUBJECT, cb=air_handler)

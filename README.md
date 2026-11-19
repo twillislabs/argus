@@ -43,6 +43,11 @@ What it does today:
   and the same follow and chase views as aircraft.
 - **Disasters and warnings.** GDACS and NASA EONET disasters, US tsunami warnings, and NGA
   navigational warnings (rocket launches, live firing, piracy) with their areas.
+- **Airspace and interference.** FAA flight restrictions, SIGMETs, EASA conflict zone bulletins,
+  and GPS interference worked out from ADS-B accuracy.
+- **Infrastructure.** Power plants by fuel (nuclear named) and submarine cables.
+- **Live news.** A floating player with tabs for 18 news channels and Ryan Hall, Y'all.
+- **Your own receivers.** readsb/tar1090 and AIS-catcher feeds merged into the map.
 - **Satellites.** About 17,000 from CelesTrak, by orbit (LEO, MEO, GEO, HEO, Starlink), moved
   every second in your browser with SGP4. Click one for its orbit, ground track and its passes
   over your home.
@@ -62,7 +67,7 @@ What it does today:
     they replace at first sign-in
 - **Built-in documentation** at `/docs/`, including how every part connects.
 
-Coming next: airspace and GPS-jamming, weather, news and traffic video, wall mode for a
+Coming next: weather, traffic and event video, wall mode for a
 watch-floor screen, balanced news coverage, alerts, and optional AI (Anthropic, OpenAI or a local
 model).
 
@@ -166,6 +171,11 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
 - **Ships:** [AISStream](https://aisstream.io/) (key). **Disasters:** [GDACS](https://www.gdacs.org/)
   (credit GDACS), [NASA EONET](https://eonet.gsfc.nasa.gov/), NOAA tsunami warning centres, and
   NGA Maritime Safety Information (public domain).
+- **Airspace:** FAA TFRs, aviationweather.gov SIGMETs (NOAA), EASA conflict zone bulletins.
+- **Infrastructure:** [WRI Global Power Plant Database](https://datasets.wri.org/dataset/globalpowerplantdatabase)
+  (CC BY 4.0); submarine cables from [TeleGeography](https://www.submarinecablemap.com/) (CC BY-NC-SA
+  4.0, fetched onto your server, not bundled).
+- **Live news:** each channel's own YouTube live stream, through YouTube's embed.
 - **Satellites:** [CelesTrak](https://celestrak.org/) GP elements; SGP4 by
   [satellite.js](https://github.com/shashwatak/satellite-js) (MIT).
 - **Street map:** © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors

@@ -9,7 +9,7 @@ import asyncio
 import json
 import logging
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import httpx
 from sqlalchemy import select
@@ -268,6 +268,126 @@ async def sea_loop(
             await asyncio.sleep(SEA_RETRY_S)
 
 
+CABLES = {
+    "cables": "https://www.submarinecablemap.com/api/v3/cable/cable-geo.json",
+    "landings": (
+        "https://www.submarinecablemap.com/api/v3/landing-point/"
+        "landing-point-geo.json"
+    ),
+}
+CABLES_EVERY = timedelta(days=30)
+
+
+async def cables_loop(db: Database, client: httpx.AsyncClient) -> None:
+    """TeleGeography's submarine cable map, monthly. It's CC BY-NC-SA, so
+    it's fetched onto this server and kept in the database, never
+    bundled with Argus."""
+    while True:
+        async with db.sessionmaker() as session:
+            row = await session.get(ServerSetting, "layer:cables")
+            fetched = (row.value or {}).get("fetched") if row else None
+            due = (
+                fetched is None
+                or utcnow() - datetime.fromisoformat(fetched) >= CABLES_EVERY
+            )
+            source = await session.get(Source, "cables")
+            if source is None:
+                source = Source(
+                    name="cables",
+                    label="TeleGeography submarine cables",
+                    interval_s=int(CABLES_EVERY.total_seconds()),
+                    enabled=True,
+                    last_count=0,
+                )
+                session.add(source)
+            if due:
+                source.last_run_at = utcnow()
+                try:
+                    value = {"fetched": utcnow().isoformat()}
+                    for name, url in CABLES.items():
+                        response = await client.get(url)
+                        response.raise_for_status()
+                        value[name] = response.json()
+                    if row is None:
+                        row = ServerSetting(key="layer:cables")
+                        session.add(row)
+                    row.value = value
+                    row.updated_at = utcnow()
+                    source.last_success_at = utcnow()
+                    source.last_count = len(
+                        value["cables"].get("features", [])
+                    )
+                    source.last_error = None
+                    log.info("cables: {0}".format(source.last_count))
+                except (httpx.HTTPError, ValueError) as exc:
+                    source.last_error = "{0}: {1}".format(
+                        type(exc).__name__, str(exc)[:300]
+                    )
+            await session.commit()
+        await asyncio.sleep(6 * 3600)
+
+
+LOCAL_AIR_SUBJECT = "argus.local_air"
+RECEIVER_ADSB_S = 2
+RECEIVER_AIS_S = 10
+
+
+async def read_receivers(db: Database) -> dict:
+    async with db.sessionmaker() as session:
+        row = await session.get(ServerSetting, "receivers")
+        return dict(row.value) if row else {}
+
+
+async def receivers_loop(
+    db: Database, client: httpx.AsyncClient, publisher: Publisher
+) -> None:
+    """Poll your own receivers (Settings > Data sources): readsb or
+    tar1090 aircraft.json, and an AIS-catcher ships.json."""
+    config: dict = {}
+    checked = 0.0
+    last_ais = 0.0
+    while True:
+        now = time.monotonic()
+        if now - checked > 60:
+            config = await read_receivers(db)
+            checked = now
+        adsb, ais = config.get("adsb_url"), config.get("ais_url")
+        if adsb:
+            try:
+                response = await client.get(adsb, timeout=5.0)
+                response.raise_for_status()
+                aircraft = []
+                for ac in response.json().get("aircraft", []):
+                    a = normalise(ac)
+                    if a is not None:
+                        a["source"] = "local"
+                        aircraft.append(a)
+                await publisher.publish(
+                    {"type": "aircraft_local", "aircraft": aircraft},
+                    LOCAL_AIR_SUBJECT,
+                )
+            except (httpx.HTTPError, ValueError) as exc:
+                log.warning("Receiver {0}: {1}".format(adsb, exc))
+                await asyncio.sleep(10)
+        if ais and now - last_ais >= RECEIVER_AIS_S:
+            last_ais = now
+            try:
+                response = await client.get(ais, timeout=5.0)
+                response.raise_for_status()
+                ships = sea.parse_aiscatcher(response.json())
+                for i in range(0, len(ships), SEA_BATCH):
+                    await publisher.publish(
+                        {
+                            "type": "vessels",
+                            "vessels": ships[i : i + SEA_BATCH],
+                        },
+                        SEA_SUBJECT,
+                    )
+            except (httpx.HTTPError, ValueError) as exc:
+                log.warning("Receiver {0}: {1}".format(ais, exc))
+        await asyncio.sleep(RECEIVER_ADSB_S if adsb else 30)
+
+
 SPACE_SOURCE = "celestrak"
 SPACE_BLOCKED_S = 2 * 3600
 
@@ -411,6 +531,10 @@ async def run(settings: Settings) -> None:
         air_task = None
         space_task = None
         sea_task = None
+        receivers_task = asyncio.create_task(
+            receivers_loop(db, client, publisher)
+        )
+        cables_task = asyncio.create_task(cables_loop(db, client))
         if settings.sea_enabled:
             sea_task = asyncio.create_task(sea_loop(db, settings, publisher))
         if settings.space_enabled:
@@ -451,7 +575,13 @@ async def run(settings: Settings) -> None:
                     next_housekeeping = now + timedelta(seconds=HOUSEKEEPING_S)
                 await asyncio.sleep(TICK_S)
         finally:
-            for task in (air_task, space_task, sea_task):
+            for task in (
+                air_task,
+                space_task,
+                sea_task,
+                receivers_task,
+                cables_task,
+            ):
                 if task is not None:
                     task.cancel()
             await publisher.close()

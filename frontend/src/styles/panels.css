@@ -257,3 +257,4 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .ghint.warn { color: var(--elev); }
 .srow-label .sdot { display: inline-block; margin-right: 6px; vertical-align: middle; }
 .sw.ref.ports { width: 8px; height: 8px; border: 1.5px solid #4fc1b0; background: #0b0e13; border-radius: 50%; }
+.sw.area { border-radius: 2px; background: none; border: 1.5px solid; }

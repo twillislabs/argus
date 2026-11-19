@@ -40,10 +40,13 @@ import {
 } from '@cesium/engine';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
-import type { Aircraft, Bbox, EventItem, Home, MapConfig, Vessel } from '../lib/api';
+import type { Aircraft, AirspaceItem, Bbox, EventItem, GpsCell, Home, MapConfig, Vessel } from '../lib/api';
 import { SEVERITY_COLOR } from '../lib/format';
 import { type AircraftCamera, type CameraMode, createAircraftCamera } from './aircraftCamera';
 import { addAircraftLayer, type AircraftLayer, aircraftColor } from './aircraftLayer';
+import { addAirspaceLayer, type AirspaceFilters, type AirspaceLayer } from './airspaceLayer';
+import { addGpsLayer, type GpsLayer } from './gpsLayer';
+import { addInfraLayer, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
 import { addCloseModels, type CloseModels } from './closeModels';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
 import { addOverlays, type Overlays, type ReferenceLayers } from './overlays';
@@ -247,6 +250,8 @@ export interface GlobeHandle {
   cameraString: () => string | null;
   applyCamera: (s: string) => boolean;
   satOrbit: (norad: number) => Promise<OrbitInfo | null>;
+  plant: (index: number) => Plant | null;
+  cable: (id: string) => { id: string; name: string } | null;
   satPasses: (norad: number, lat: number, lon: number) => Promise<Pass[]>;
   flyToSatellite: (norad: number) => void;
 }
@@ -313,6 +318,11 @@ interface Props {
   // What the aircraft camera views ride along with: the selected
   // aircraft, or a vessel adapted to the same shape.
   trackTarget: Aircraft | null;
+  airspace: AirspaceItem[];
+  airspaceFilters: AirspaceFilters;
+  selectedAirspace: string | null;
+  gpsCells: GpsCell[];
+  infra: InfraFilters;
   home: Home | null;
   events: EventItem[];
   selectedId: string | null;
@@ -339,6 +349,11 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     vessels,
     selectedMmsi,
     trackTarget,
+    airspace,
+    airspaceFilters,
+    selectedAirspace,
+    gpsCells,
+    infra,
     home,
     events,
     selectedId,
@@ -366,6 +381,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const ships = useRef<VesselLayer | null>(null);
   const shapes = useRef<PolylineCollection | null>(null);
   const models = useRef<CloseModels | null>(null);
+  const areas = useRef<AirspaceLayer | null>(null);
+  const gps = useRef<GpsLayer | null>(null);
+  const infraLayer = useRef<InfraLayer | null>(null);
   const vesselsRef = useRef(vessels);
   vesselsRef.current = vessels;
   const followSatRef = useRef({ on: followSat, norad: selectedNorad, fresh: true });
@@ -408,6 +426,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     air.current = addAircraftLayer(scene);
     ships.current = addVesselLayer(scene);
     models.current = addCloseModels(scene);
+    areas.current = addAirspaceLayer(scene);
+    gps.current = addGpsLayer(scene);
+    infraLayer.current = addInfraLayer(scene);
     const satLayer = addSatelliteLayer(scene);
     sats.current = satLayer;
     // Following a satellite: keep the camera's offset from it, re-anchored
@@ -569,6 +590,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['satellites', () => sats.current?.destroy()],
         ['vessels', () => ships.current?.destroy()],
         ['models', () => models.current?.destroy()],
+        ['airspace', () => areas.current?.destroy()],
+        ['gps', () => gps.current?.destroy()],
+        ['infrastructure', () => infraLayer.current?.destroy()],
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
         ['widget', () => v.destroy()],
@@ -586,6 +610,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       sats.current = null;
       ships.current = null;
       models.current = null;
+      areas.current = null;
+      gps.current = null;
+      infraLayer.current = null;
       air.current = null;
       tracker.current = null;
       viewer.current = null;
@@ -736,6 +763,22 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     tracker.current?.setMode(camera);
   }, [camera]);
+
+  const airspaceKey = [airspaceFilters.tfr, airspaceFilters.sigmet, airspaceFilters.czib].join('');
+  useEffect(() => {
+    gps.current?.update(gpsCells, airspaceFilters.gps);
+  }, [gpsCells, airspaceFilters.gps]);
+  const infraKey = [infra.nuclear, infra.power, infra.cables].join('');
+  const infraRef = useRef(infra);
+  infraRef.current = infra;
+  useEffect(() => {
+    infraLayer.current?.setFilters(infraRef.current);
+  }, [infraKey]);
+  const airspaceFiltersRef = useRef(airspaceFilters);
+  airspaceFiltersRef.current = airspaceFilters;
+  useEffect(() => {
+    void areas.current?.update(airspace, airspaceFiltersRef.current, selectedAirspace);
+  }, [airspace, airspaceKey, selectedAirspace]);
 
   // Nothing tracked: no model, and every glyph back.
   useEffect(() => {
@@ -897,6 +940,12 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
             duration: reduceMotion ? 0 : 1.4,
           });
           return true;
+        },
+        plant(index) {
+          return infraLayer.current?.plants()[index] ?? null;
+        },
+        cable(id) {
+          return infraLayer.current?.cable(id) ?? null;
         },
         satOrbit(norad) {
           return sats.current?.orbit(norad) ?? Promise.resolve(null);

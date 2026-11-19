@@ -30,7 +30,10 @@ async def list_aircraft(
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     air = request.app.state.air
-    out = {a["hex"]: a for a in air.in_bbox(box)}
+    # Your own receiver first, then the live military picture on top.
+    local = request.app.state.local_air
+    out = {a["hex"]: a for a in local.in_bbox(box)}
+    out.update({a["hex"]: a for a in air.in_bbox(box)})
     civil_status = "off"
     if civil and box is not None:
         area = radius_for_bbox(box)
@@ -43,7 +46,8 @@ async def list_aircraft(
                     lat, lon, radius
                 )
                 inside = {a["hex"]: a for a in _clip(fetched, box)}
-                # The live military picture wins for aircraft in both.
+                # The live military picture and your receiver win for
+                # aircraft in both.
                 out = inside | out
                 civil_status = "ok"
             except RateLimited:
@@ -82,7 +86,11 @@ async def get_aircraft(request: Request, session: SessionDep, hex_id: str):
         raise HTTPException(422, "Use the 6-character ICAO hex address.")
     air = request.app.state.air
     client = request.app.state.air_client
-    aircraft = air.aircraft.get(hex_id) or client.seen_recently(hex_id)
+    aircraft = (
+        air.aircraft.get(hex_id)
+        or request.app.state.local_air.aircraft.get(hex_id)
+        or client.seen_recently(hex_id)
+    )
     if aircraft is None:
         try:
             hits = await client.lookup("hex", hex_id)
@@ -128,3 +136,11 @@ async def universal_search(
         ships=request.app.state.sea,
     )
     return {"query": q, "results": results}
+
+
+@router.get("/api/gps")
+async def gps_interference(request: Request, session: SessionDep):
+    """GPS interference cells: the share of aircraft with a degraded
+    position (NACp < 8) per 1-degree cell over the last hour."""
+    cells = request.app.state.gps.summary()
+    return {"cells": cells, "window_s": request.app.state.gps.WINDOW_S}

@@ -20,7 +20,7 @@ All settings are environment variables, usually set in `.env`.
 | `ARGUS_SESSION_REMEMBER_DAYS` | `30` | Lifetime with "keep me signed in" |
 | `ARGUS_LOGIN_MAX_FAILURES` | `5` | Failed sign-ins before lockout |
 | `ARGUS_LOGIN_LOCKOUT_MINUTES` | `15` | Lockout duration |
-| `ARGUS_COLLECTORS` | `usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga` | Collectors the worker runs |
+| `ARGUS_COLLECTORS` | `usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga,faa_tfr,sigmet,czib` | Collectors the worker runs |
 | `ARGUS_AIR_ENABLED` | `true` | Poll military aircraft from adsb.lol in the worker |
 | `ARGUS_AIR_INTERVAL_S` | `15` | Seconds between military aircraft polls |
 | `ARGUS_SPACE_ENABLED` | `true` | Fetch the CelesTrak satellite catalogue every six hours |
@@ -110,3 +110,17 @@ server, and shows how every source is doing.
 
 With a key saved, the worker holds one stream for the whole world, so all
 users share it.
+
+### Your own receivers
+
+If you run an ADS-B or AIS receiver (an RTL-SDR on your network), add its
+address under **Your receivers**:
+
+| Receiver | Address |
+|---|---|
+| ADS-B | readsb or tar1090's `aircraft.json`, for example `http://192.168.1.50/tar1090/data/aircraft.json` |
+| AIS | AIS-catcher's web server `ships.json`, for example `http://192.168.1.50:8100/api/ships.json` |
+
+The worker polls the ADS-B one every 2 seconds and the AIS one every 10.
+What they hear is merged into the map for everyone. The worker container
+fetches them, so use the receiver's LAN address, not `localhost`.
