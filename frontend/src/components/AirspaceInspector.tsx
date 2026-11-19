@@ -6,12 +6,14 @@ const KIND_LABEL: Record<AirspaceItem['kind'], string> = {
   tfr: 'Temporary flight restriction',
   sigmet: 'SIGMET',
   czib: 'Conflict zone bulletin',
+  structure: 'Airspace',
 };
 
 const SOURCE: Record<AirspaceItem['kind'], string> = {
   tfr: 'FAA (tfr.faa.gov). Check the NOTAM for exact times and levels.',
   sigmet: 'aviationweather.gov (NOAA).',
   czib: 'EASA. The bulletin has the full recommendations for operators.',
+  structure: 'openAIP (CC BY-NC 4.0). Check official sources before flying.',
 };
 
 function level(ft: number | null): string {
@@ -73,6 +75,18 @@ export default function AirspaceInspector({
             <dt>Until</dt>
             <dd>{when(item.valid_to)}</dd>
           </div>
+          {item.kind === 'structure' && (
+            <>
+              <div>
+                <dt>Lower limit</dt>
+                <dd>{item.lower ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>Upper limit</dt>
+                <dd>{item.upper ?? '—'}</dd>
+              </div>
+            </>
+          )}
           {item.kind === 'sigmet' && (
             <>
               <div>

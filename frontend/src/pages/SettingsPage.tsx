@@ -396,12 +396,80 @@ function AuditSection() {
   );
 }
 
+function KeyCard({
+  name,
+  title,
+  state,
+  onSaved,
+  children,
+}: {
+  name: string;
+  title: string;
+  state: KeyState | undefined;
+  onSaved: (keys: Record<string, KeyState>) => void;
+  children: ReactNode;
+}) {
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  async function save(next: string) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      onSaved(await saveKeys({ [name]: next }));
+      setValue('');
+      setMessage({ ok: true, text: next ? 'Saved.' : 'Key removed.' });
+    } catch (err) {
+      setMessage({ ok: false, text: err instanceof Error ? err.message : 'Save failed.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="card">
+      <div className="ph">
+        <h2>{title}</h2>
+        <span className="mono">{state?.set ? 'key ' + (state.hint ?? '') : 'no key'}</span>
+      </div>
+      <div className="cbody">
+        {children}
+        <div className="field">
+          <label htmlFor={'k-' + name}>{title} API key</label>
+          <input
+            id={'k-' + name}
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={value}
+            placeholder={state?.set ? 'Saved key ' + (state.hint ?? '') + ' (leave blank to keep it)' : 'Paste the key'}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </div>
+        {state?.unreadable && <p className="err">The saved key can&apos;t be read (ARGUS_SECRET_KEY changed). Enter it again.</p>}
+        <div className="actions">
+          <button className="btn primary" disabled={busy || !value.trim()} onClick={() => void save(value.trim())}>
+            Save key
+          </button>
+          {state?.set && (
+            <button className="btn" disabled={busy} onClick={() => void save('')}>
+              Remove key
+            </button>
+          )}
+        </div>
+        {message && (
+          <div className={message.ok ? 'okmsg' : 'err'} role="status">
+            {message.text}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function SourcesSection() {
   const [keys, setKeys] = useState<Record<string, KeyState> | null>(null);
-  const [ais, setAis] = useState('');
   const [sources, setSources] = useState<SourceStatus[]>([]);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   async function load() {
     try {
@@ -409,74 +477,30 @@ function SourcesSection() {
       setKeys(k);
       setSources(s.sources);
     } catch (err) {
-      setMessage({ ok: false, text: err instanceof Error ? err.message : 'Could not load.' });
+      setError(err instanceof Error ? err.message : 'Could not load.');
     }
   }
   useEffect(() => {
     void load();
   }, []);
 
-  async function save(value: string) {
-    setBusy(true);
-    setMessage(null);
-    try {
-      setKeys(await saveKeys({ aisstream: value }));
-      setAis('');
-      setMessage({
-        ok: true,
-        text: value ? 'Saved. The worker connects within a minute.' : 'Key removed. Vessels stop.',
-      });
-    } catch (err) {
-      setMessage({ ok: false, text: err instanceof Error ? err.message : 'Save failed.' });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const k = keys?.aisstream;
   return (
     <>
-      <section className="card">
-        <div className="ph">
-          <h2>AISStream (vessels)</h2>
-          <span className="mono">{k?.set ? 'key ' + (k.hint ?? '') : 'no key'}</span>
-        </div>
-        <div className="cbody">
-          <p>
-            Live ship positions come from <b>aisstream.io</b>, a free AIS network. Sign in there (with GitHub),
-            create an API key under <b>API Keys</b>, and paste it here. It&apos;s stored encrypted and used only by
-            the server; browsers never see it.
-          </p>
-          <div className="field">
-            <label htmlFor="k-ais">AISStream API key</label>
-            <input
-              id="k-ais"
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              value={ais}
-              placeholder={k?.set ? 'Saved key ' + (k.hint ?? '') + ' (leave blank to keep it)' : 'Paste the key'}
-              onChange={(e) => setAis(e.target.value)}
-            />
-          </div>
-          {k?.unreadable && <p className="err">The saved key can&apos;t be read (ARGUS_SECRET_KEY changed). Enter it again.</p>}
-          <div className="actions">
-            <button className="btn primary" disabled={busy || !ais.trim()} onClick={() => void save(ais.trim())}>
-              Save key
-            </button>
-            {k?.set && (
-              <button className="btn" disabled={busy} onClick={() => void save('')}>
-                Remove key
-              </button>
-            )}
-          </div>
-          {message && (
-            <div className={message.ok ? 'okmsg' : 'err'} role="status">
-              {message.text}
-            </div>
-          )}
-        </div>
-      </section>
+      {error && <p className="err">{error}</p>}
+      <KeyCard name="aisstream" title="AISStream" state={keys?.aisstream} onSaved={setKeys}>
+        <p>
+          Live ship positions come from <b>aisstream.io</b>, a free AIS network. Sign in there (with GitHub), create an
+          API key under <b>API Keys</b>, and paste it here. The worker connects within a minute.
+        </p>
+      </KeyCard>
+      <KeyCard name="openaip" title="openAIP" state={keys?.openaip} onSaved={setKeys}>
+        <p>
+          Restricted, prohibited and danger areas, control zones and terminal areas come from <b>openaip.net</b>. Make a
+          free account, create an API key under your profile&apos;s <b>API clients</b>, and paste it here. Its data is
+          for non-commercial use.
+        </p>
+      </KeyCard>
+      <p className="quiet small">Keys are stored encrypted and used only by the server; browsers never see them.</p>
       <ReceiversCard />
       <section className="card wide">
         <div className="ph">

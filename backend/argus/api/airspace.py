@@ -1,8 +1,10 @@
 """Airspace areas in force: TFRs, SIGMETs and conflict zone bulletins."""
 
+import logging
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter
+import httpx
+from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import select
 
 from argus.api.deps import DbDep, SessionDep
@@ -10,6 +12,7 @@ from argus.db import utcnow
 from argus.models import RawRecord
 
 router = APIRouter(tags=["airspace"])
+log = logging.getLogger("argus.airspace")
 
 # How recently a record must have been refreshed to still count: TFRs
 # refresh hourly, CZIBs daily; SIGMETs carry their own end time.
@@ -91,3 +94,39 @@ async def submarine_cables(session: SessionDep, db: DbDep):
         "landings": value.get("landings") or {"features": []},
         "attribution": "TeleGeography (CC BY-NC-SA 4.0)",
     }
+
+
+@router.get("/api/airspace/structure")
+async def airspace_structure(
+    request: Request,
+    session: SessionDep,
+    db: DbDep,
+    bbox: str = Query(..., description="west,south,east,north"),
+):
+    """openAIP airspace (restricted areas, CTRs, TMAs...) for a regional
+    view. status: ok, zoom (view too big), nokey or error."""
+    from argus import secrets
+    from argus.events import parse_bbox
+    from argus.models import ServerSetting
+
+    try:
+        box = parse_bbox(bbox)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    row = await db.get(ServerSetting, "keys")
+    token = (row.value or {}).get("openaip") if row else None
+    key = (
+        secrets.decrypt(request.app.state.settings.secret_key, token)
+        if token
+        else None
+    )
+    if not key:
+        return {"items": [], "status": "nokey"}
+    try:
+        items = await request.app.state.openaip.area(key, box)
+    except (httpx.HTTPError, ValueError) as exc:
+        log.warning("openAIP failed: {0}".format(exc))
+        return {"items": [], "status": "error"}
+    if items is None:
+        return {"items": [], "status": "zoom"}
+    return {"items": items, "status": "ok"}

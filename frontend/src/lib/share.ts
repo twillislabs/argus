@@ -18,8 +18,8 @@ const EVENT_LAYERS = ['conflict', 'unrest', 'quake', 'fire', 'hazard', 'maritime
 const REF_LAYERS = ['borders', 'states', 'labels', 'airports', 'ports'] as const;
 const SPACE_LAYERS = ['leo', 'meo', 'geo', 'heo', 'starlink'] as const;
 const SEA_LAYERS = ['cargo', 'tanker', 'passenger', 'fishing', 'military', 'other'] as const;
-const AIRSPACE_LAYERS = ['tfr', 'sigmet', 'czib', 'gps'] as const;
-const INFRA_LAYERS = ['nuclear', 'power', 'cables'] as const;
+const AIRSPACE_LAYERS = ['tfr', 'sigmet', 'czib', 'gps', 'structure'] as const;
+const INFRA_LAYERS = ['nuclear', 'power', 'cables', 'bases'] as const;
 
 export interface Share {
   camera?: string;
@@ -73,8 +73,14 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
       military: has('sea-military'),
       other: has('sea-other'),
     },
-    airspace: { tfr: has('tfr'), sigmet: has('sigmet'), czib: has('czib'), gps: has('gps') },
-    infra: { nuclear: has('nuclear'), power: has('power'), cables: has('cables') },
+    airspace: {
+      tfr: has('tfr'),
+      sigmet: has('sigmet'),
+      czib: has('czib'),
+      gps: has('gps'),
+      structure: has('structure'),
+    },
+    infra: { nuclear: has('nuclear'), power: has('power'), cables: has('cables'), bases: has('bases') },
   };
 }
 

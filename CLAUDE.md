@@ -93,6 +93,10 @@ parts connect.
   Infrastructure: power plants are bundled (`build_power.py`), cables are
   fetched by the worker into `server_settings["layer:cables"]` because of
   their non-commercial licence; never bundle them.
+- openAIP (key in Data sources) is fetched per 2-degree tile for the
+  view and cached a day in API memory (`argus/openaip.py`); its licence
+  is non-commercial, so don't persist it. Military bases are bundled
+  from an Overpass query by `build_bases.py` (ODbL).
 - Your own receivers: `receivers_loop` in the worker; local aircraft go to
   `app.state.local_air` (NATS `argus.local_air`), ships into `LiveSea`.
 - News channels live in `frontend/src/config/newsChannels.ts`; verify a new

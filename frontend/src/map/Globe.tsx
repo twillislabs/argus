@@ -46,7 +46,7 @@ import { type AircraftCamera, type CameraMode, createAircraftCamera } from './ai
 import { addAircraftLayer, type AircraftLayer, aircraftColor } from './aircraftLayer';
 import { addAirspaceLayer, type AirspaceFilters, type AirspaceLayer } from './airspaceLayer';
 import { addGpsLayer, type GpsLayer } from './gpsLayer';
-import { addInfraLayer, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
+import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
 import { addCloseModels, type CloseModels } from './closeModels';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
 import { addOverlays, type Overlays, type ReferenceLayers } from './overlays';
@@ -252,6 +252,7 @@ export interface GlobeHandle {
   satOrbit: (norad: number) => Promise<OrbitInfo | null>;
   plant: (index: number) => Plant | null;
   cable: (id: string) => { id: string; name: string } | null;
+  base: (index: number) => Base | null;
   satPasses: (norad: number, lat: number, lon: number) => Promise<Pass[]>;
   flyToSatellite: (norad: number) => void;
 }
@@ -764,11 +765,16 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     tracker.current?.setMode(camera);
   }, [camera]);
 
-  const airspaceKey = [airspaceFilters.tfr, airspaceFilters.sigmet, airspaceFilters.czib].join('');
+  const airspaceKey = [
+    airspaceFilters.tfr,
+    airspaceFilters.sigmet,
+    airspaceFilters.czib,
+    airspaceFilters.structure,
+  ].join('');
   useEffect(() => {
     gps.current?.update(gpsCells, airspaceFilters.gps);
   }, [gpsCells, airspaceFilters.gps]);
-  const infraKey = [infra.nuclear, infra.power, infra.cables].join('');
+  const infraKey = [infra.nuclear, infra.power, infra.cables, infra.bases].join('');
   const infraRef = useRef(infra);
   infraRef.current = infra;
   useEffect(() => {
@@ -946,6 +952,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         },
         cable(id) {
           return infraLayer.current?.cable(id) ?? null;
+        },
+        base(index) {
+          return infraLayer.current?.bases()[index] ?? null;
         },
         satOrbit(norad) {
           return sats.current?.orbit(norad) ?? Promise.resolve(null);

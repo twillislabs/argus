@@ -18,9 +18,22 @@ export interface InfraFilters {
   nuclear: boolean;
   power: boolean;
   cables: boolean;
+  bases: boolean;
 }
 
-export const DEFAULT_INFRA: InfraFilters = { nuclear: false, power: false, cables: false };
+export const DEFAULT_INFRA: InfraFilters = { nuclear: false, power: false, cables: false, bases: false };
+
+export const BASE_COLOR = '#ff5d8f';
+export const BASE_KINDS: Record<string, string> = {
+  base: 'Military base',
+  airfield: 'Military airfield',
+  naval_base: 'Naval base',
+  range: 'Firing range',
+  training_area: 'Training area',
+  barracks: 'Barracks',
+};
+
+export type Base = [string, string, number, number, string];
 
 export const FUEL_COLOR: Record<string, string> = {
   Nuclear: '#d6f04a',
@@ -39,6 +52,7 @@ export interface InfraLayer {
   setFilters: (f: InfraFilters) => void;
   plants: () => Plant[];
   cable: (id: string) => { name: string; id: string } | null;
+  bases: () => Base[];
   destroy: () => void;
 }
 
@@ -48,8 +62,13 @@ export function addInfraLayer(scene: Scene): InfraLayer {
   const nuclearLabels = new LabelCollection({ scene });
   const cables = new PolylineCollection();
   const landings = new PointPrimitiveCollection();
-  for (const p of [cables, landings, power, nuclear, nuclearLabels]) scene.primitives.add(p);
-  for (const p of [nuclear, power, nuclearLabels, cables, landings]) p.show = false;
+  const baseDots = new PointPrimitiveCollection();
+  const baseLabels = new LabelCollection({ scene });
+  const all = [cables, landings, power, nuclear, nuclearLabels, baseDots, baseLabels];
+  for (const p of all) scene.primitives.add(p);
+  for (const p of all) p.show = false;
+  let baseRows: Base[] = [];
+  let basesLoaded = false;
   let plantRows: Plant[] = [];
   const cableNames = new Map<string, string>();
   let cablesLoaded = false;
@@ -137,6 +156,47 @@ export function addInfraLayer(scene: Scene): InfraLayer {
     }
   }
 
+  async function loadBases() {
+    if (basesLoaded) return;
+    basesLoaded = true;
+    try {
+      const r = await fetch('/data/bases.json');
+      if (!r.ok) return;
+      baseRows = (await r.json()) as Base[];
+      const color = Color.fromCssColorString(BASE_COLOR);
+      baseRows.forEach(([name, kind, lon, lat], i) => {
+        const position = Cartesian3.fromDegrees(lon, lat, 1000);
+        const major = kind === 'base' || kind === 'naval_base' || kind === 'airfield';
+        baseDots.add({
+          id: 'mil:' + i,
+          position,
+          pixelSize: major ? 6 : 4,
+          color: dark,
+          outlineColor: major ? color : color.withAlpha(0.6),
+          outlineWidth: 1.6,
+          distanceDisplayCondition: new DistanceDisplayCondition(0, major ? 3.0e6 : 8.0e5),
+        });
+        if (major) {
+          baseLabels.add({
+            position,
+            text: name,
+            font: '500 10.5px Inter, system-ui, sans-serif',
+            fillColor: color,
+            outlineColor: dark,
+            outlineWidth: 3,
+            style: LabelStyle.FILL_AND_OUTLINE,
+            horizontalOrigin: HorizontalOrigin.LEFT,
+            verticalOrigin: VerticalOrigin.CENTER,
+            pixelOffset: new Cartesian2(8, 0),
+            distanceDisplayCondition: new DistanceDisplayCondition(0, 2.5e5),
+          });
+        }
+      });
+    } catch {
+      basesLoaded = false;
+    }
+  }
+
   return {
     setFilters(f) {
       filters = f;
@@ -145,15 +205,18 @@ export function addInfraLayer(scene: Scene): InfraLayer {
       power.show = filters.power;
       cables.show = landings.show = filters.cables;
       if (filters.cables) void loadCables();
+      baseDots.show = baseLabels.show = filters.bases;
+      if (filters.bases) void loadBases();
     },
     plants: () => plantRows,
+    bases: () => baseRows,
     cable(id) {
       const name = cableNames.get(id);
       return name ? { id, name } : null;
     },
     destroy() {
       if (scene.isDestroyed()) return;
-      for (const p of [cables, landings, power, nuclear, nuclearLabels]) {
+      for (const p of all) {
         if (!p.isDestroyed() && scene.primitives.contains(p)) scene.primitives.remove(p);
       }
     },

@@ -155,6 +155,7 @@ Click one for its details and the source text.
 | **SIGMETs** | Thunderstorms, turbulence, icing, volcanic ash, tropical cyclones, coloured by hazard, with base and top | aviationweather.gov |
 | **Conflict zone bulletins** | EASA's warnings to airlines about conflict airspace, shown by tinting the countries they cover | EASA |
 | **GPS interference** | 1° cells where 2–10% (yellow) or over 10% (red) of aircraft report a degraded position, over the last hour | Argus, from ADS-B |
+| **Restricted areas, CTRs, TMAs** | Restricted, prohibited and danger areas, control zones, terminal and control areas, military training areas, with lower and upper limits. Loads for a regional view; needs an openAIP key | openAIP |
 
 GPS interference uses the method gpsjam.org uses, but only from the
 aircraft Argus sees: military aircraft worldwide, civil traffic where
@@ -168,10 +169,13 @@ aircraft. Not for navigation.
 | **Nuclear plants** | Every nuclear power plant, named when you're close |
 | **Power plants (300 MW+)** | Coal, gas, oil, hydro and large renewables, coloured by fuel and sized by capacity |
 | **Submarine cables** | Undersea internet cables in their map colours, with landing points |
+| **Military bases** | Named bases, naval bases and military airfields (from about 3,000 km in, named close up), plus ranges, training areas and barracks closer in |
 
 Power plants come from the WRI Global Power Plant Database, last updated in
 2021, so newer plants are missing. Cables come from TeleGeography's
 submarine cable map; click one for a link to its owners and length.
+Military sites come from OpenStreetMap, as volunteers have mapped them:
+coverage varies by country.
 
 ## Live news
 

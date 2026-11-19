@@ -27,15 +27,37 @@ export interface AirspaceFilters {
   sigmet: boolean;
   czib: boolean;
   gps: boolean;
+  structure: boolean;
 }
 
-export const DEFAULT_AIRSPACE: AirspaceFilters = { tfr: false, sigmet: false, czib: false, gps: false };
+export const DEFAULT_AIRSPACE: AirspaceFilters = {
+  tfr: false,
+  sigmet: false,
+  czib: false,
+  gps: false,
+  structure: false,
+};
 
 export const AIRSPACE_COLOR = {
   tfr: '#ff5260',
   czib: '#ff5d8f',
   sigmet: '#f0c94a',
   gps: '#ff6ba1',
+  structure: '#5b9bff',
+};
+
+const STRUCTURE_COLOR: Record<string, string> = {
+  Restricted: '#ff5260',
+  Prohibited: '#ff2d3d',
+  Danger: '#ff9447',
+  'Control zone (CTR)': '#5b9bff',
+  'Terminal area (TMA)': '#8cc8ff',
+  'Control area (CTA)': '#8cc8ff',
+  'Military training area (MTA)': '#ff5d8f',
+  'Temporary reserved (TRA)': '#ff5d8f',
+  'Temporary segregated (TSA)': '#ff5d8f',
+  'Warning area': '#ff9447',
+  'Alert area': '#e3c04b',
 };
 
 const HAZARD_COLOR: Record<string, string> = {
@@ -50,6 +72,7 @@ const HAZARD_COLOR: Record<string, string> = {
 
 export function airspaceColor(item: AirspaceItem): string {
   if (item.kind === 'sigmet') return HAZARD_COLOR[item.hazard ?? ''] ?? AIRSPACE_COLOR.sigmet;
+  if (item.kind === 'structure') return STRUCTURE_COLOR[item.hazard ?? ''] ?? '#9aa7ba';
   return AIRSPACE_COLOR[item.kind];
 }
 
@@ -98,7 +121,7 @@ export function addAirspaceLayer(scene: Scene): AirspaceLayer {
       outlines.removeAll();
       const instances: GeometryInstance[] = [];
       for (const item of items) {
-        if (!filters[item.kind as 'tfr' | 'sigmet' | 'czib']) continue;
+        if (!filters[item.kind]) continue;
         const rings: number[][][] = [];
         if (item.polygon && item.polygon.length >= 4) rings.push(item.polygon);
         if (item.kind === 'czib') {

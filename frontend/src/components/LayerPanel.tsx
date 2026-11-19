@@ -2,7 +2,7 @@ import type { CivilStatus, EventType, SeaStatus } from '../lib/api';
 import { EVENT_TYPES, SEVERITY_NAME, TYPE_INFO } from '../lib/format';
 import { AIR_COLOR } from '../map/aircraftLayer';
 import { AIRSPACE_COLOR, type AirspaceFilters, DEFAULT_AIRSPACE } from '../map/airspaceLayer';
-import { DEFAULT_INFRA, FUEL_COLOR, type InfraFilters } from '../map/infraLayer';
+import { BASE_COLOR, DEFAULT_INFRA, FUEL_COLOR, type InfraFilters } from '../map/infraLayer';
 import { DEFAULT_REFERENCE, type ReferenceLayers } from '../map/overlays';
 import { DEFAULT_SPACE, SAT_COLOR, type SpaceFilters } from '../map/satellites';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
@@ -44,6 +44,7 @@ const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color
   { id: 'nuclear', label: 'Nuclear plants', source: 'WRI power plant database', color: FUEL_COLOR.Nuclear },
   { id: 'power', label: 'Power plants (300 MW+)', source: 'Coal, gas, oil, hydro, renewables', color: FUEL_COLOR.Gas },
   { id: 'cables', label: 'Submarine cables', source: 'TeleGeography', color: '#7fd1c7' },
+  { id: 'bases', label: 'Military bases', source: 'OpenStreetMap', color: BASE_COLOR },
 ];
 
 const AIRSPACE_ROWS: { id: keyof AirspaceFilters; label: string; source: string }[] = [
@@ -51,6 +52,7 @@ const AIRSPACE_ROWS: { id: keyof AirspaceFilters; label: string; source: string 
   { id: 'sigmet', label: 'SIGMETs', source: 'Storms, turbulence, icing, ash' },
   { id: 'czib', label: 'Conflict zone bulletins', source: 'EASA' },
   { id: 'gps', label: 'GPS interference', source: 'Argus, from ADS-B accuracy' },
+  { id: 'structure', label: 'Restricted areas, CTRs, TMAs', source: 'openAIP · zoom in to load' },
 ];
 
 const SEA_ROWS: { id: keyof SeaFilters; label: string }[] = [
@@ -107,6 +109,7 @@ interface Props {
   seaCounts: Partial<Record<keyof SeaFilters, number>>;
   seaStatus: SeaStatus;
   airspaceCounts: Partial<Record<keyof AirspaceFilters, number>>;
+  structureStatus: 'ok' | 'zoom' | 'nokey' | 'error';
   onChange: (f: LayerFilters) => void;
 }
 
@@ -127,6 +130,7 @@ export default function LayerPanel({
   seaCounts,
   seaStatus,
   airspaceCounts,
+  structureStatus,
   onChange,
 }: Props) {
   const seaOn = Object.values(filters.sea).some(Boolean);
@@ -222,7 +226,16 @@ export default function LayerPanel({
             <span className="sw area" style={{ borderColor: AIRSPACE_COLOR[r.id] }} />
             <span className="lname">
               <span>{r.label}</span>
-              <small>{r.source}</small>
+              <small className={r.id === 'structure' && structureStatus === 'nokey' ? 'warn' : undefined}>
+                {r.id === 'structure' && filters.airspace.structure
+                  ? {
+                      ok: 'openAIP · area in view',
+                      zoom: 'openAIP · zoom in to load',
+                      nokey: 'Needs an openAIP key (Settings)',
+                      error: 'openAIP unavailable',
+                    }[structureStatus]
+                  : r.source}
+              </small>
             </span>
             <span className="lcount mono">{airspaceCounts[r.id] ?? '–'}</span>
           </label>

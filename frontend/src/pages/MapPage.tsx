@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AircraftInspector from '../components/AircraftInspector';
 import AirspaceInspector from '../components/AirspaceInspector';
 import AppHeader from '../components/AppHeader';
-import { CableInspector, PlantInspector } from '../components/InfraInspector';
+import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
 import NewsPlayer from '../components/NewsPlayer';
@@ -28,6 +28,7 @@ import {
   getAircraft,
   getEvents,
   getAirspace,
+  getAirspaceStructure,
   getGps,
   type GpsCell,
   getMapConfig,
@@ -127,6 +128,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [airspaceItems, setAirspaceItems] = useState<AirspaceItem[]>([]);
   const [selectedAirspace, setSelectedAirspace] = useState<string | null>(null);
   const [gpsCells, setGpsCells] = useState<GpsCell[]>([]);
+  const [structureItems, setStructureItems] = useState<AirspaceItem[]>([]);
+  const [structureStatus, setStructureStatus] = useState<'ok' | 'zoom' | 'nokey' | 'error'>('zoom');
   const [selectedInfra, setSelectedInfra] = useState<string | null>(null);
   const [selectedNorad, setSelectedNorad] = useState<number | null>(null);
   const [followSat, setFollowSat] = useState(false);
@@ -176,6 +179,19 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }, []);
 
   // Civil aircraft for the area in view, when the view is regional.
+  // openAIP airspace for the view (regional views only).
+  const loadStructure = useCallback(async () => {
+    const bbox = viewRef.current;
+    if (!filtersRef.current.airspace.structure || !bbox) return;
+    try {
+      const r = await getAirspaceStructure(bbox);
+      setStructureStatus(r.status);
+      if (r.status === 'ok') setStructureItems(r.items);
+    } catch {
+      setStructureStatus('error');
+    }
+  }, []);
+
   // Vessels for the area in view, while any sea layer is on.
   const loadVessels = useCallback(async () => {
     if (!Object.values(filtersRef.current.sea).some(Boolean)) {
@@ -291,10 +307,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       viewTimer.current = window.setTimeout(() => {
         void loadCivil();
         void loadVessels();
+        void loadStructure();
       }, 400);
     },
-    [loadCivil, loadVessels],
+    [loadCivil, loadVessels, loadStructure],
   );
+  useEffect(() => {
+    if (filters.airspace.structure) void loadStructure();
+  }, [filters.airspace.structure, loadStructure]);
 
   // Live updates: merge changed events, replace the military picture.
   useEffect(
@@ -418,12 +438,16 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     const c: Partial<Record<keyof AirspaceFilters, number>> = {};
     for (const i of airspaceItems) c[i.kind] = (c[i.kind] ?? 0) + 1;
     c.gps = gpsCells.filter((x) => x.level !== 'low').length;
+    if (structureStatus === 'ok') c.structure = structureItems.length;
     return c;
-  }, [airspaceItems, gpsCells]);
-  const selectedAirspaceItem = airspaceItems.find((i) => i.key === selectedAirspace) ?? null;
+  }, [airspaceItems, gpsCells, structureItems, structureStatus]);
+  const allAirspace = useMemo(() => [...airspaceItems, ...structureItems], [airspaceItems, structureItems]);
+  const selectedAirspaceItem = allAirspace.find((i) => i.key === selectedAirspace) ?? null;
   const selectedPlant =
     selectedInfra?.startsWith('pp:') ? (globe.current?.plant(Number(selectedInfra.slice(3))) ?? null) : null;
   const selectedCable = selectedInfra?.startsWith('cable:') ? (globe.current?.cable(selectedInfra.slice(6)) ?? null) : null;
+  const selectedBase =
+    selectedInfra?.startsWith('mil:') ? (globe.current?.base(Number(selectedInfra.slice(4))) ?? null) : null;
 
   const airCounts = useMemo(
     () => ({ military: military.length, civil: civil.length }),
@@ -578,7 +602,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       selectVessel(Number(id.slice(5)));
       return;
     }
-    if (id && (id.startsWith('pp:') || id.startsWith('cable:'))) {
+    if (id && (id.startsWith('pp:') || id.startsWith('cable:') || id.startsWith('mil:'))) {
       clearSelection();
       setSelectedInfra(id);
       openRight();
@@ -733,6 +757,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             seaCounts={seaCounts}
             seaStatus={seaStatus}
             airspaceCounts={airspaceCounts}
+            structureStatus={structureStatus}
             onChange={changeFilters}
           />
         )}
@@ -749,7 +774,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             vessels={shownVessels}
             selectedMmsi={selectedMmsi}
             trackTarget={trackTarget}
-            airspace={airspaceItems}
+            airspace={allAirspace}
             airspaceFilters={filters.airspace}
             selectedAirspace={selectedAirspace}
             gpsCells={gpsCells}
@@ -916,7 +941,13 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         </section>
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
-            {selectedPlant ? (
+            {selectedBase ? (
+              <BaseInspector
+                base={selectedBase}
+                onBack={clearSelection}
+                onFly={() => globe.current?.flyTo(selectedBase[3], selectedBase[2], 30_000)}
+              />
+            ) : selectedPlant ? (
               <PlantInspector
                 plant={selectedPlant}
                 onBack={clearSelection}

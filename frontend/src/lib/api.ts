@@ -416,7 +416,7 @@ export const saveKeys = (body: Record<string, string>) =>
 
 export interface AirspaceItem {
   key: string;
-  kind: 'tfr' | 'sigmet' | 'czib';
+  kind: 'tfr' | 'sigmet' | 'czib' | 'structure';
   id: string;
   title: string;
   hazard: string | null;
@@ -432,6 +432,14 @@ export interface AirspaceItem {
   url: string | null;
   lat: number | null;
   lon: number | null;
+  lower?: string | null;
+  upper?: string | null;
+}
+
+export function getAirspaceStructure(bbox: Bbox) {
+  return api<{ items: AirspaceItem[]; status: 'ok' | 'zoom' | 'nokey' | 'error' }>(
+    '/api/airspace/structure?bbox=' + bbox.map((v) => v.toFixed(3)).join(','),
+  );
 }
 
 export const getAirspace = () => api<{ items: AirspaceItem[] }>('/api/airspace');

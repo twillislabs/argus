@@ -44,8 +44,9 @@ What it does today:
 - **Disasters and warnings.** GDACS and NASA EONET disasters, US tsunami warnings, and NGA
   navigational warnings (rocket launches, live firing, piracy) with their areas.
 - **Airspace and interference.** FAA flight restrictions, SIGMETs, EASA conflict zone bulletins,
-  and GPS interference worked out from ADS-B accuracy.
-- **Infrastructure.** Power plants by fuel (nuclear named) and submarine cables.
+  restricted areas and control zones (with a free openAIP key), and GPS interference worked out
+  from ADS-B accuracy.
+- **Infrastructure.** Power plants by fuel (nuclear named), submarine cables and military bases.
 - **Live news.** A floating player with tabs for 18 news channels and Ryan Hall, Y'all.
 - **Your own receivers.** readsb/tar1090 and AIS-catcher feeds merged into the map.
 - **Satellites.** About 17,000 from CelesTrak, by orbit (LEO, MEO, GEO, HEO, Starlink), moved
@@ -171,7 +172,9 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
 - **Ships:** [AISStream](https://aisstream.io/) (key). **Disasters:** [GDACS](https://www.gdacs.org/)
   (credit GDACS), [NASA EONET](https://eonet.gsfc.nasa.gov/), NOAA tsunami warning centres, and
   NGA Maritime Safety Information (public domain).
-- **Airspace:** FAA TFRs, aviationweather.gov SIGMETs (NOAA), EASA conflict zone bulletins.
+- **Airspace:** FAA TFRs, aviationweather.gov SIGMETs (NOAA), EASA conflict zone bulletins,
+  [openAIP](https://www.openaip.net/) (key; CC BY-NC 4.0, cached, not stored).
+- **Military bases:** © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL).
 - **Infrastructure:** [WRI Global Power Plant Database](https://datasets.wri.org/dataset/globalpowerplantdatabase)
   (CC BY 4.0); submarine cables from [TeleGeography](https://www.submarinecablemap.com/) (CC BY-NC-SA
   4.0, fetched onto your server, not bundled).
