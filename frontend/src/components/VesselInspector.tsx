@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 
 import { getVessel, type Vessel } from '../lib/api';
-import { latLon } from '../lib/format';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import { VESSEL_COLOR } from '../map/vesselLayer';
 import { length } from '../lib/units';
+import CopyCoords from './CopyCoords';
 
 const POLL_MS = 10_000;
 
@@ -151,7 +151,9 @@ export default function VesselInspector({ mmsi, camera, onBack, onCamera, onFly,
               </div>
               <div className="wide">
                 <dt>Position</dt>
-                <dd>{latLon(v.lat, v.lon)}</dd>
+                <dd>
+              <CopyCoords lat={v.lat} lon={v.lon} />
+            </dd>
               </div>
             </dl>
           </section>

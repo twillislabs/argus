@@ -30,6 +30,7 @@ export interface Preferences {
   right_open?: boolean;
   units?: 'imperial' | 'metric';
   drawings?: unknown[];
+  show_route?: boolean;
   [key: string]: unknown;
 }
 

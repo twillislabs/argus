@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 
-import { type EventDetail, getEvent } from '../lib/api';
-import { ago, latLon, SEVERITY_COLOR, SEVERITY_NAME, TYPE_INFO, zuluTime } from '../lib/format';
+import { type EventDetail, getEvent, ApiError } from '../lib/api';
+import { ago, SEVERITY_COLOR, SEVERITY_NAME, TYPE_INFO, zuluTime } from '../lib/format';
+import CopyCoords from './CopyCoords';
 
 interface Props {
   id: string;
@@ -23,7 +24,10 @@ export default function EventInspector({ id, onBack, onFly }: Props) {
         if (!cancelled) setDetail(d);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the event.');
+        if (cancelled) return;
+        // Events expire and are pruned; say so rather than "no event".
+        if (err instanceof ApiError && err.status === 404) setError('This event is no longer in Argus; it may have expired.');
+        else setError(err instanceof Error ? err.message : 'Could not load the event.');
       });
     return () => {
       cancelled = true;
@@ -94,7 +98,9 @@ function Detail({
           </div>
           <div className="wide">
             <dt>Position</dt>
-            <dd>{latLon(e.lat, e.lon)}</dd>
+            <dd>
+              <CopyCoords lat={e.lat} lon={e.lon} />
+            </dd>
           </div>
           <div>
             <dt>Confidence</dt>

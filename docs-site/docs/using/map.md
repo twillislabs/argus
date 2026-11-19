@@ -48,6 +48,9 @@ every user sees the same installed region.
 - **[** and **]** collapse the layer panel and the situation panel.
 - **Hover** over anything on the map for a card with what it is and its
   key facts; click for the full details.
+- **Right-click** the map to copy the spot's coordinates (decimal,
+  degrees or MGRS) or centre the map on it. Every **Position** in the side
+  panel has a ⧉ button that copies it.
 - **Double-click** an event to zoom in on its area, or an aircraft, ship or
   satellite to follow it.
 - **Esc** leaves an aircraft view, then closes the event or aircraft and
@@ -201,6 +204,10 @@ Pick a view in the aircraft panel, or press **V** to cycle through them:
 | **Chase** | Behind and a little above, turning with the aircraft. Scroll to move closer or further |
 | **Orbit** | Circles the aircraft slowly. Zoom still works |
 | **Cockpit** | From the aircraft, looking along its track, with a head-up display. Try it on **Satellite** |
+
+For a flight with a known route, **Show route on map** in the aircraft
+panel draws it: solid for the part already flown, dashed for the rest,
+with the airport codes at each end.
 
 Up close, the aircraft or ship is drawn as a 3D model of its kind:
 airliner, widebody, business jet, light aircraft, helicopter, fighter or

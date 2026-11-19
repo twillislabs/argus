@@ -26,6 +26,7 @@ import {
   ImageryLayer,
   type ImageryProvider,
   Ion,
+  LabelCollection,
   LabelStyle,
   type PointPrimitive,
   PointPrimitiveCollection,
@@ -44,7 +45,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import type { Aircraft, AirspaceItem, Bbox, EventItem, GpsCell, Home, MapConfig, TensionCountry, Vessel } from '../lib/api';
 import { SEVERITY_COLOR } from '../lib/format';
 import { type AircraftCamera, type CameraMode, createAircraftCamera } from './aircraftCamera';
-import { addAircraftLayer, type AircraftLayer, aircraftColor } from './aircraftLayer';
+import { addAircraftLayer, AIR_COLOR, type AircraftLayer, aircraftColor } from './aircraftLayer';
 import { addAirspaceLayer, type AirspaceFilters, type AirspaceLayer } from './airspaceLayer';
 import { addGpsLayer, type GpsLayer } from './gpsLayer';
 import { createDrawTools, type DrawCallbacks, type Drawing, type DrawTools } from './drawTools';
@@ -53,6 +54,7 @@ import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plan
 import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './closeModels';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
 import { setCursor } from '../lib/cursor';
+import { densify } from '../lib/geo';
 import { addOverlays, type Overlays, type ReferenceLayers, TILE_LABELS_BELOW } from './overlays';
 import { addVesselLayer, VESSEL_COLOR, type VesselLayer } from './vesselLayer';
 import {
@@ -353,6 +355,11 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onFocus?: (id: string) => void;
+  // The selected aircraft's planned route: flown part solid, the rest
+  // dashed, with the airport codes at the ends.
+  route?: { origin: [number, number]; destination: [number, number]; at: [number, number]; labels: [string, string] } | null;
+  // Right-click on the map: the spot and where on screen.
+  onContext?: (lat: number, lon: number, x: number, y: number) => void;
   // Drawing and selection tools (map/drawTools.ts).
   drawings?: Drawing[];
   drawCallbacks?: DrawCallbacks;
@@ -395,6 +402,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     onHover,
     drawings,
     drawCallbacks,
+    route,
+    onContext,
     aircraft,
     selectedHex,
     trail,
@@ -448,6 +457,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   onFocusRef.current = onFocus;
   const onHoverRef = useRef(onHover);
   onHoverRef.current = onHover;
+  const onContextRef = useRef(onContext);
+  onContextRef.current = onContext;
 
   useEffect(() => {
     if (!container.current) return;
@@ -627,6 +638,17 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       const id = picked && typeof picked.id === 'string' ? picked.id : null;
       onSelectRef.current(id);
     }, ScreenSpaceEventType.LEFT_CLICK);
+    // Right-click: undo the last point while drawing; otherwise the map's
+    // context menu for that spot (copy coordinates and so on).
+    handler.setInputAction((e: { position: Cartesian2 }) => {
+      if (draw.current && draw.current.tool() !== 'none') return draw.current.undo();
+      const at = v.camera.pickEllipsoid(e.position, scene.globe.ellipsoid);
+      if (!at) return;
+      const c = Cartographic.fromCartesian(at);
+      onContextRef.current?.(CesiumMath.toDegrees(c.latitude), CesiumMath.toDegrees(c.longitude), e.position.x, e.position.y);
+    }, ScreenSpaceEventType.RIGHT_CLICK);
+    const noMenu = (e: Event) => e.preventDefault();
+    scene.canvas.addEventListener('contextmenu', noMenu);
     handler.setInputAction((e: { position: Cartesian2 }) => {
       if (draw.current?.doubleClick(e.position)) return;
       const picked = scene.pick(e.position);
@@ -693,6 +715,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
         ['drawings', () => draw.current?.destroy()],
+        ['context menu', () => scene.canvas.removeEventListener('contextmenu', noMenu)],
         ['pointer leave', () => scene.canvas.removeEventListener('pointerleave', onLeave)],
         ['widget', () => v.destroy()],
       ];
@@ -885,6 +908,52 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     draw.current?.setDrawings(drawings ?? []);
   }, [drawings]);
+
+  // The planned route of the selected aircraft.
+  const routeLines = useRef<{ lines: PolylineCollection; labels: LabelCollection } | null>(null);
+  const routeKey = route ? [...route.origin, ...route.destination, ...route.at.map((n) => n.toFixed(2))].join(',') : '';
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v) return;
+    if (!routeLines.current) {
+      routeLines.current = { lines: new PolylineCollection(), labels: new LabelCollection({ scene: v.scene }) };
+      v.scene.primitives.add(routeLines.current.lines);
+      v.scene.primitives.add(routeLines.current.labels);
+    }
+    const { lines, labels } = routeLines.current;
+    lines.removeAll();
+    labels.removeAll();
+    if (!route) return;
+    const height = 9000;
+    const pos = (pts: [number, number][]) => pts.map(([lon, lat]) => Cartesian3.fromDegrees(lon, lat, height));
+    const color = Color.fromCssColorString(AIR_COLOR.military);
+    lines.add({
+      positions: pos(densify([route.origin, route.at], 60)),
+      width: 3,
+      material: Material.fromType('Color', { color: color.withAlpha(0.95) }),
+    });
+    lines.add({
+      positions: pos(densify([route.at, route.destination], 60)),
+      width: 2,
+      material: Material.fromType('PolylineDash', { color: color.withAlpha(0.6), dashLength: 14 }),
+    });
+    route.labels.forEach((text, i) => {
+      if (!text) return;
+      const [lon, lat] = i === 0 ? route.origin : route.destination;
+      labels.add({
+        position: Cartesian3.fromDegrees(lon, lat, height),
+        text,
+        font: '600 11px "JetBrains Mono", monospace',
+        fillColor: color,
+        outlineColor: Color.fromCssColorString('#05080e'),
+        outlineWidth: 3,
+        style: LabelStyle.FILL_AND_OUTLINE,
+        pixelOffset: new Cartesian2(0, -12),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      });
+    });
+    // routeKey stands for route's contents.
+  }, [routeKey]);
   const infraKey = [infra.nuclear, infra.power, infra.cables, infra.bases].join('');
   const infraRef = useRef(infra);
   infraRef.current = infra;

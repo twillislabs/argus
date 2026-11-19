@@ -170,6 +170,20 @@ async def test_gdelt_cluster_and_promotion(app):
         )
         await db.refresh(event)
         assert event.status == "candidate"
+        # Kharkiv only in the summary, under a headline about somewhere
+        # else: not about this event.
+        await run(
+            db,
+            [
+                article(
+                    "s",
+                    "Drone strikes hit refineries in southern Russia",
+                    summary="Kharkiv also reported air raid alerts",
+                )
+            ],
+        )
+        await db.refresh(event)
+        assert event.status == "candidate"
         await run(
             db, [article("q", "Russian missile attack hits Kharkiv overnight")]
         )

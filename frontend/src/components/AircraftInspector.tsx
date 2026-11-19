@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 
 import { type Aircraft, type AircraftDetail, getAircraftDetail, type RouteAirport } from '../lib/api';
-import { latLon } from '../lib/format';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import { AIR_COLOR, aircraftColor } from '../map/aircraftLayer';
 import { distance } from '../lib/units';
+import CopyCoords from './CopyCoords';
 
 const POLL_MS = 10_000;
 
@@ -16,9 +16,21 @@ interface Props {
   onFly: (lat: number, lon: number) => void;
   // Fresh position, server trail and route, for the map.
   onUpdate: (aircraft: Aircraft, trail: number[][], detail: AircraftDetail) => void;
+  // The planned route drawn on the map, flown part solid.
+  showRoute: boolean;
+  onShowRoute: (on: boolean) => void;
 }
 
-export default function AircraftInspector({ hex, camera, onBack, onCamera, onFly, onUpdate }: Props) {
+export default function AircraftInspector({
+  hex,
+  camera,
+  onBack,
+  onCamera,
+  onFly,
+  onUpdate,
+  showRoute,
+  onShowRoute,
+}: Props) {
   const [d, setD] = useState<AircraftDetail | null>(null);
   const [error, setError] = useState('');
 
@@ -55,7 +67,17 @@ export default function AircraftInspector({ hex, camera, onBack, onCamera, onFly
       </div>
       {error && !d && <p className="err pad">{error}</p>}
       {!d && !error && <p className="quiet pad">Loading…</p>}
-      {d && <Detail d={d} camera={camera} onCamera={onCamera} onFly={onFly} stale={Boolean(error)} />}
+      {d && (
+        <Detail
+          d={d}
+          camera={camera}
+          onCamera={onCamera}
+          onFly={onFly}
+          stale={Boolean(error)}
+          showRoute={showRoute}
+          onShowRoute={onShowRoute}
+        />
+      )}
     </div>
   );
 }
@@ -71,12 +93,16 @@ function Detail({
   onCamera,
   onFly,
   stale,
+  showRoute,
+  onShowRoute,
 }: {
   d: AircraftDetail;
   camera: CameraMode;
   onCamera: (mode: CameraMode) => void;
   onFly: (lat: number, lon: number) => void;
   stale: boolean;
+  showRoute: boolean;
+  onShowRoute: (on: boolean) => void;
 }) {
   const a = d.aircraft;
   const title = d.route?.flight || a.callsign || a.reg || a.hex.toUpperCase();
@@ -149,6 +175,17 @@ function Detail({
               </div>
             </>
           )}
+          {plausible && (
+            <div className="actions" style={{ marginTop: 6 }}>
+              <button
+                className={'btn small' + (showRoute ? ' on' : '')}
+                aria-pressed={showRoute}
+                onClick={() => onShowRoute(!showRoute)}
+              >
+                {showRoute ? 'Hide route on map' : 'Show route on map'}
+              </button>
+            </div>
+          )}
           <p className="quiet small">
             {plausible
               ? 'Planned route from adsbdb; the aircraft may divert.'
@@ -192,7 +229,9 @@ function Detail({
           </div>
           <div className="wide">
             <dt>Position</dt>
-            <dd>{latLon(a.lat, a.lon)}</dd>
+            <dd>
+              <CopyCoords lat={a.lat} lon={a.lon} />
+            </dd>
           </div>
         </dl>
       </section>

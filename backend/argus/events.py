@@ -182,7 +182,16 @@ async def related_articles(
         .order_by(Article.published_at.desc())
         .limit(100)
     )
-    return [a for a in rows.scalars() if words.search(a.title)][:limit]
+    # The headline must say what happened and name the place (or the
+    # country), not only the summary.
+    names = [t.lower() for t in terms]
+    if event.country and len(event.country) >= 4:
+        names.append(event.country.lower())
+    return [
+        a
+        for a in rows.scalars()
+        if words.search(a.title) and any(n in a.title.lower() for n in names)
+    ][:limit]
 
 
 async def summary(db: AsyncSession, hours: int = 24) -> dict[str, Any]:

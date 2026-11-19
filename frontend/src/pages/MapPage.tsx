@@ -8,11 +8,13 @@ import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
 import { CursorReadout, ScaleBar, Timeline } from '../components/MapFooter';
 import { type HoverInfo, HoverLayer } from '../components/HoverCard';
+import InfoInspector from '../components/InfoInspector';
 import Legend from '../components/Legend';
+import MapContextMenu from '../components/MapContextMenu';
 import MapToolbar from '../components/MapToolbar';
 import SelectionPanel, { type AreaSelection } from '../components/SelectionPanel';
 import { inRing } from '../lib/geo';
-import type { DrawCallbacks, Drawing, Tool } from '../map/drawTools';
+import { type DrawCallbacks, type Drawing, describeShape, type Tool } from '../map/drawTools';
 import NewsPlayer from '../components/NewsPlayer';
 import { DEFAULT_TABS } from '../config/newsChannels';
 import SatelliteInspector from '../components/SatelliteInspector';
@@ -155,6 +157,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   };
   const [airspaceItems, setAirspaceItems] = useState<AirspaceItem[]>([]);
   const [selectedAirspace, setSelectedAirspace] = useState<string | null>(null);
+  // GPS cells, tension countries and drawings (InfoInspector).
+  const [selectedInfo, setSelectedInfo] = useState<string | null>(null);
   const [gpsCells, setGpsCells] = useState<GpsCell[]>([]);
   const [tension, setTension] = useState<Tension | null>(null);
   const [structureItems, setStructureItems] = useState<AirspaceItem[]>([]);
@@ -171,6 +175,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [trackedAt, setTrackedAt] = useState(0);
   const trackedRef = useRef<Aircraft | null>(null);
   const [trackedRoute, setTrackedRoute] = useState<AircraftDetail['route']>(null);
+  const [showRoute, setShowRoute] = useState(me.preferences.show_route !== false);
   const [trail, setTrail] = useState<number[][] | null>(null);
   const [live, setLive] = useState<LiveState>('connecting');
   const [loadError, setLoadError] = useState('');
@@ -331,6 +336,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   const viewTimer = useRef<number | undefined>(undefined);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [ctxMenu, setCtxMenu] = useState<{ lat: number; lon: number; x: number; y: number } | null>(null);
 
   // Drawing, measuring and area selection (map/drawTools.ts), with the
   // user's drawings saved in their preferences.
@@ -590,6 +596,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   const clearSelection = useCallback(() => {
     setAreaSel(null);
+    setSelectedInfo(null);
     setSelected(null);
     setSelectedHex(null);
     setSelectedNorad(null);
@@ -733,6 +740,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       openRight();
       return;
     }
+    // Map items that aren't events: a small info panel, never the event
+    // lookup (it would only say there's no such event).
+    if (id && (id.startsWith('gps:') || id.startsWith('tension:') || id.startsWith('draw:'))) {
+      clearSelection();
+      setSelectedInfo(id);
+      openRight();
+      return;
+    }
     clearSelection();
     setSelected(id);
     if (id) openRight();
@@ -855,6 +870,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (id.startsWith('mil:')) {
       const b = globe.current?.base(Number(id.slice(4)));
       return b ? { title: b[0], lines: [BASE_KINDS[b[1]] ?? b[1], b[4]] } : null;
+    }
+    if (id.startsWith('draw:')) {
+      const d = drawings.find((x) => x.id === id.slice(5));
+      if (!d) return null;
+      const kind = { point: 'Point', line: 'Line', polygon: 'Area', rectangle: 'Rectangle', circle: 'Circle', text: 'Note', measure: 'Measurement' }[d.kind];
+      return { title: d.label || kind, color: '#5b9bff', lines: [kind + (describeShape(d) ? ' · ' + describeShape(d) : '')] };
     }
     if (id.startsWith('cable:')) {
       const c = globe.current?.cable(id.slice(6));
@@ -1021,7 +1042,21 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             onSelect={select}
             onFocus={focus}
             onHover={onHover}
+            onContext={(lat, lon, x, y) => setCtxMenu({ lat, lon, x, y })}
             drawings={drawings}
+            route={
+              showRoute && selectedHex && tracked && trackedRoute?.origin?.lat != null && trackedRoute.destination?.lat != null
+                ? {
+                    origin: [trackedRoute.origin.lon ?? 0, trackedRoute.origin.lat],
+                    destination: [trackedRoute.destination.lon ?? 0, trackedRoute.destination.lat],
+                    at: [tracked.lon, tracked.lat],
+                    labels: [
+                      trackedRoute.origin.iata ?? trackedRoute.origin.icao ?? '',
+                      trackedRoute.destination.iata ?? trackedRoute.destination.icao ?? '',
+                    ],
+                  }
+                : null
+            }
             drawCallbacks={drawCallbacks}
             aircraft={aircraft}
             selectedHex={selectedHex}
@@ -1181,6 +1216,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             </div>
           )}
           <HoverLayer describe={hoverInfo} />
+          {ctxMenu && (
+            <MapContextMenu
+              {...ctxMenu}
+              onClose={() => setCtxMenu(null)}
+              onCentre={() => globe.current?.flyTo(ctxMenu.lat, ctxMenu.lon)}
+              onCopied={setNotice}
+            />
+          )}
           <div className="mc tl2">
             <MapToolbar
               tool={tool}
@@ -1231,7 +1274,19 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         <Timeline events={shown} />
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
-            {areaSel ? (
+            {selectedInfo ? (
+              <InfoInspector
+                info={hoverInfo(selectedInfo)}
+                note={
+                  selectedInfo.startsWith('gps:')
+                    ? 'GPS interference: the share of aircraft in this hexagon reporting a degraded position (NACp below 8) over the last hour, from the aircraft Argus sees. Not for navigation.'
+                    : selectedInfo.startsWith('tension:')
+                      ? 'Tension: organised violence over the last year (UCDP) plus confirmed live events. See World tension in the Situation panel.'
+                      : 'A shape you drew. Delete it with the Delete tool.'
+                }
+                onBack={() => setSelectedInfo(null)}
+              />
+            ) : areaSel ? (
               <SelectionPanel
                 sel={areaSel}
                 onBack={() => setAreaSel(null)}
@@ -1318,6 +1373,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                   globe.current?.flyTo(lat, lon, 150_000);
                 }}
                 onUpdate={onAircraftUpdate}
+                showRoute={showRoute}
+                onShowRoute={(on) => {
+                  setShowRoute(on);
+                  void savePreferences({ show_route: on }).catch(() => undefined);
+                }}
               />
             ) : selected ? (
               <EventInspector

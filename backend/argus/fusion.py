@@ -572,7 +572,8 @@ async def corroborating_articles(
 ) -> list[Article]:
     """Headlines from the news feeds that back a GDELT event: they name
     its city (or, for a country-level event, the country) in the headline
-    or summary, and use words for that kind of event in the headline.
+    or summary, and the headline itself uses words for that kind of event
+    and names the place or its country.
 
     Seat-of-government places need the place itself in the headline.
     """
@@ -598,9 +599,18 @@ async def corroborating_articles(
         .order_by(Article.published_at.desc())
         .limit(50)
     )
-    # The kind of event must be in the headline itself: a summary that
-    # mentions the city and, somewhere, "war" is not a report of fighting.
-    return [a for a in rows.scalars() if words.search(a.title)]
+    # The headline itself must say what happened and where: the place,
+    # or at least the event's country, in the title (a briefing that
+    # mentions Gaza in passing under "strikes on Iran" isn't about Gaza).
+    names = [t.lower() for t in terms]
+    if event.country and len(event.country) >= 4:
+        names.append(event.country.lower())
+
+    def about(a: Article) -> bool:
+        title = a.title.lower()
+        return bool(words.search(a.title)) and any(n in title for n in names)
+
+    return [a for a in rows.scalars() if about(a)]
 
 
 async def review_gdelt(db: AsyncSession) -> set[str]:

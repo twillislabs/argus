@@ -72,6 +72,39 @@ function cityRange(population: number): DistanceDisplayCondition {
 
 type Position = number[];
 
+// A label is about 80 px wide, and at camera distance D one pixel covers
+// roughly D / 800 metres, so two names overlap once D > ~10 × their
+// separation. Each city may show only while the camera is closer than
+// that to its nearest bigger neighbour (Fort Worth waits for Dallas to
+// spread out; a suburb never crowds its city).
+const LABEL_ROOM = 10;
+
+function declutter(cities: [string, number, number, number][]): number[] {
+  const order = cities.map((_, i) => i).sort((a, b) => cities[b][3] - cities[a][3]);
+  const room = new Array<number>(cities.length).fill(Number.POSITIVE_INFINITY);
+  // 1-degree grid of the cities placed so far (bigger first).
+  const grid = new Map<string, number[]>();
+  const cell = (lon: number, lat: number) => Math.floor(lon) + ',' + Math.floor(lat);
+  for (const i of order) {
+    const [, lon, lat] = cities[i];
+    let nearest = Number.POSITIVE_INFINITY;
+    for (let dx = -3; dx <= 3; dx++) {
+      for (let dy = -3; dy <= 3; dy++) {
+        for (const j of grid.get(cell(lon + dx, lat + dy)) ?? []) {
+          const [, lon2, lat2] = cities[j];
+          const x = (lon2 - lon) * Math.cos((lat * Math.PI) / 180);
+          const km = Math.hypot(x, lat2 - lat) * 111.32;
+          if (km < nearest) nearest = km;
+        }
+      }
+    }
+    room[i] = nearest * 1000 * LABEL_ROOM;
+    const k = cell(lon, lat);
+    grid.set(k, [...(grid.get(k) ?? []), i]);
+  }
+  return room;
+}
+
 // Join pieces that meet end to start into longer lines (the admin-1 data
 // is some 44,000 short pieces), so there are far fewer lines to build.
 function joinLines(lines: Position[][]): Position[][] {
@@ -193,7 +226,9 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   let states: LineBatch | null = null;
   let stateLines: number[][] | null = null;
   const countryLabels: { label: Label; area: number }[] = [];
-  const cityLabels: { label: Label; pop: number }[] = [];
+  // maxFar: the camera distance below which a city's name no longer runs
+  // into a bigger city's nearby (see declutter below).
+  const cityLabels: { label: Label; pop: number; maxFar: number }[] = [];
 
   const [topo, admin1, cities, airports, ports] = await Promise.all([
     json<Topology>('/data/countries-50m.json'),
@@ -240,9 +275,11 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   }
 
   if (cities) {
-    for (const [name, lon, lat, pop] of cities) {
+    const room = declutter(cities);
+    cities.forEach(([name, lon, lat, pop], i) => {
       cityLabels.push({
         pop,
+        maxFar: room[i],
         label: labels.add({
           position: Cartesian3.fromDegrees(lon, lat, 1500),
           text: name,
@@ -257,7 +294,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
           distanceDisplayCondition: cityRange(pop),
         }),
       });
-    }
+    });
   }
 
   if (airports) {
@@ -326,8 +363,9 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   // the tiles' own names take over.
   function placeLabels() {
     const tiles = mode !== 'satellite' && layers.basemapLabels;
-    for (const { label, pop } of cityLabels) {
-      const range = cityRange(pop);
+    for (const { label, pop, maxFar } of cityLabels) {
+      const base = cityRange(pop);
+      const range = new DistanceDisplayCondition(base.near, Math.min(base.far, maxFar));
       const near = tiles ? TILE_LABELS_BELOW : range.near;
       // Cesium throws unless far > near: hide labels with nothing left.
       label.show = range.far > near;

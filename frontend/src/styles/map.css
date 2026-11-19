@@ -236,3 +236,16 @@
 }
 .noteprompt { position: absolute; z-index: 8; transform: translate(8px, -50%); }
 .noteprompt input { width: 220px; background: var(--surface); border: 1px solid var(--accent); border-radius: 4px; padding: 5px 8px; font-size: 12.5px; color: var(--text); }
+
+/* Copy-coordinates button and the map's right-click menu. */
+.coords { display: inline-flex; align-items: center; gap: 6px; }
+.copybtn { background: none; border: 0; padding: 0 2px; color: var(--dim); cursor: pointer; font-size: 12px; line-height: 1; }
+.copybtn:hover { color: var(--accent); }
+.ctxmenu {
+  position: absolute; z-index: 9; display: grid; min-width: 220px; padding: 4px 0;
+  background: rgba(13, 17, 23, 0.98); border: 1px solid var(--line-2); border-radius: 5px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+.ctxhead { padding: 5px 12px 6px; font-size: 11px; color: var(--dim); border-bottom: 1px solid var(--line); }
+.ctxmenu button { display: grid; gap: 1px; border: 0; background: none; text-align: left; padding: 6px 12px; font-size: 12.5px; color: var(--text); cursor: pointer; }
+.ctxmenu button small { font-size: 10.5px; color: var(--dim); }
+.ctxmenu button:hover { background: var(--accent-soft); }
