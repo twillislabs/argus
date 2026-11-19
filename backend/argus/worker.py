@@ -212,7 +212,8 @@ async def sea_loop(
         try:
             async with connect(
                 sea.AISSTREAM_URL,
-                open_timeout=15,
+                # AISStream's handshake can take 15 s or more.
+                open_timeout=60,
                 ping_interval=20,
                 max_size=2**20,
             ) as ws:
