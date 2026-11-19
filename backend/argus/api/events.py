@@ -7,13 +7,14 @@ from fastapi import (
     APIRouter,
     HTTPException,
     Query,
+    Request,
     WebSocket,
     WebSocketDisconnect,
 )
 from sqlalchemy import or_, select
 
 from argus import events as ev
-from argus import places
+from argus import places, youtube
 from argus.api.deps import SESSION_COOKIE, DbDep, SessionDep
 from argus.models import Article, Event
 from argus.services import load_session
@@ -92,6 +93,14 @@ async def get_news(
         )
     rows = (await db.execute(query.limit(limit))).scalars()
     return {"articles": [ev.article_dict(a) for a in rows]}
+
+
+@router.get("/api/news/live/{channel}")
+async def live_video(channel: str, session: SessionDep, request: Request):
+    """The current live video of a YouTube channel, for the news player."""
+    if not youtube.CHANNEL_RE.match(channel):
+        raise HTTPException(422, "Not a YouTube channel ID.")
+    return await request.app.state.youtube.resolve(channel)
 
 
 @router.get("/api/places")

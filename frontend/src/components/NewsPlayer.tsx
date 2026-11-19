@@ -1,6 +1,7 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 
 import { CHANNELS, DEFAULT_TABS, embedUrl } from '../config/newsChannels';
+import { getLiveVideo, type LiveVideo } from '../lib/api';
 
 interface Props {
   channel: string;
@@ -34,6 +35,7 @@ export default function NewsPlayer({ channel, tabs, onChannel, onTabs, onClose }
   const [box, setBox] = useState<Box | null>(loadBox);
   const [picking, setPicking] = useState(false);
   const drag = useRef<{ dx: number; dy: number } | null>(null);
+  const [live, setLive] = useState<(LiveVideo & { channel: string }) | null>(null);
   const current = CHANNELS.find((c) => c.id === channel) ?? CHANNELS[0];
   const shown = (tabs.length ? tabs : DEFAULT_TABS)
     .map((id) => CHANNELS.find((c) => c.id === id))
@@ -68,6 +70,22 @@ export default function NewsPlayer({ channel, tabs, onChannel, onTabs, onClose }
     if (drag.current && box) save({ ...box, w: panel.current?.offsetWidth ?? box.w });
     drag.current = null;
   }
+
+  // Look up the channel's current live video (cached by the API).
+  useEffect(() => {
+    let cancelled = false;
+    setLive(null);
+    getLiveVideo(current.id)
+      .then((v) => {
+        if (!cancelled) setLive({ ...v, channel: current.id });
+      })
+      .catch(() => {
+        if (!cancelled) setLive({ status: 'error', video_id: null, channel: current.id });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [current.id]);
 
   // Remember the size after a corner resize.
   useEffect(() => {
@@ -127,17 +145,27 @@ export default function NewsPlayer({ channel, tabs, onChannel, onTabs, onClose }
         </div>
       ) : (
         <div className="np-video">
-          <iframe
-            key={channel}
-            src={embedUrl(channel)}
-            title={current.name + ' live'}
-            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-            allowFullScreen
-            referrerPolicy="strict-origin-when-cross-origin"
-          />
+          {live?.channel === current.id && live.video_id ? (
+            <iframe
+              key={live.video_id}
+              src={embedUrl(live.video_id)}
+              title={current.name + ' live'}
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          ) : (
+            <div className="np-msg">
+              {!live || live.channel !== current.id
+                ? 'Finding the live stream…'
+                : live.status === 'offline'
+                  ? current.name + " isn't live right now. Try another channel."
+                  : "Couldn't reach YouTube. Try again in a minute."}
+            </div>
+          )}
         </div>
       )}
-      <div className="np-foot">If a channel isn&apos;t live, YouTube says so. Streams are the channels&apos; own.</div>
+      <div className="np-foot">Streams are the channels&apos; own, played through YouTube.</div>
     </div>
   );
 }

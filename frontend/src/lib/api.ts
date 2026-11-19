@@ -93,6 +93,13 @@ export async function api<T>(
   return (await res.json()) as T;
 }
 
+export interface LiveVideo {
+  status: 'live' | 'offline' | 'error';
+  video_id: string | null;
+}
+export const getLiveVideo = (channel: string) =>
+  api<LiveVideo>('/api/news/live/' + encodeURIComponent(channel));
+
 export const getSetupStatus = () =>
   api<{ needs_setup: boolean }>('/api/setup/status');
 export const getMe = () => api<Me>('/api/me');

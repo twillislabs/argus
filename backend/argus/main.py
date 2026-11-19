@@ -30,6 +30,7 @@ from argus.live import Hub, subscribe_forever
 from argus.openaip import OpenAip
 from argus.sea import LiveSea
 from argus.services import ensure_setup_token
+from argus.youtube import LiveIds
 
 log = logging.getLogger("argus")
 
@@ -67,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.air_client = AirClient(settings.user_agent)
         app.state.air_client.gps = app.state.gps
         app.state.openaip = OpenAip(settings.user_agent)
+        app.state.youtube = LiveIds(settings.user_agent)
         live_task = None
         if settings.nats_url:
             live_task = asyncio.create_task(
@@ -86,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 await live_task
         await app.state.air_client.close()
         await app.state.openaip.close()
+        await app.state.youtube.close()
         await db.dispose()
 
     app = FastAPI(

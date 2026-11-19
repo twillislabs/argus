@@ -101,6 +101,9 @@ parts connect.
   `app.state.local_air` (NATS `argus.local_air`), ships into `LiveSea`.
 - News channels live in `frontend/src/config/newsChannels.ts`; verify a new
   channel ID with `https://www.youtube.com/feeds/videos.xml?channel_id=`.
+  YouTube no longer plays `embed/live_stream?channel=`; the API resolves
+  the live video ID from the channel's `/live` page (`argus/youtube.py`,
+  cached) and the player embeds `/embed/<video id>`.
 - Hazards (GDACS, EONET, tsunami) and NGA warnings are keyed events
   (`fuse_hazard`, `fuse_navwarn`) whose raw records update in place
   (`UPDATABLE_KINDS`).

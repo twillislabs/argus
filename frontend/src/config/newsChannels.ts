@@ -1,7 +1,8 @@
-// Live news and weather channels for the news overlay. Each plays the
-// channel's current live stream through YouTube's own embed
-// (embed/live_stream?channel=...), so no API key is needed. IDs were
-// checked against each channel's public feed.
+// Live news and weather channels for the news overlay. The API looks up
+// each channel's current live video (/api/news/live/<channel>) and the
+// player embeds that video; YouTube no longer plays
+// embed/live_stream?channel=... IDs were checked against each channel's
+// public feed.
 
 export interface Channel {
   id: string;
@@ -41,7 +42,7 @@ export const DEFAULT_TABS = [
   'UCJHAT3Uvv-g3I8H3GhHWV7w',
 ];
 
-export function embedUrl(channelId: string): string {
-  const p = new URLSearchParams({ channel: channelId, autoplay: '1', mute: '1', playsinline: '1' });
-  return 'https://www.youtube-nocookie.com/embed/live_stream?' + p.toString();
+export function embedUrl(videoId: string): string {
+  const p = new URLSearchParams({ autoplay: '1', mute: '1', playsinline: '1' });
+  return 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(videoId) + '?' + p.toString();
 }

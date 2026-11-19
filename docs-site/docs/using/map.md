@@ -189,8 +189,9 @@ corner. Tabs switch channel; **⋯** chooses which channels have tabs:
 - **Business:** Reuters, Bloomberg
 - **Weather:** Ryan Hall, Y'all
 
-Each tab plays the channel's current live stream through YouTube's embed.
-If a channel isn't live, YouTube says so.
+Each tab plays the channel's current live stream: Argus looks up the
+live video from the channel's page (checked every few minutes) and plays
+it through YouTube's embed. If a channel isn't live, the player says so.
 
 ## Ships
 
