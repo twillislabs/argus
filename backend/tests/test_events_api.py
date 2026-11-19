@@ -159,3 +159,29 @@ async def test_coverage_needs_place_and_topic(admin_client, app):
         titles = [a.title for a in await related_articles(db, event)]
     # The festival names the town but isn't about the quake.
     assert titles == ["Strong quake rattles Ishinomaki"]
+
+
+def test_gdelt_source_checks():
+    from types import SimpleNamespace
+
+    from argus.events import gdelt_check
+
+    event = SimpleNamespace(
+        title="Use of military force reported in Gaza, Israel",
+        place="Gaza, Israel",
+        country="Israel",
+    )
+    named = gdelt_check(
+        "https://example.com/world/israel-strikes-gaza-city-overnight-123",
+        "Use of military force",
+        event,
+    )
+    assert named == {"place": "named", "same_kind": True}
+    other = gdelt_check(
+        "https://example.com/news/israel-news/knesset-picture-removed-row",
+        "Demonstration or rally",
+        event,
+    )
+    assert other == {"place": "not_named", "same_kind": False}
+    unknown = gdelt_check("https://example.com/news/436610", "", event)
+    assert unknown["place"] == "unknown"

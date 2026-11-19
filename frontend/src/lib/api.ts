@@ -172,6 +172,9 @@ export interface EventDetail {
     label: string;
     articles: number | null;
     external_id: string;
+    // GDELT records: does the link name the place, and was it coded as
+    // the same kind of event?
+    check?: { place: 'named' | 'not_named' | 'unknown'; same_kind: boolean };
   }[];
   articles: Article[];
 }

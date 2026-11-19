@@ -140,6 +140,11 @@
 .srclist { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 12px; }
 .srclist li { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
 .srclist a { color: var(--accent); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srctags { grid-column: 2 / -1; display: flex; gap: 6px; flex-wrap: wrap; margin-top: -2px; }
+.srctags .tag { font: 10.5px/1.6 var(--f-mono); font-style: normal; padding: 0 5px; border-radius: 3px; border: 1px solid var(--line-2); color: var(--dim); }
+.srctags .tag.named { color: var(--ok); border-color: rgba(79, 191, 127, 0.4); }
+.srctags .tag.not_named, .srctags .tag.other { color: var(--elev); border-color: rgba(227, 192, 75, 0.35); }
+.srclist li.doubtful a { color: var(--muted); }
 .srclist .dim { color: var(--dim); font-size: 11px; }
 pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 10px; overflow: auto; max-height: 320px; }
 

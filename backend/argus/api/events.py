@@ -60,7 +60,7 @@ async def get_event(event_id: str, session: SessionDep, db: DbDep):
         raise HTTPException(404, "No event with that id.")
     return {
         "event": ev.event_dict(event),
-        "sources": await ev.event_sources(db, event.id),
+        "sources": await ev.event_sources(db, event),
         "articles": [
             ev.article_dict(a) for a in await ev.related_articles(db, event)
         ],

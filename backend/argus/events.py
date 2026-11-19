@@ -3,6 +3,7 @@
 import re
 from datetime import timedelta
 from typing import Any
+from urllib.parse import urlsplit
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,7 +97,60 @@ async def query_events(
     return list((await db.execute(q.limit(limit))).scalars())
 
 
-async def event_sources(db: AsyncSession, event_id: str) -> list[dict]:
+def _slug_words(url: str) -> str:
+    """The readable words in a link's path ("israel-steps-up-strikes"),
+    lower-cased, or "" when the path is only numbers and codes."""
+    path = urlsplit(url).path.lower()
+    words = re.findall(r"[a-z]{3,}", path.replace("_", "-"))
+    # Section names and file endings aren't the headline.
+    skip = {
+        "news",
+        "html",
+        "htm",
+        "php",
+        "aspx",
+        "article",
+        "articles",
+        "story",
+        "world",
+        "pages",
+        "details",
+        "content",
+        "politics",
+        "opinion",
+        "commentanalysis",
+        "arid",
+        "amp",
+        "www",
+        "index",
+    }
+    words = [w for w in words if w not in skip]
+    return " ".join(words) if len(words) >= 3 else ""
+
+
+def gdelt_check(url: str, label: str, event: Event) -> dict:
+    """How far a GDELT source record backs its event. GDELT codes events
+    from articles automatically, so the article can be about something
+    else; the link's words and the record's own code say how likely."""
+    slug = _slug_words(url or "")
+    # The town or city (the country only for a country-level event):
+    # a link that only says "israel" isn't necessarily about Gaza.
+    names = [t.lower() for t in _match_terms(event)]
+    if not slug:
+        place = "unknown"
+    elif any(
+        n.replace(" ", "-") in slug.replace(" ", "-") or n in slug
+        for n in names
+    ):
+        place = "named"
+    else:
+        place = "not_named"
+    same_kind = not label or event.title.lower().startswith(label.lower())
+    return {"place": place, "same_kind": same_kind}
+
+
+async def event_sources(db: AsyncSession, event: Event) -> list[dict]:
+    event_id = event.id
     rows = (
         await db.execute(
             select(RawRecord)
@@ -109,16 +163,18 @@ async def event_sources(db: AsyncSession, event_id: str) -> list[dict]:
     out = []
     for r in rows:
         p = r.payload or {}
-        out.append(
-            {
-                "source": r.source,
-                "observed_at": r.observed_at.isoformat(),
-                "url": p.get("url"),
-                "label": p.get("label") or p.get("title") or r.kind,
-                "articles": p.get("articles"),
-                "external_id": r.external_id,
-            }
-        )
+        label = p.get("label") or p.get("title") or r.kind
+        item = {
+            "source": r.source,
+            "observed_at": r.observed_at.isoformat(),
+            "url": p.get("url"),
+            "label": label,
+            "articles": p.get("articles"),
+            "external_id": r.external_id,
+        }
+        if r.source == "gdelt":
+            item["check"] = gdelt_check(p.get("url") or "", label, event)
+        out.append(item)
     return out
 
 

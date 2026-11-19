@@ -10,6 +10,8 @@ interface Props {
   onFly: (lat: number, lon: number) => void;
 }
 
+const CHECK_ORDER = { named: 0, unknown: 1, not_named: 2 } as const;
+
 export default function EventInspector({ id, onBack, onFly }: Props) {
   const [detail, setDetail] = useState<EventDetail | null>(null);
   const [error, setError] = useState('');
@@ -117,20 +119,40 @@ function Detail({
       </section>
       <section className="isec">
         <h3>Source records · {d.sources.length}</h3>
+        {d.sources.some((s) => s.check) && (
+          <p className="quiet small">
+            GDELT matches news articles to events automatically, so some can be about something else. Each link is
+            checked for the place&apos;s name and the kind of event it was coded as.
+          </p>
+        )}
         <ul className="srclist">
-          {d.sources.map((s) => (
-            <li key={s.source + s.external_id}>
-              <span className="mono">{s.source.toUpperCase()}</span>
-              {s.url ? (
-                <a href={s.url} target="_blank" rel="noopener noreferrer">
-                  {hostOf(s.url) || s.label}
-                </a>
-              ) : (
-                <span>{s.label}</span>
-              )}
-              <span className="mono dim">{zuluTime(s.observed_at)}</span>
-            </li>
-          ))}
+          {[...d.sources]
+            .sort((a, b) => CHECK_ORDER[a.check?.place ?? 'named'] - CHECK_ORDER[b.check?.place ?? 'named'])
+            .map((s) => (
+              <li key={s.source + s.external_id} className={s.check?.place === 'not_named' ? 'doubtful' : undefined}>
+                <span className="mono">{s.source.toUpperCase()}</span>
+                {s.url ? (
+                  <a href={s.url} target="_blank" rel="noopener noreferrer">
+                    {hostOf(s.url) || s.label}
+                  </a>
+                ) : (
+                  <span>{s.label}</span>
+                )}
+                <span className="mono dim">{zuluTime(s.observed_at)}</span>
+                {s.check && (
+                  <span className="srctags">
+                    <i className={'tag ' + s.check.place}>
+                      {s.check.place === 'named'
+                        ? 'names ' + (e.place.split(',')[0] || 'the place')
+                        : s.check.place === 'not_named'
+                          ? "doesn't name the place"
+                          : 'headline not in link'}
+                    </i>
+                    {!s.check.same_kind && <i className="tag other">coded as {s.label.toLowerCase()}</i>}
+                  </span>
+                )}
+              </li>
+            ))}
         </ul>
       </section>
       <section className="isec">
