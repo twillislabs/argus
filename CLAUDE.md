@@ -130,6 +130,10 @@ parts connect.
   (`styles/tokens.css`); the cursor readout and scale bar read
   `lib/cursor.ts`, which Globe.tsx writes, so mouse moves don't
   re-render the map page.
+- Server-wide defaults (Settings > Defaults, `server_settings["defaults"]`,
+  `/api/admin/defaults`) come with `/api/me` as `defaults`; the map layers
+  merge as built-in < server < user (`serverFilters` in LayerPanel).
+  Video prefs live in `lib/video.ts` (user over server).
 - Pages: Map (`/`), Brief (`/brief`), Wall (`/wall`, reuses `Globe` with
   minimal props), Settings. A Brief theatre card hands the map a place to
   fly to through `sessionStorage[FLY_KEY]` (lib/share.ts).

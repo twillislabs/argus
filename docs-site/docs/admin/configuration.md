@@ -125,3 +125,18 @@ address under **Your receivers**:
 The worker polls the ADS-B one every 2 seconds and the AIS one every 10.
 What they hear is merged into the map for everyone. The worker container
 fetches them, so use the receiver's LAN address, not `localhost`.
+
+## Defaults for everyone
+
+Settings > **Defaults** (admins) sets what every user starts with; each
+user can still change their own:
+
+- **Layers and filters:** set your own map the way you want it, then
+  **Use my current map layers**. New users open the map with those layers,
+  and **Reset filters** returns to them. **Use built-in** goes back to
+  Argus's own defaults.
+- **News tabs:** tick the channels that get a tab and order them with the
+  arrows. Users who haven't picked their own tabs get these.
+- **Video:** whether streams start muted, and their volume. Users can
+  override both in Settings > Display > Video. Browsers may keep a stream
+  muted until someone clicks on the page.

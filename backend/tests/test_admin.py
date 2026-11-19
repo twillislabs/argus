@@ -118,3 +118,26 @@ async def test_requires_sign_in_and_csrf(client, admin_client):
         "/api/admin/imagery", json={"provider": "esri"}
     )
     assert response.status_code == 403
+
+
+async def test_server_defaults(admin_client):
+    from tests.conftest import csrf
+
+    body = {
+        "layers": {"types": {"maritime": True}},
+        "news": {"tabs": ["UCoMdktPbSTixAyNGwb-UYkQ", "TheAlexJonesShowLive"]},
+        "video": {"muted": False, "volume": 30},
+    }
+    r = await admin_client.put(
+        "/api/admin/defaults", json=body, headers=csrf(admin_client)
+    )
+    assert r.status_code == 200, r.text
+    config = (await admin_client.get("/api/map/config")).json()
+    assert config["defaults"]["news"]["tabs"][1] == "TheAlexJonesShowLive"
+    assert config["defaults"]["video"] == {"muted": False, "volume": 30}
+    bad = await admin_client.put(
+        "/api/admin/defaults",
+        json={"video": {"volume": 300}},
+        headers=csrf(admin_client),
+    )
+    assert bad.status_code == 422

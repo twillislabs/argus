@@ -137,6 +137,73 @@ async def put_imagery(
     return _admin_view(stored, settings)
 
 
+DEFAULTS = "defaults"
+
+
+class VideoDefaults(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    muted: bool = True
+    volume: int = Field(default=50, ge=0, le=100)
+
+
+class NewsDefaults(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Channel ids (YouTube or Rumble), in tab order.
+    tabs: list[str] = Field(default_factory=list, max_length=40)
+
+
+class DefaultsIn(BaseModel):
+    """Server-wide starting points for every user: the layers and filters
+    the map opens with (and resets to), the news tabs in order, and how
+    video starts. Users' own choices still win."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    layers: dict | None = None
+    news: NewsDefaults | None = None
+    video: VideoDefaults | None = None
+
+
+async def read_defaults(db) -> dict:
+    row = await db.get(ServerSetting, DEFAULTS)
+    return dict(row.value or {}) if row else {}
+
+
+@router.get("/api/admin/defaults", dependencies=[AdminDep])
+async def get_defaults(db: DbDep):
+    return await read_defaults(db)
+
+
+@router.put("/api/admin/defaults")
+async def put_defaults(
+    body: DefaultsIn,
+    request: Request,
+    db: DbDep,
+    session: UserSession = AdminDep,
+):
+    value = body.model_dump(exclude_none=True)
+    if len(str(value)) > 20_000:
+        raise HTTPException(422, "Defaults are too large.")
+    row = await db.get(ServerSetting, DEFAULTS)
+    if row is None:
+        row = ServerSetting(key=DEFAULTS)
+        db.add(row)
+    row.value = value
+    row.updated_at = utcnow()
+    row.updated_by = session.user_id
+    await audit(
+        db,
+        "settings.defaults",
+        session.user_id,
+        client_ip(request),
+        parts=sorted(value),
+    )
+    await db.commit()
+    return value
+
+
 @router.get("/api/map/config")
 async def map_config(session: SessionDep, db: DbDep, settings: SettingsDep):
     """What the map should load, for every signed-in user."""
@@ -148,7 +215,8 @@ async def map_config(session: SessionDep, db: DbDep, settings: SettingsDep):
             "provider": "google" if google else "esri",
             "google_key": key if google else None,
             "google_3d": google and bool(stored.get("google_3d")),
-        }
+        },
+        "defaults": await read_defaults(db),
     }
 
 

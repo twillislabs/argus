@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 
 from argus.api.deps import DbDep, SessionDep
-from argus.models import User, UserPreferences
+from argus.models import ServerSetting, User, UserPreferences
 from argus.schemas import MeOut, Preferences, UserOut
 
 router = APIRouter(tags=["me"])
@@ -17,11 +17,20 @@ async def _prefs(db: DbDep, user: User) -> UserPreferences:
     return prefs
 
 
+async def _defaults(db: DbDep) -> dict:
+    row = await db.get(ServerSetting, "defaults")
+    return dict(row.value or {}) if row else {}
+
+
 @router.get("/api/me", response_model=MeOut)
 async def me(session: SessionDep, db: DbDep) -> MeOut:
     user = await db.get(User, session.user_id)
     prefs = await _prefs(db, user)
-    return MeOut(user=UserOut.model_validate(user), preferences=prefs.data)
+    return MeOut(
+        user=UserOut.model_validate(user),
+        preferences=prefs.data,
+        defaults=await _defaults(db),
+    )
 
 
 @router.patch("/api/me/preferences", response_model=MeOut)
@@ -42,4 +51,8 @@ async def update_preferences(
             merged[key] = value
     prefs.data = merged
     await db.commit()
-    return MeOut(user=UserOut.model_validate(user), preferences=merged)
+    return MeOut(
+        user=UserOut.model_validate(user),
+        preferences=merged,
+        defaults=await _defaults(db),
+    )

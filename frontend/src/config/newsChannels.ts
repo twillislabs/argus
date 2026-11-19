@@ -53,12 +53,19 @@ export const DEFAULT_TABS = [
   'UCJHAT3Uvv-g3I8H3GhHWV7w',
 ];
 
-export function embedUrl(platform: Channel['platform'], videoId: string): string {
+export function embedUrl(platform: Channel['platform'], videoId: string, muted = true): string {
   if (platform === 'rumble') {
-    // autoplay=2 starts muted, which browsers allow.
-    return 'https://rumble.com/embed/' + encodeURIComponent(videoId) + '/?autoplay=2';
+    // autoplay=2 starts muted (browsers allow that); 1 starts with sound.
+    return 'https://rumble.com/embed/' + encodeURIComponent(videoId) + '/?autoplay=' + (muted ? '2' : '1');
   }
-  const p = new URLSearchParams({ autoplay: '1', mute: '1', playsinline: '1' });
+  // enablejsapi lets LiveFrame set the volume once the player loads.
+  const p = new URLSearchParams({
+    autoplay: '1',
+    mute: muted ? '1' : '0',
+    playsinline: '1',
+    enablejsapi: '1',
+    origin: window.location.origin,
+  });
   return 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(videoId) + '?' + p.toString();
 }
 

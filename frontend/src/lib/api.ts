@@ -32,13 +32,25 @@ export interface Preferences {
   drawings?: unknown[];
   show_route?: boolean;
   wall?: { zones?: { label: string; tz: string }[]; channel?: string; news?: boolean };
+  video?: { muted: boolean; volume: number };
   [key: string]: unknown;
+}
+
+// Server-wide defaults an admin sets (Settings > Defaults).
+export interface ServerDefaults {
+  layers?: Record<string, unknown>;
+  news?: { tabs: string[] };
+  video?: { muted: boolean; volume: number };
 }
 
 export interface Me {
   user: User;
   preferences: Preferences;
+  defaults?: ServerDefaults;
 }
+
+export const getDefaults = () => api<ServerDefaults>('/api/admin/defaults');
+export const putDefaults = (body: ServerDefaults) => api<ServerDefaults>('/api/admin/defaults', { method: 'PUT', body });
 
 export class ApiError extends Error {
   constructor(

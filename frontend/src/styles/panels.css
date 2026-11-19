@@ -324,3 +324,11 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .zonerow { display: flex; gap: 6px; align-items: center; }
 .zonerow input { width: 110px; background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 4px 6px; color: var(--text); }
 .zonerow select, .srow select { background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 4px 6px; color: var(--text); max-width: 240px; }
+.chanlist { list-style: none; margin: 0; padding: 0 12px 12px; display: grid; gap: 2px; }
+.chanlist li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 4px; border-radius: 4px; }
+.chanlist li.on { background: var(--surface-2); }
+.chanlist .cname { display: grid; }
+.chanlist .cname small { font-size: 11px; color: var(--dim); }
+.chanlist .lrow.flat { padding: 0; }
+.volrow { display: flex; gap: 10px; align-items: center; }
+.volrow input { width: 180px; accent-color: var(--accent); }

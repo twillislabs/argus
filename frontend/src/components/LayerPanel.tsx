@@ -46,6 +46,27 @@ export const DEFAULT_FILTERS: LayerFilters = {
   tension: true,
 };
 
+// The built-in defaults with an admin's server-wide defaults over them
+// (Settings > Defaults): what the map opens with and Reset returns to.
+export function serverFilters(layers: Record<string, unknown> | undefined): LayerFilters {
+  const d = (layers ?? {}) as Partial<Record<keyof LayerFilters, unknown>>;
+  const part = <T extends object>(base: T, v: unknown): T => ({ ...base, ...((v as Partial<T>) ?? {}) });
+  return {
+    ...DEFAULT_FILTERS,
+    types: part(DEFAULT_FILTERS.types, d.types),
+    air: part(DEFAULT_FILTERS.air, d.air),
+    reference: part(DEFAULT_FILTERS.reference, d.reference),
+    space: part(DEFAULT_FILTERS.space, d.space),
+    sea: part(DEFAULT_FILTERS.sea, d.sea),
+    airspace: part(DEFAULT_FILTERS.airspace, d.airspace),
+    infra: part(DEFAULT_FILTERS.infra, d.infra),
+    tension: typeof d.tension === 'boolean' ? d.tension : DEFAULT_FILTERS.tension,
+    hours: typeof d.hours === 'number' ? d.hours : DEFAULT_FILTERS.hours,
+    minSeverity: typeof d.minSeverity === 'number' ? d.minSeverity : DEFAULT_FILTERS.minSeverity,
+    candidates: typeof d.candidates === 'boolean' ? d.candidates : DEFAULT_FILTERS.candidates,
+  };
+}
+
 const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color: string }[] = [
   { id: 'nuclear', label: 'Nuclear plants', source: 'WRI power plant database', color: FUEL_COLOR.Nuclear },
   { id: 'power', label: 'Power plants (300 MW+)', source: 'Coal, gas, oil, hydro, renewables', color: FUEL_COLOR.Gas },
@@ -120,6 +141,8 @@ interface Props {
   airspaceCounts: Partial<Record<keyof AirspaceFilters, number>>;
   structureStatus: 'ok' | 'zoom' | 'nokey' | 'blocked' | 'error';
   sources: SourceStatus[];
+  // What Reset filters returns to (built-in plus server defaults).
+  resetTo: LayerFilters;
   onChange: (f: LayerFilters) => void;
 }
 
@@ -235,12 +258,13 @@ export default function LayerPanel({
   airspaceCounts,
   structureStatus,
   sources,
+  resetTo,
   onChange,
 }: Props) {
   const seaOn = Object.values(filters.sea).some(Boolean);
   const air = filters.air;
   const setAir = (next: Partial<AirFilters>) => onChange({ ...filters, air: { ...air, ...next } });
-  const isDefault = JSON.stringify(filters) === JSON.stringify(DEFAULT_FILTERS);
+  const isDefault = JSON.stringify(filters) === JSON.stringify(resetTo);
   const [q, setQ] = useState('');
   const panel = useRef<HTMLElement>(null);
   // Filter rows by their text; groups with nothing left are hidden.
@@ -265,7 +289,7 @@ export default function LayerPanel({
         <button
           className="btn small"
           disabled={isDefault}
-          onClick={() => onChange(DEFAULT_FILTERS)}
+          onClick={() => onChange(resetTo)}
         >
           Reset filters
         </button>

@@ -153,6 +153,8 @@ class Preferences(BaseModel):
 class MeOut(BaseModel):
     user: UserOut
     preferences: dict[str, Any]
+    # Server-wide defaults set by an admin (layers, news, video).
+    defaults: dict[str, Any] = {}
 
 
 class SetupStatus(BaseModel):

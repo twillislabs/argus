@@ -15,6 +15,7 @@ import WallPage from './pages/WallPage';
 import SettingsPage from './pages/SettingsPage';
 import SetupPage from './pages/SetupPage';
 import { setUnits } from './lib/units';
+import { setVideoPrefs } from './lib/video';
 import Tooltips from './components/Tooltips';
 
 type Boot =
@@ -78,7 +79,10 @@ export default function App() {
   }
 
   // Display units for every page (Settings > Display).
-  if (boot.state === 'signedIn') setUnits(boot.me.preferences.units);
+  if (boot.state === 'signedIn') {
+    setUnits(boot.me.preferences.units);
+    setVideoPrefs(boot.me.preferences.video, boot.me.defaults?.video);
+  }
 
   // A temporary password must be replaced before anything else.
   if (boot.state === 'signedIn' && boot.me.user.must_change_password) {

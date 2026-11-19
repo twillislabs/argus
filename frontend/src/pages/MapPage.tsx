@@ -21,7 +21,7 @@ import SatelliteInspector from '../components/SatelliteInspector';
 import VesselInspector from '../components/VesselInspector';
 import LayerPanel, {
   type AirFilters,
-  DEFAULT_FILTERS,
+  serverFilters,
   type LayerFilters,
 } from '../components/LayerPanel';
 import SearchBox from '../components/SearchBox';
@@ -55,7 +55,7 @@ import {
 } from '../lib/api';
 import { connectLive, type LiveState } from '../lib/live';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
-import { DEFAULT_SPACE, type SatCatalog, type SpaceFilters } from '../map/satellites';
+import type { SatCatalog, SpaceFilters } from '../map/satellites';
 import { TINT_FROM } from '../map/tensionLayer';
 import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { aircraftColor } from '../map/aircraftLayer';
@@ -85,19 +85,21 @@ function initialFilters(me: Me): LayerFilters {
   const saved = me.preferences.layers as Partial<Record<EventType, boolean>> | undefined;
   const air = me.preferences.air as Partial<AirFilters> | undefined;
   const reference = me.preferences.reference as Partial<LayerFilters['reference']> | undefined;
+  // Built-in defaults, then the server's (an admin's), then the user's own.
+  const base = serverFilters(me.defaults?.layers);
   return {
-    ...DEFAULT_FILTERS,
-    types: { ...DEFAULT_FILTERS.types, ...(saved ?? {}) },
-    air: { ...DEFAULT_FILTERS.air, ...(air ?? {}) },
-    reference: { ...DEFAULT_FILTERS.reference, ...(reference ?? {}) },
-    space: { ...DEFAULT_SPACE, ...((me.preferences.space as Partial<SpaceFilters> | undefined) ?? {}) },
-    sea: { ...DEFAULT_FILTERS.sea, ...((me.preferences.sea as Partial<SeaFilters> | undefined) ?? {}) },
-    infra: { ...DEFAULT_FILTERS.infra, ...((me.preferences.infra as Record<string, boolean> | undefined) ?? {}) },
+    ...base,
+    types: { ...base.types, ...(saved ?? {}) },
+    air: { ...base.air, ...(air ?? {}) },
+    reference: { ...base.reference, ...(reference ?? {}) },
+    space: { ...base.space, ...((me.preferences.space as Partial<SpaceFilters> | undefined) ?? {}) },
+    sea: { ...base.sea, ...((me.preferences.sea as Partial<SeaFilters> | undefined) ?? {}) },
+    infra: { ...base.infra, ...((me.preferences.infra as Record<string, boolean> | undefined) ?? {}) },
     airspace: {
-      ...DEFAULT_FILTERS.airspace,
+      ...base.airspace,
       ...((me.preferences.airspace as Partial<AirspaceFilters> | undefined) ?? {}),
     },
-    tension: me.preferences.tension !== false,
+    tension: typeof me.preferences.tension === 'boolean' ? me.preferences.tension : base.tension,
   };
 }
 
@@ -147,7 +149,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [newsPlayers, setNewsPlayers] = useState<string[]>(
     savedNews.players ?? (savedNews.open ? [savedNews.channel ?? DEFAULT_TABS[0]] : []),
   );
-  const [newsTabs, setNewsTabs] = useState<string[]>(savedNews.tabs ?? DEFAULT_TABS);
+  const [newsTabs, setNewsTabs] = useState<string[]>(savedNews.tabs ?? me.defaults?.news?.tabs ?? DEFAULT_TABS);
   const saveNews = (players: string[], tabs: string[]) => {
     setNewsPlayers(players);
     setNewsTabs(tabs);
@@ -1059,6 +1061,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             airspaceCounts={airspaceCounts}
             structureStatus={structureStatus}
             sources={summary?.sources ?? []}
+            resetTo={serverFilters(me.defaults?.layers)}
             onChange={changeFilters}
           />
         )}

@@ -6,18 +6,21 @@ import AppHeader from '../components/AppHeader';
 import HomePicker from '../components/HomePicker';
 import ImageryCard from '../components/ImageryCard';
 import UsersCard from '../components/UsersCard';
-import { CHANNELS } from '../config/newsChannels';
+import { CHANNELS, DEFAULT_TABS } from '../config/newsChannels';
 import {
   api,
   can,
+  getDefaults,
   getKeys,
   getReceivers,
   type Home,
   type KeyState,
   type Me,
+  putDefaults,
   saveKeys,
   saveReceivers,
   savePreferences,
+  type ServerDefaults,
   type SourceStatus,
 } from '../lib/api';
 import { ago, zuluTime } from '../lib/format';
@@ -69,6 +72,14 @@ const SECTIONS: Section[] = [
     capability: 'users.manage',
   },
   {
+    id: 'defaults',
+    label: 'Defaults',
+    title: 'Defaults for everyone',
+    description: 'What the map opens with for every user: layers and filters, news tabs and their order, and how video starts. Each user can still change their own.',
+    group: 'Administration',
+    capability: 'settings.manage',
+  },
+  {
     id: 'imagery',
     label: 'Map imagery',
     title: 'Map imagery',
@@ -111,10 +122,12 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   let body: ReactNode = null;
   if (current.id === 'account') body = <AccountCard me={me} onSaved={onSaved} />;
   else if (current.id === 'home') body = <HomeSection me={me} onSaved={onSaved} />;
+  else if (current.id === 'defaults') body = <DefaultsSection me={me} onSaved={onSaved} />;
   else if (current.id === 'display')
     body = (
       <>
         <DisplaySection me={me} onSaved={onSaved} />
+        <VideoSection me={me} onSaved={onSaved} />
         <WallSection me={me} onSaved={onSaved} />
       </>
     );
@@ -206,6 +219,210 @@ function HomeSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) 
         )}
       </div>
     </section>
+  );
+}
+
+// The map groups a user's layer choices are saved under (MapPage).
+const LAYER_KEYS = ['layers', 'air', 'reference', 'space', 'sea', 'airspace', 'infra', 'tension'] as const;
+
+function VideoControls({
+  value,
+  onChange,
+}: {
+  value: { muted: boolean; volume: number };
+  onChange: (v: { muted: boolean; volume: number }) => void;
+}) {
+  return (
+    <>
+      <label className="srow">
+        <span className="srow-label">
+          <b>Start muted</b>
+          <small>Browsers may still start a stream muted until you click on the page</small>
+        </span>
+        <span className="lrow flat">
+          <input type="checkbox" checked={value.muted} onChange={(e) => onChange({ ...value, muted: e.target.checked })} />
+          <span className="tog" />
+        </span>
+      </label>
+      <div className="srow">
+        <span className="srow-label">
+          <b>Volume</b>
+          <small>YouTube streams; Rumble uses its own setting</small>
+        </span>
+        <span className="volrow">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={value.volume}
+            aria-label="Volume"
+            onChange={(e) => onChange({ ...value, volume: Number(e.target.value) })}
+          />
+          <span className="mono">{value.volume}%</span>
+        </span>
+      </div>
+    </>
+  );
+}
+
+// Your own video defaults (news player, wall), over the server's.
+function VideoSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
+  const base = { muted: true, volume: 50, ...(me.defaults?.video ?? {}), ...(me.preferences.video ?? {}) };
+  const [video, setVideo] = useState(base);
+  const [status, setStatus] = useState('');
+  async function save(v: { muted: boolean; volume: number }) {
+    setVideo(v);
+    try {
+      await savePreferences({ video: v });
+      await onSaved();
+      setStatus('Saved. Applies to streams you open from now on.');
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Could not save.');
+    }
+  }
+  return (
+    <section className="card">
+      <div className="ph">
+        <h2>Video</h2>
+      </div>
+      <div className="srows">
+        <VideoControls value={video} onChange={(v) => void save(v)} />
+      </div>
+      {status && <p className="quiet small pad">{status}</p>}
+    </section>
+  );
+}
+
+// Server-wide defaults (admins): layers from your own map, news tabs in
+// order, video.
+function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
+  const [defaults, setDefaults] = useState<ServerDefaults | null>(null);
+  const [status, setStatus] = useState('');
+  useEffect(() => {
+    getDefaults()
+      .then(setDefaults)
+      .catch((err) => setStatus(err instanceof Error ? err.message : 'Could not load the defaults.'));
+  }, []);
+  if (!defaults) return <p className="quiet pad">{status || 'Loading…'}</p>;
+  const tabs = defaults.news?.tabs ?? DEFAULT_TABS;
+  const video = { muted: true, volume: 50, ...(defaults.video ?? {}) };
+  const ordered = [
+    ...tabs.map((id) => CHANNELS.find((c) => c.id === id)).filter((c): c is (typeof CHANNELS)[number] => Boolean(c)),
+    ...CHANNELS.filter((c) => !tabs.includes(c.id)),
+  ];
+
+  async function save(next: ServerDefaults, message = 'Saved for everyone.') {
+    setDefaults(next);
+    try {
+      setDefaults(await putDefaults(next));
+      await onSaved();
+      setStatus(message);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Could not save.');
+    }
+  }
+  const setTabs = (next: string[]) => void save({ ...defaults, news: { tabs: next } });
+  const move = (id: string, by: number) => {
+    const i = tabs.indexOf(id);
+    const j = i + by;
+    if (i < 0 || j < 0 || j >= tabs.length) return;
+    const next = [...tabs];
+    [next[i], next[j]] = [next[j], next[i]];
+    setTabs(next);
+  };
+  const mine: Record<string, unknown> = {};
+  for (const k of LAYER_KEYS) if (me.preferences[k] !== undefined) mine[k === 'layers' ? 'types' : k] = me.preferences[k];
+  const layerCount = defaults.layers ? Object.keys(defaults.layers).length : 0;
+
+  return (
+    <>
+      <section className="card">
+        <div className="ph">
+          <h2>Layers and filters</h2>
+        </div>
+        <div className="srows">
+          <div className="srow">
+            <span className="srow-label">
+              <b>Default layers</b>
+              <small>
+                {layerCount
+                  ? 'Set from an admin\'s map. New users start with these, and Reset filters returns to them.'
+                  : 'Built-in defaults. Set the layers on your map the way you want them, then copy them here.'}
+              </small>
+            </span>
+            <span className="actions">
+              <button className="btn small" onClick={() => void save({ ...defaults, layers: mine }, 'Your current map layers are now the default.')}>
+                Use my current map layers
+              </button>
+              {layerCount > 0 && (
+                <button className="btn small" onClick={() => void save({ ...defaults, layers: undefined }, 'Back to the built-in layers.')}>
+                  Use built-in
+                </button>
+              )}
+            </span>
+          </div>
+        </div>
+      </section>
+      <section className="card">
+        <div className="ph">
+          <h2>News tabs</h2>
+          <span className="mono">{tabs.length} tabs</span>
+        </div>
+        <p className="quiet small pad">
+          Tick the channels that get a tab, and use the arrows to set their order. Users who haven&apos;t chosen their
+          own tabs get these.
+        </p>
+        <ul className="chanlist">
+          {ordered.map((c) => {
+            const on = tabs.includes(c.id);
+            return (
+              <li key={c.id} className={on ? 'on' : undefined}>
+                <label className="lrow flat">
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() => setTabs(on ? tabs.filter((t) => t !== c.id) : [...tabs, c.id])}
+                  />
+                  <span className="tog" />
+                </label>
+                <span className="cname">
+                  <b>{c.name}</b>
+                  <small>
+                    {c.group}
+                    {c.platform === 'rumble' ? ' · Rumble' : ''}
+                  </small>
+                </span>
+                {on && (
+                  <span className="actions">
+                    <button className="btn small" aria-label={'Move ' + c.name + ' up'} disabled={tabs[0] === c.id} onClick={() => move(c.id, -1)}>
+                      ↑
+                    </button>
+                    <button
+                      className="btn small"
+                      aria-label={'Move ' + c.name + ' down'}
+                      disabled={tabs[tabs.length - 1] === c.id}
+                      onClick={() => move(c.id, 1)}
+                    >
+                      ↓
+                    </button>
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+      <section className="card">
+        <div className="ph">
+          <h2>Video</h2>
+        </div>
+        <div className="srows">
+          <VideoControls value={video} onChange={(v) => void save({ ...defaults, video: v })} />
+        </div>
+      </section>
+      {status && <p className="quiet small pad">{status}</p>}
+    </>
   );
 }
 
