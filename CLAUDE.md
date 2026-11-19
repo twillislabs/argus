@@ -49,6 +49,12 @@ parts connect.
 - `make backup` / `make restore FILE=...` (scripts/backup.sh, restore.sh):
   pg_dump plus `.env` in one archive; restore replaces the database and
   adopts the archive's ARGUS_SECRET_KEY. Test with `--project argus-e2e`.
+  Web UI: `argus/backup.py` + `api/backups.py` (capability
+  `backups.manage`, password each time; the API image has pg client 17
+  from PGDG). Restore goes into `argus_restore`, swaps by rename in one
+  transaction, re-encrypts secrets to this server's key, then the API
+  SIGTERMs itself (Docker restarts it). Status in a temp file, readable
+  signed out.
 - `make ci` runs everything GitHub Actions runs (`scripts/ci.sh`); run it
   before every commit. `make ci-quick` skips migrations.
 - `make test`, `make lint`, `make up`, `make logs`, `make token`.

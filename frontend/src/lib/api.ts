@@ -137,7 +137,7 @@ export class ApiError extends Error {
   }
 }
 
-function csrfToken(): string {
+export function csrfToken(): string {
   const hit = document.cookie
     .split('; ')
     .find((c) => c.startsWith('argus_csrf='));

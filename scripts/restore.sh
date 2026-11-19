@@ -43,7 +43,11 @@ if [ "$yes" != 1 ]; then
 fi
 
 if [ ! -f .env ]; then
-  if [ -f "$dir/env" ]; then
+  if [ -f "$dir/env" ] && ! grep -q '^POSTGRES_PASSWORD=' "$dir/env"; then
+    # A backup from the web UI carries only the secret key.
+    echo "This backup has only the secret key, not a full .env: run 'make env' first, then restore again." >&2
+    exit 1
+  elif [ -f "$dir/env" ]; then
     install -m 600 "$dir/env" .env
     echo "Using the backup's .env (a new server)."
   else

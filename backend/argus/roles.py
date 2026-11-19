@@ -28,6 +28,7 @@ CAPABILITIES: dict[str, set[str]] = {
     "admin": {
         "users.manage",
         "settings.manage",
+        "backups.manage",
         "analyst.tools",
         "account.edit",
     },

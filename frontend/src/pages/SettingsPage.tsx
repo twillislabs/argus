@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 
 import AccountCard from '../components/AccountCard';
+import BackupsSection from '../components/BackupsSection';
 import AppHeader from '../components/AppHeader';
 import HomePicker from '../components/HomePicker';
 import ImageryCard from '../components/ImageryCard';
@@ -116,6 +117,14 @@ const SECTIONS: Section[] = [
     capability: 'settings.manage',
   },
   {
+    id: 'backups',
+    label: 'Backups',
+    title: 'Backups',
+    description: 'Download a full backup, or restore one here or after moving servers.',
+    group: 'Administration',
+    capability: 'backups.manage',
+  },
+  {
     id: 'audit',
     label: 'Audit log',
     title: 'Audit log',
@@ -136,6 +145,7 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   else if (current.id === 'home') body = <HomeSection me={me} onSaved={onSaved} />;
   else if (current.id === 'defaults') body = <DefaultsSection me={me} onSaved={onSaved} />;
   else if (current.id === 'displays') body = <DisplaysSection />;
+  else if (current.id === 'backups') body = <BackupsSection />;
   else if (current.id === 'display')
     body = (
       <>

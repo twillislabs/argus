@@ -5,6 +5,27 @@ sidebar_position: 4
 
 # Backups and moving servers
 
+## From the web UI
+
+Admins can do both from **Settings › Backups**, after entering their
+password:
+
+- **Download backup** saves the same kind of archive as `make backup`
+  (the database and the secret key that unlocks stored data-source keys;
+  not the rest of `.env`).
+- **Restore** uploads an archive (from either place) and replaces all of
+  this server's data with it, after you type `restore`. It is restored
+  into a fresh database first and only swapped in once that has worked,
+  so a damaged file changes nothing. Stored data-source keys are moved to
+  this server's secret key, so a backup from another server works too.
+  Argus then restarts (about a minute) and you sign in with the backup's
+  accounts.
+
+Downloads and restores are in the audit log (`backup.downloaded`,
+`backup.restore_started`).
+
+## From the command line
+
 Two commands, run in the Argus folder on the server:
 
 ```bash
@@ -29,6 +50,13 @@ brings the schema up to date when it starts, so a backup from an older
 Argus restores into a newer one.
 
 ## Moving to a new server
+
+The simplest way: install Argus on the new server as usual (`make up`,
+first-run setup), then on the old one download a backup in **Settings ›
+Backups** and restore it on the new one. Its own `.env` stays (adjust
+ports and proxy settings there as usual).
+
+Or from the command line, bringing the old `.env` along:
 
 1. On the old server: `make backup`, and copy the archive across (for
    example with `scp`).
