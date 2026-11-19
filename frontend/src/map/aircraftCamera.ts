@@ -20,7 +20,7 @@ import {
 import { type CesiumWidget, SceneMode } from '@cesium/engine';
 
 import type { Aircraft } from '../lib/api';
-import { type AircraftLayer, extrapolate } from './aircraftLayer';
+import { type AircraftLayer, extrapolateTurning } from './aircraftLayer';
 
 export type CameraMode = 'free' | 'follow' | 'chase' | 'orbit' | 'cockpit';
 
@@ -48,7 +48,7 @@ export function createAircraftCamera(
   v: CesiumWidget,
   layer: () => AircraftLayer | null,
   // Each frame: where the target is now (dead-reckoned) and the view.
-  onFrame?: (target: Aircraft, position: Cartesian3, mode: CameraMode) => void,
+  onFrame?: (target: Aircraft, position: Cartesian3, mode: CameraMode, headingDeg: number) => void,
 ): AircraftCamera {
   let mode: CameraMode = 'free';
   let target: Aircraft | null = null;
@@ -58,16 +58,32 @@ export function createAircraftCamera(
   let reportUnix = 0;
   // A correction being eased out after a new report: the gap between where
   // the aircraft was drawn and where the new report puts it.
-  let corr = { lat: 0, lon: 0, alt: 0, start: 0 };
+  let corr = { lat: 0, lon: 0, alt: 0, hdg: 0, start: 0 };
   const EASE_S = 1.5;
+  // Headings ease more slowly, so a new report's track doesn't swing the
+  // cockpit view round in one go.
+  const HEADING_EASE_S = 3;
   const SNAP_DEG = 0.05; // ~5 km: further than this, just jump
+  // Turn rate from the last two reports (degrees a second), so the
+  // aircraft is dead-reckoned round a turn instead of straight on.
+  let turnRate = 0;
+  const MAX_TURN = 3; // a standard-rate turn is 3 degrees a second
+
+  const wrap = (d: number) => ((((d + 180) % 360) + 360) % 360) - 180;
 
   function drawn(now: number) {
     if (!target) return null;
-    const p = extrapolate(target, now - reportedAt);
+    const p = extrapolateTurning(target, now - reportedAt, turnRate);
     const k = corr.start ? Math.min(1, (now - corr.start) / EASE_S) : 1;
+    const kh = corr.start ? Math.min(1, (now - corr.start) / HEADING_EASE_S) : 1;
     const f = 1 - k;
-    return { lon: p.lon + corr.lon * f, lat: p.lat + corr.lat * f, altM: p.altM + corr.alt * f };
+    const fh = 1 - kh * kh * (3 - 2 * kh); // smoothstep
+    return {
+      lon: p.lon + corr.lon * f,
+      lat: p.lat + corr.lat * f,
+      altM: p.altM + corr.alt * f,
+      track: (p.track + corr.hdg * fh + 360) % 360,
+    };
   }
   let fresh = false;
   let lastTick = 0;
@@ -99,16 +115,32 @@ export function createAircraftCamera(
       if (a && same && unix <= reportUnix + 0.05) return;
       if (a && !same) fresh = true;
       const before = same ? drawn(now) : null;
+      const prev = same ? target : null;
+      const prevUnix = reportUnix;
       target = a;
       if (a) {
+        // Turn rate from this report and the one before (same aircraft).
+        const gap = unix - prevUnix;
+        if (prev && prev.track !== null && a.track !== null && gap >= 2 && gap <= 60 && !a.ground) {
+          const rate = wrap(a.track - prev.track) / gap;
+          turnRate = Math.abs(rate) < 0.2 ? 0 : Math.max(-MAX_TURN, Math.min(MAX_TURN, rate));
+        } else if (!same) {
+          turnRate = 0;
+        }
         reportUnix = unix;
         reportedAt = now - Math.max(0, Date.now() / 1000 - unix);
         // Ease from where it was drawn to where the new report puts it.
-        const after = extrapolate(a, now - reportedAt);
+        const after = extrapolateTurning(a, now - reportedAt, turnRate);
         if (before && Math.abs(before.lat - after.lat) + Math.abs(before.lon - after.lon) < SNAP_DEG) {
-          corr = { lat: before.lat - after.lat, lon: before.lon - after.lon, alt: before.altM - after.altM, start: now };
+          corr = {
+            lat: before.lat - after.lat,
+            lon: before.lon - after.lon,
+            alt: before.altM - after.altM,
+            hdg: wrap(before.track - after.track),
+            start: now,
+          };
         } else {
-          corr = { lat: 0, lon: 0, alt: 0, start: 0 };
+          corr = { lat: 0, lon: 0, alt: 0, hdg: 0, start: 0 };
         }
       }
       if (!a) release();
@@ -124,11 +156,12 @@ export function createAircraftCamera(
       if (!p) return;
       const position = Cartesian3.fromDegrees(p.lon, p.lat, p.altM);
       layer()?.moveTo(target.hex, position);
-      onFrame?.(target, position, mode);
+      onFrame?.(target, position, mode, p.track);
       if (mode === 'free') return;
 
       const camera = v.camera;
-      const track = CesiumMath.toRadians(target.track ?? 0);
+      // The heading the aircraft is drawn with, eased and turning with it.
+      const track = CesiumMath.toRadians(p.track);
       if (v.scene.mode !== SceneMode.SCENE3D) {
         // 2D and morphing: just keep the aircraft centred.
         if (v.scene.mode === SceneMode.SCENE2D) {
@@ -141,9 +174,12 @@ export function createAircraftCamera(
 
       if (mode === 'cockpit') {
         if (!Matrix4.equals(camera.transform, Matrix4.IDENTITY)) camera.lookAtTransform(Matrix4.IDENTITY);
+        // Bank into turns a little, as the aircraft would.
+        const ship = target.hex.startsWith('ship');
+        const roll = ship ? 0 : CesiumMath.toRadians(Math.max(-25, Math.min(25, turnRate * 8)));
         camera.setView({
           destination: Cartesian3.fromDegrees(p.lon, p.lat, p.altM + 15),
-          orientation: { heading: track, pitch: COCKPIT_PITCH, roll: 0 },
+          orientation: { heading: track, pitch: COCKPIT_PITCH, roll },
         });
         fresh = false;
         return;

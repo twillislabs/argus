@@ -195,7 +195,11 @@ parts connect.
   shapes clip them. New primitive collections need the same.
 - Aircraft camera views live in `map/aircraftCamera.ts`: they keep the
   camera offset in the aircraft's ENU frame (`lookAtTransform`) and
-  dead-reckon between reports. Call `release()` before any `flyTo`.
+  dead-reckon between reports (`extrapolateTurning`: along an arc at the
+  turn rate from the last two reports, headings eased). Call `release()`
+  before any `flyTo`. HUDs (`CockpitHud`, `BridgeHud`) read the camera's
+  attitude from `GlobeHandle.attitude()`; Cesium's positive roll is a
+  right bank.
 
 ## Rules
 

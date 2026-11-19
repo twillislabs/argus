@@ -294,6 +294,8 @@ export interface GlobeHandle {
   drawTool: () => DrawTools | null;
   capture: () => Promise<Blob | null>;
   flyToSatellite: (norad: number) => void;
+  // The camera's heading, pitch and roll in degrees (for the HUDs).
+  attitude: () => { heading: number; pitch: number; roll: number } | null;
 }
 
 export interface SavedCamera {
@@ -581,7 +583,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         v.camera.lookAtTransform(satFrame, Cartesian3.clone(v.camera.position));
       }
     });
-    const aircraftCamera = createAircraftCamera(v, () => air.current, (target, position, mode) => {
+    const aircraftCamera = createAircraftCamera(v, () => air.current, (target, position, mode, heading) => {
       // Up close, a 3D model replaces the glyph (not in the cockpit,
       // where the camera sits inside the aircraft).
       const isShip = target.hex.startsWith('ship');
@@ -590,7 +592,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       const css = isShip ? VESSEL_COLOR[vessel?.category ?? 'other'] : aircraftColor(target);
       const shown =
         mode !== 'cockpit' &&
-        (models.current?.place(isShip ? shipModel(vessel) : aircraftModel(target), position, target.track ?? 0, css) ??
+        (models.current?.place(isShip ? shipModel(vessel) : aircraftModel(target), position, heading, css) ??
           false);
       if (mode === 'cockpit') models.current?.hide();
       if (isShip) ships.current?.setHidden(shown ? mmsi : null);
@@ -1270,6 +1272,16 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           // The drawing buffer is only readable straight after a render.
           v.render();
           return new Promise((resolve) => v.scene.canvas.toBlob((b) => resolve(b), 'image/png'));
+        },
+        attitude() {
+          const v = viewer.current;
+          if (!v) return null;
+          const c = v.camera;
+          return {
+            heading: CesiumMath.toDegrees(c.heading),
+            pitch: CesiumMath.toDegrees(c.pitch),
+            roll: CesiumMath.toDegrees(c.roll),
+          };
         },
         flyToSatellite(norad) {
           const v = viewer.current;

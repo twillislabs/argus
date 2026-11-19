@@ -4,6 +4,7 @@ import AircraftInspector from '../components/AircraftInspector';
 import AirspaceInspector from '../components/AirspaceInspector';
 import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
+import BridgeHud from '../components/BridgeHud';
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
 import { CursorReadout, LIVE, type Replay, ScaleBar, Timeline } from '../components/MapFooter';
@@ -531,6 +532,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     for (const v of vessels) c[v.category] = (c[v.category] ?? 0) + 1;
     return c;
   }, [vessels]);
+  const bridgeVessel = selectedMmsi !== null ? (shownVessels.find((x) => x.mmsi === selectedMmsi) ?? null) : null;
   // The camera views follow an aircraft, or a vessel in the same shape.
   const trackTarget = useMemo((): Aircraft | null => {
     if (selectedHex) return aircraft.find((a) => a.hex === selectedHex) ?? null;
@@ -1392,8 +1394,16 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               }
             />
           ))}
-          {camera === 'cockpit' && tracked && (
-            <CockpitHud aircraft={tracked} reportedAt={trackedAt} destination={trackedRoute?.destination ?? null} />
+          {camera === 'cockpit' && selectedHex && tracked && (
+            <CockpitHud
+              aircraft={tracked}
+              reportedAt={trackedAt}
+              destination={trackedRoute?.destination ?? null}
+              attitude={() => globe.current?.attitude() ?? null}
+            />
+          )}
+          {camera === 'cockpit' && bridgeVessel && (
+            <BridgeHud vessel={bridgeVessel} attitude={() => globe.current?.attitude() ?? null} />
           )}
           {camera !== 'free' && camera !== 'cockpit' && tracked && (
             <div className="camhud" role="status">

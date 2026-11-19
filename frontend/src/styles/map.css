@@ -113,6 +113,14 @@
   background: rgba(5, 10, 8, 0.55); border: 1px solid rgba(125, 255, 178, 0.35); border-radius: 3px; padding: 6px 12px; white-space: nowrap;
 }
 .hud-info .warn { color: var(--crit); }
+/* Ship bridge view (components/BridgeHud.tsx). */
+.hud.bridge { --hud: #8fe3ff; }
+.bridge-box { position: absolute; top: 46%; display: grid; gap: 2px; padding: 8px 12px; border: 1.5px solid var(--hud); background: rgba(5, 9, 12, 0.7); min-width: 86px; }
+.bridge-box.left { left: 18%; }
+.bridge-box.right { right: 18%; }
+.bridge-box small { font-size: 10px; letter-spacing: 0.15em; opacity: 0.8; }
+.bridge-box b { font-size: 20px; line-height: 1.1; }
+.bridge-box span { font-size: 11px; opacity: 0.85; }
 .hud-info small { color: rgba(125, 255, 178, 0.6); font-size: 10px; }
 @media (max-width: 860px) {
   .hud-tape.left { left: 4%; }

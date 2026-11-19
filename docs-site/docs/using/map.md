@@ -290,8 +290,9 @@ category, or the ship's AIS category and length.
 The cockpit **head-up display** shows the heading tape (with a magenta bug
 pointing at the destination), ground speed and altitude tapes, vertical
 speed, and the distance, bearing and time to the destination. ADS-B carries
-no pitch or roll, so the horizon line stays level where the camera sees the
-real horizon.
+no pitch or roll; Argus works out the turn rate from the last two reports,
+keeps the aircraft turning along that arc between reports and banks the
+view gently into the turn, and the HUD's horizon tilts with it.
 
 Up close (inside about 12 km for aircraft, 8 km for ships), the flat
 glyph turns into a simple 3D model, turned to its heading, so Chase and
@@ -414,7 +415,10 @@ you zoom in.
 Click a vessel for its name, flag, type and status, speed, course,
 destination and ETA (as the crew entered them), draught, size, IMO number
 and callsign. The camera views work for ships too: **Follow**, **Chase**,
-**Orbit** and **Bridge**. Search by name, MMSI (`366123456`) or IMO
+**Orbit** and **Bridge**. The bridge view has its own display: a compass
+tape with the course over ground marked, speed and course boxes, the
+ship's gyro heading and drift (where AIS sends a heading), and the
+status, destination, ETA, draught and size along the bottom. Search by name, MMSI (`366123456`) or IMO
 (`IMO 9811000`).
 
 AIS is self-reported: ships can enter wrong details, and some switch AIS

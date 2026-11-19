@@ -112,6 +112,38 @@ export function extrapolate(a: Aircraft, dt: number): { lon: number; lat: number
   return { lon, lat: phi2 / DEG, altM };
 }
 
+// Keep turning at the reported rate for at most this long (turns end).
+const TURN_MAX_S = 25;
+
+// Dead reckoning along an arc: like extrapolate, but the track keeps
+// changing at turnDegS (degrees a second) for up to TURN_MAX_S. Also
+// returns the track at that moment, for headings that follow the path.
+export function extrapolateTurning(
+  a: Aircraft,
+  dt: number,
+  turnDegS: number,
+): { lon: number; lat: number; altM: number; track: number } {
+  const t = Math.max(0, Math.min(MAX_PROJECT_S, dt));
+  const track0 = a.track ?? 0;
+  if (!turnDegS || a.ground || !a.gs_kt || a.track === null) {
+    return { ...extrapolate(a, t), track: track0 };
+  }
+  // One-second steps along the arc, then straight on.
+  const turning = Math.min(t, TURN_MAX_S);
+  let cur: Aircraft = a;
+  let done = 0;
+  while (done < turning) {
+    const step = Math.min(1, turning - done);
+    const mid = (track0 + turnDegS * (done + step / 2) + 360) % 360;
+    const p = extrapolate({ ...cur, track: mid, vrate: 0 }, step);
+    cur = { ...cur, lat: p.lat, lon: p.lon };
+    done += step;
+  }
+  const track = (track0 + turnDegS * turning + 360) % 360;
+  const rest = extrapolate({ ...cur, track, vrate: 0 }, t - turning);
+  return { lon: rest.lon, lat: rest.lat, altM: extrapolate(a, t).altM, track };
+}
+
 export interface AircraftLayer {
   update: (list: Aircraft[], selectedHex: string | null) => void;
   // Move one aircraft between reports (dead reckoning for the selected one).

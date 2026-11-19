@@ -5,15 +5,18 @@ import { COCKPIT_PITCH } from '../map/aircraftCamera';
 
 // A head-up display over the cockpit view: heading tape, speed and
 // altitude tapes, vertical speed, a horizon line and the destination.
-// ADS-B gives no pitch or roll, so the horizon is level and placed where
-// the camera actually sees it (its downward tilt and the horizon's dip at
-// this altitude).
+// ADS-B gives no pitch or roll; the camera banks gently in turns (from
+// the turn rate), and the horizon follows the camera's own heading and
+// bank, placed where it actually sees the horizon (its downward tilt and
+// the horizon's dip at this altitude).
 
 interface Props {
   aircraft: Aircraft;
   // When the aircraft's report arrived, performance.now() milliseconds.
   reportedAt: number;
   destination: RouteAirport | null;
+  // The camera's attitude (Globe), so the tapes match what's on screen.
+  attitude?: () => { heading: number; pitch: number; roll: number } | null;
 }
 
 const EARTH_M = 6_371_000;
@@ -38,11 +41,52 @@ function distanceNm(lat1: number, lon1: number, lat2: number, lon2: number): num
   return (2 * EARTH_M * Math.asin(Math.sqrt(a))) / 1852;
 }
 
-function pad(n: number, width: number): string {
+export function pad(n: number, width: number): string {
   return String(Math.round(n)).padStart(width, '0');
 }
 
-export default function CockpitHud({ aircraft: a, reportedAt, destination }: Props) {
+// A compass tape, 140 degrees wide, centred on hdg, with an optional bug
+// (destination bearing, or course over ground) and the value boxed.
+export function HeadingTape({ hdg, width, bug, top }: { hdg: number; width: number; bug: number | null; top?: number }) {
+  const ticks = [];
+  for (let d = Math.floor(hdg - 70); d <= hdg + 70; d++) {
+    if (d % 5) continue;
+    const x = width / 2 + (d - hdg) * (width / 140);
+    const deg = ((d % 360) + 360) % 360;
+    const major = deg % 10 === 0;
+    ticks.push(
+      <g key={d}>
+        <line x1={x} x2={x} y1={major ? 14 : 20} y2={26} />
+        {deg % 30 === 0 && (
+          <text x={x} y={10}>
+            {deg === 0 ? 'N' : deg === 90 ? 'E' : deg === 180 ? 'S' : deg === 270 ? 'W' : pad(deg / 10, 2)}
+          </text>
+        )}
+      </g>,
+    );
+  }
+  const bugX = bug === null ? null : width / 2 + ((((bug - hdg + 540) % 360) - 180) * width) / 140;
+  return (
+    <svg className="hud-heading" width={width} height={44} style={{ left: 'calc(50% - ' + width / 2 + 'px)', top }}>
+      {ticks}
+      {bugX !== null && bugX >= 0 && bugX <= width && <path className="bug" d={'M ' + bugX + ' 26 l -6 9 h 12 z'} />}
+      <path className="box" d={'M ' + (width / 2 - 22) + ' 28 h 44 v 15 h -44 z'} />
+      <text className="big" x={width / 2} y={40}>
+        {pad(((hdg % 360) + 360) % 360, 3)}
+      </text>
+    </svg>
+  );
+}
+
+// Where the horizon sits on screen for a camera at altM looking down by
+// pitchRad, with Cesium's field of view.
+export function horizonY(w: number, h: number, altM: number, pitchRad: number): number {
+  const focal = w >= h ? w / 2 / Math.tan(FOV / 2) : h / 2 / Math.tan(FOV / 2);
+  const dip = Math.acos(EARTH_M / (EARTH_M + altM));
+  return h / 2 + Math.tan(-pitchRad - dip) * -focal;
+}
+
+export default function CockpitHud({ aircraft: a, reportedAt, destination, attitude }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [now, setNow] = useState(() => performance.now());
@@ -62,14 +106,14 @@ export default function CockpitHud({ aircraft: a, reportedAt, destination }: Pro
   // Altitude climbs or descends between reports, like the aircraft does.
   const dt = Math.min(90, Math.max(0, (now - reportedAt) / 1000));
   const alt = Math.max(0, (a.alt_ft ?? 0) + ((a.vrate ?? 0) / 60) * dt);
-  const hdg = a.track ?? 0;
+  const att = attitude?.() ?? null;
+  const hdg = att ? att.heading : (a.track ?? 0);
+  const roll = att ? att.roll : 0;
   const gs = a.gs_kt ?? 0;
   const vs = a.vrate ?? 0;
 
   // Where the horizon sits on screen.
-  const focal = size.w >= size.h ? size.w / 2 / Math.tan(FOV / 2) : size.h / 2 / Math.tan(FOV / 2);
-  const dip = Math.acos(EARTH_M / (EARTH_M + alt * 0.3048));
-  const horizonY = size.h / 2 + Math.tan(-COCKPIT_PITCH - dip) * -focal;
+  const hy = horizonY(size.w, size.h, alt * 0.3048, COCKPIT_PITCH);
 
   const destBearing =
     destination?.lat != null && destination.lon != null
@@ -81,29 +125,7 @@ export default function CockpitHud({ aircraft: a, reportedAt, destination }: Pro
       : null;
   const eta = destNm !== null && gs > 50 ? destNm / gs : null;
 
-  // Heading tape: 4 px per degree, centred on the track.
   const tapeW = Math.min(520, size.w - 260);
-  const hdgTicks = [];
-  for (let d = Math.floor(hdg - 70); d <= hdg + 70; d++) {
-    if (d % 5) continue;
-    const x = tapeW / 2 + (d - hdg) * (tapeW / 140);
-    const deg = ((d % 360) + 360) % 360;
-    const major = deg % 10 === 0;
-    hdgTicks.push(
-      <g key={d}>
-        <line x1={x} x2={x} y1={major ? 14 : 20} y2={26} />
-        {deg % 30 === 0 && (
-          <text x={x} y={10}>
-            {deg === 0 ? 'N' : deg === 90 ? 'E' : deg === 180 ? 'S' : deg === 270 ? 'W' : pad(deg / 10, 2)}
-          </text>
-        )}
-      </g>,
-    );
-  }
-  const bugX =
-    destBearing === null
-      ? null
-      : tapeW / 2 + ((((destBearing - hdg + 540) % 360) - 180) * tapeW) / 140;
 
   // Vertical tapes: speed (10 kt steps) and altitude (100 ft steps).
   const tapeH = Math.max(120, Math.min(260, size.h - 320));
@@ -135,22 +157,18 @@ export default function CockpitHud({ aircraft: a, reportedAt, destination }: Pro
   return (
     <div ref={box} className="hud" aria-label="Cockpit display">
       <svg className="hud-horizon" width={size.w} height={size.h}>
-        <line x1={size.w / 2 - 260} x2={size.w / 2 - 60} y1={horizonY} y2={horizonY} />
-        <line x1={size.w / 2 + 60} x2={size.w / 2 + 260} y1={horizonY} y2={horizonY} />
+        {/* The horizon turns against the bank, as the real one does. */}
+        <g transform={'rotate(' + -roll + ' ' + size.w / 2 + ' ' + size.h / 2 + ')'}>
+          <line x1={size.w / 2 - 260} x2={size.w / 2 - 60} y1={hy} y2={hy} />
+          <line x1={size.w / 2 + 60} x2={size.w / 2 + 260} y1={hy} y2={hy} />
+        </g>
         {/* Boresight: where the camera points. */}
         <g transform={'translate(' + size.w / 2 + ',' + size.h / 2 + ')'}>
           <path d="M -28 0 H -10 L -5 6 L 0 0 L 5 6 L 10 0 H 28" />
         </g>
       </svg>
 
-      <svg className="hud-heading" width={tapeW} height={44} style={{ left: (size.w - tapeW) / 2 }}>
-        {hdgTicks}
-        {bugX !== null && bugX >= 0 && bugX <= tapeW && <path className="bug" d={'M ' + bugX + ' 26 l -6 9 h 12 z'} />}
-        <path className="box" d={'M ' + (tapeW / 2 - 22) + ' 28 h 44 v 15 h -44 z'} />
-        <text className="big" x={tapeW / 2} y={40}>
-          {pad(hdg, 3)}
-        </text>
-      </svg>
+      <HeadingTape hdg={hdg} width={tapeW} bug={destBearing} />
 
       <div className="hud-tape left" style={{ top: tapeTop }}>
         <small>GS</small>
