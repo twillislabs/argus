@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import AuthGlobe from './AuthGlobe';
 import Brand from './Brand';
 
 export default function AuthShell({ children }: { children: ReactNode }) {
@@ -10,7 +11,7 @@ export default function AuthShell({ children }: { children: ReactNode }) {
       </header>
       <main className="auth">
         <section className="auth-art" aria-hidden="true">
-          <div className="auth-globe" />
+          <AuthGlobe />
           <div className="claim">
             <b>ARGUS</b>
             <span>Self-hosted situational awareness. Your data stays on your server.</span>
