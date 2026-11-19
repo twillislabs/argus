@@ -140,3 +140,20 @@ user can still change their own:
 - **Video:** whether streams start muted, and their volume. Users can
   override both in Settings > Display > Video. Browsers may keep a stream
   muted until someone clicks on the page.
+
+## Wall displays
+
+To put the Wall on a TV, a Raspberry Pi in kiosk mode or a spare PC
+without typing a password on it:
+
+1. On the screen, open `https://your-argus/pair`. It shows a 6-character
+   code.
+2. On your own device, open Settings > **Displays**, enter the code and a
+   name ("Ops room TV"), and press **Pair**.
+3. Within a few seconds the screen signs itself in and opens the Wall.
+
+Each screen gets its own *display* account: it can only see the Wall, its
+session doesn't time out when idle, and no password is kept on the device.
+**Unpair** in Settings > Displays signs it out at once and disables its
+account. Codes last ten minutes; the screen fetches a new one when its
+code runs out.

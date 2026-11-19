@@ -60,3 +60,13 @@ and server setting changes.
 Run Argus behind a reverse proxy that terminates TLS (Caddy, Traefik or
 nginx). Cookies are `Secure` by default, so plain HTTP only works with
 `ARGUS_COOKIE_SECURE=false`, which is meant for local development.
+
+## Wall screens
+
+Wall screens pair with a one-time code (Settings > Displays) instead of a
+password. The code is valid for ten minutes and only works once; the
+screen holds a secret token that never leaves it, and the code alone
+can't sign anything in. Each screen has its own *display* account that can
+only open the Wall. Pairing, approving and unpairing are in the audit log
+(`display.approved`, `display.paired`, `display.unpaired`), and unpairing
+ends the screen's sessions straight away.

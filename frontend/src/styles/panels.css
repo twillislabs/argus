@@ -332,3 +332,6 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .chanlist .lrow.flat { padding: 0; }
 .volrow { display: flex; gap: 10px; align-items: center; }
 .volrow input { width: 180px; accent-color: var(--accent); }
+.pairform { display: grid; grid-template-columns: 140px minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.pairform .field { margin: 0; }
+tr.dimrow td { color: var(--dim); }

@@ -37,3 +37,9 @@
 .preset:hover { border-color: var(--accent); }
 .preset.on { border-color: var(--accent); background: var(--accent-soft); }
 @media (max-width: 860px) { .presets { grid-template-columns: minmax(0, 1fr); } }
+
+/* Pairing a wall screen (/pair). */
+.pairpage { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 18px; text-align: center; padding: 24px; }
+.pairpage h1 { margin: 0; font: 600 clamp(28px, 3vw, 48px)/1.1 var(--f-head); letter-spacing: 0.04em; }
+.pairpage p { margin: 0; max-width: 46ch; color: var(--muted); font-size: clamp(14px, 1.2vw, 20px); }
+.paircode { font-size: clamp(56px, 9vw, 140px); letter-spacing: 0.12em; padding: 18px 32px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface); }

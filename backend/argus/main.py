@@ -14,6 +14,7 @@ from argus.api import (
     air,
     airspace,
     auth,
+    displays,
     events,
     health,
     me,
@@ -134,6 +135,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         space_api.router,
         sea_api.router,
         airspace.router,
+        displays.router,
     ):
         app.include_router(router)
     return app

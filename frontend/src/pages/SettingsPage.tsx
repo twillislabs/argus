@@ -72,6 +72,14 @@ const SECTIONS: Section[] = [
     capability: 'users.manage',
   },
   {
+    id: 'displays',
+    label: 'Displays',
+    title: 'Wall displays',
+    description: 'Pair a TV or kiosk with a code shown on its screen; it then shows the wall. No password is stored on the device.',
+    group: 'Administration',
+    capability: 'users.manage',
+  },
+  {
     id: 'defaults',
     label: 'Defaults',
     title: 'Defaults for everyone',
@@ -123,6 +131,7 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   if (current.id === 'account') body = <AccountCard me={me} onSaved={onSaved} />;
   else if (current.id === 'home') body = <HomeSection me={me} onSaved={onSaved} />;
   else if (current.id === 'defaults') body = <DefaultsSection me={me} onSaved={onSaved} />;
+  else if (current.id === 'displays') body = <DisplaysSection />;
   else if (current.id === 'display')
     body = (
       <>
@@ -219,6 +228,139 @@ function HomeSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) 
         )}
       </div>
     </section>
+  );
+}
+
+interface DisplayRow {
+  id: number;
+  name: string;
+  active: boolean;
+  paired_at: string;
+  last_seen: string | null;
+}
+
+// Pair wall screens: the screen opens /pair and shows a code; enter it
+// here with a name. Unpair to cut a screen off.
+function DisplaysSection() {
+  const [rows, setRows] = useState<DisplayRow[]>([]);
+  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [status, setStatus] = useState('');
+  const [busy, setBusy] = useState(false);
+  const load = () =>
+    api<{ displays: DisplayRow[] }>('/api/admin/displays')
+      .then((r) => setRows(r.displays))
+      .catch((err) => setStatus(err instanceof Error ? err.message : 'Could not load displays.'));
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function pair(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api('/api/admin/displays', { method: 'POST', body: { code: code.replace(/\s/g, ''), name } });
+      setStatus('Paired. The screen will show the wall in a few seconds.');
+      setCode('');
+      setName('');
+      await load();
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Could not pair.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unpair(row: DisplayRow) {
+    if (!window.confirm('Unpair ' + row.name + '? It stops showing the wall straight away.')) return;
+    try {
+      await api('/api/admin/displays/' + row.id, { method: 'DELETE' });
+      setStatus(row.name + ' unpaired.');
+      await load();
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Could not unpair.');
+    }
+  }
+
+  return (
+    <>
+      <section className="card">
+        <div className="ph">
+          <h2>Pair a screen</h2>
+        </div>
+        <form className="cbody" onSubmit={(e) => void pair(e)}>
+          <p className="quiet small">
+            On the TV or kiosk, open <span className="mono">{window.location.origin}/pair</span>. Enter the code it shows
+            and a name for it.
+          </p>
+          <div className="pairform">
+            <div className="field">
+              <label htmlFor="pair-code">Code</label>
+              <input
+                id="pair-code"
+                className="mono"
+                value={code}
+                maxLength={8}
+                placeholder="ABC 123"
+                autoComplete="off"
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="pair-name">Name</label>
+              <input id="pair-name" value={name} maxLength={80} placeholder="Ops room TV" onChange={(e) => setName(e.target.value)} />
+            </div>
+            <button className="btn primary" disabled={busy || code.replace(/\s/g, '').length < 6 || !name.trim()}>
+              Pair
+            </button>
+          </div>
+          {status && <p className="quiet small">{status}</p>}
+        </form>
+      </section>
+      <section className="card">
+        <div className="ph">
+          <h2>Paired screens</h2>
+          <span className="mono">{rows.filter((r) => r.active).length}</span>
+        </div>
+        <div className="cbody tblwrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Paired</th>
+                <th>Last seen</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className={r.active ? undefined : 'dimrow'}>
+                  <td>{r.name}</td>
+                  <td className="mono">{ago(r.paired_at)}</td>
+                  <td className="mono">{r.last_seen ? ago(r.last_seen) : '—'}</td>
+                  <td>
+                    {r.active ? (
+                      <button className="btn small" onClick={() => void unpair(r)}>
+                        Unpair
+                      </button>
+                    ) : (
+                      <span className="quiet small">Unpaired</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!rows.length && (
+                <tr>
+                  <td colSpan={4} className="quiet">
+                    No screens yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
   );
 }
 

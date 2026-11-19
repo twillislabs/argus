@@ -7,6 +7,7 @@ import { stashShareLink } from './lib/share';
 // Keep a share link through the sign-in redirect.
 stashShareLink();
 import BriefPage from './pages/BriefPage';
+import PairPage from './pages/PairPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import LoginPage from './pages/LoginPage';
 import MapPage from './pages/MapPage';
@@ -71,8 +72,16 @@ export default function App() {
   if (boot.state === 'setup' && path !== '/setup') {
     return <Navigate to="/setup" replace />;
   }
+  // A wall screen pairs at /pair without signing in.
+  if (boot.state === 'signedOut' && path === '/pair') {
+    return <PairPage onPaired={refresh} />;
+  }
   if (boot.state === 'signedOut' && path !== '/login') {
     return <Navigate to="/login" replace />;
+  }
+  // Display accounts (wall screens) only show the wall.
+  if (boot.state === 'signedIn' && boot.me.user.role === 'display' && path !== '/wall') {
+    return <Navigate to="/wall" replace />;
   }
   if (boot.state === 'signedIn' && (path === '/login' || path === '/setup')) {
     return <Navigate to="/" replace />;

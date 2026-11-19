@@ -134,6 +134,11 @@ parts connect.
   `/api/admin/defaults`) come with `/api/me` as `defaults`; the map layers
   merge as built-in < server < user (`serverFilters` in LayerPanel).
   Video prefs live in `lib/video.ts` (user over server).
+- Wall pairing: `api/displays.py`. Pairings are in API memory
+  (`app.state.pairings`, one uvicorn process); approving creates a
+  display-role user, and the screen's poll gets a remember-me session.
+  `/pair` is the only page shown signed out besides login and setup;
+  display users are redirected to `/wall`.
 - Pages: Map (`/`), Brief (`/brief`), Wall (`/wall`, reuses `Globe` with
   minimal props), Settings. A Brief theatre card hands the map a place to
   fly to through `sessionStorage[FLY_KEY]` (lib/share.ts).
