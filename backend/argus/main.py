@@ -20,6 +20,7 @@ from argus.api import (
     me,
     setup,
     users,
+    weather,
 )
 from argus.api import sea as sea_api
 from argus.api import space as space_api
@@ -90,6 +91,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.air_client.close()
         await app.state.openaip.close()
         await app.state.youtube.close()
+        if hasattr(app.state, "weather_http"):
+            await app.state.weather_http.aclose()
         await db.dispose()
 
     app = FastAPI(
@@ -136,6 +139,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         sea_api.router,
         airspace.router,
         displays.router,
+        weather.router,
     ):
         app.include_router(router)
     return app

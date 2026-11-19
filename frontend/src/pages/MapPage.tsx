@@ -40,6 +40,12 @@ import {
   getAirspaceStructure,
   getGps,
   type GpsCell,
+  getOutlook,
+  getWeatherNow,
+  getWxAlerts,
+  type OutlookArea,
+  type WeatherNow,
+  type WxAlert,
   type Tension,
   getMapConfig,
   getSatelliteCatalog,
@@ -60,6 +66,7 @@ import { TINT_FROM } from '../map/tensionLayer';
 import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { aircraftColor } from '../map/aircraftLayer';
 import { BASE_KINDS, FUEL_COLOR } from '../map/infraLayer';
+import { alertColor } from '../map/wxLayer';
 import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
 import { setHover } from '../lib/hover';
 import type { AirspaceFilters } from '../map/airspaceLayer';
@@ -100,6 +107,7 @@ function initialFilters(me: Me): LayerFilters {
       ...((me.preferences.airspace as Partial<AirspaceFilters> | undefined) ?? {}),
     },
     tension: typeof me.preferences.tension === 'boolean' ? me.preferences.tension : base.tension,
+    weather: { ...base.weather, ...((me.preferences.weather as Partial<LayerFilters['weather']> | undefined) ?? {}) },
   };
 }
 
@@ -163,6 +171,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [selectedInfo, setSelectedInfo] = useState<string | null>(null);
   const [gpsCells, setGpsCells] = useState<GpsCell[]>([]);
   const [tension, setTension] = useState<Tension | null>(null);
+  // Weather: NWS warnings (mapped, and those for home), SPC outlooks and
+  // current conditions at home.
+  const [wxAlerts, setWxAlerts] = useState<WxAlert[]>([]);
+  const [homeAlerts, setHomeAlerts] = useState<WxAlert[]>([]);
+  const [outlook, setOutlook] = useState<OutlookArea[]>([]);
+  const [weatherNow, setWeatherNow] = useState<WeatherNow | null>(null);
   const [structureItems, setStructureItems] = useState<AirspaceItem[]>([]);
   const [structureStatus, setStructureStatus] = useState<'ok' | 'zoom' | 'nokey' | 'blocked' | 'error'>('zoom');
   const [selectedInfra, setSelectedInfra] = useState<string | null>(null);
@@ -529,6 +543,57 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     };
   }, [aircraft, selectedHex, selectedMmsi, shownVessels]);
 
+  // NWS alerts every two minutes (also for the home card); SPC outlook
+  // half-hourly while its layer is on; home weather every 15 minutes.
+  const homeKey = me.preferences.home ? me.preferences.home.lat + ',' + me.preferences.home.lon : '';
+  useEffect(() => {
+    let cancelled = false;
+    const h = me.preferences.home ?? null;
+    const load = () =>
+      getWxAlerts(h)
+        .then((r) => {
+          if (cancelled) return;
+          setWxAlerts(r.alerts);
+          setHomeAlerts(r.local);
+        })
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 120_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [homeKey]);
+  useEffect(() => {
+    if (!filters.weather.outlook) return;
+    let cancelled = false;
+    const load = () =>
+      getOutlook()
+        .then((r) => !cancelled && setOutlook(r.areas))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 1_800_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [filters.weather.outlook]);
+  useEffect(() => {
+    const h = me.preferences.home;
+    if (!h) return;
+    let cancelled = false;
+    const load = () =>
+      getWeatherNow(h.lat, h.lon)
+        .then((r) => !cancelled && setWeatherNow(r))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 900_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [homeKey]);
+
   // Tension index: the Situation panel shows it, the map tints with it.
   useEffect(() => {
     let cancelled = false;
@@ -605,6 +670,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       airspace: next.airspace,
       infra: next.infra,
       tension: next.tension,
+      weather: next.weather,
     }).catch(
       () => undefined,
     );
@@ -784,7 +850,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     }
     // Map items that aren't events: a small info panel, never the event
     // lookup (it would only say there's no such event).
-    if (id && (id.startsWith('gps:') || id.startsWith('tension:') || id.startsWith('draw:'))) {
+    if (
+      id &&
+      (id.startsWith('gps:') || id.startsWith('tension:') || id.startsWith('draw:') || id.startsWith('wx:') || id.startsWith('spc:'))
+    ) {
       clearSelection();
       setSelectedInfo(id);
       openRight();
@@ -912,6 +981,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (id.startsWith('mil:')) {
       const b = globe.current?.base(Number(id.slice(4)));
       return b ? { title: b[0], lines: [BASE_KINDS[b[1]] ?? b[1], b[4]] } : null;
+    }
+    if (id.startsWith('wx:')) {
+      const a = wxAlerts.find((x) => x.key === id.slice(3));
+      return a
+        ? {
+            title: a.event,
+            color: alertColor(a),
+            lines: [a.area.slice(0, 120), (a.sender ?? '') + (a.expires ? ' · until ' + new Date(a.expires).toLocaleString() : '')],
+          }
+        : null;
+    }
+    if (id.startsWith('spc:')) {
+      const o = outlook.find((x) => x.key === id.slice(4));
+      return o ? { title: o.title, color: o.fill ?? '#66a366', lines: ['SPC Day ' + o.day + ' outlook'] } : null;
     }
     if (id.startsWith('draw:')) {
       const d = drawings.find((x) => x.id === id.slice(5));
@@ -1053,6 +1136,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             filters={filters}
             counts={counts}
             tensionCount={tension ? tension.countries.filter((c) => c.level >= TINT_FROM).length : undefined}
+            weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
             airCounts={airCounts}
             civilStatus={civilStatus}
             satCounts={satCounts}
@@ -1083,6 +1167,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             selectedAirspace={selectedAirspace}
             gpsCells={gpsCells}
             tensionCountries={tension?.countries ?? []}
+            wxAlerts={wxAlerts}
+            outlook={outlook}
+            weather={filters.weather}
             showTension={filters.tension}
             infra={filters.infra}
             home={home}
@@ -1329,7 +1416,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 note={
                   selectedInfo.startsWith('gps:')
                     ? 'GPS interference: the share of aircraft in this hexagon reporting a degraded position (NACp below 8) over the last hour, from the aircraft Argus sees. Not for navigation.'
-                    : selectedInfo.startsWith('tension:')
+                    : selectedInfo.startsWith('wx:')
+                      ? (wxAlerts.find((x) => 'wx:' + x.key === selectedInfo)?.description ?? '') +
+                        ' (National Weather Service; open the alert for its full text and instructions.)'
+                      : selectedInfo.startsWith('spc:')
+                        ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'
+                        : selectedInfo.startsWith('tension:')
                       ? 'Tension: organised violence over the last year (UCDP) plus confirmed live events. See World tension in the Situation panel.'
                       : 'A shape you drew. Delete it with the Delete tool.'
                 }
@@ -1450,6 +1542,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                   vessels: seaOn ? vessels.length : null,
                   gps: gpsCells.filter((c) => c.level !== 'low').length,
                 }}
+                weatherNow={weatherNow}
+                homeAlerts={homeAlerts}
               />
             )}
           </aside>

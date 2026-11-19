@@ -8,6 +8,7 @@ import { BASE_COLOR, DEFAULT_INFRA, FUEL_COLOR, type InfraFilters } from '../map
 import { DEFAULT_REFERENCE, type ReferenceLayers } from '../map/overlays';
 import { DEFAULT_SPACE, SAT_COLOR, type SpaceFilters } from '../map/satellites';
 import { TENSION_COLOR } from '../map/tensionLayer';
+import { DEFAULT_WEATHER, type WeatherFilters } from '../map/wxLayer';
 import { distance } from '../lib/units';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 
@@ -30,6 +31,7 @@ export interface LayerFilters {
   airspace: AirspaceFilters;
   infra: InfraFilters;
   tension: boolean;
+  weather: WeatherFilters;
 }
 
 export const DEFAULT_FILTERS: LayerFilters = {
@@ -44,6 +46,7 @@ export const DEFAULT_FILTERS: LayerFilters = {
   airspace: DEFAULT_AIRSPACE,
   infra: DEFAULT_INFRA,
   tension: true,
+  weather: DEFAULT_WEATHER,
 };
 
 // The built-in defaults with an admin's server-wide defaults over them
@@ -60,12 +63,20 @@ export function serverFilters(layers: Record<string, unknown> | undefined): Laye
     sea: part(DEFAULT_FILTERS.sea, d.sea),
     airspace: part(DEFAULT_FILTERS.airspace, d.airspace),
     infra: part(DEFAULT_FILTERS.infra, d.infra),
+    weather: part(DEFAULT_FILTERS.weather, d.weather),
     tension: typeof d.tension === 'boolean' ? d.tension : DEFAULT_FILTERS.tension,
     hours: typeof d.hours === 'number' ? d.hours : DEFAULT_FILTERS.hours,
     minSeverity: typeof d.minSeverity === 'number' ? d.minSeverity : DEFAULT_FILTERS.minSeverity,
     candidates: typeof d.candidates === 'boolean' ? d.candidates : DEFAULT_FILTERS.candidates,
   };
 }
+
+const WEATHER_ROWS: { id: keyof WeatherFilters; label: string; source: string; color: string }[] = [
+  { id: 'alerts', label: 'Storm warnings', source: 'NWS · tornado, thunderstorm, flood', color: '#ff2d3d' },
+  { id: 'outlook', label: 'Severe weather outlook', source: 'SPC · today, level 1–5', color: '#66a366' },
+  { id: 'clouds', label: 'Clouds (infrared)', source: 'NASA GIBS · GOES, Himawari', color: '#9aa7ba' },
+  { id: 'precip', label: 'Precipitation', source: 'NASA GIBS · IMERG, a few hours behind', color: '#3fa7ff' },
+];
 
 const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color: string }[] = [
   { id: 'nuclear', label: 'Nuclear plants', source: 'WRI power plant database', color: FUEL_COLOR.Nuclear },
@@ -133,6 +144,8 @@ interface Props {
   counts: Partial<Record<EventType, number>>;
   // Countries tinted (above their normal level).
   tensionCount?: number;
+  // Storm warnings drawn on the map.
+  weatherCount?: number;
   airCounts: { military: number; civil: number };
   civilStatus: CivilStatus;
   satCounts: Partial<Record<keyof SpaceFilters, number>>;
@@ -169,6 +182,8 @@ const FEEDS: Record<string, string[]> = {
   sea: ['aisstream'],
   space: ['celestrak'],
   cables: ['cables'],
+  'wx-alerts': ['nws'],
+  'wx-outlook': ['spc'],
 };
 
 function health(sources: SourceStatus[], id: string): { cls: string; title: string } | null {
@@ -250,6 +265,7 @@ export default function LayerPanel({
   filters,
   counts,
   tensionCount,
+  weatherCount,
   airCounts,
   civilStatus,
   satCounts,
@@ -460,6 +476,27 @@ export default function LayerPanel({
             <span className="lcount mono">
               {satCounts[r.id] ?? '–'}
               <Dot sources={sources} id="space" />
+            </span>
+          </label>
+        ))}
+      </Group>
+      <Group title="Weather" on={countOn(filters.weather)} total={WEATHER_ROWS.length} forceOpen={Boolean(q)}>
+        {WEATHER_ROWS.map((r) => (
+          <label key={r.id} className="lrow">
+            <input
+              type="checkbox"
+              checked={filters.weather[r.id]}
+              onChange={(e) => onChange({ ...filters, weather: { ...filters.weather, [r.id]: e.target.checked } })}
+            />
+            <span className="tog" />
+            <span className={'sw' + (r.id === 'clouds' || r.id === 'precip' ? '' : ' area')} style={{ background: r.color, borderColor: r.color }} />
+            <span className="lname">
+              <span>{r.label}</span>
+              <small>{r.source}</small>
+            </span>
+            <span className="lcount mono">
+              {r.id === 'alerts' ? (weatherCount ?? '–') : ''}
+              <Dot sources={sources} id={'wx-' + r.id} />
             </span>
           </label>
         ))}

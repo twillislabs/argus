@@ -141,6 +141,7 @@ class Preferences(BaseModel):
     infra: dict[str, bool] | None = None
     news: dict[str, Any] | None = None
     tension: bool | None = None
+    weather: dict[str, bool] | None = None
     units: Literal["imperial", "metric"] | None = None
     show_route: bool | None = None
     # Wall page: live news, channel and extra clocks.

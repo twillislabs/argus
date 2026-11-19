@@ -20,7 +20,7 @@ All settings are environment variables, usually set in `.env`.
 | `ARGUS_SESSION_REMEMBER_DAYS` | `30` | Lifetime with "keep me signed in" |
 | `ARGUS_LOGIN_MAX_FAILURES` | `5` | Failed sign-ins before lockout |
 | `ARGUS_LOGIN_LOCKOUT_MINUTES` | `15` | Lockout duration |
-| `ARGUS_COLLECTORS` | `usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga,faa_tfr,sigmet,czib` | Collectors the worker runs |
+| `ARGUS_COLLECTORS` | `usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga,faa_tfr,sigmet,czib,nws,spc` | Collectors the worker runs |
 | `ARGUS_AIR_ENABLED` | `true` | Poll military aircraft (adsb.fi, then adsb.lol) in the worker |
 | `ARGUS_AIR_INTERVAL_S` | `30` | Seconds between military aircraft polls |
 | `ARGUS_SPACE_ENABLED` | `true` | Fetch the CelesTrak satellite catalogue every six hours |

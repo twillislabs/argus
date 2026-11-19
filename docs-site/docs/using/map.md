@@ -322,6 +322,20 @@ looks at the key. Argus doesn't try to get round that; contact openAIP
 through [openaip.net](https://www.openaip.net/) to have your server
 allowed.
 
+## Weather
+
+| Layer | Shows | Source |
+|---|---|---|
+| **Storm warnings** | NWS warnings that come with their own area (tornado, severe thunderstorm, flash flood, special marine and similar), in the NWS's colours. Hover or click for the text | NWS (US) |
+| **Severe weather outlook** | Today's Storm Prediction Center risk areas on its 1–5 scale (Marginal, Slight, Enhanced, Moderate, High), in SPC's colours | SPC (US) |
+| **Clouds (infrared)** | The latest geostationary infrared scan (cloud tops, colder = higher), about 40 minutes behind, refreshed every 10 minutes. Covers the Americas, the Pacific and East Asia; GIBS has no Meteosat for Europe and Africa | NASA GIBS (GOES-East, GOES-West, Himawari) |
+| **Precipitation** | Rain and snow rate from satellites, half-hourly, a few hours behind | NASA GIBS (IMERG) |
+
+With a home location in the US, **Weather at home** in the Situation panel
+shows the temperature, today's high and low, wind and gusts and the chance
+of rain (Open-Meteo), plus every NWS warning, watch and advisory for your
+home's forecast zone and county, linked to the full alert.
+
 ## Infrastructure
 
 | Layer | Shows |

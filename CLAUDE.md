@@ -139,6 +139,12 @@ parts connect.
   display-role user, and the screen's poll gets a remember-me session.
   `/pair` is the only page shown signed out besides login and setup;
   display users are redirected to `/wall`.
+- Weather: NWS alerts (`nws`, raw kind `wxalert`) and SPC outlooks
+  (`spc`, kind `outlook`) in `collectors/weather.py`, served by
+  `api/weather.py` (also Open-Meteo `/api/weather/now` and the home's NWS
+  zones via api.weather.gov/points, cached). GIBS imagery in
+  `map/wxLayer.ts` needs GIBS's own 2 km tile grid (512 px, -180..396°)
+  and the layer name in the URL (Cesium doesn't fill `{Layer}`).
 - Pages: Map (`/`), Brief (`/brief`), Wall (`/wall`, reuses `Globe` with
   minimal props), Settings. A Brief theatre card hands the map a place to
   fly to through `sessionStorage[FLY_KEY]` (lib/share.ts).

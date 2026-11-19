@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import type { Aircraft, Bbox, EventItem, Home, Summary, Tension } from '../lib/api';
+import type { Aircraft, Bbox, EventItem, Home, Summary, Tension, WeatherNow, WxAlert } from '../lib/api';
 import { aircraftColor } from '../map/aircraftLayer';
 import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
-import { distance } from '../lib/units';
+import { distance, temperature, windSpeed } from '../lib/units';
+import { alertColor } from '../map/wxLayer';
 
 interface Props {
   summary: Summary | null;
@@ -16,6 +17,8 @@ interface Props {
   // The area on screen when zoomed in; events there are listed.
   view: Bbox | null;
   kpis: Kpis;
+  weatherNow: WeatherNow | null;
+  homeAlerts: WxAlert[];
 }
 
 function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number) {
@@ -105,7 +108,9 @@ export function TensionCountries({ tension, limit = 5 }: { tension: Tension | nu
             key={c.key}
             title={[
               c.deaths_12m.toLocaleString() + ' deaths in 12 months (UCDP)',
-              c.vs_normal !== null ? 'Live activity ' + (c.vs_normal >= 0 ? '+' : '') + c.vs_normal + '% vs normal' : '',
+              c.vs_normal !== null
+                ? 'Live activity ' + (c.vs_normal >= 0 ? '+' : '') + c.vs_normal + '% vs normal'
+                : '',
               ...c.top.map((t) => t.title),
             ]
               .filter(Boolean)
@@ -120,8 +125,8 @@ export function TensionCountries({ tension, limit = 5 }: { tension: Tension | nu
         ))}
       </ul>
       <p className="quiet small">
-        Organised violence over the last year (UCDP, CC BY 4.0, to {tension.ucdp_through}), moved up to 20 points
-        by confirmed live events.
+        Organised violence over the last year (UCDP, CC BY 4.0, to {tension.ucdp_through}), moved up to 20 points by
+        confirmed live events.
       </p>
     </section>
   );
@@ -180,7 +185,9 @@ function Tile({
       <small>{label}</small>
       <div className="row">
         <span className="mono">{value}</span>
-        {delta ? <span className={'delta ' + (delta > 0 ? 'up' : 'down')}>{(delta > 0 ? '+' : '') + delta}</span> : null}
+        {delta ? (
+          <span className={'delta ' + (delta > 0 ? 'up' : 'down')}>{(delta > 0 ? '+' : '') + delta}</span>
+        ) : null}
       </div>
       <Spark values={spark} color={color} />
     </div>
@@ -214,13 +221,24 @@ function digest(events: EventItem[], kpis: Kpis): { color: string; text: string 
       text:
         list.length === 1
           ? info.label + ': ' + top.title + '.'
-          : list.length + ' new ' + info.label.toLowerCase() + ' reports' + (where ? ', in ' + where : '') + '. Most severe: ' + top.title + '.',
+          : list.length +
+            ' new ' +
+            info.label.toLowerCase() +
+            ' reports' +
+            (where ? ', in ' + where : '') +
+            '. Most severe: ' +
+            top.title +
+            '.',
     });
   }
   if (kpis.military) {
     out.push({
       color: '#8cc8ff',
-      text: kpis.military + ' military aircraft tracked' + (kpis.tankers ? ', ' + kpis.tankers + ' of them tankers' : '') + '.',
+      text:
+        kpis.military +
+        ' military aircraft tracked' +
+        (kpis.tankers ? ', ' + kpis.tankers + ' of them tankers' : '') +
+        '.',
     });
   }
   if (kpis.gps) {
@@ -249,6 +267,21 @@ function dtg(d: Date): string {
   );
 }
 
+// WMO weather codes (Open-Meteo) in a few words.
+function skyText(code: number | undefined): string {
+  if (code === undefined) return '';
+  if (code === 0) return 'Clear';
+  if (code <= 2) return 'Partly cloudy';
+  if (code === 3) return 'Overcast';
+  if (code <= 48) return 'Fog';
+  if (code <= 57) return 'Drizzle';
+  if (code <= 67) return 'Rain';
+  if (code <= 77) return 'Snow';
+  if (code <= 82) return 'Showers';
+  if (code <= 86) return 'Snow showers';
+  return 'Thunderstorms';
+}
+
 function inBox(b: Bbox, lat: number, lon: number): boolean {
   const [w, s, e, n] = b;
   if (lat < s || lat > n) return false;
@@ -265,6 +298,8 @@ export default function SituationPanel({
   tension,
   view,
   kpis,
+  weatherNow,
+  homeAlerts,
 }: Props) {
   const milSpark = useSamples(kpis.military);
   const seaSpark = useSamples(kpis.vessels);
@@ -282,9 +317,7 @@ export default function SituationPanel({
         .filter((e) => inBox(view, e.lat, e.lon))
         .sort((a, b) => b.severity - a.severity || Date.parse(b.last_updated) - Date.parse(a.last_updated))
     : [];
-  const latest = [...events]
-    .sort((a, b) => Date.parse(b.last_updated) - Date.parse(a.last_updated))
-    .slice(0, 40);
+  const latest = [...events].sort((a, b) => Date.parse(b.last_updated) - Date.parse(a.last_updated)).slice(0, 40);
   const near = home
     ? events
         .map((e) => ({ e, km: distanceKm(home.lat, home.lon, e.lat, e.lon) }))
@@ -296,7 +329,9 @@ export default function SituationPanel({
     ? aircraft
         .map((a) => ({ a, km: distanceKm(home.lat, home.lon, a.lat, a.lon) }))
         .filter((x) => x.km <= home.radius_km)
-        .sort((x, y) => Number(y.a.mil) - Number(x.a.mil) || Number(y.a.emergency) - Number(x.a.emergency) || x.km - y.km)
+        .sort(
+          (x, y) => Number(y.a.mil) - Number(x.a.mil) || Number(y.a.emergency) - Number(x.a.emergency) || x.km - y.km,
+        )
     : [];
   const military = contacts.filter((x) => x.a.mil).length;
   const sources = summary?.sources ?? [];
@@ -317,12 +352,7 @@ export default function SituationPanel({
             color="#ff5260"
           />
           <Tile label="Military aircraft" value={kpis.military} spark={milSpark} color="#8cc8ff" />
-          <Tile
-            label="Vessels in view"
-            value={kpis.vessels ?? '—'}
-            spark={seaSpark}
-            color="#4fc1b0"
-          />
+          <Tile label="Vessels in view" value={kpis.vessels ?? '—'} spark={seaSpark} color="#4fc1b0" />
           <Tile label="GPS interference cells" value={kpis.gps} spark={gpsSpark} color="#ff6ba1" />
         </div>
       </section>
@@ -350,6 +380,72 @@ export default function SituationPanel({
             </ul>
           ) : (
             <p className="quiet">No events in this area for the layers and time window shown.</p>
+          )}
+        </section>
+      )}
+      {home && (weatherNow?.status === 'ok' || homeAlerts.length > 0) && (
+        <section className="isec">
+          <h3>Weather at home · {home.name}</h3>
+          {weatherNow?.status === 'ok' && weatherNow.current && (
+            <>
+              <div className="tiles wxtiles">
+                <div className="tile">
+                  <small>Now</small>
+                  <span className="mono">
+                    {weatherNow.current.temperature_2m != null ? temperature(weatherNow.current.temperature_2m) : '—'}
+                  </span>
+                </div>
+                <div className="tile">
+                  <small>High / low</small>
+                  <span className="mono">
+                    {weatherNow.high_c != null ? temperature(weatherNow.high_c) : '—'} /{' '}
+                    {weatherNow.low_c != null ? temperature(weatherNow.low_c) : '—'}
+                  </span>
+                </div>
+                <div className="tile">
+                  <small>Wind · gusts</small>
+                  <span className="mono">
+                    {weatherNow.current.wind_speed_10m != null ? windSpeed(weatherNow.current.wind_speed_10m) : '—'}
+                    {weatherNow.current.wind_gusts_10m != null
+                      ? ' · ' + windSpeed(weatherNow.current.wind_gusts_10m)
+                      : ''}
+                  </span>
+                </div>
+                <div className="tile">
+                  <small>Rain chance</small>
+                  <span className="mono">{weatherNow.rain_chance != null ? weatherNow.rain_chance + '%' : '—'}</span>
+                </div>
+              </div>
+              <p className="quiet small">Open-Meteo · {skyText(weatherNow.current.weather_code)}</p>
+            </>
+          )}
+          {homeAlerts.length > 0 ? (
+            <ul className="feed">
+              {homeAlerts.slice(0, 5).map((a) => (
+                <li key={a.key}>
+                  <a
+                    className="fi"
+                    href={a.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ ['--c' as string]: alertColor(a), textDecoration: 'none', color: 'inherit' }}
+                  >
+                    <span className="bar" />
+                    <span className="fbody">
+                      <span className="t">{a.event}</span>
+                      <span className="m">{a.sender}</span>
+                    </span>
+                    <span className="ago mono">
+                      {a.expires
+                        ? 'until ' + new Date(a.expires).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : ''}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="quiet small">No NWS warnings, watches or advisories for home right now.</p>
           )}
         </section>
       )}
@@ -400,7 +496,8 @@ export default function SituationPanel({
             </ul>
           ) : (
             <p className="quiet">
-              No aircraft within {distance(home.radius_km)} on the map. Civil traffic loads when the map shows your region.
+              No aircraft within {distance(home.radius_km)} on the map. Civil traffic loads when the map shows your
+              region.
             </p>
           )}
         </section>
@@ -416,8 +513,8 @@ export default function SituationPanel({
           </ul>
         ) : (
           <p className="quiet">
-            No events yet. The worker fetches USGS every minute and GDELT every 5 minutes;
-            the first results appear shortly after it starts.
+            No events yet. The worker fetches USGS every minute and GDELT every 5 minutes; the first results appear
+            shortly after it starts.
           </p>
         )}
       </section>

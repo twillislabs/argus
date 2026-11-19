@@ -37,7 +37,8 @@ class Settings(BaseSettings):
 
     # Collectors (worker process).
     collectors: str = (
-        "usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga,faa_tfr,sigmet,czib"
+        "usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga,faa_tfr,sigmet,czib,"
+        "nws,spc"
     )
     user_agent: str = "Argus/0.1 (self-hosted OSINT visualizer)"
     firms_map_key: str | None = None

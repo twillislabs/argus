@@ -21,6 +21,7 @@ from argus.collectors.hazards import (
 from argus.collectors.nga import NgaCollector
 from argus.collectors.rss import RssCollector
 from argus.collectors.usgs import UsgsCollector
+from argus.collectors.weather import NwsCollector, SpcCollector
 
 REGISTRY: dict[str, type[Collector]] = {
     c.name: c
@@ -36,6 +37,8 @@ REGISTRY: dict[str, type[Collector]] = {
         TfrCollector,
         SigmetCollector,
         CzibCollector,
+        NwsCollector,
+        SpcCollector,
     )
 }
 

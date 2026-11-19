@@ -42,7 +42,19 @@ import {
 } from '@cesium/engine';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
-import type { Aircraft, AirspaceItem, Bbox, EventItem, GpsCell, Home, MapConfig, TensionCountry, Vessel } from '../lib/api';
+import type {
+  Aircraft,
+  AirspaceItem,
+  Bbox,
+  EventItem,
+  GpsCell,
+  Home,
+  MapConfig,
+  OutlookArea,
+  TensionCountry,
+  Vessel,
+  WxAlert,
+} from '../lib/api';
 import { SEVERITY_COLOR } from '../lib/format';
 import { type AircraftCamera, type CameraMode, createAircraftCamera } from './aircraftCamera';
 import { addAircraftLayer, AIR_COLOR, type AircraftLayer, aircraftColor } from './aircraftLayer';
@@ -50,6 +62,7 @@ import { addAirspaceLayer, type AirspaceFilters, type AirspaceLayer } from './ai
 import { addGpsLayer, type GpsLayer } from './gpsLayer';
 import { createDrawTools, type DrawCallbacks, type Drawing, type DrawTools } from './drawTools';
 import { addTensionLayer, type TensionLayer } from './tensionLayer';
+import { addWxLayer, type WeatherFilters, type WxLayer } from './wxLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
 import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './closeModels';
 import { addDarkMap, DARK, type DarkMap } from './darkMap';
@@ -348,6 +361,10 @@ interface Props {
   selectedAirspace: string | null;
   gpsCells: GpsCell[];
   tensionCountries: TensionCountry[];
+  // Weather (map/wxLayer.ts).
+  wxAlerts?: WxAlert[];
+  outlook?: OutlookArea[];
+  weather?: WeatherFilters;
   showTension: boolean;
   infra: InfraFilters;
   home: Home | null;
@@ -392,6 +409,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     selectedAirspace,
     gpsCells,
     tensionCountries,
+    wxAlerts,
+    outlook,
+    weather,
     showTension,
     infra,
     home,
@@ -429,6 +449,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const areas = useRef<AirspaceLayer | null>(null);
   const gps = useRef<GpsLayer | null>(null);
   const tensionLayer = useRef<TensionLayer | null>(null);
+  const wx = useRef<WxLayer | null>(null);
+  const weatherRef = useRef(weather);
+  weatherRef.current = weather;
   const draw = useRef<DrawTools | null>(null);
   const drawCbRef = useRef(drawCallbacks);
   drawCbRef.current = drawCallbacks;
@@ -489,6 +512,12 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     areas.current = addAirspaceLayer(scene);
     gps.current = addGpsLayer(scene);
     tensionLayer.current = addTensionLayer(scene);
+    wx.current = addWxLayer(scene, () => ({
+      add: (l) => v.scene.imageryLayers.add(l),
+      remove: (l) => {
+        if (v.scene.imageryLayers.contains(l)) v.scene.imageryLayers.remove(l, true);
+      },
+    }));
     infraLayer.current = addInfraLayer(scene);
     const satLayer = addSatelliteLayer(scene);
     sats.current = satLayer;
@@ -718,6 +747,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['airspace', () => areas.current?.destroy()],
         ['gps', () => gps.current?.destroy()],
         ['tension', () => tensionLayer.current?.destroy()],
+        ['weather', () => wx.current?.destroy()],
         ['infrastructure', () => infraLayer.current?.destroy()],
         ['pulse listener', removePulse],
         ['input handler', () => handler.destroy()],
@@ -787,6 +817,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       if (LABEL_LAYERS.has(layer)) layer.show = referenceRef.current.basemapLabels;
       v.scene.imageryLayers.add(layer);
     }
+    // Weather imagery sits over the new base map.
+    wx.current?.forget();
+    if (weatherRef.current) wx.current?.setImagery(weatherRef.current);
     // Inside the installed region, the self-hosted street map draws over
     // Esri; outside it, Esri shows as before.
     if (basemap === 'dark') {
@@ -915,6 +948,20 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     draw.current?.setDrawings(drawings ?? []);
   }, [drawings]);
+
+  // Weather: warning and outlook shapes, and cloud / rain imagery (kept
+  // fresh: clouds every 10 minutes, rain hourly).
+  const weatherKey = weather ? [weather.alerts, weather.outlook, weather.clouds, weather.precip].join('') : '';
+  useEffect(() => {
+    if (!weather) return;
+    wx.current?.update(wxAlerts ?? [], outlook ?? [], weather);
+  }, [wxAlerts, outlook, weatherKey]);
+  useEffect(() => {
+    if (!weather) return;
+    wx.current?.setImagery(weather);
+    const id = window.setInterval(() => wx.current?.setImagery(weather), 60_000);
+    return () => window.clearInterval(id);
+  }, [weatherKey]);
 
   // The planned route of the selected aircraft.
   const routeLines = useRef<{ lines: PolylineCollection; labels: LabelCollection } | null>(null);

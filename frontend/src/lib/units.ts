@@ -72,3 +72,13 @@ export function roundDistance(metres: number): { label: string; metres: number }
   const ft = nice(metres * M_FT);
   return { label: ft.toLocaleString() + ' ft', metres: ft / M_FT };
 }
+
+// Temperature from °C: "68°F" or "20°C".
+export function temperature(c: number): string {
+  return current === 'metric' ? Math.round(c) + '°C' : Math.round((c * 9) / 5 + 32) + '°F';
+}
+
+// Wind from km/h: "12 mph" or "19 km/h".
+export function windSpeed(kmh: number): string {
+  return current === 'metric' ? Math.round(kmh) + ' km/h' : Math.round(kmh * KM_MI) + ' mph';
+}

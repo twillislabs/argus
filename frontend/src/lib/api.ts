@@ -528,3 +528,59 @@ export interface Tension {
   countries: TensionCountry[];
 }
 export const getTension = () => api<Tension>('/api/tension');
+
+// --- Weather ---------------------------------------------------------------
+
+export interface WxAlert {
+  key: string;
+  event: string;
+  headline: string;
+  severity: number;
+  urgency: string | null;
+  area: string;
+  sender: string | null;
+  onset: string | null;
+  expires: string | null;
+  description: string;
+  instruction: string;
+  polygons: number[][][];
+  url: string;
+  lat: number | null;
+  lon: number | null;
+}
+export interface OutlookArea {
+  key: string;
+  day: number;
+  label: string;
+  level: number;
+  name: string;
+  title: string;
+  fill: string | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  polygons: number[][][];
+  url: string;
+}
+export interface WeatherNow {
+  status: 'ok' | 'error';
+  current?: {
+    temperature_2m?: number;
+    relative_humidity_2m?: number;
+    wind_speed_10m?: number;
+    wind_gusts_10m?: number;
+    wind_direction_10m?: number;
+    cloud_cover?: number;
+    precipitation?: number;
+    weather_code?: number;
+  };
+  high_c?: number | null;
+  low_c?: number | null;
+  rain_chance?: number | null;
+}
+export const getWxAlerts = (home: { lat: number; lon: number } | null) =>
+  api<{ alerts: WxAlert[]; local: WxAlert[] }>(
+    '/api/weather/alerts' + (home ? '?lat=' + home.lat.toFixed(4) + '&lon=' + home.lon.toFixed(4) : ''),
+  );
+export const getOutlook = () => api<{ areas: OutlookArea[] }>('/api/weather/outlook');
+export const getWeatherNow = (lat: number, lon: number) =>
+  api<WeatherNow>('/api/weather/now?lat=' + lat.toFixed(2) + '&lon=' + lon.toFixed(2));
