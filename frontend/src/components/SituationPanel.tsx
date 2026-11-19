@@ -71,7 +71,7 @@ export function TensionGauge({ tension }: { tension: Tension | null }) {
     <div
       className="gauge"
       title={
-        'World tension: organised violence in the 20 most affected countries (UCDP to ' +
+        'World tension: organised violence in the 40 most affected countries (UCDP to ' +
         tension.ucdp_through +
         ') plus live events'
       }

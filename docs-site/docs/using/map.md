@@ -107,7 +107,7 @@ same kind of data (ACLED, UCDP, the Global Peace Index):
   moves with the news. Unconfirmed GDELT reports don't count; most are
   noise.
 
-The world score is the average of the 20 most affected countries; a
+The world score is the average of the 40 most affected countries; a
 theatre's leans on its worst country. Hover a country in **Tension by
 country** for its UCDP deaths and, once Argus has three days of history,
 how its live activity compares with its normal.

@@ -18,7 +18,7 @@ Two parts:
 
 level = min(100, standing + live). Bands follow World Tension Meter:
 calm 0-39, stable 40-54, moderate 55-67, high 68-77, extreme 78-100.
-The world is the mean of the 20 highest countries; a theatre is led
+The world is the mean of the 40 highest countries; a theatre is led
 by its highest country (60%) with the mean of its top three (40%).
 
 Separately, the worker samples raw scores hourly into tension_daily, and
@@ -62,7 +62,7 @@ CONFLICT_DATA = os.path.join(
 # Deaths a year that score 100 on the standing level.
 STANDING_REF = 50_000
 LIVE_MAX = 20.0
-WORLD_TOP = 20
+WORLD_TOP = 40
 THEATRE_TOP = 3
 # Places GDELT puts in Israel that are Palestinian territory.
 PALESTINE_PLACES = (
