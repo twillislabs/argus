@@ -40,6 +40,7 @@ export const CHANNELS: Channel[] = [
   { id: 'UCSPEjw8F2nQDtmUKPFNF7_A', name: 'NHK WORLD-JAPAN', short: 'NHK', group: 'International' },
   { id: 'UChqUTb7kYRX8-EiaN3XFrSQ', name: 'Reuters', short: 'Reuters', group: 'Business' },
   { id: 'UCIALMKvObZNtJ6AmdCLP7Lg', name: 'Bloomberg Television', short: 'Bloomberg', group: 'Business' },
+  { id: 'UCCXoCcu9Rp7NPbTzIvogpZg', name: 'Fox Business', short: 'Fox Business', group: 'Business' },
   { id: 'UCJHAT3Uvv-g3I8H3GhHWV7w', name: "Ryan Hall, Y'all", short: 'Ryan Hall', group: 'Weather' },
   { id: 'UC1FbPiXx59_ltnFVx7IxWow', name: 'FOX Weather', short: 'FOX Weather', group: 'Weather' },
 ];

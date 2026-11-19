@@ -65,7 +65,7 @@ What it does today:
   place, coordinates, an event or a word like `tankers`, and Argus works out what you meant.
 - **Corroboration before it hits the map.** Machine-coded GDELT reports start as *unconfirmed* and
   only become events when several independent outlets report them.
-- **News from across the spectrum.** Headlines from 24 outlets (world and US desks), left
+- **News from across the spectrum.** Headlines from 34 outlets (world and US desks), left
   and right, matched to the events they describe.
 - **A situation panel** with counts by type, what's near home, a live feed, headlines and the
   health of every source. Click any event for its sources, coverage and raw record.

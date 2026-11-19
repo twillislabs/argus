@@ -105,6 +105,38 @@ DEFAULT_FEEDS = [
         "url": "https://www.nationalreview.com/feed/",
     },
     {"outlet": "The Federalist", "url": "https://thefederalist.com/feed/"},
+    # More conservative outlets: politics desks, the UK right-of-centre
+    # press, and opinion-led sites.
+    {
+        "outlet": "Fox News",
+        "url": "https://moxie.foxnews.com/google-publisher/politics.xml",
+    },
+    {
+        "outlet": "Fox Business",
+        "url": "https://moxie.foxbusiness.com/google-publisher/latest.xml",
+    },
+    {"outlet": "New York Post", "url": "https://nypost.com/politics/feed/"},
+    {
+        "outlet": "The Telegraph",
+        "url": "https://www.telegraph.co.uk/news/rss.xml",
+    },
+    {"outlet": "GB News", "url": "https://www.gbnews.com/feeds/news.rss"},
+    {
+        "outlet": "Daily Mail",
+        "url": "https://www.dailymail.co.uk/news/index.rss",
+    },
+    {
+        "outlet": "Washington Free Beacon",
+        "url": "https://freebeacon.com/feed/",
+    },
+    {"outlet": "The Daily Signal", "url": "https://www.dailysignal.com/feed/"},
+    {"outlet": "Townhall", "url": "https://townhall.com/feed/"},
+    {"outlet": "RedState", "url": "https://redstate.com/feed/"},
+    {"outlet": "PJ Media", "url": "https://pjmedia.com/feed"},
+    {
+        "outlet": "The American Conservative",
+        "url": "https://www.theamericanconservative.com/feed/",
+    },
 ]
 
 _TAG = re.compile(r"<[^>]+>")

@@ -483,7 +483,7 @@ place); **⧉** opens the channel in its own window, for another screen.
 - **International:** Sky News, GB News, News24 (formerly Sky News
   Australia), Euronews, CNA, BBC News, Al Jazeera English, DW, France 24,
   i24NEWS, TRT World, WION, NHK World
-- **Business:** Reuters, Bloomberg
+- **Business:** Reuters, Bloomberg, Fox Business
 - **Weather:** Ryan Hall, Y'all, FOX Weather
 
 Each tab plays the channel's current live stream: Argus looks up the
