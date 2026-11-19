@@ -46,6 +46,9 @@ parts connect.
 
 ## Commands
 
+- `make backup` / `make restore FILE=...` (scripts/backup.sh, restore.sh):
+  pg_dump plus `.env` in one archive; restore replaces the database and
+  adopts the archive's ARGUS_SECRET_KEY. Test with `--project argus-e2e`.
 - `make ci` runs everything GitHub Actions runs (`scripts/ci.sh`); run it
   before every commit. `make ci-quick` skips migrations.
 - `make test`, `make lint`, `make up`, `make logs`, `make token`.

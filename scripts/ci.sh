@@ -28,11 +28,19 @@ if [[ $QUICK -eq 0 ]]; then
     timescale/timescaledb-ha:pg17 >/dev/null
   trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
   PORT="$(docker port "$NAME" 5432/tcp | head -1 | sed 's/.*://')"
-  until docker exec "$NAME" pg_isready -U argus -d argus >/dev/null 2>&1; do
+  # The image runs a temporary server while it initialises, then
+  # restarts: wait until it has answered five times in a row, through
+  # the published port, a second apart.
+  ok=0
+  for _ in $(seq 1 120); do
+    if docker exec "$NAME" psql -h 127.0.0.1 -U argus -d argus -c 'select 1' >/dev/null 2>&1; then
+      ok=$((ok + 1))
+      [[ $ok -ge 5 ]] && break
+    else
+      ok=0
+    fi
     sleep 1
   done
-  # The server accepts connections briefly before init finishes.
-  sleep 2
   export ARGUS_DATABASE_URL="postgresql+asyncpg://argus:argus@127.0.0.1:${PORT}/argus"
   uv run alembic upgrade head
   uv run alembic check

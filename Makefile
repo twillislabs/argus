@@ -55,10 +55,17 @@ streetmap: ## Download the street map for REGION (default tennessee)
 	$(COMPOSE) up -d tiles
 	$(COMPOSE) restart tiles
 
+backup: ## Back up the database and .env to backups/ (scripts/backup.sh)
+	scripts/backup.sh
+
+restore: ## Restore a backup: make restore FILE=backups/argus-....tar.gz
+	@test -n "$(FILE)" || { echo "Usage: make restore FILE=backups/argus-....tar.gz"; exit 1; }
+	scripts/restore.sh $(FILE)
+
 ci: ## Everything CI runs, locally (scripts/ci.sh)
 	scripts/ci.sh
 
 ci-quick: ## CI without the migration job, reusing node_modules
 	scripts/ci.sh --quick
 
-.PHONY: help env up down logs token status install dev-api dev-web docs-dev test lint streetmap ci ci-quick
+.PHONY: help env up down logs token status install dev-api dev-web docs-dev test lint streetmap backup restore ci ci-quick

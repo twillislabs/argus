@@ -1,5 +1,7 @@
 # Secrets
 .env
+.env.before-restore
+backups/
 
 # Python
 __pycache__/

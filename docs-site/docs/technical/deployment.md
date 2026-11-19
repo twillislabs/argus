@@ -101,11 +101,9 @@ must pass `Host` through unchanged.
 nginx's rendered-tile cache lives inside the `web` container and refills on
 its own after a rebuild.
 
-Back up the database with:
-
-```bash
-docker compose exec -T db pg_dump -U argus -Fc argus > argus-$(date +%F).dump
-```
+`make backup` and `make restore` back up and restore the database and
+`.env` together (scripts/backup.sh, scripts/restore.sh); see
+[Backups and moving servers](../admin/backups.md).
 
 ## Health checks
 
