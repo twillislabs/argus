@@ -20,6 +20,7 @@ import {
   type SourceStatus,
 } from '../lib/api';
 import { ago, zuluTime } from '../lib/format';
+import type { Units } from '../lib/units';
 
 interface Props {
   me: Me;
@@ -203,6 +204,18 @@ function HomeSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) 
 
 function DisplaySection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
   const [banner, setBanner] = useState(me.preferences.show_banner === true);
+  const [unitPref, setUnitPref] = useState<Units>(me.preferences.units === 'metric' ? 'metric' : 'imperial');
+
+  async function chooseUnits(next: Units) {
+    const before = unitPref;
+    setUnitPref(next);
+    try {
+      await savePreferences({ units: next });
+      await onSaved();
+    } catch {
+      setUnitPref(before);
+    }
+  }
 
   async function toggleBanner(next: boolean) {
     setBanner(next);
@@ -220,6 +233,19 @@ function DisplaySection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> 
         <h2>Interface</h2>
       </div>
       <div className="srows">
+        <div className="srow">
+          <span className="srow-label">
+            <b>Units</b>
+            <small>Distances, lengths and heights. Aircraft stay in feet and knots, ships in knots.</small>
+          </span>
+          <div className="seg" role="group" aria-label="Units">
+            {(['imperial', 'metric'] as const).map((u) => (
+              <button key={u} aria-pressed={unitPref === u} onClick={() => void chooseUnits(u)}>
+                {u === 'imperial' ? 'Imperial (mi, ft)' : 'Metric (km, m)'}
+              </button>
+            ))}
+          </div>
+        </div>
         <label className="srow">
           <span className="srow-label">
             <b>Classification line</b>

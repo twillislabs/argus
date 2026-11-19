@@ -8,6 +8,7 @@ import { BASE_COLOR, DEFAULT_INFRA, FUEL_COLOR, type InfraFilters } from '../map
 import { DEFAULT_REFERENCE, type ReferenceLayers } from '../map/overlays';
 import { DEFAULT_SPACE, SAT_COLOR, type SpaceFilters } from '../map/satellites';
 import { TENSION_COLOR } from '../map/tensionLayer';
+import { distance } from '../lib/units';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 
 export interface AirFilters {
@@ -310,7 +311,7 @@ export default function LayerPanel({
           <span className="sw area" style={{ background: TENSION_COLOR }} />
           <span className="lname">
             <span>Country tension</span>
-            <small>Argus index · against each country&apos;s normal</small>
+            <small>UCDP violence + live events</small>
           </span>
           <span className="lcount mono">{tensionCount ?? '–'}</span>
         </label>
@@ -343,7 +344,7 @@ export default function LayerPanel({
           <span className="sw plane" style={{ background: AIR_COLOR.civil }} />
           <span className="lname">
             <span>Civil aircraft</span>
-            <small className={civilStatus === 'error' || civilStatus === 'limited' ? 'warn' : undefined}>
+            <small className={air.civil && (civilStatus === 'error' || civilStatus === 'limited') ? 'warn' : undefined}>
               {CIVIL_HINT[air.civil ? civilStatus : 'off']}
             </small>
           </span>
@@ -372,7 +373,13 @@ export default function LayerPanel({
             <span className="sw area" style={{ borderColor: AIRSPACE_COLOR[r.id] }} />
             <span className="lname">
               <span>{r.label}</span>
-              <small className={r.id === 'structure' && structureStatus === 'nokey' ? 'warn' : undefined}>
+              <small
+                className={
+                  r.id === 'structure' && filters.airspace.structure && structureStatus !== 'ok' && structureStatus !== 'zoom'
+                    ? 'warn'
+                    : undefined
+                }
+              >
                 {r.id === 'structure' && filters.airspace.structure
                   ? {
                       ok: 'openAIP · area in view',
@@ -423,7 +430,7 @@ export default function LayerPanel({
             <span className="sw sat" style={{ background: r.color }} />
             <span className="lname">
               <span>{r.label}</span>
-              <small>{r.source}</small>
+              <small>{r.id === 'leo' ? 'Under ' + distance(2000) + ' · stations, imaging' : r.source}</small>
             </span>
             <span className="lcount mono">
               {satCounts[r.id] ?? '–'}

@@ -1,6 +1,5 @@
-// Country tension tint: countries above their normal level are washed in
-// red, deeper the higher the index (50 is normal for that country, 67
-// twice normal, 80 and up severe). Shapes are Natural Earth 50m, the
+// Country tension tint: countries from "elevated" (35) up are washed in
+// red, deeper the higher the index (80 and up is severe). Shapes are Natural Earth 50m, the
 // same file the borders come from.
 
 import {
@@ -20,7 +19,7 @@ import type { TensionCountry } from '../lib/api';
 export const TENSION_COLOR = '#b8505a';
 const FILL = '#ff5260';
 // Tinted from "elevated" up.
-export const TINT_FROM = 55;
+export const TINT_FROM = 35;
 const HEIGHT = 600;
 
 // Argus country names (GDELT / GeoNames) to Natural Earth's short names.
@@ -105,7 +104,7 @@ export function addTensionLayer(scene: Scene): TensionLayer {
           if (!polys) continue;
           // Elevated (55) faint, severe (90+) strongest.
           // As in the mock-up: up to about a third opaque at the top.
-          const alpha = 0.1 + Math.min(1, (c.level - TINT_FROM) / 40) * 0.24;
+          const alpha = 0.06 + Math.min(1, (c.level - TINT_FROM) / 60) * 0.28;
           for (const rings of polys) {
             instances.push(
               new GeometryInstance({

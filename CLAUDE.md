@@ -106,9 +106,12 @@ parts connect.
   cached) and the player embeds `/embed/<video id>`. Channels not on
   YouTube use Rumble (`platform: 'rumble'`, resolved from the channel's
   livestreams JSON plus oEmbed); new embed hosts go in the CSP frame-src.
-- Tension index: `argus/tension.py` (pure scoring + `tension_daily`
-  hourly samples from the worker's `tension_loop`; `backfill` rebuilds
-  history from stored events once). `/api/tension` is cached a minute.
+- Tension index: `argus/tension.py`. Standing level from UCDP deaths
+  (`data/conflict.tsv.gz`, rebuilt by `scripts/build_conflict.py` from
+  the GED + Candidate Events downloads; CC BY 4.0) plus up to 20 live
+  points from confirmed events. `tension_daily` hourly samples (worker
+  `tension_loop`, `backfill` once) only feed "vs normal".
+  `/api/tension` is cached a minute.
   Country names are GDELT/GeoNames style; `map/tensionLayer.ts` maps
   them to Natural Earth's short names (`NE_NAME`) for the tint.
 - GPS interference cells are hexagons (`aviation.hex_cell`), not squares.

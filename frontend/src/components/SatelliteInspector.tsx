@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { getSatellite, type Home, type SatelliteDetail } from '../lib/api';
 import { ago } from '../lib/format';
 import { type OrbitInfo, type Pass, SAT_COLOR } from '../map/satellites';
+import { distance, speedKms } from '../lib/units';
 
 const CLASS_LABEL: Record<SatelliteDetail['class'], string> = {
   leo: 'Low Earth orbit',
@@ -120,11 +121,11 @@ export default function SatelliteInspector({ norad, home, following, onBack, onF
             <dl className="kv">
               <div>
                 <dt>Altitude now</dt>
-                <dd>{live && Number.isFinite(live.altKm) ? Math.round(live.altKm).toLocaleString() + ' km' : '—'}</dd>
+                <dd>{live && Number.isFinite(live.altKm) ? distance(live.altKm) : '—'}</dd>
               </div>
               <div>
                 <dt>Speed</dt>
-                <dd>{live && Number.isFinite(live.speedKms) ? live.speedKms.toFixed(2) + ' km/s' : '—'}</dd>
+                <dd>{live && Number.isFinite(live.speedKms) ? speedKms(live.speedKms) : '—'}</dd>
               </div>
               <div>
                 <dt>Period</dt>
@@ -136,11 +137,11 @@ export default function SatelliteInspector({ norad, home, following, onBack, onF
               </div>
               <div>
                 <dt>Perigee</dt>
-                <dd>{d.orbit.perigee_km.toLocaleString()} km</dd>
+                <dd>{distance(d.orbit.perigee_km)}</dd>
               </div>
               <div>
                 <dt>Apogee</dt>
-                <dd>{d.orbit.apogee_km.toLocaleString()} km</dd>
+                <dd>{distance(d.orbit.apogee_km)}</dd>
               </div>
               <div className="wide">
                 <dt>Elements</dt>

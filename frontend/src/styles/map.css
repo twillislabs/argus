@@ -158,7 +158,7 @@
 
 /* World tension (Situation, Brief, Wall). */
 .tband { font: 600 12px/1 var(--f-head); letter-spacing: 0.1em; text-transform: uppercase; }
-.b-normal { color: var(--muted); }
+.b-calm { color: var(--muted); }
 .b-elevated { color: #e3c04b; }
 .b-high { color: #ff8a3d; }
 .b-severe { color: var(--crit); }
@@ -170,7 +170,7 @@
 .tname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tmeter { height: 4px; border-radius: 2px; background: var(--line-2); overflow: hidden; }
 .tmeter i { display: block; height: 100%; background: currentColor; }
-.tmeter i.b-normal { background: #4a5668; }
+.tmeter i.b-calm { background: #4a5668; }
 .tval { text-align: right; color: var(--muted); }
 
 /* Under-map timeline, cursor readout and scale bar (mock-up). */

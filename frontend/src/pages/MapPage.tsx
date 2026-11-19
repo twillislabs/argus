@@ -691,9 +691,18 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }
 
   // Double-click: an event zooms in on its area, an aircraft is followed.
+  // Double-click: follow aircraft, ships and satellites; zoom to events.
   function focus(id: string) {
     if (id.startsWith('ac:')) {
       selectAircraft(id.slice(3), 'follow');
+      return;
+    }
+    if (id.startsWith('ship:')) {
+      selectVessel(Number(id.slice(5)), 'follow');
+      return;
+    }
+    if (id.startsWith('sat:')) {
+      selectSatellite(Number(id.slice(4)), true);
       return;
     }
     const e = events.find((x) => x.id === id);

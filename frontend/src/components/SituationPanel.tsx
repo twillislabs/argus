@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { Aircraft, Bbox, EventItem, Home, Summary, Tension } from '../lib/api';
 import { aircraftColor } from '../map/aircraftLayer';
 import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
+import { distance } from '../lib/units';
 
 interface Props {
   summary: Summary | null;
@@ -43,7 +44,7 @@ export function FeedItem({ e, onSelect, extra }: { e: EventItem; onSelect: (id: 
   );
 }
 
-const BAND_LABEL = { normal: 'Normal', elevated: 'Elevated', high: 'High', severe: 'Severe' } as const;
+export const BAND_LABEL = { calm: 'Calm', elevated: 'Elevated', high: 'High', severe: 'Severe' } as const;
 
 function Delta({ v }: { v: number }) {
   if (!v) return <span className="tdelta mono">±0 24h</span>;
@@ -61,7 +62,14 @@ export function TensionGauge({ tension }: { tension: Tension | null }) {
   if (!tension) return null;
   const w = tension.world;
   return (
-    <div className="gauge" title="World tension: 50 is normal, 67 twice normal">
+    <div
+      className="gauge"
+      title={
+        'World tension: organised violence in the 20 most affected countries (UCDP to ' +
+        tension.ucdp_through +
+        ') plus live events'
+      }
+    >
       <div className="big mono">
         {w.level}
         <small>/100</small>
@@ -87,7 +95,16 @@ export function TensionCountries({ tension, limit = 5 }: { tension: Tension | nu
       <h3>Tension by country</h3>
       <ul className="tlist">
         {tension.countries.slice(0, limit).map((c) => (
-          <li key={c.key} title={c.top.map((t) => t.title).join('\n')}>
+          <li
+            key={c.key}
+            title={[
+              c.deaths_12m.toLocaleString() + ' deaths in 12 months (UCDP)',
+              c.vs_normal !== null ? 'Live activity ' + (c.vs_normal >= 0 ? '+' : '') + c.vs_normal + '% vs normal' : '',
+              ...c.top.map((t) => t.title),
+            ]
+              .filter(Boolean)
+              .join('\n')}
+          >
             <span className="tname">{c.name}</span>
             <span className="tmeter">
               <i className={'b-' + c.band} style={{ width: c.level + '%' }} />
@@ -96,12 +113,10 @@ export function TensionCountries({ tension, limit = 5 }: { tension: Tension | nu
           </li>
         ))}
       </ul>
-      {!tension.baseline_ready && (
-        <p className="quiet small">
-          Learning what&apos;s normal: {tension.baseline_days} of 7 days of history so far. Until then each
-          country is compared with what history there is, or with a typical country today.
-        </p>
-      )}
+      <p className="quiet small">
+        Organised violence over the last year (UCDP, CC BY 4.0, to {tension.ucdp_through}), moved up to 20 points
+        by confirmed live events.
+      </p>
     </section>
   );
 }
@@ -335,16 +350,16 @@ export default function SituationPanel({
       {home && (
         <section className="isec">
           <h3>
-            Near home · {home.name} · {home.radius_km} km
+            Near home · {home.name} · {distance(home.radius_km)}
           </h3>
           {near.length ? (
             <ul className="feed">
               {near.slice(0, 5).map(({ e, km }) => (
-                <FeedItem key={e.id} e={e} onSelect={onSelect} extra={Math.round(km) + ' km'} />
+                <FeedItem key={e.id} e={e} onSelect={onSelect} extra={distance(km)} />
               ))}
             </ul>
           ) : (
-            <p className="quiet">Nothing within {home.radius_km} km in this time window.</p>
+            <p className="quiet">Nothing within {distance(home.radius_km)} in this time window.</p>
           )}
         </section>
       )}
@@ -371,7 +386,7 @@ export default function SituationPanel({
                     <span className="mono cmeta">
                       {a.ground ? 'GND' : a.alt_ft !== null ? Math.round(a.alt_ft / 100) * 100 + ' ft' : '—'}
                       <br />
-                      {Math.round(km)} km
+                      {distance(km)}
                     </span>
                   </button>
                 </li>
@@ -379,7 +394,7 @@ export default function SituationPanel({
             </ul>
           ) : (
             <p className="quiet">
-              No aircraft within {home.radius_km} km on the map. Civil traffic loads when the map shows your region.
+              No aircraft within {distance(home.radius_km)} on the map. Civil traffic loads when the map shows your region.
             </p>
           )}
         </section>

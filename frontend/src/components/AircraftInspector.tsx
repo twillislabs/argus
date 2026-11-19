@@ -9,6 +9,7 @@ import {
 import { latLon } from "../lib/format";
 import { CAMERA_MODES, type CameraMode } from "../map/aircraftCamera";
 import { AIR_COLOR, aircraftColor } from "../map/aircraftLayer";
+import { distance } from "../lib/units";
 
 const POLL_MS = 10_000;
 
@@ -190,8 +191,7 @@ function Detail({
                 />
               </div>
               <div className="sub mono">
-                {pct}% · {d.progress.remaining_km.toLocaleString()} km to go of{" "}
-                {d.progress.total_km.toLocaleString()} km
+                {pct}% · {distance(d.progress.remaining_km)} to go of {distance(d.progress.total_km)}
               </div>
             </>
           )}

@@ -46,8 +46,8 @@ every user sees the same installed region.
   layers aren't changed.
 - **3D Globe / 2D World** switches between the globe and a flat map.
 - **[** and **]** collapse the layer panel and the situation panel.
-- **Double-click** an event to zoom in on its area, or an aircraft to follow
-  it.
+- **Double-click** an event to zoom in on its area, or an aircraft, ship or
+  satellite to follow it.
 - **Esc** leaves an aircraft view, then closes the event or aircraft and
   returns to the situation panel.
 - **Ctrl K** (⌘ K on a Mac) or **/** jumps to the search box.
@@ -59,6 +59,10 @@ events per hour, coloured by layer.
 
 A green **UNCLASSIFIED // OPEN SOURCE** strip can be shown at the top from
 Settings > Display (off by default).
+
+Distances, lengths and heights are in **imperial** units (miles, feet) by
+default; switch to metric in Settings > Display. Aircraft altitude and
+speed stay in feet and knots, and ship speed in knots, either way.
 
 ## The layer panel
 
@@ -83,22 +87,33 @@ The **Reference** group in the layer panel draws over any base map:
 
 ## World tension
 
-**World tension** at the top of the Situation panel scores how tense the
-world is now against its own recent past, 0 to 100: 50 is normal, 67 is
-twice normal, 80 and up is severe. Under it are four tiles (events in the
-time window, military aircraft, vessels in view, GPS interference cells)
-with a sparkline of recent values, then **Last 60 minutes**, a few plain
-sentences on what came in over the past hour. **Tension by country** lists
-the countries furthest above their normal. **Country tension** (in Events) tints those countries
-red on wide views, deeper the higher the score; it fades out as you zoom in.
+**World tension** at the top of the Situation panel scores organised
+violence on a 0–100 scale: calm (under 35), elevated, high (60+) and
+severe (80+). It's built to line up with conflict indexes that use the
+same kind of data (ACLED, UCDP, the Global Peace Index):
 
-The score counts confirmed armed conflict, civil unrest and
-maritime-security events: severity × confidence, halving every 12 hours.
-Unconfirmed GDELT reports don't count; most are noise. The worker samples it hourly, and the baseline is
-the average of those samples over the last 90 days. A new install builds
-its first baseline from the events already stored; until there's a week of
-history the panel says it's still learning, and with under three days
-each country is compared with a typical country today instead.
+- **Standing level:** deaths from organised violence (wars, fighting
+  between armed groups, attacks on civilians) in each country over the
+  last twelve months of [UCDP](https://ucdp.uu.se/) data (Uppsala
+  Conflict Data Program, CC BY 4.0), on a log scale: about 21 for 10
+  deaths a year, 64 for 1,000, 100 for 50,000 or more. Bundled with Argus
+  and refreshed with each release.
+- **Live activity:** confirmed armed conflict, civil unrest and
+  maritime-security events from Argus's own feeds (severity ×
+  confidence, halving every 12 hours) add up to 20 points, so the score
+  moves with the news. Unconfirmed GDELT reports don't count; most are
+  noise.
+
+The world score is the average of the 20 most affected countries; a
+theatre's leans on its worst country. Hover a country in **Tension by
+country** for its UCDP deaths and, once Argus has three days of history,
+how its live activity compares with its normal.
+
+Under the gauge are four tiles (events in the time window, military
+aircraft, vessels in view, GPS interference cells) with a sparkline of
+recent values, then **Last 60 minutes**, a few plain sentences on what came
+in over the past hour. **Country tension** (in Events) tints countries from
+elevated up on wide views, deeper the higher the score.
 
 ## In view
 

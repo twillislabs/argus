@@ -62,10 +62,22 @@ WORLDVIEW = (
 )
 
 
+# Data files browsers download instead of showing (JTWC's .tcw warning
+# bulletins are served as binary/octet-stream).
+DOWNLOAD_ONLY = (".tcw", ".kmz", ".kml", ".zip", ".shp", ".gz", ".dat")
+JTWC_PAGE = "https://www.metoc.navy.mil/jtwc/jtwc.html"
+
+
 def public_link(sources: list[dict], lat: float, lon: float, day: str) -> str:
     for src in sources:
-        if src.get("id") not in LOGIN_ONLY and src.get("url"):
-            return src["url"]
+        url = src.get("url") or ""
+        if src.get("id") in LOGIN_ONLY or not url:
+            continue
+        if url.lower().split("?")[0].endswith(DOWNLOAD_ONLY):
+            if "metoc.navy.mil/jtwc" in url:
+                return JTWC_PAGE
+            continue
+        return url
     return WORLDVIEW.format(lon - 1, lat - 1, lon + 1, lat + 1, day[:10])
 
 

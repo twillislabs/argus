@@ -191,6 +191,8 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
 - **Earthquakes:** USGS (public domain).
 - **Events:** the GDELT Project.
 - **Fires:** NASA FIRMS.
+- **Conflict data:** [UCDP](https://ucdp.uu.se/) Georeferenced Event Dataset and Candidate
+  Events (CC BY 4.0), Uppsala University, for the tension index's standing level.
 - **Places:** [GeoNames](https://www.geonames.org/) (CC BY 4.0).
 - **Aircraft:** [adsb.lol](https://adsb.lol/) (ODbL 1.0) and [adsb.fi](https://adsb.fi/) (open data, personal non-commercial use) for positions, [adsbdb](https://www.adsbdb.com/)
   for routes and types, [OurAirports](https://ourairports.com/data/) (public domain) and

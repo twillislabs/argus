@@ -63,13 +63,30 @@ def test_raw_scores_roll_up():
     assert abs(scores["world"] - 11.4) < 1e-9
 
 
-def test_level_against_baseline():
-    assert tension.level(4.0, 4.0) == 50
-    assert tension.level(8.0, 4.0) == 67
-    # The floor keeps a single event in a quiet place from reading 100.
-    assert tension.level(1.0, 0.0) == 33
-    assert tension.band(50) == "normal"
-    assert tension.band(80) == "severe"
+def test_standing_and_live_points():
+    # Log scale on UCDP deaths a year: 50,000+ is 100.
+    assert tension.standing(0) == 0
+    assert round(tension.standing(1000)) == 64
+    assert tension.standing(200_000) == 100
+    # Live activity adds at most 20 points.
+    assert tension.live_points(0) == 0
+    assert tension.live_points(1000) == 20
+    assert tension.level(64.0, 1.0) == 72
+    assert tension.level(95.0, 50.0) == 100
+    assert tension.band(20) == "calm"
+    assert tension.band(50) == "elevated"
+    assert tension.band(70) == "high"
+    assert tension.band(85) == "severe"
+    assert tension.vs_normal(4.0, 2.0) == 100
+    assert tension.vs_normal(4.0, None) is None
+
+
+def test_bundled_ucdp_data():
+    data, through = tension.conflict_data()
+    assert through[:4].isdigit()
+    # The big wars of the period score at the top.
+    assert tension.standing(data["Ukraine"]["deaths_12m"]) >= 95
+    assert "Palestine" in data
 
 
 async def test_samples_and_baseline(app, admin_client):
@@ -117,14 +134,17 @@ async def test_samples_and_baseline(app, admin_client):
 
     body = (await admin_client.get("/api/tension")).json()
     assert body["baseline_ready"] is True
-    ukraine = body["countries"][0]
-    assert ukraine["name"] == "Ukraine"
-    assert ukraine["level"] == 67  # twice its normal
+    ukraine = next(c for c in body["countries"] if c["name"] == "Ukraine")
+    assert ukraine["level"] == 100
+    assert ukraine["band"] == "severe"
+    assert ukraine["raw"] == 4.0
+    assert ukraine["vs_normal"] == 100  # twice its usual live activity
     assert ukraine["events"] == {"conflict": 1}
     assert ukraine["top"][0]["id"] == "EVT1"
     east = next(t for t in body["theatres"] if t["key"] == "eastern-europe")
-    assert east["raw"] == 4.0
-    assert body["world"]["level"] == 50
+    assert east["level"] >= 50
+    assert body["ucdp_through"]
+    assert 0 < body["world"]["level"] <= 100
 
 
 async def test_tension_requires_sign_in(client):
@@ -169,10 +189,10 @@ async def test_backfill_from_stored_events(app):
         assert await tension.backfill(db, now) == 0
 
 
-async def test_cold_start_is_not_alarming(app, admin_client):
+async def test_live_news_alone_stays_moderate(app, admin_client):
     now = utcnow()
     async with app.state.db.sessionmaker() as db:
-        for i, country in enumerate(("Ukraine", "Ukraine", "Chile")):
+        for i, country in enumerate(("Canada", "Canada", "Canada")):
             db.add(
                 Event(
                     id="C{0}".format(i),
@@ -189,8 +209,13 @@ async def test_cold_start_is_not_alarming(app, admin_client):
                 )
             )
         await db.commit()
-    body = (await admin_client.get("/api/tension")).json()
+    async with app.state.db.sessionmaker() as db:
+        body = await tension.snapshot(db, limit=200)
     assert body["baseline_days"] == 0
-    assert body["world"]["level"] == 50
-    names = [c["name"] for c in body["countries"]]
-    assert names[0] == "Ukraine"
+    canada = next(c for c in body["countries"] if c["name"] == "Canada")
+    # Three fresh clashes in a country UCDP has as nearly calm: mostly
+    # live points, well below the countries at war.
+    assert canada["standing"] < 25
+    assert canada["level"] < 40
+    assert canada["vs_normal"] is None
+    assert body["countries"][0]["name"] in ("Ukraine", "Sudan")

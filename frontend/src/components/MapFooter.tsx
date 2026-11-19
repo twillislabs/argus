@@ -4,12 +4,8 @@ import { cursorStore } from '../lib/cursor';
 import type { EventItem } from '../lib/api';
 import { TYPE_INFO } from '../lib/format';
 import { toMgrs } from '../lib/mgrs';
+import { altitude, roundDistance } from '../lib/units';
 
-function km(m: number): string {
-  if (m >= 10_000) return Math.round(m / 1000).toLocaleString() + ' km';
-  if (m >= 1000) return (m / 1000).toFixed(1) + ' km';
-  return Math.round(m).toLocaleString() + ' m';
-}
 
 // Bottom left of the map: MGRS and lat/lon under the cursor, and the
 // camera's eye altitude (as in the mock-up).
@@ -26,24 +22,20 @@ export function CursorReadout() {
       <span>LAT/LON</span>
       <b>{ll}</b>
       <span>EYE ALT</span>
-      <b>{km(c.eyeAlt)}</b>
+      <b>{altitude(c.eyeAlt)}</b>
     </div>
   );
 }
-
-const NICE = [1, 2, 5];
 
 // Bottom right: a scale bar about 100 px long with a round distance.
 export function ScaleBar() {
   const c = useSyncExternalStore(cursorStore.subscribe, cursorStore.get);
   if (!c.metresPerPixel) return null;
-  const target = c.metresPerPixel * 100;
-  const pow = 10 ** Math.floor(Math.log10(target));
-  const step = NICE.map((n) => n * pow).filter((n) => n <= target).pop() ?? pow;
-  const width = Math.max(20, Math.round(step / c.metresPerPixel));
+  const step = roundDistance(c.metresPerPixel * 100);
+  const width = Math.max(20, Math.round(step.metres / c.metresPerPixel));
   return (
-    <div className="scalebar" aria-label={'Scale ' + km(step)}>
-      <span>{km(step)}</span>
+    <div className="scalebar" aria-label={'Scale ' + step.label}>
+      <span>{step.label}</span>
       <i style={{ width }} />
     </div>
   );

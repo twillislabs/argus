@@ -163,3 +163,15 @@ def test_eonet_links_avoid_login_pages():
     assert public_link(both, 35.0, -110.0, "2026-11-18") == (
         "https://inciweb.wildfire.gov/x"
     )
+
+
+def test_eonet_links_avoid_downloads():
+    from argus.collectors.hazards import JTWC_PAGE, public_link
+
+    jtwc = [
+        {
+            "id": "JTWC",
+            "url": "https://www.metoc.navy.mil/jtwc/products/sh0427.tcw",
+        }
+    ]
+    assert public_link(jtwc, -15.0, 80.0, "2026-11-18") == JTWC_PAGE

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { type Home, nearestPlace, type Place, searchPlaces } from '../lib/api';
 import { browserTimeZone } from '../lib/format';
+import { distance } from '../lib/units';
 
 interface Props {
   value: Home | null;
@@ -168,7 +169,7 @@ export default function HomePicker({ value, onChange }: Props) {
           >
             {RADII.map((r) => (
               <option key={r} value={r}>
-                {r.toLocaleString()} km
+                {distance(r)}
               </option>
             ))}
           </select>

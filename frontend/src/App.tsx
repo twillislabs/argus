@@ -12,6 +12,7 @@ import MapPage from './pages/MapPage';
 import NewsPage from './pages/NewsPage';
 import SettingsPage from './pages/SettingsPage';
 import SetupPage from './pages/SetupPage';
+import { setUnits } from './lib/units';
 
 type Boot =
   | { state: 'loading' }
@@ -73,6 +74,9 @@ export default function App() {
   if (boot.state === 'signedIn' && (path === '/login' || path === '/setup')) {
     return <Navigate to="/" replace />;
   }
+
+  // Display units for every page (Settings > Display).
+  if (boot.state === 'signedIn') setUnits(boot.me.preferences.units);
 
   // A temporary password must be replaced before anything else.
   if (boot.state === 'signedIn' && boot.me.user.must_change_password) {

@@ -28,6 +28,7 @@ export interface Preferences {
   show_banner?: boolean;
   left_open?: boolean;
   right_open?: boolean;
+  units?: 'imperial' | 'metric';
   [key: string]: unknown;
 }
 
@@ -477,13 +478,19 @@ export interface TensionArea {
   key: string;
   name: string;
   level: number;
-  band: 'normal' | 'elevated' | 'high' | 'severe';
-  raw: number;
-  baseline: number | null;
+  band: 'calm' | 'elevated' | 'high' | 'severe';
   change_24h: number;
   top: { id: string; title: string; type: string; severity: number; status: string; weight: number }[];
 }
 export interface TensionCountry extends TensionArea {
+  // Points from UCDP deaths over 12 months, and from live events.
+  standing: number;
+  live: number;
+  raw: number;
+  deaths_12m: number;
+  deaths_prev_12m: number;
+  // Live activity against its 90-day average (%), once there's history.
+  vs_normal: number | null;
   events: Record<string, number>;
   theatre: string | null;
 }
@@ -495,7 +502,8 @@ export interface Tension {
   updated: string;
   baseline_days: number;
   baseline_ready: boolean;
-  world: TensionArea;
+  ucdp_through: string;
+  world: TensionArea & { vs_normal: number | null };
   theatres: TensionTheatre[];
   countries: TensionCountry[];
 }

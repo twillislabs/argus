@@ -4,6 +4,7 @@ import { getVessel, type Vessel } from '../lib/api';
 import { latLon } from '../lib/format';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import { VESSEL_COLOR } from '../map/vesselLayer';
+import { length } from '../lib/units';
 
 const POLL_MS = 10_000;
 
@@ -130,11 +131,11 @@ export default function VesselInspector({ mmsi, camera, onBack, onCamera, onFly,
               </div>
               <div>
                 <dt>Draught</dt>
-                <dd>{v.draught !== null ? v.draught + ' m' : '—'}</dd>
+                <dd>{v.draught !== null ? length(v.draught) : '—'}</dd>
               </div>
               <div>
                 <dt>Size</dt>
-                <dd>{v.length ? v.length + ' × ' + (v.beam ?? '?') + ' m' : '—'}</dd>
+                <dd>{v.length ? length(v.length) + ' × ' + (v.beam ? length(v.beam) : '?') : '—'}</dd>
               </div>
               <div>
                 <dt>IMO</dt>

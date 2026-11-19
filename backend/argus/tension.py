@@ -1,26 +1,37 @@
-"""Tension index: how tense a country, theatre or the world is right now
-compared with its own recent past.
+"""Tension index: how much organised violence a country, theatre or the
+world is seeing, on a 0-100 scale that lines up with conflict indexes
+built on the same kind of data (ACLED, UCDP, the Global Peace Index).
 
-Each confirmed conflict, unrest or maritime-security event adds
-severity × confidence × type weight, halving every 12 hours since it was
-last updated. Unconfirmed (candidate) GDELT reports don't count: most are
-noise from English-language coverage (a "military force" report placed
-at the White House). That sum is the area's *raw* score.
+Two parts:
 
-The worker samples raw scores every hour into `tension_daily` (one row per
-area per day: the sum of samples and how many there were). The baseline is
-the mean hourly raw score over the 90 days before today. The index is
+- **Standing level**, from UCDP (Uppsala Conflict Data Program, CC BY
+  4.0): deaths from state-based, non-state and one-sided violence over
+  the last twelve months of data, bundled in data/conflict.tsv.gz by
+  scripts/build_conflict.py. On a log scale: 10 deaths a year is about
+  21, 1,000 about 64, 50,000 or more 100.
+- **Live activity**, from Argus's own confirmed conflict, unrest and
+  maritime-security events: severity × confidence × type weight, halving
+  every 12 hours (the *raw* score). It adds up to 20 points, so a
+  country UCDP has as calm only reaches "elevated" on live news alone.
+  Unconfirmed GDELT reports don't count: most are noise from
+  English-language coverage.
 
-    r = raw / max(baseline, MIN_BASELINE)
-    level = 100 × r / (r + 1)
+level = min(100, standing + live). The world is the mean of the 20
+highest countries; a theatre is led by its highest country (60%) with
+the mean of its top three (40%).
 
-so 50 is normal for that area, 67 is twice normal and 75 three times. The
-floor keeps a quiet country with one event from jumping to 100.
+Separately, the worker samples raw scores hourly into tension_daily, and
+"vs normal" compares today's live activity with its 90-day average once
+there are three days of history.
 """
 
 import bisect
+import gzip
+import math
+import os
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from functools import lru_cache
 from typing import Any
 
 from sqlalchemy import delete, func, select
@@ -44,6 +55,29 @@ WORLD = "world"
 MIN_RAW_LISTED = 0.5
 
 # GDELT and RSS place names for the same country.
+CONFLICT_DATA = os.path.join(
+    os.path.dirname(__file__), "data", "conflict.tsv.gz"
+)
+# Deaths a year that score 100 on the standing level.
+STANDING_REF = 50_000
+LIVE_MAX = 20.0
+WORLD_TOP = 20
+THEATRE_TOP = 3
+# Places GDELT puts in Israel that are Palestinian territory.
+PALESTINE_PLACES = (
+    "gaza",
+    "rafah",
+    "khan yunis",
+    "khan younis",
+    "jabalia",
+    "west bank",
+    "ramallah",
+    "jenin",
+    "nablus",
+    "hebron",
+    "tulkarm",
+)
+
 ALIASES = {
     "Gaza Strip": "Palestine",
     "West Bank": "Palestine",
@@ -169,7 +203,39 @@ THEATRES = (
             }
         ),
     ),
-    Theatre("americas", "Americas", (-170.0, -56.0, -30.0, 72.0)),
+    Theatre(
+        "americas",
+        "Americas",
+        (-170.0, -56.0, -30.0, 72.0),
+        frozenset(
+            {
+                "United States",
+                "Canada",
+                "Mexico",
+                "Guatemala",
+                "Honduras",
+                "El Salvador",
+                "Nicaragua",
+                "Costa Rica",
+                "Panama",
+                "Cuba",
+                "Haiti",
+                "Dominican Republic",
+                "Jamaica",
+                "Colombia",
+                "Venezuela",
+                "Ecuador",
+                "Peru",
+                "Bolivia",
+                "Brazil",
+                "Paraguay",
+                "Uruguay",
+                "Argentina",
+                "Chile",
+                "Trinidad and Tobago",
+            }
+        ),
+    ),
 )
 THEATRE_BY_ID = {t.id: t for t in THEATRES}
 
@@ -177,6 +243,52 @@ THEATRE_BY_ID = {t.id: t for t in THEATRES}
 def country_name(raw: str) -> str:
     name = (raw or "").strip()
     return ALIASES.get(name, name)
+
+
+def event_country(e: Any) -> str:
+    country = country_name(e.country)
+    if country == "Israel" and (e.place or "").lower().startswith(
+        PALESTINE_PLACES
+    ):
+        return "Palestine"
+    return country
+
+
+@lru_cache(maxsize=1)
+def conflict_data(path: str = CONFLICT_DATA) -> tuple[dict[str, dict], str]:
+    """UCDP deaths per country (12 months and the 12 before), and the
+    month the data runs to."""
+    out: dict[str, dict] = {}
+    through = ""
+    try:
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("#"):
+                    through = line.rsplit(" ", 1)[-1].strip()
+                    continue
+                parts = line.rstrip("\n").split("\t")
+                if parts[0] == "country" or len(parts) < 4:
+                    continue
+                out[parts[0]] = {
+                    "deaths_12m": int(parts[1]),
+                    "deaths_prev_12m": int(parts[2]),
+                    "events_12m": int(parts[3]),
+                }
+    except FileNotFoundError:
+        pass
+    return out, through
+
+
+def standing(deaths: int) -> float:
+    if deaths <= 0:
+        return 0.0
+    return min(
+        100.0, 100 * math.log10(1 + deaths) / math.log10(1 + STANDING_REF)
+    )
+
+
+def live_points(raw: float) -> float:
+    return min(LIVE_MAX, 8 * math.log2(1 + max(0.0, raw)))
 
 
 def theatre_for(country: str, lat: float, lon: float) -> str | None:
@@ -214,7 +326,7 @@ def raw_scores(events: list, now: datetime) -> dict[str, float]:
         w = weight(e, now)
         if w <= 0:
             continue
-        country = country_name(e.country)
+        country = event_country(e)
         scores[WORLD] += w
         if country:
             scores[country] = scores.get(country, 0.0) + w
@@ -225,19 +337,25 @@ def raw_scores(events: list, now: datetime) -> dict[str, float]:
     return scores
 
 
-def level(raw: float, baseline: float | None) -> int:
-    r = raw / max(baseline or 0.0, MIN_BASELINE)
-    return round(100 * r / (r + 1))
+def level(standing_points: float, raw: float) -> int:
+    return min(100, round(standing_points + live_points(raw)))
 
 
 def band(value: int) -> str:
     if value >= 80:
         return "severe"
-    if value >= 67:
+    if value >= 60:
         return "high"
-    if value >= 55:
+    if value >= 35:
         return "elevated"
-    return "normal"
+    return "calm"
+
+
+def vs_normal(raw: float, base: float | None) -> int | None:
+    """Live activity against its 90-day average, in percent."""
+    if base is None:
+        return None
+    return round((raw / max(base, MIN_BASELINE) - 1) * 100)
 
 
 async def recent_events(db: AsyncSession, now: datetime) -> list[Event]:
@@ -384,25 +502,57 @@ async def prune(db: AsyncSession, today: date) -> None:
     )
 
 
-def _area(
-    key: str, name: str, raw: float, before: float, base: float | None
+def _country(
+    name: str,
+    raw: float,
+    before: float,
+    base: float | None,
+    ucdp: dict | None,
 ) -> dict[str, Any]:
-    value = level(raw, base)
+    stand = standing(ucdp["deaths_12m"]) if ucdp else 0.0
+    value = level(stand, raw)
+    return {
+        "key": name,
+        "name": name,
+        "level": value,
+        "band": band(value),
+        "standing": round(stand),
+        "live": round(live_points(raw)),
+        "raw": round(raw, 2),
+        "deaths_12m": ucdp["deaths_12m"] if ucdp else 0,
+        "deaths_prev_12m": ucdp["deaths_prev_12m"] if ucdp else 0,
+        "vs_normal": vs_normal(raw, base),
+        "change_24h": value - level(stand, before),
+    }
+
+
+def _combine(levels: list[int], top: int, lead: float) -> int:
+    best = sorted(levels, reverse=True)[:top]
+    best += [0] * (top - len(best))
+    mean = sum(best) / top
+    return round(lead * best[0] + (1 - lead) * mean)
+
+
+def _rollup(
+    key: str, name: str, members: list[dict], top: int, lead: float = 0.0
+) -> dict:
+    value = _combine([c["level"] for c in members], top, lead)
+    before = _combine(
+        [c["level"] - c["change_24h"] for c in members], top, lead
+    )
     return {
         "key": key,
         "name": name,
         "level": value,
         "band": band(value),
-        "raw": round(raw, 2),
-        "baseline": round(base, 2) if base is not None else None,
-        "change_24h": value - level(before, base),
+        "change_24h": value - before,
     }
 
 
 def _top_events(events: list, now: datetime, key: str, n: int = 3) -> list:
     picked = []
     for e in events:
-        country = country_name(e.country)
+        country = event_country(e)
         theatre = theatre_for(country, e.lat, e.lon)
         if key not in (WORLD, country, "theatre:{0}".format(theatre)):
             continue
@@ -424,92 +574,74 @@ def _top_events(events: list, now: datetime, key: str, n: int = 3) -> list:
 
 
 async def snapshot(
-    db: AsyncSession, now: datetime | None = None, limit: int = 30
+    db: AsyncSession, now: datetime | None = None, limit: int = 150
 ) -> dict[str, Any]:
     now = now or utcnow()
     events = await recent_events(db, now)
     current = raw_scores(events, now)
     before = raw_scores(events, now - timedelta(hours=24))
     base, days = await baselines(db, now.date())
-    trusted = days >= MIN_BASELINE_DAYS
-    # With under three days of history, compare each country with a
-    # typical country today, and the world and theatres with themselves
-    # (50): there's nothing yet to say they're above normal.
-    countries_now = [
-        v
-        for k, v in current.items()
-        if k != WORLD and not k.startswith("theatre:") and v > 0
-    ]
-    typical = sum(countries_now) / len(countries_now) if countries_now else 0
-
-    def baseline_for(key: str) -> float | None:
-        if days >= MIN_USABLE_DAYS:
-            # Some history: use it (flagged as learning until a week).
-            return base.get(key, 0.0)
-        if key == WORLD or key.startswith("theatre:"):
-            return current.get(key) or None
-        return typical
+    usable = days >= MIN_USABLE_DAYS
+    ucdp, through = conflict_data()
 
     by_type: dict[str, dict[str, int]] = {}
     for e in events:
         if weight(e, now) <= 0:
             continue
-        country = country_name(e.country)
+        country = event_country(e)
         if country:
             counts = by_type.setdefault(country, {})
             counts[e.type] = counts.get(e.type, 0) + 1
 
+    names = {
+        k for k in current if k != WORLD and not k.startswith("theatre:")
+    } | set(ucdp)
     countries = []
-    for key, raw in current.items():
-        if key == WORLD or key.startswith("theatre:"):
+    for name in names:
+        item = _country(
+            name,
+            current.get(name, 0.0),
+            before.get(name, 0.0),
+            base.get(name, 0.0) if usable else None,
+            ucdp.get(name),
+        )
+        if item["level"] < 1:
             continue
-        if raw < MIN_RAW_LISTED:
-            continue
-        item = _area(key, key, raw, before.get(key, 0.0), baseline_for(key))
-        item["events"] = by_type.get(key, {})
-        item["top"] = _top_events(events, now, key)
-        theatre = theatre_for(key, 0.0, 0.0)
-        item["theatre"] = theatre if theatre != "americas" else None
+        item["events"] = by_type.get(name, {})
+        item["top"] = _top_events(events, now, name)
+        item["theatre"] = theatre_for(name, 0.0, 0.0)
         countries.append(item)
-    # Highest level first; raw breaks ties so busier places lead.
     countries.sort(key=lambda c: (c["level"], c["raw"]), reverse=True)
 
     theatres = []
     for t in THEATRES:
-        key = "theatre:" + t.id
-        item = _area(
-            t.id,
-            t.name,
-            current.get(key, 0.0),
-            before.get(key, 0.0),
-            baseline_for(key),
-        )
+        members = [c for c in countries if c["theatre"] == t.id]
+        item = _rollup(t.id, t.name, members, THEATRE_TOP, lead=0.6)
         item["bbox"] = list(t.bbox)
-        item["top"] = _top_events(events, now, key)
-        item["countries"] = [
-            c["name"] for c in countries if c.get("theatre") == t.id
-        ][:5]
+        item["top"] = _top_events(events, now, "theatre:" + t.id)
+        item["countries"] = [c["name"] for c in members][:5]
         theatres.append(item)
 
-    world = _area(
-        WORLD,
-        "World",
-        current[WORLD],
-        before.get(WORLD, 0.0),
-        baseline_for(WORLD),
-    )
+    world = _rollup(WORLD, "World", countries, WORLD_TOP)
     world["top"] = _top_events(events, now, WORLD, 5)
+    world["raw"] = round(current[WORLD], 2)
+    world["vs_normal"] = vs_normal(
+        current[WORLD], base.get(WORLD) if usable else None
+    )
     return {
         "updated": now.isoformat(),
         "baseline_days": days,
-        "baseline_ready": trusted,
+        "baseline_ready": days >= MIN_BASELINE_DAYS,
+        "ucdp_through": through,
         "world": world,
         "theatres": theatres,
         "countries": countries[:limit],
         "method": {
+            "standing": "UCDP deaths, last 12 months (CC BY 4.0)",
+            "standing_ref_deaths": STANDING_REF,
+            "live_max": LIVE_MAX,
             "half_life_h": HALF_LIFE_H,
             "baseline_days": BASELINE_DAYS,
             "weights": WEIGHTS,
-            "candidate_factor": CANDIDATE_FACTOR,
         },
     }
