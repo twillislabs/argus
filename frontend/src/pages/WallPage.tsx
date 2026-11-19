@@ -314,8 +314,8 @@ export default function WallPage({ me }: { me: Me }) {
           selectedMmsi={null}
           trackTarget={null}
           airspace={airspace}
-          // As in the mock-up: closed airspace hatched, GPS hexes, nuclear
-          // plants and submarine cables.
+          // By default as in the mock-up: closed airspace hatched, GPS
+          // hexes and nuclear plants (cables only when a screen asks).
           airspaceFilters={{ ...DEFAULT_AIRSPACE, czib: on('czib'), gps: on('gps'), sigmet: on('sigmet') }}
           selectedAirspace={null}
           gpsCells={gpsCells}

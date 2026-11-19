@@ -127,8 +127,9 @@ Displays (**Wall settings** next to the screen):
 - **Seconds per stop** (10 to 600) and whether **new critical events
   interrupt** the tour.
 - **Map layers:** country tension, events, military aircraft, conflict
-  zone bulletins, GPS interference, nuclear plants, submarine cables,
-  military bases and SIGMETs.
+  zone bulletins, GPS interference and nuclear plants are on by default;
+  submarine cables, military bases and SIGMETs are off until you turn
+  them on.
 - **Live news** on or off, its **channel**, and up to four extra
   **clocks**.
 

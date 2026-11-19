@@ -53,7 +53,7 @@ export const WALL_LAYERS: { id: WallLayer; label: string; on: boolean }[] = [
   { id: 'czib', label: 'Conflict zone bulletins', on: true },
   { id: 'gps', label: 'GPS interference', on: true },
   { id: 'nuclear', label: 'Nuclear plants', on: true },
-  { id: 'cables', label: 'Submarine cables', on: true },
+  { id: 'cables', label: 'Submarine cables', on: false },
   { id: 'bases', label: 'Military bases', on: false },
   { id: 'sigmet', label: 'SIGMETs', on: false },
 ];
