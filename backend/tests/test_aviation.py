@@ -302,6 +302,21 @@ async def test_list_aircraft_merges_civil(admin_client, app):
     assert wide["civil_status"] == "zoom"
 
 
+async def test_air_disabled_fetches_nothing(admin_client, app):
+    fake = FakeClient(area=[normalise(raw("a789bc", dbFlags=0))])
+    app.state.air_client = fake
+    app.state.settings.air_enabled = False
+    try:
+        body = (
+            await admin_client.get("/api/aircraft?bbox=-88,35,-85,37.5")
+        ).json()
+        missing = await admin_client.get("/api/aircraft/a789bc")
+    finally:
+        app.state.settings.air_enabled = True
+    assert body["civil_status"] == "off" and fake.area_calls == []
+    assert missing.status_code == 404
+
+
 async def test_aircraft_detail(admin_client, app):
     civil = normalise(raw("a789bc", flight="DAL1208", t="B753", dbFlags=0))
     app.state.air_client = FakeClient(lookups={("hex", "a789bc"): [civil]})

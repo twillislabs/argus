@@ -265,7 +265,8 @@ parts connect.
   per-feed pause until reset, fallback); the worker's military poll uses
   `POLL_ORDER` (adsb.fi first), the API `VIEW_ORDER`. Don't add direct
   calls. Throwaway stacks spend the same quota: keep
-  `ARGUS_AIR_ENABLED=false` there.
+  `ARGUS_AIR_ENABLED=false` there (it stops the worker's polls and the
+  API's per-view civil fetches and hex lookups).
 - Map markers use `disableDepthTestDistance` = horizon distance (infinite
   in 2D), set in `Globe.tsx`; otherwise the dark map's land and border
   shapes clip them. New primitive collections need the same.

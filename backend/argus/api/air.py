@@ -23,7 +23,9 @@ async def list_aircraft(
     """Military aircraft everywhere, plus civil traffic for a regional view.
 
     Civil aircraft are fetched from adsb.lol only when the view fits in a
-    250 nm radius; otherwise civil_status says to zoom in.
+    250 nm radius; otherwise civil_status says to zoom in. With
+    ARGUS_AIR_ENABLED=false (test stacks) nothing is fetched: the feeds'
+    quota is shared by every stack on the machine.
     """
     try:
         box = parse_bbox(bbox)
@@ -35,6 +37,8 @@ async def list_aircraft(
     out = {a["hex"]: a for a in local.in_bbox(box)}
     out.update({a["hex"]: a for a in air.in_bbox(box)})
     civil_status = "off"
+    if not request.app.state.settings.air_enabled:
+        civil = False
     if civil and box is not None:
         area = radius_for_bbox(box)
         if area is None:
@@ -91,7 +95,7 @@ async def get_aircraft(request: Request, session: SessionDep, hex_id: str):
         or request.app.state.local_air.aircraft.get(hex_id)
         or client.seen_recently(hex_id)
     )
-    if aircraft is None:
+    if aircraft is None and request.app.state.settings.air_enabled:
         try:
             hits = await client.lookup("hex", hex_id)
         except Exception as exc:  # noqa: BLE001
