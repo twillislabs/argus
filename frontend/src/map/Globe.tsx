@@ -303,6 +303,7 @@ export interface GlobeHandle {
   plant: (index: number) => Plant | null;
   airport: (index: number) => Airport | null;
   port: (index: number) => Port | null;
+  setAirportRings: (colors: Record<string, string>) => void;
   cable: (id: string) => { id: string; name: string } | null;
   base: (index: number) => Base | null;
   satPasses: (norad: number, lat: number, lon: number) => Promise<Pass[]>;
@@ -486,6 +487,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const tracker = useRef<AircraftCamera | null>(null);
   const photo3d = useRef<Cesium3DTileset | null>(null);
   const overlays = useRef<Overlays | null>(null);
+  // Set before the overlays finish loading too; applied when they do.
+  const airportRings = useRef<Record<string, string>>({});
   const sats = useRef<SatelliteLayer | null>(null);
   const ships = useRef<VesselLayer | null>(null);
   const shapes = useRef<PolylineCollection | null>(null);
@@ -669,6 +672,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         return;
       }
       overlays.current = o;
+      o.setAirportRings(airportRings.current);
       o.setLayers(referenceRef.current);
       o.setImagery(basemapRef.current === 'dark' ? 'dark' : basemapRef.current === 'hybrid' ? 'hybrid' : 'satellite');
       depthNow = -1;
@@ -1333,6 +1337,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         },
         port(index) {
           return overlays.current?.port(index) ?? null;
+        },
+        setAirportRings(colors) {
+          airportRings.current = colors;
+          overlays.current?.setAirportRings(colors);
         },
         cable(id) {
           return infraLayer.current?.cable(id) ?? null;

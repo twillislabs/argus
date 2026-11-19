@@ -82,6 +82,12 @@ def _clip(aircraft: list[dict], box) -> list[dict]:
     ]
 
 
+@router.get("/api/airports/status")
+async def airport_status(request: Request, session: SessionDep):
+    """FAA ground stops, delays and closure notices for US airports."""
+    return await request.app.state.faa.get()
+
+
 @router.get("/api/aircraft/{hex_id}")
 async def get_aircraft(request: Request, session: SessionDep, hex_id: str):
     """One aircraft: position, type details, route and its trail."""

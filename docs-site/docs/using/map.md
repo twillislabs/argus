@@ -226,7 +226,7 @@ The **Reference** group in the layer panel draws over any base map:
 | **State / province borders** | First-level divisions (states, provinces, oblasts), below about 6,000 km | off |
 | **Place labels** | Argus's own names: countries on wide views, cities of 200,000+ as you zoom in, larger cities first | on |
 | **Basemap labels** | The map tiles' own names and roads, which fade in below about 450 km and take over from Argus's labels there. Turn off for Argus's labels only, at every height | on |
-| **Airports** | Large airports with their IATA code, below about 1,200 km. Hover for its name; click for its details and recent headlines from your news feeds that name it | off |
+| **Airports** | Large airports with their IATA code, below about 1,200 km. Hover for its name; click for its details and recent headlines from your news feeds that name it. US airports also show the FAA's live status: a red ring for a ground stop or closure, amber for a ground delay program or delays, with the details in the panel | off |
 | **Ports** | UN/LOCODE ports: sea ports (near the coast) below about 1,500 km, named when close; river and inland ports only close in. Hover or click one as for airports | off |
 | **Travel advisories** | Countries the US State Department or the UK FCDO warn about, outlined and lightly shaded in the worse of the two: yellow for increased caution (US level 2), orange for reconsider travel or "avoid travel to parts" (US 3), red for do not travel (US 4). Hover for both governments' advice; click for the summary and links to the full advice. Refreshed every six hours | off |
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api, type Article } from '../lib/api';
 import { ago } from '../lib/format';
+import { FAA_COLOR, faaLevel, faaLine, type FaaStatus, getFaaStatus } from '../lib/faa';
 import CopyCoords from './CopyCoords';
 
 // An airport or port from the reference layers: what it is, where, and
@@ -42,11 +43,22 @@ export default function PlaceInspector({
   place,
   onBack,
   onFly,
+  faa,
 }: {
   place: PlaceItem;
   onBack: () => void;
   onFly: () => void;
+  // The map's copy, when it has one (the airports layer polls it).
+  faa?: FaaStatus | null;
 }) {
+  const [ownFaa, setOwnFaa] = useState<FaaStatus | null>(null);
+  const status = faa ?? ownFaa;
+  useEffect(() => {
+    if (place.kind !== 'airport' || faa) return;
+    getFaaStatus()
+      .then(setOwnFaa)
+      .catch(() => setOwnFaa({ updated: null, airports: {}, status: 'error' }));
+  }, [place.kind, place.code, faa]);
   const [articles, setArticles] = useState<Article[] | null>(null);
   const terms = searchTerms(place.name);
   const key = place.kind + place.code;
@@ -113,6 +125,7 @@ export default function PlaceInspector({
           </div>
         </dl>
       </section>
+      {place.kind === 'airport' && <FaaSection code={place.code} status={status} />}
       <section className="isec">
         <h3>Headlines{articles ? ' · ' + articles.length : ''}</h3>
         {articles === null ? (
@@ -139,5 +152,47 @@ export default function PlaceInspector({
         </p>
       </section>
     </div>
+  );
+}
+
+function FaaSection({ code, status }: { code: string; status: FaaStatus | null }) {
+  const items = status?.airports[code] ?? [];
+  const level = faaLevel(items);
+  return (
+    <section className="isec">
+      <h3>
+        FAA status
+        {level && (
+          <span className="badge" style={{ ['--c' as string]: FAA_COLOR[level], marginLeft: 8 }}>
+            {level === 'stop' ? 'Stopped' : 'Delays'}
+          </span>
+        )}
+      </h3>
+      {status === null ? (
+        <p className="quiet small">Checking…</p>
+      ) : status.status === 'error' ? (
+        <p className="quiet small">The FAA status couldn&apos;t be reached just now.</p>
+      ) : items.length ? (
+        <ul className="faalist">
+          {items.map((i, n) => {
+            const { title, detail } = faaLine(i);
+            return (
+              <li key={n}>
+                <b>{title}</b>
+                {detail && <span>{detail}</span>}
+                {i.reason && <small className="mono">{i.reason}</small>}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="quiet small">No ground stops, delays or closures listed for {code}.</p>
+      )}
+      <p className="quiet small">
+        FAA National Airspace System status (US airports only)
+        {status?.updated ? ', as of ' + status.updated : ''}
+        {status?.status === 'stale' ? '; the latest check failed, so this may be out of date' : ''}.
+      </p>
+    </section>
   );
 }

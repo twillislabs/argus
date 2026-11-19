@@ -32,6 +32,7 @@ from argus.api.deps import RateLimiter
 from argus.aviation import AirClient, GpsGrid, LiveAir
 from argus.config import DEFAULT_SECRET, Settings, get_settings
 from argus.db import Database
+from argus.faa import FaaStatus
 from argus.live import Hub, subscribe_forever
 from argus.openaip import OpenAip
 from argus.sea import LiveSea
@@ -78,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.alpr = Alpr(settings.user_agent, app.state.db)
         app.state.youtube = LiveIds(settings.user_agent)
         app.state.video = Video(settings.user_agent)
+        app.state.faa = FaaStatus(settings.user_agent)
         live_task = None
         if settings.nats_url:
             live_task = asyncio.create_task(
@@ -100,6 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.alpr.close()
         await app.state.youtube.close()
         await app.state.video.close()
+        await app.state.faa.close()
         if hasattr(app.state, "weather_http"):
             await app.state.weather_http.aclose()
         await db.dispose()

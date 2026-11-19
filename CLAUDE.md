@@ -200,7 +200,10 @@ parts connect.
 - Airports and ports (`map/overlays.ts`) are picked as `apt:<i>` and
   `port:<i>` (index into the bundled JSON); `PlaceInspector` shows them
   with headlines from `/api/news?q=` (`searchTerms` trims "International
-  Airport" and the like).
+  Airport" and the like). FAA status (`argus/faa.py`,
+  `/api/airports/status`, nasstatus.faa.gov, cached 2 min in API memory,
+  fetched on demand) rings airports via `setAirportRings`; parsed by
+  each element with an `ARPT` child, so new delay kinds still appear.
 - Labels: Argus labels down to `TILE_LABELS_BELOW` (overlays.ts); below
   it the basemap's label tiles (`LABEL_LAYERS` in Globe.tsx) and the
   self-hosted street map fade in. Mark any new label-carrying imagery
@@ -270,7 +273,8 @@ parts connect.
   `POLL_ORDER` (adsb.fi first), the API `VIEW_ORDER`. Don't add direct
   calls. Throwaway stacks spend the same quota: keep
   `ARGUS_AIR_ENABLED=false` there (it stops the worker's polls and the
-  API's per-view civil fetches and hex lookups).
+  API's per-view civil fetches and hex lookups; compose passes it to
+  both containers).
 - Map markers use `disableDepthTestDistance` = horizon distance (infinite
   in 2D), set in `Globe.tsx`; otherwise the dark map's land and border
   shapes clip them. New primitive collections need the same.

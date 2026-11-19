@@ -31,6 +31,8 @@ services:
       ARGUS_COOKIE_SECURE: ${ARGUS_COOKIE_SECURE:-true}
       ARGUS_LOG_LEVEL: ${ARGUS_LOG_LEVEL:-INFO}
       ARGUS_SETUP_TOKEN: ${ARGUS_SETUP_TOKEN:-}
+      # Also stops the API's per-view civil aircraft fetches.
+      ARGUS_AIR_ENABLED: ${ARGUS_AIR_ENABLED:-true}
     depends_on:
       db:
         condition: service_healthy

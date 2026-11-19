@@ -208,6 +208,8 @@ export interface Overlays {
   // Picked as 'apt:<index>' and 'port:<index>'.
   airport: (index: number) => Airport | null;
   port: (index: number) => Port | null;
+  // Ring colours for airports by code (FAA ground stops and delays).
+  setAirportRings: (colors: Record<string, string>) => void;
   setLayers: (layers: ReferenceLayers) => void;
   setImagery: (mode: LabelMode) => void;
   setDepthDistance: (metres: number) => void;
@@ -417,6 +419,17 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   return {
     airport: (index) => (layers.airports && airports?.[index]) || null,
     port: (index) => (layers.ports && ports?.[index]) || null,
+    setAirportRings(colors) {
+      if (!airports) return;
+      const plain = Color.fromCssColorString('#b4c2d4');
+      for (let i = 0; i < airportDots.length && i < airports.length; i++) {
+        const c = colors[airports[i][0]];
+        const dot = airportDots.get(i) as PointPrimitive;
+        dot.outlineColor = c ? Color.fromCssColorString(c) : plain;
+        dot.outlineWidth = c ? 2.5 : 1.5;
+        dot.pixelSize = c ? 8 : 6;
+      }
+    },
     setLayers(next) {
       layers = next;
       apply();

@@ -5,6 +5,7 @@ import AirspaceInspector from '../components/AirspaceInspector';
 import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
 import PlaceInspector from '../components/PlaceInspector';
+import { FAA_COLOR, faaLevel, faaLine, type FaaStatus, getFaaStatus } from '../lib/faa';
 import AlprInspector from '../components/AlprInspector';
 import BridgeHud from '../components/BridgeHud';
 import CamInspector from '../components/CamInspector';
@@ -807,6 +808,33 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     };
   }, [wikiOn]);
 
+  // FAA airport status while the airports layer is on (the API caches
+  // it two minutes): rings airports with ground stops or delays.
+  const airportsOn = filters.reference.airports;
+  const [faa, setFaa] = useState<FaaStatus | null>(null);
+  useEffect(() => {
+    if (!airportsOn) return;
+    let cancelled = false;
+    const load = () =>
+      getFaaStatus()
+        .then((r) => !cancelled && setFaa(r))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 120_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [airportsOn]);
+  useEffect(() => {
+    const rings: Record<string, string> = {};
+    for (const [code, items] of Object.entries(faa?.airports ?? {})) {
+      const level = faaLevel(items);
+      if (level) rings[code] = FAA_COLOR[level];
+    }
+    globe.current?.setAirportRings(rings);
+  }, [faa]);
+
   // Airspace areas, while any airspace layer is on (every 10 minutes).
   const airspaceOn = filters.airspace.tfr || filters.airspace.sigmet || filters.airspace.czib;
   // GPS cells load even with the layer off: Situation counts them.
@@ -1274,7 +1302,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     }
     if (id.startsWith('apt:')) {
       const a = globe.current?.airport(Number(id.slice(4)));
-      return a ? { title: a[1], color: '#b4c2d4', lines: [a[0] + ' · airport'] } : null;
+      if (!a) return null;
+      const items = faa?.airports[a[0]] ?? [];
+      const level = faaLevel(items);
+      return {
+        title: a[1],
+        color: level ? FAA_COLOR[level] : '#b4c2d4',
+        lines: [a[0] + ' · airport', ...items.slice(0, 3).map((i) => faaLine(i).title)],
+      };
     }
     if (id.startsWith('port:')) {
       const p = globe.current?.port(Number(id.slice(5)));
@@ -1823,6 +1858,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                   lon: selectedAirport[2],
                   lat: selectedAirport[3],
                 }}
+                faa={faa}
                 onBack={clearSelection}
                 onFly={() => globe.current?.flyTo(selectedAirport[3], selectedAirport[2], 20_000)}
               />
