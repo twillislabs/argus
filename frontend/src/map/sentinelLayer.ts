@@ -28,6 +28,9 @@ function layerFor(url: string, box: SentinelView['box']): ImageryLayer {
   const provider = new UrlTemplateImageryProvider({
     url,
     rectangle: Rectangle.fromDegrees(...box),
+    // 512 px tiles (the API asks for @2x): sharper than 256 px ones.
+    tileWidth: 512,
+    tileHeight: 512,
     minimumLevel: 8,
     maximumLevel: 15,
     credit: 'Contains modified Copernicus Sentinel data (Microsoft Planetary Computer)',

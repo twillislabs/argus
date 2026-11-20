@@ -32,8 +32,11 @@ BASE = "https://planetarycomputer.microsoft.com/api"
 STAC_SEARCH = "{0}/stac/v1/search".format(BASE)
 REGISTER = "{0}/data/v1/mosaic/register".format(BASE)
 TILE = (
-    "{0}/data/v1/mosaic/{{sid}}/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}@1x.png"
+    "{0}/data/v1/mosaic/{{sid}}/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}@2x.png"
 ).format(BASE)
+# Tiles are 512 px (@2x): twice the detail of 256 px tiles at each zoom,
+# so the 10 m Sentinel-2 pixels stay sharp when zoomed in.
+TILE_PX = 512
 
 KINDS = {
     "optical": {
@@ -206,7 +209,9 @@ class Imagery:
 
     def _path(self, kind: str, sid: str, z: int, x: int, y: int) -> Path:
         name = hashlib.sha256(
-            "{0}/{1}/{2}/{3}/{4}".format(kind, sid, z, x, y).encode()
+            "{0}/{1}/{2}/{3}/{4}@{5}".format(
+                kind, sid, z, x, y, TILE_PX
+            ).encode()
         ).hexdigest()
         return self.cache_dir / name[:2] / "{0}.png".format(name)
 

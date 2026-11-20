@@ -1,18 +1,18 @@
-// Live news and weather channels for the news overlay. The API looks up
-// each channel's current live video (/api/news/live/<channel>) and the
-// player embeds that video; YouTube no longer plays
-// embed/live_stream?channel=... IDs were checked against each channel's
-// public feed. Only channels with a true live stream (24/7, or live
-// TV simulcast) belong here, plus Ryan Hall, Y'all, who streams live
-// through major weather events. Channels that stream only one-off
-// events were removed (2026-11-20 check).
+// Live news and weather channels for the news overlay. The list is the
+// server's (Settings > Live channels; built in as
+// newsconfig.BUILTIN_CHANNELS), sent with /api/me and put here by the app
+// with setChannels(); the list below is only what shows before that. The
+// API looks up each channel's current live video
+// (/api/news/live/<channel>) and the player embeds that video; YouTube
+// no longer plays embed/live_stream?channel=...
 
 export interface Channel {
   // A YouTube channel ID, or the Rumble channel name for Rumble.
   id: string;
   name: string;
   short: string;
-  group: 'US' | 'International' | 'Business' | 'Weather';
+  // US, International, Business, Weather... or an admin's own group.
+  group: string;
   platform?: 'youtube' | 'rumble';
 }
 
@@ -40,6 +40,16 @@ export const CHANNELS: Channel[] = [
   { id: 'UCJHAT3Uvv-g3I8H3GhHWV7w', name: "Ryan Hall, Y'all", short: 'Ryan Hall', group: 'Weather' },
   { id: 'UC1FbPiXx59_ltnFVx7IxWow', name: 'FOX Weather', short: 'FOX Weather', group: 'Weather' },
 ];
+
+// Replace the list with the server's (App, after /api/me), in place so
+// every module holding CHANNELS sees it.
+export function setChannels(list: Channel[] | undefined) {
+  if (!list || !list.length) return;
+  CHANNELS.splice(0, CHANNELS.length, ...list.map((c) => ({ ...c, platform: c.platform ?? 'youtube' })));
+}
+
+// The channel groups in the order they first appear.
+export const channelGroups = (): string[] => [...new Set(CHANNELS.map((c) => c.group))];
 
 // The tabs shown by default: a mix of US and international outlets.
 export const DEFAULT_TABS = [

@@ -50,6 +50,11 @@ class Collector:
     def enabled(self) -> bool:
         return True
 
+    async def prepare(self, db) -> None:
+        """Read anything the collection needs from the database (an
+        admin's settings) before collect(); most need nothing."""
+        return None
+
     async def collect(
         self, client: httpx.AsyncClient, cursor: str | None
     ) -> CollectResult:

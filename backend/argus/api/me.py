@@ -40,6 +40,12 @@ async def _with_profile(db: DbDep, data: dict) -> dict:
     }
 
 
+async def _channels(db) -> list[dict]:
+    from argus import newsconfig
+
+    return [c for c in await newsconfig.channels(db) if c["enabled"]]
+
+
 @router.get("/api/me", response_model=MeOut)
 async def me(session: SessionDep, db: DbDep) -> MeOut:
     user = await db.get(User, session.user_id)
@@ -48,6 +54,7 @@ async def me(session: SessionDep, db: DbDep) -> MeOut:
         user=UserOut.model_validate(user),
         preferences=await _with_profile(db, prefs.data or {}),
         defaults=await _defaults(db),
+        channels=await _channels(db),
     )
 
 
@@ -73,4 +80,5 @@ async def update_preferences(
         user=UserOut.model_validate(user),
         preferences=merged,
         defaults=await _defaults(db),
+        channels=await _channels(db),
     )

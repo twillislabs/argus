@@ -253,6 +253,8 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .settings { flex: 1; min-height: 0; display: grid; grid-template-columns: 228px minmax(0, 1fr); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
 .snav { border-right: 1px solid var(--line); padding: 14px 10px; overflow: auto; display: grid; align-content: start; gap: 18px; background: var(--bg); }
 .sgroup { display: grid; gap: 2px; }
+.sfind { background: var(--surface); border: 1px solid var(--line-2); border-radius: 4px; padding: 6px 10px; color: var(--text); font-size: 13px; width: 100%; box-sizing: border-box; }
+.sfind:focus { border-color: var(--accent); outline: none; }
 .sgtitle { padding: 0 10px 6px; font: 600 11px/1 var(--f-head); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
 .snav a { padding: 7px 10px; border-radius: 4px; color: var(--muted); text-decoration: none; font-size: 13px; border-left: 2px solid transparent; }
 .snav a:hover { background: var(--surface-2); color: var(--text); }
@@ -300,7 +302,7 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .sw.area { border-radius: 2px; background: none; border: 1.5px solid; }
 
 /* Brief page (mock-up). */
-.brief { flex: 1; min-height: 0; overflow: auto; display: grid; gap: 14px; align-content: start; padding-bottom: 8px; }
+.brief { flex: 1; min-height: 0; overflow: auto; display: grid; gap: 14px; align-content: start; padding-bottom: 8px; padding-right: 12px; scrollbar-gutter: stable; }
 .bhead { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
 .bhead .eyebrow { font-size: 11px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; }
 .bhead h1 { margin: 2px 0 0; font: 600 28px/1.1 var(--f-head); letter-spacing: 0.02em; }
@@ -1000,3 +1002,17 @@ tr.dimrow td { color: var(--dim); }
 .sanclist small {
   color: var(--muted, #8a94a3);
 }
+
+/* Settings: news feeds and live channels */
+.nlist { list-style: none; margin: 0; padding: 4px 12px 12px; display: grid; gap: 2px; }
+.nlist li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 4px; border-radius: 4px; }
+.nlist li:hover { background: var(--surface-2); }
+.nlist li.off .cname { opacity: 0.5; }
+.nlist .lrow.flat { padding: 0; }
+.nlist .cname b { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.nlist .cname small.mono { font-size: 10.5px; }
+.nlist .actions { flex-wrap: nowrap; }
+.nlist .nedit { grid-column: 1 / -1; display: grid; gap: 8px; padding: 8px 0 4px 40px; }
+.feedtest { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); }
+.feedtest ul { margin: 0; padding-left: 18px; font-size: 12px; color: var(--muted); }
+.sfilter { background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 5px 8px; color: var(--text); min-width: 240px; }

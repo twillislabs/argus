@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import LiveFrame from '../components/LiveFrame';
-import { CHANNELS, channelById } from '../config/newsChannels';
+import { CHANNELS, channelById, channelGroups } from '../config/newsChannels';
 
 // A news player in its own window (popped out from the map), so it can
 // sit on another screen. Pick any channel from the list.
@@ -24,7 +24,7 @@ export default function NewsPage() {
           value={channel.id}
           onChange={(e) => setParams({ c: e.target.value }, { replace: true })}
         >
-          {(['US', 'International', 'Business', 'Weather'] as const).map((g) => (
+          {channelGroups().map((g) => (
             <optgroup key={g} label={g}>
               {CHANNELS.filter((c) => c.group === g).map((c) => (
                 <option key={c.id} value={c.id}>

@@ -368,6 +368,8 @@ class MeOut(BaseModel):
     preferences: dict[str, Any]
     # Server-wide defaults set by an admin (layers, news, video).
     defaults: dict[str, Any] = {}
+    # The live channels the news player offers (Settings > Live channels).
+    channels: list[dict[str, Any]] = []
 
 
 class SetupStatus(BaseModel):

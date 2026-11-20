@@ -1,6 +1,6 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 
-import { CHANNELS, DEFAULT_TABS } from '../config/newsChannels';
+import { CHANNELS, channelGroups, DEFAULT_TABS } from '../config/newsChannels';
 import LiveFrame from './LiveFrame';
 
 interface Props {
@@ -131,7 +131,7 @@ export default function NewsPlayer({ index, channel, tabs, onChannel, onTabs, on
       </div>
       {picking ? (
         <div className="np-pick">
-          {(['US', 'International', 'Business', 'Weather'] as const).map((g) => (
+          {channelGroups().map((g) => (
             <div key={g}>
               <div className="np-group">{g}</div>
               {CHANNELS.filter((c) => c.group === g).map((c) => {

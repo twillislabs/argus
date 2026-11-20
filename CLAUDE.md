@@ -243,8 +243,24 @@ parts connect.
   from an Overpass query by `build_bases.py` (ODbL).
 - Your own receivers: `receivers_loop` in the worker; local aircraft go to
   `app.state.local_air` (NATS `argus.local_air`), ships into `LiveSea`.
-- News channels live in `frontend/src/config/newsChannels.ts`; verify a new
-  channel ID with `https://www.youtube.com/feeds/videos.xml?channel_id=`.
+- News feeds and live channels are admin settings (`argus/newsconfig.py`,
+  `api/news.py`, Settings > News feeds and Live channels): the built-in
+  lists (`rss.DEFAULT_FEEDS`, `newsconfig.BUILTIN_CHANNELS`) apply until
+  an admin saves an edited list (`server_settings["news:feeds"]`,
+  `["news:channels"]`, `{"items": [...]}`); Reset deletes it, so new
+  built-in entries reach installs that never edited. Feeds carry
+  `section` and `based` (us/world, used by `us_or_world` for stories
+  naming no country); `RssCollector.prepare` reads them (the worker
+  calls `Collector.prepare(session)` before each `collect`). Channels
+  reach browsers in `/api/me` (`channels`, enabled only); the app puts
+  them into `CHANNELS` with `setChannels` (in place) before pages draw,
+  so code reading `CHANNELS` and `channelGroups()` sees the server's
+  list; `frontend/src/config/newsChannels.ts` only holds the fallback.
+  Admins add a channel by link, @handle or ID (`youtube.lookup_channel`:
+  handle page for the ID, the channel feed's title, `resolve` for live
+  status); feed tests fetch through `url_allowed`.
+  When adding built-in channels, verify the ID with
+  `https://www.youtube.com/feeds/videos.xml?channel_id=`.
   Only add channels with a true live stream (24/7 or a live TV
   simulcast; Ryan Hall, Y'all is the exception, live for major weather
   events): check the channel's Live tab ("N watching") and the
@@ -338,7 +354,9 @@ parts connect.
   list of lists).
 - Rocket launches: `argus/launches.py`, worker `launches_loop` (every
   2 h, honouring the last success across restarts: Launch Library 2
-  allows 15 requests an hour per IP), `/api/launches`,
+  allows 15 requests an hour per IP; `mode=detailed` for the mission's
+  webcast and info links, kept as `links` with Space Launch Now and the
+  pad's pages, Wikipedia last), `/api/launches`,
   `map/launchLayer.ts` (one rocket per pad, its next launch or its
   latest; pickable as `launch:<id>`, shown in InfoInspector). The
   toggle is `SpaceFilters.launches`, which isn't a satellite class.
@@ -355,7 +373,9 @@ parts connect.
   primitive draw nothing: don't add one back.
 - Recent imagery: `argus/imagery.py` + `api/imagery.py` (Planetary
   Computer STAC search, mosaic register, tile proxy cached a week on
-  disk in `ARGUS_IMAGERY_CACHE_DIR`), `map/sentinelLayer.ts` (box-limited
+  disk in `ARGUS_IMAGERY_CACHE_DIR`; tiles are 512 px `@2x`, with
+  `tileWidth`/`tileHeight` 512 in sentinelLayer, so 10 m pixels stay
+  sharp), `map/sentinelLayer.ts` (box-limited
   ImageryLayer, compare via `scene.splitPosition`),
   `components/ImageryPanel.tsx` (state kept in MapPage as `sentinel`).
   Mosaic tile requests need `collection=` as well. Sentinel-1 is the GRD
@@ -405,6 +425,14 @@ parts connect.
   prop applies sound changes through the YouTube player API).
 - Page titles are set per route in `App.tsx` (`pageTitle`); only
   NewsPage sets its own.
+- Settings menu: `SECTIONS` in SettingsPage, grouped by `GROUPS` (You,
+  Map and data, News and video, People and screens, System), each with
+  `keywords` for the menu's search (Enter opens the first match). New
+  pages go in a group, not a new one per page.
+- Drawing previews (`drawTools.renderPreview`) are dashed
+  (`PolylineDash`) until the last click. Capture (`GlobeHandle.capture`)
+  renders at twice the device's pixels, waits up to 8 s for the sharper
+  tiles, then restores `resolutionScale`.
 - Toggles (`.lrow` + `.tog`): the checkbox has `pointer-events: none`,
   so the wrapper must be a `<label>` (or sit inside one), or clicks on
   the switch do nothing. Test toggles with real mouse events, not

@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import AccountCard from '../components/AccountCard';
 import BackupsSection from '../components/BackupsSection';
@@ -11,6 +11,8 @@ import WallEditor from '../components/WallEditor';
 import WallProfiles from '../components/WallProfiles';
 import AiSection from '../components/AiSection';
 import AlertsSection from '../components/AlertsSection';
+import LiveChannelsSection from '../components/LiveChannelsSection';
+import NewsFeedsSection from '../components/NewsFeedsSection';
 import BriefSectionsEditor from '../components/BriefSectionsEditor';
 import { CHANNELS, DEFAULT_TABS } from '../config/newsChannels';
 import {
@@ -47,13 +49,20 @@ interface Props {
   onSignedOut: () => Promise<void>;
 }
 
+// The menu's groups, in order. "You" is your own account; the rest are
+// for admins and apply to everyone.
+const GROUPS = ['You', 'Map and data', 'News and video', 'People and screens', 'System'] as const;
+type Group = (typeof GROUPS)[number];
+
 interface Section {
   id: string;
   label: string;
   title: string;
   description: string;
-  group: 'Personal' | 'Administration';
+  group: Group;
   capability?: string;
+  // More words the menu's search matches.
+  keywords?: string;
 }
 
 const SECTIONS: Section[] = [
@@ -62,14 +71,16 @@ const SECTIONS: Section[] = [
     label: 'Account',
     title: 'Account',
     description: 'Your name, email and password.',
-    group: 'Personal',
+    group: 'You',
+    keywords: 'password email name sign out',
   },
   {
     id: 'alerts',
     label: 'Alerts',
     title: 'Alerts',
     description: 'Rules for what to tell you about, and where: the bell, ntfy on your phone, or a webhook.',
-    group: 'Personal',
+    group: 'You',
+    keywords: 'ntfy webhook discord slack notifications quiet hours',
     capability: 'alerts.use',
   },
   {
@@ -77,21 +88,24 @@ const SECTIONS: Section[] = [
     label: 'Home location',
     title: 'Home location',
     description: 'Where the map opens, the home clock, and the radius for "near home".',
-    group: 'Personal',
+    group: 'You',
+    keywords: 'location radius clock',
   },
   {
     id: 'display',
     label: 'Display',
     title: 'Display',
     description: 'How Argus looks on this account.',
-    group: 'Personal',
+    group: 'You',
+    keywords: 'units banner video volume muted wall clocks theme',
   },
   {
     id: 'users',
     label: 'Users & roles',
     title: 'Users and roles',
     description: 'Who can sign in, and what each person can do.',
-    group: 'Administration',
+    group: 'People and screens',
+    keywords: 'roles admin analyst viewer accounts lockout',
     capability: 'users.manage',
   },
   {
@@ -99,15 +113,37 @@ const SECTIONS: Section[] = [
     label: 'Displays',
     title: 'Wall displays',
     description: 'Pair a TV or kiosk with a code shown on its screen; it then shows the wall. No password is stored on the device.',
-    group: 'Administration',
+    group: 'People and screens',
+    keywords: 'wall tv kiosk pair code profiles',
     capability: 'users.manage',
   },
   {
     id: 'defaults',
     label: 'Defaults',
     title: 'Defaults for everyone',
-    description: 'What the map opens with for every user: layers and filters, news tabs and their order, and how video starts. Each user can still change their own.',
-    group: 'Administration',
+    description:
+      'What everyone starts with: map layers and filters, news tabs and their order, how video starts, and the Brief\'s sections. Each user can still change their own.',
+    group: 'Map and data',
+    keywords: 'layers news tabs brief sections video everyone',
+    capability: 'settings.manage',
+  },
+  {
+    id: 'feeds',
+    label: 'News feeds',
+    title: 'News feeds',
+    description:
+      'The RSS and Atom feeds Argus reads every ten minutes. Their headlines back events, title confirmed ones, make headline-led incidents and fill the Brief\'s top stories.',
+    group: 'News and video',
+    keywords: 'rss atom outlets headlines sources coverage',
+    capability: 'settings.manage',
+  },
+  {
+    id: 'channels',
+    label: 'Live channels',
+    title: 'Live channels',
+    description: 'The YouTube and Rumble channels the news player, the News page and the Wall offer, in this order.',
+    group: 'News and video',
+    keywords: 'youtube rumble live tv streams news player',
     capability: 'settings.manage',
   },
   {
@@ -115,7 +151,8 @@ const SECTIONS: Section[] = [
     label: 'Map imagery',
     title: 'Map imagery',
     description: 'Where Satellite, Hybrid and 3D imagery comes from, for every user.',
-    group: 'Administration',
+    group: 'Map and data',
+    keywords: 'satellite google esri 3d tiles',
     capability: 'settings.manage',
   },
   {
@@ -123,7 +160,8 @@ const SECTIONS: Section[] = [
     label: 'Data sources',
     title: 'Data sources',
     description: 'Keys for sources that need one, and how every source is doing.',
-    group: 'Administration',
+    group: 'Map and data',
+    keywords: 'keys api firms aisstream youtube windy tdot opensanctions collectors health',
     capability: 'settings.manage',
   },
   {
@@ -131,7 +169,8 @@ const SECTIONS: Section[] = [
     label: 'AI',
     title: 'AI (optional)',
     description: 'Bring your own model for the Brief digest, event summaries and Ask Argus.',
-    group: 'Administration',
+    group: 'System',
+    keywords: 'anthropic claude openai ollama digest ask summaries',
     capability: 'settings.manage',
   },
   {
@@ -139,7 +178,8 @@ const SECTIONS: Section[] = [
     label: 'Street map',
     title: 'Self-hosted street map',
     description: 'The OpenStreetMap region this server renders for the Dark map.',
-    group: 'Administration',
+    group: 'Map and data',
+    keywords: 'openstreetmap protomaps region tiles',
     capability: 'settings.manage',
   },
   {
@@ -147,7 +187,8 @@ const SECTIONS: Section[] = [
     label: 'Backups',
     title: 'Backups',
     description: 'Download a full backup, or restore one here or after moving servers.',
-    group: 'Administration',
+    group: 'System',
+    keywords: 'restore download',
     capability: 'backups.manage',
   },
   {
@@ -155,13 +196,16 @@ const SECTIONS: Section[] = [
     label: 'Audit log',
     title: 'Audit log',
     description: 'Sign-ins, account changes and setting changes, newest first.',
-    group: 'Administration',
+    group: 'System',
+    keywords: 'log sign-ins history',
     capability: 'users.manage',
   },
 ];
 
 export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   const { section = 'account' } = useParams();
+  const navigate = useNavigate();
+  const [find, setFind] = useState('');
   const visible = SECTIONS.filter((s) => !s.capability || can(me.user, s.capability));
   const current = visible.find((s) => s.id === section);
   if (!current) return <Navigate to="/settings/account" replace />;
@@ -187,15 +231,35 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   else if (current.id === 'streetmap') body = <StreetMapSection />;
   else if (current.id === 'sources') body = <SourcesSection />;
   else if (current.id === 'audit') body = <AuditSection />;
+  else if (current.id === 'feeds') body = <NewsFeedsSection />;
+  else if (current.id === 'channels') body = <LiveChannelsSection onSaved={onSaved} />;
 
-  const groups = ['Personal', 'Administration'] as const;
+  const q = find.trim().toLowerCase();
+  const matches = (s: Section) =>
+    !q || (s.label + ' ' + s.title + ' ' + s.description + ' ' + (s.keywords ?? '')).toLowerCase().includes(q);
   return (
     <div className="app">
       <AppHeader me={me} onSignedOut={onSignedOut} />
       <main className="settings">
         <nav className="snav" aria-label="Settings">
-          {groups.map((g) => {
-            const items = visible.filter((s) => s.group === g);
+          <input
+            className="sfind"
+            type="search"
+            placeholder="Find a setting"
+            aria-label="Find a setting"
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter opens the first match.
+              const first = visible.find(matches);
+              if (e.key === 'Enter' && first) {
+                navigate('/settings/' + first.id);
+                setFind('');
+              }
+            }}
+          />
+          {GROUPS.map((g) => {
+            const items = visible.filter((s) => s.group === g && matches(s));
             if (!items.length) return null;
             return (
               <div key={g} className="sgroup">
@@ -212,10 +276,11 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
               </div>
             );
           })}
+          {q && !visible.some(matches) && <p className="quiet small">No setting matches.</p>}
         </nav>
         <div className="settings-body">
           <header className="shead">
-            {current.group === 'Administration' && <span className="eyebrow">Administration · all users</span>}
+            <span className="eyebrow">{current.group === 'You' ? 'Your account' : current.group + ' · all users'}</span>
             <h1>{current.title}</h1>
             <p>{current.description}</p>
           </header>

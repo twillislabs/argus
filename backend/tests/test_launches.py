@@ -19,6 +19,35 @@ def test_parse_real_answer():
     assert -90 <= first["lat"] <= 90 and first["pad"]
 
 
+def test_links_beyond_wikipedia():
+    r = {
+        "slug": "falcon-9-starlink-12-3",
+        "mission": {
+            "vid_urls": [
+                {"priority": 1, "publisher": "SpaceX",
+                 "url": "https://www.youtube.com/watch?v=abc"},
+                {"priority": 2, "url": "http://insecure.example/live"},
+            ],
+            "info_urls": [
+                {"source": "spacex.com", "url": "https://www.spacex.com/l"}
+            ],
+        },
+        "pad": {
+            "name": "SLC-40",
+            "info_url": "https://www.spaceforce.mil/slc40",
+            "wiki_url": "https://en.wikipedia.org/wiki/SLC-40",
+        },
+    }  # fmt: skip
+    got = [(x["kind"], x["label"]) for x in launches.links(r)]
+    assert got == [
+        ("webcast", "Webcast: SpaceX"),
+        ("info", "spacex.com"),
+        ("tracker", "Space Launch Now"),
+        ("pad", "SLC-40 (pad)"),
+        ("wiki", "SLC-40 (Wikipedia)"),
+    ]
+
+
 def test_parse_skips_unplaced():
     doc = {"results": [{"id": "x", "name": "No pad"}, {"pad": {}}]}
     assert launches.parse(doc) == []

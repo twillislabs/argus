@@ -1457,12 +1457,31 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         drawTool() {
           return draw.current;
         },
-        capture() {
+        async capture() {
           const v = viewer.current;
-          if (!v) return Promise.resolve(null);
-          // The drawing buffer is only readable straight after a render.
-          v.render();
-          return new Promise((resolve) => v.scene.canvas.toBlob((b) => resolve(b), 'image/png'));
+          if (!v) return null;
+          // Rendered at twice the screen's pixels (the map normally draws at
+          // CSS pixels, soft on high-DPI screens), after the sharper tiles
+          // that needs have loaded (up to 8 s), then put back.
+          const before = { scale: v.resolutionScale, recommended: v.useBrowserRecommendedResolution };
+          v.useBrowserRecommendedResolution = false;
+          v.resolutionScale = Math.min(2 * (window.devicePixelRatio || 1), 3);
+          try {
+            const until = Date.now() + 8000;
+            for (;;) {
+              v.resize();
+              v.render();
+              if (v.scene.globe.tilesLoaded || Date.now() > until) break;
+              await new Promise((r) => setTimeout(r, 150));
+            }
+            // The drawing buffer is only readable straight after a render.
+            v.render();
+            return await new Promise<Blob | null>((resolve) => v.scene.canvas.toBlob((b) => resolve(b), 'image/png'));
+          } finally {
+            v.useBrowserRecommendedResolution = before.recommended;
+            v.resolutionScale = before.scale;
+            v.resize();
+          }
         },
         attitude() {
           const v = viewer.current;

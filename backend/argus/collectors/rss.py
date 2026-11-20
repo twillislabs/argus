@@ -1,8 +1,9 @@
 """RSS / Atom news feeds.
 
 The default list mixes outlets from across the political spectrum and
-from several countries. Override it with a JSON file
-(ARGUS_RSS_FEEDS_FILE) containing [{"outlet": "...", "url": "..."}, ...].
+from several countries. Admins edit it in Settings > News feeds
+(argus/newsconfig.py); a JSON file (ARGUS_RSS_FEEDS_FILE) of
+[{"outlet": "...", "url": "..."}, ...] replaces the built-in list.
 
 Each outlet's own terms apply; Argus stores only the headline, a short
 excerpt and the link, and always links to the original.
@@ -234,7 +235,17 @@ class RssCollector(Collector):
     interval_s = 600
     licence = "Each outlet's terms; headline, excerpt and link only"
 
+    _feeds: list[dict] | None = None
+
+    async def prepare(self, db) -> None:
+        # The admin's list (Settings > News feeds), else the built-in one.
+        from argus import newsconfig
+
+        self._feeds = await newsconfig.feeds(db, self.settings)
+
     def feeds(self) -> list[dict]:
+        if self._feeds is not None:
+            return [f for f in self._feeds if f.get("enabled", True)]
         path = self.settings.rss_feeds_file
         if path:
             with open(path, encoding="utf-8") as f:

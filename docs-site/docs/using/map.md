@@ -196,12 +196,14 @@ The toolbar under the base map buttons, as in Palantir's Foundry Map:
 | **Note** | Click the map, type a note, press Enter |
 | **Imagery** | Draw a box (up to about 100 km across) for recent satellite imagery of it: see [Recent imagery](#recent-imagery) |
 | **Tours** | Director mode: saved camera moves with captions; see [Tours](#tours) |
-| **Capture** | Saves a PNG of the map as it is now |
+| **Capture** | Saves a PNG of the map as it is now, drawn at twice your screen's resolution |
 | **Delete** | **Click to delete** removes drawings and notes one at a time; **Delete all** clears them (after a confirmation) |
 
 Lines and polygons: click to add points, double-click or **Enter** to
-finish, **Backspace** to undo the last point, **Esc** to cancel. Drawings
-are saved to your account.
+finish, **Backspace** to undo the last point, **Esc** to cancel. Boxes
+and circles: click one corner (or the centre), and a dashed outline
+follows the cursor until you click the second. Drawings are saved to
+your account.
 
 ### Tours
 
@@ -224,7 +226,8 @@ signed in to this Argus; they can **Save to my tours**.
 
 ### Recent imagery
 
-**Imagery** in the toolbar, then click two corners of a box. Argus lists
+**Imagery** in the toolbar, then click two corners of a box (a dashed
+outline shows it before the second click). Argus lists
 the satellite passes over it from the last 60 days and lays the newest
 clear one over the box:
 
@@ -724,7 +727,9 @@ worldwide:
 The label names the rocket (+N when the pad has more launches coming).
 Hover for the mission, the countdown (T−) and the pad; click for the
 mission description, the launch window, the weather forecast where
-there is one, every launch at that pad and the pad's Wikipedia page.
+there is one, every launch at that pad, and links: the webcasts and
+mission pages Launch Library lists, the launch's Space Launch Now page,
+and the pad's own page and Wikipedia article.
 Times marked as a month or a day are not yet fixed.
 
 The data comes from The Space Devs' Launch Library 2 (free, no key), read

@@ -194,6 +194,7 @@ function launchNote(items: Launch[], id: string): string {
 
 function launchLinks(l: Launch | undefined): { label: string; url: string }[] {
   if (!l) return [];
+  if (l.links?.length) return l.links.map(({ label, url }) => ({ label, url }));
   return l.pad_wiki ? [{ label: (l.pad ?? 'Launch pad') + ' (Wikipedia)', url: l.pad_wiki }] : [];
 }
 

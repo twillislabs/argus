@@ -28,6 +28,48 @@ def _num(v) -> float | None:
         return None
 
 
+SPACE_LAUNCH_NOW = "https://spacelaunchnow.me/launch/{0}"
+LINKS_MAX = 8
+
+
+def _https(url) -> str | None:
+    return url if isinstance(url, str) and url.startswith("https://") else None
+
+
+def links(r: dict) -> list[dict]:
+    """Where to read about or watch a launch: its webcasts and mission
+    pages (Launch Library's own lists), its Space Launch Now page, and
+    the pad's pages. Wikipedia is only the pad's, last."""
+    out: list[dict] = []
+    mission = r.get("mission") or {}
+    pad = r.get("pad") or {}
+
+    def add(label, url, kind) -> None:
+        url = _https(url)
+        if url and url not in {x["url"] for x in out}:
+            out.append({"label": _text(label, 80) or "Link", "url": url,
+                        "kind": kind})  # fmt: skip
+
+    for v in sorted(
+        mission.get("vid_urls") or [], key=lambda x: x.get("priority") or 99
+    )[:3]:
+        who = v.get("publisher") or v.get("source") or v.get("title")
+        add("Webcast: {0}".format(who) if who else "Webcast", v.get("url"),
+            "webcast")  # fmt: skip
+    for i in sorted(
+        mission.get("info_urls") or [], key=lambda x: x.get("priority") or 99
+    )[:3]:
+        add(i.get("source") or i.get("title") or "Mission page",
+            i.get("url"), "info")  # fmt: skip
+    if r.get("slug"):
+        add("Space Launch Now", SPACE_LAUNCH_NOW.format(r["slug"]), "tracker")
+    add("{0} (pad)".format(_text(pad.get("name"), 60) or "Launch pad"),
+        pad.get("info_url"), "pad")  # fmt: skip
+    add("{0} (Wikipedia)".format(_text(pad.get("name"), 60) or "Launch pad"),
+        pad.get("wiki_url"), "wiki")  # fmt: skip
+    return out[:LINKS_MAX]
+
+
 def parse(doc: dict) -> list[dict]:
     out = []
     for r in doc.get("results") or []:
@@ -72,6 +114,7 @@ def parse(doc: dict) -> list[dict]:
                 if isinstance(r.get("probability"), int)
                 else None,
                 "webcast_live": bool(r.get("webcast_live")),
+                "links": links(r),
             }
         )
     return out
@@ -93,8 +136,9 @@ async def fetch(client: httpx.AsyncClient, now: datetime | None = None):
             "ordering": "net",
         },
     ):
+        # "detailed" carries the mission's webcast and info links too.
         r = await client.get(
-            BASE, params={"limit": 60, "mode": "normal", **params}
+            BASE, params={"limit": 60, "mode": "detailed", **params}
         )
         r.raise_for_status()
         for item in parse(r.json()):

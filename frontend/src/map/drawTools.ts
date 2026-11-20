@@ -128,6 +128,14 @@ export function createDrawTools(v: CesiumWidget, cb: DrawCallbacks): DrawTools {
 
   const lineMaterial = (css: string, alpha = 1) =>
     Material.fromType('Color', { color: Color.fromCssColorString(css).withAlpha(alpha) });
+  // The shape being drawn: a dashed line until the last click, so it
+  // reads as a preview, not a finished drawing.
+  const previewMaterial = (css: string) =>
+    Material.fromType('PolylineDash', {
+      color: Color.fromCssColorString(css),
+      gapColor: Color.fromCssColorString('#05080e').withAlpha(0.35),
+      dashLength: 14,
+    });
   const toCart = (p: LonLat, h = HEIGHT) => Cartesian3.fromDegrees(p[0], p[1], h);
   const label = (coll: LabelCollection, at: LonLat, text: string, color = '#d4dae2') =>
     coll.add({
@@ -255,7 +263,7 @@ export function createDrawTools(v: CesiumWidget, cb: DrawCallbacks): DrawTools {
       text = 'radius ' + distance(r);
     } else if (kind === 'polygon') shape = [...pts, pts[0]];
     if (kind === 'measure' || kind === 'line') text = distance(pathKm(pts));
-    previewLines.add({ positions: densify(shape).map((p) => toCart(p)), width: 2, material: lineMaterial(color, 0.9) });
+    previewLines.add({ positions: densify(shape).map((p) => toCart(p)), width: 2.5, material: previewMaterial(color) });
     if (text) label(previewLabels, pts[pts.length - 1], text, color);
   }
 

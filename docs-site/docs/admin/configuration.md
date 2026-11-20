@@ -33,7 +33,7 @@ All settings are environment variables, usually set in `.env`.
 | `ARGUS_SPACE_ENABLED` | `true` | Fetch the CelesTrak satellite catalogue every six hours |
 | `ARGUS_SEA_ENABLED` | `true` | Stream vessels from AISStream once a key is saved |
 | `ARGUS_FIRMS_MAP_KEY` | (empty) | NASA FIRMS key; fires are off without it ([get one](https://firms.modaps.eosdis.nasa.gov/api/map_key/)) |
-| `ARGUS_RSS_FEEDS_FILE` | (built-in list) | JSON file of `[{"outlet": "...", "url": "..."}]` replacing the default feeds |
+| `ARGUS_RSS_FEEDS_FILE` | (built-in list) | JSON file of `[{"outlet": "...", "url": "..."}]` replacing the built-in feeds. Settings › News feeds is easier: an edited list there replaces both |
 | `ARGUS_USER_AGENT` | `Argus/0.1 (...)` | User-Agent sent to data sources. Wikipedia and OpenStreetMap Nominatim (address search) ask automated clients to include a way to reach the operator and throttle generic ones, so add a URL or email for your server, for example `Argus/0.1 (ops@example.org)` |
 | `ARGUS_NATS_URL` | `nats://nats:4222` | Message bus; empty turns live push off |
 | `ARGUS_RAW_RETENTION_DAYS` | `30` | How long raw records and articles are kept |
@@ -153,6 +153,28 @@ user can still change their own:
   current Brief**. **Use built-in** goes back to US first, then the
   world. A user's **Reset to default** on the Brief returns them to this
   order.
+
+## News feeds and live channels
+
+Settings › **News and video** (admins) holds both lists. Each starts as
+Argus's built-in list; once you change anything, your list is used
+instead, and **Reset to built-in** goes back (and picks up feeds or
+channels later releases add).
+
+- **News feeds:** the RSS and Atom feeds the server reads every ten
+  minutes, grouped by section, with a filter. **Add feed** takes the
+  outlet's name, the feed's address (not the web page), a section and
+  where the outlet is based (the US or elsewhere, which helps tell US top
+  stories from world ones). **Test** fetches it and shows the headlines
+  Argus reads before you save. Switch a feed off to stop reading it
+  without losing it. A **failing** badge means its last fetch failed.
+- **Live channels:** the channels the news player, the News page and the
+  Wall offer, in order. Paste a YouTube channel link, an @handle, a
+  channel ID or a Rumble channel link and **Look up**: Argus finds the
+  channel's ID and name and says whether it's live now. Set its tab label
+  and group, then **Add channel**. **Check live**, **Edit**, the arrows
+  and **Remove** work on each one. Only add channels with a true live
+  stream (around the clock, or a live TV simulcast).
 
 ## Wall displays
 

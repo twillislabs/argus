@@ -16,7 +16,7 @@ from sqlalchemy import or_, select
 
 from argus import events as ev
 from argus import places, tension, youtube
-from argus.api.deps import SESSION_COOKIE, DbDep, SessionDep
+from argus.api.deps import SESSION_COOKIE, DbDep, SessionDep, SettingsDep
 from argus.db import utcnow
 from argus.models import Article, Event
 from argus.services import load_session
@@ -115,7 +115,9 @@ STORIES_CACHE_S = 300
 
 
 @router.get("/api/stories")
-async def get_stories(session: SessionDep, db: DbDep, request: Request):
+async def get_stories(
+    session: SessionDep, db: DbDep, request: Request, settings: SettingsDep
+):
     """The day's biggest stories in the news feeds, US and world, by how
     many outlets run them (cached five minutes)."""
     from argus import newsevents
@@ -125,7 +127,7 @@ async def get_stories(session: SessionDep, db: DbDep, request: Request):
     now = time.monotonic()
     if cached and now - cached[0] < STORIES_CACHE_S:
         return cached[1]
-    body = await newsevents.top_stories(db)
+    body = await newsevents.top_stories(db, settings=settings)
     state.stories_cache = (now, body)
     return body
 

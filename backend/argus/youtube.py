@@ -165,3 +165,88 @@ class LiveIds:
                 }, OFFLINE_TTL_S
             return {"status": "offline", "video_id": None}, OFFLINE_TTL_S
         return {"status": "live", "video_id": video}, LIVE_TTL_S
+
+
+# --- looking up a channel an admin adds --------------------------------
+
+HANDLE_RE = re.compile(r"^@?([A-Za-z0-9._-]{3,30})$")
+CHANNEL_IN_URL = re.compile(r"youtube\.com/channel/(UC[A-Za-z0-9_-]{22})")
+HANDLE_IN_URL = re.compile(r"youtube\.com/@([A-Za-z0-9._-]{3,30})")
+RUMBLE_IN_URL = re.compile(r"rumble\.com/(?:c/|user/)?([A-Za-z0-9_-]{2,60})")
+PAGE_CHANNEL_ID = re.compile(
+    r'(?:"externalId"|"channelId"|"browseId"):"(UC[A-Za-z0-9_-]{22})"'
+)
+FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id={0}"
+FEED_TITLE = re.compile(r"<title>([^<]{1,120})</title>")
+HANDLE_PAGE = "https://www.youtube.com/@{0}"
+
+
+def parse_channel_input(text: str) -> tuple[str, str] | None:
+    """What an admin typed, as ("youtube", "UC...") or ("handle", name)
+    or ("rumble", name); None when it can't be one."""
+    t = text.strip()
+    if CHANNEL_RE.match(t):
+        return ("youtube", t)
+    m = CHANNEL_IN_URL.search(t)
+    if m:
+        return ("youtube", m.group(1))
+    m = HANDLE_IN_URL.search(t)
+    if m:
+        return ("handle", m.group(1))
+    if "rumble.com" in t:
+        m = RUMBLE_IN_URL.search(t)
+        return ("rumble", m.group(1)) if m else None
+    if t.startswith("@"):
+        m = HANDLE_RE.match(t)
+        return ("handle", m.group(1)) if m else None
+    return None
+
+
+async def lookup_channel(ids: LiveIds, text: str, platform: str) -> dict:
+    """The channel ID, name and live status for something an admin
+    typed (a channel ID, a channel or @handle link, or a Rumble channel).
+    Raises ValueError with a message for people."""
+    if platform == "rumble" and RUMBLE_RE.match(text.strip()):
+        kind, value = "rumble", text.strip()
+    else:
+        found = parse_channel_input(text)
+        if found is None:
+            raise ValueError(
+                "Paste a YouTube channel link, an @handle, a channel ID "
+                "(UC...) or a Rumble channel link."
+            )
+        kind, value = found
+    client = ids._client
+    if kind == "handle":
+        try:
+            page = await client.get(HANDLE_PAGE.format(value))
+        except httpx.HTTPError as exc:
+            raise ValueError("YouTube didn't answer.") from exc
+        m = (
+            PAGE_CHANNEL_ID.search(page.text)
+            if page.status_code == 200
+            else None
+        )
+        if not m:
+            raise ValueError("No YouTube channel @{0}.".format(value))
+        kind, value = "youtube", m.group(1)
+    name = None
+    if kind == "youtube":
+        try:
+            feed = await client.get(FEED_URL.format(value))
+        except httpx.HTTPError as exc:
+            raise ValueError("YouTube didn't answer.") from exc
+        if feed.status_code != 200:
+            raise ValueError("YouTube has no channel {0}.".format(value))
+        m = FEED_TITLE.search(feed.text)
+        name = m.group(1).strip() if m else None
+    live = await ids.resolve(value, kind)
+    if kind == "rumble" and live.get("status") == "error":
+        raise ValueError("Rumble has no channel {0}.".format(value))
+    return {
+        "id": value,
+        "platform": kind,
+        "name": name or value,
+        "status": live.get("status"),
+        "starts_at": live.get("starts_at"),
+    }

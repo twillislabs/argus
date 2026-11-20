@@ -1,3 +1,5 @@
+import type { Channel } from '../config/newsChannels';
+
 // Thin fetch wrapper: JSON in and out, CSRF header, readable errors.
 
 export interface User {
@@ -267,6 +269,8 @@ export interface Launch {
   location: string | null;
   country: string | null;
   pad_wiki: string | null;
+  // Webcasts, mission pages, Space Launch Now, the pad (Wikipedia last).
+  links?: { label: string; url: string; kind: string }[];
   lat: number;
   lon: number;
   probability: number | null;
@@ -383,6 +387,8 @@ export interface Me {
   user: User;
   preferences: Preferences;
   defaults?: ServerDefaults;
+  // The live channels the news player offers (Settings > Live channels).
+  channels?: Channel[];
 }
 
 export const getDefaults = () => api<ServerDefaults>('/api/admin/defaults');
@@ -1038,3 +1044,40 @@ export const getWxAlerts = (home: { lat: number; lon: number } | null, zones = f
 export const getOutlook = () => api<{ areas: OutlookArea[] }>('/api/weather/outlook');
 export const getWeatherNow = (lat: number, lon: number) =>
   api<WeatherNow>('/api/weather/now?lat=' + lat.toFixed(2) + '&lon=' + lon.toFixed(2));
+
+// Settings > News feeds and Live channels (admins).
+export interface NewsFeed {
+  outlet: string;
+  url: string;
+  section: string;
+  based: 'us' | 'world';
+  enabled: boolean;
+}
+export interface FeedsState {
+  items: NewsFeed[];
+  customised: boolean;
+  failing: string[];
+}
+export const getFeeds = () => api<FeedsState>('/api/admin/news/feeds');
+export const putFeeds = (items: NewsFeed[]) =>
+  api<FeedsState>('/api/admin/news/feeds', { method: 'PUT', body: { items } });
+export const resetFeeds = () => api<FeedsState>('/api/admin/news/feeds', { method: 'DELETE' });
+export const testFeed = (url: string) =>
+  api<{ ok: boolean; error?: string; count?: number; newest?: string; titles?: string[] }>(
+    '/api/admin/news/feeds/test',
+    { method: 'POST', body: { url } },
+  );
+
+export interface ChannelsState {
+  items: (Channel & { enabled: boolean })[];
+  customised: boolean;
+}
+export const getChannels = () => api<ChannelsState>('/api/admin/news/channels');
+export const putChannels = (items: ChannelsState['items']) =>
+  api<ChannelsState>('/api/admin/news/channels', { method: 'PUT', body: { items } });
+export const resetChannels = () => api<ChannelsState>('/api/admin/news/channels', { method: 'DELETE' });
+export const lookupChannel = (input: string, platform: 'youtube' | 'rumble') =>
+  api<{ id: string; platform: 'youtube' | 'rumble'; name: string; status: string; starts_at?: number | null }>(
+    '/api/admin/news/channels/lookup',
+    { method: 'POST', body: { input, platform } },
+  );

@@ -1118,6 +1118,7 @@ async def run_collector(
         source = await session.get(Source, collector.name)
         cursor = source.cursor if source else None
         try:
+            await collector.prepare(session)
             result = await collector.collect(client, cursor)
             rows = await store_raw(session, result.records)
             changed = await fuse(session, rows)

@@ -372,13 +372,6 @@ US_WORDS = re.compile(
     r"silicon valley|schumer|pelosi|governor|sheriff)\b",
     re.IGNORECASE,
 )
-# Outlets in the default feeds based outside the US, for stories that
-# name no country at all.
-NON_US_OUTLETS = {
-    "The Guardian", "BBC News", "GB News", "France 24", "Al Jazeera",
-    "DW", "Kyiv Independent", "Times of Israel", "Sky News",
-    "The Telegraph", "The Spectator", "Daily Express", "The Times",
-}  # fmt: skip
 
 
 def us_named(title: str) -> bool:
@@ -410,7 +403,11 @@ def foreign_names() -> frozenset[str]:
     return frozenset(names)
 
 
-def us_or_world(titles: list[str], outlets: list[str] = ()) -> str:
+def us_or_world(
+    titles: list[str],
+    outlets: list[str] = (),
+    abroad_outlets: set[str] | None = None,
+) -> str:
     """Whether a story is about the US ("us") or not ("world"): most
     headlines name the US and few another country, or (naming neither)
     most outlets running it are American."""
@@ -426,8 +423,10 @@ def us_or_world(titles: list[str], outlets: list[str] = ()) -> str:
         if grams & foreign:
             abroad += 1
     n = max(1, len(titles))
+    if abroad_outlets is None:
+        from argus.newsconfig import NON_US_OUTLETS as abroad_outlets
     american = (
-        sum(o not in NON_US_OUTLETS for o in outlets) / len(outlets)
+        sum(o not in abroad_outlets for o in outlets) / len(outlets)
         if outlets
         else 0.0
     )
@@ -443,9 +442,15 @@ def us_or_world(titles: list[str], outlets: list[str] = ()) -> str:
 TOP_HOURS = 24
 
 
-async def top_stories(db: AsyncSession, limit: int = 10) -> dict:
+async def top_stories(
+    db: AsyncSession, limit: int = 10, settings=None
+) -> dict:
     """The day's biggest stories in the news feeds, by how many outlets
     run them, split into US and world."""
+    from argus import newsconfig
+
+    feeds = await newsconfig.feeds(db, settings)
+    abroad = {f["outlet"] for f in feeds if f["based"] == "world"}
     since = utcnow() - timedelta(hours=TOP_HOURS)
     rows = [
         a
@@ -478,7 +483,7 @@ async def top_stories(db: AsyncSession, limit: int = 10) -> dict:
             )
 
         lead = items[max(range(len(items)), key=centrality)]
-        out[us_or_world([a.title for a in items], outlets)].append(
+        out[us_or_world([a.title for a in items], outlets, abroad)].append(
             {
                 "title": headline(lead.title),
                 "url": lead.url,

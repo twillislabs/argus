@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
+import { setChannels } from './config/newsChannels';
 import { ApiError, getMe, getSetupStatus, type Me } from './lib/api';
 import { stashShareLink } from './lib/share';
 
@@ -59,7 +60,10 @@ export default function App() {
         setBoot({ state: 'setup' });
         return;
       }
-      setBoot({ state: 'signedIn', me: await getMe() });
+      const me = await getMe();
+      // The server's live channels, before any page draws a player.
+      setChannels(me.channels);
+      setBoot({ state: 'signedIn', me });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setBoot({ state: 'signedOut' });
@@ -139,11 +143,13 @@ export default function App() {
           }
         />
         <Route
-        path="/brief"
-        element={boot.state === 'signedIn' ? <BriefPage me={boot.me} onSignedOut={refresh} onSaved={refresh} /> : null}
-      />
-      <Route path="/wall" element={boot.state === 'signedIn' ? <WallPage me={boot.me} /> : null} />
-      <Route path="/news" element={boot.state === 'signedIn' ? <NewsPage /> : null} />
+          path="/brief"
+          element={
+            boot.state === 'signedIn' ? <BriefPage me={boot.me} onSignedOut={refresh} onSaved={refresh} /> : null
+          }
+        />
+        <Route path="/wall" element={boot.state === 'signedIn' ? <WallPage me={boot.me} /> : null} />
+        <Route path="/news" element={boot.state === 'signedIn' ? <NewsPage /> : null} />
         <Route
           path="/pair"
           element={
