@@ -119,10 +119,15 @@ class SanctionsIndex:
     def __init__(self) -> None:
         self.data: dict = {"imo": {}, "mmsi": {}, "count": 0}
         self.stamp = None
-        self.checked = 0.0
+        # None: never checked, so the first call always loads (a monotonic
+        # clock can read under RELOAD_S just after the machine boots).
+        self.checked: float | None = None
 
     async def refresh(self, db) -> None:
-        if time.monotonic() - self.checked < RELOAD_S:
+        if (
+            self.checked is not None
+            and time.monotonic() - self.checked < RELOAD_S
+        ):
             return
         self.checked = time.monotonic()
         row = await db.get(ServerSetting, "layer:sanctions")
