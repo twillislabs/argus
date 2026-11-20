@@ -175,9 +175,12 @@ parts connect.
 - `ARGUS_COLLECTORS` empty (the default now) runs every collector in
   `REGISTRY`; a pinned list in an old `.env` misses new collectors.
 - Brief: sections are `BRIEF_SECTIONS` (schemas.py and api.ts, the
-  default order, US first); the `brief` preference holds `order` and
-  `hidden`, edited by the page's Customize panel; `briefLayout` adds
-  sections added since in their default place. `/api/stories`
+  built-in order, US first); the `brief` preference holds `order` and
+  `hidden` (null clears it), edited by the page's Customize panel, over
+  the server default `defaults.brief` (Settings > Defaults), both with
+  `BriefSectionsEditor`; `briefLayout(mine, server)` adds sections
+  added since in their default place. BriefPage calls `onSaved` (App's
+  refresh) after saving, or returning to it showed the stale order. `/api/stories`
   (`newsevents.top_stories`, cached 5 min) groups the day's headlines
   by story, ranked by outlets, split by `us_or_world`. `story.clusters`
   indexes terms, so a day of headlines groups in under a second.

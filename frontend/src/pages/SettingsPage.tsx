@@ -11,11 +11,14 @@ import WallEditor from '../components/WallEditor';
 import WallProfiles from '../components/WallProfiles';
 import AiSection from '../components/AiSection';
 import AlertsSection from '../components/AlertsSection';
+import BriefSectionsEditor from '../components/BriefSectionsEditor';
 import { CHANNELS, DEFAULT_TABS } from '../config/newsChannels';
 import {
   api,
   can,
+  briefLayout,
   getDefaults,
+  getMe,
   getKeys,
   getReceivers,
   getScreenWall,
@@ -749,6 +752,41 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
         <div className="srows">
           <VideoControls value={video} onChange={(v) => void save({ ...defaults, video: v })} />
         </div>
+      </section>
+      <section className="card">
+        <div className="ph">
+          <h2>Brief sections</h2>
+          <span className="actions">
+            <button
+              className="btn small"
+              onClick={() =>
+                void getMe().then((fresh) =>
+                  fresh.preferences.brief
+                    ? save({ ...defaults, brief: fresh.preferences.brief }, 'Your Brief order is now the default.')
+                    : setStatus('Your Brief follows the default already: set it with Customize on the Brief first.'),
+                )
+              }
+            >
+              Use my current Brief
+            </button>
+            {defaults.brief && (
+              <button
+                className="btn small"
+                onClick={() => void save({ ...defaults, brief: undefined }, 'Back to the built-in Brief order.')}
+              >
+                Use built-in
+              </button>
+            )}
+          </span>
+        </div>
+        <p className="quiet small pad">
+          The order and sections the Brief starts with, for users who haven&apos;t customized
+          their own. {defaults.brief ? 'Set by an admin.' : 'Built-in: US first, then the world.'}
+        </p>
+        <BriefSectionsEditor
+          layout={briefLayout(defaults.brief)}
+          onChange={(next) => void save({ ...defaults, brief: next })}
+        />
       </section>
       {status && <p className="quiet small pad">{status}</p>}
     </>

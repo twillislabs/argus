@@ -317,10 +317,10 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .bgrid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; }
 .bgrid > .span2 { grid-column: 1 / -1; }
 .bactions { display: flex; gap: 8px; }
-.bcustom ul { list-style: none; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px 16px; }
-.bcustom li { display: flex; align-items: center; gap: 6px; }
-.bcustom li .lrow { flex: 1; display: flex; gap: 10px; padding: 4px 6px; }
-.bcustom .btn.small { padding: 2px 8px; }
+.briefsections { list-style: none; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px 16px; }
+.briefsections li { display: flex; align-items: center; gap: 6px; }
+.briefsections li .lrow { flex: 1; display: flex; gap: 10px; padding: 4px 6px; }
+.briefsections .btn.small { padding: 2px 8px; }
 .storylist { margin: 0; padding-left: 22px; display: grid; gap: 8px; font-size: 13px; }
 .storylist a { color: var(--text); text-decoration: none; }
 .storylist a:hover { text-decoration: underline; }

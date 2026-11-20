@@ -315,15 +315,16 @@ export interface Preferences {
   show_route?: boolean;
   wall?: WallPrefs;
   video?: { muted: boolean; volume: number };
-  brief?: BriefPrefs;
+  // null in a save clears it (back to the server's default).
+  brief?: BriefPrefs | null;
   [key: string]: unknown;
 }
 
 // The Brief's sections (schemas.BRIEF_SECTIONS), in their default order.
 export const BRIEF_SECTIONS = [
+  { id: 'theatres', label: 'Theatres' },
   { id: 'us_stories', label: 'US top stories' },
   { id: 'us_events', label: 'US events' },
-  { id: 'theatres', label: 'Theatres' },
   { id: 'digest', label: 'AI digest' },
   { id: 'world_stories', label: 'World top stories' },
   { id: 'world_events', label: 'World events' },
@@ -340,13 +341,18 @@ export interface BriefPrefs {
   hidden: BriefSection[];
 }
 
-// The saved order, with sections added since appended in their default
-// place, and the hidden ones taken out.
-export function briefLayout(p: BriefPrefs | undefined): {
+// The user's saved order (else the server default's, else the built-in
+// one), with sections added since put in their default place, and the
+// hidden ones taken out.
+export function briefLayout(
+  mine: BriefPrefs | undefined,
+  server?: BriefPrefs,
+): {
   order: BriefSection[];
   shown: BriefSection[];
   hidden: BriefSection[];
 } {
+  const p = mine ?? server;
   const all = BRIEF_SECTIONS.map((s) => s.id) as BriefSection[];
   const order = (p?.order ?? []).filter((s) => all.includes(s));
   for (const s of all) if (!order.includes(s)) order.splice(Math.min(all.indexOf(s), order.length), 0, s);
@@ -370,6 +376,7 @@ export interface ServerDefaults {
   layers?: Record<string, unknown>;
   news?: { tabs: string[] };
   video?: { muted: boolean; volume: number };
+  brief?: BriefPrefs;
 }
 
 export interface Me {

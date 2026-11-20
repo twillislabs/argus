@@ -127,6 +127,10 @@ async def test_server_defaults(admin_client):
         "layers": {"types": {"maritime": True}},
         "news": {"tabs": ["UCoMdktPbSTixAyNGwb-UYkQ", "TheAlexJonesShowLive"]},
         "video": {"muted": False, "volume": 30},
+        "brief": {
+            "order": ["world_stories", "us_stories", "gone"],
+            "hidden": ["kev"],
+        },
     }
     r = await admin_client.put(
         "/api/admin/defaults", json=body, headers=csrf(admin_client)
@@ -135,6 +139,13 @@ async def test_server_defaults(admin_client):
     config = (await admin_client.get("/api/map/config")).json()
     assert config["defaults"]["news"]["tabs"][1] == "TheAlexJonesShowLive"
     assert config["defaults"]["video"] == {"muted": False, "volume": 30}
+    # Unknown Brief sections are dropped; /api/me carries the defaults.
+    assert config["defaults"]["brief"] == {
+        "order": ["world_stories", "us_stories"],
+        "hidden": ["kev"],
+    }
+    me = (await admin_client.get("/api/me")).json()
+    assert me["defaults"]["brief"]["hidden"] == ["kev"]
     bad = await admin_client.put(
         "/api/admin/defaults",
         json={"video": {"volume": 300}},

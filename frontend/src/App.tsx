@@ -140,7 +140,7 @@ export default function App() {
         />
         <Route
         path="/brief"
-        element={boot.state === 'signedIn' ? <BriefPage me={boot.me} onSignedOut={refresh} /> : null}
+        element={boot.state === 'signedIn' ? <BriefPage me={boot.me} onSignedOut={refresh} onSaved={refresh} /> : null}
       />
       <Route path="/wall" element={boot.state === 'signedIn' ? <WallPage me={boot.me} /> : null} />
       <Route path="/news" element={boot.state === 'signedIn' ? <NewsPage /> : null} />

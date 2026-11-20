@@ -147,6 +147,12 @@ user can still change their own:
 - **Video:** whether streams start muted, and their volume. Users can
   override both in Settings > Display > Video. Browsers may keep a stream
   muted until someone clicks on the page.
+- **Brief sections:** the order the Brief's sections start in, and which
+  are switched off, for users who haven't customized their own. Arrange
+  them here, or set your own Brief with **Customize** and use **Use my
+  current Brief**. **Use built-in** goes back to US first, then the
+  world. A user's **Reset to default** on the Brief returns them to this
+  order.
 
 ## Wall displays
 

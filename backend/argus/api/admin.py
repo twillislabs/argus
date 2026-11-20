@@ -25,6 +25,7 @@ from argus.api.deps import (
 )
 from argus.db import utcnow
 from argus.models import AuditLog, ServerSetting, User, UserSession
+from argus.schemas import BriefPrefs
 from argus.services import audit
 
 router = APIRouter(tags=["admin"])
@@ -156,14 +157,15 @@ class NewsDefaults(BaseModel):
 
 class DefaultsIn(BaseModel):
     """Server-wide starting points for every user: the layers and filters
-    the map opens with (and resets to), the news tabs in order, and how
-    video starts. Users' own choices still win."""
+    the map opens with (and resets to), the news tabs in order, how video
+    starts and the Brief's sections. Users' own choices still win."""
 
     model_config = ConfigDict(extra="forbid")
 
     layers: dict | None = None
     news: NewsDefaults | None = None
     video: VideoDefaults | None = None
+    brief: BriefPrefs | None = None
 
 
 async def read_defaults(db) -> dict:

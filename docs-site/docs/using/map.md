@@ -112,7 +112,8 @@ It refreshes every two minutes (top stories every five).
 
 **Customize** (top right) lists the sections: move them up or down and
 switch them off. The order is saved for your account as you change it;
-**Reset to default** puts it back.
+**Reset to default** goes back to the order an admin set in Settings ›
+Defaults (or the built-in one).
 
 ## Wall
 

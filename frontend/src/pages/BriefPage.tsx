@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SpaceWeatherCard, { useSpaceWeather } from '../components/SpaceWeatherCard';
+import BriefSectionsEditor from '../components/BriefSectionsEditor';
 import DigestCard from '../components/DigestCard';
 import { getAiStatus } from '../lib/ai';
 
@@ -8,7 +9,6 @@ import AppHeader from '../components/AppHeader';
 import { BAND_LABEL, Spark } from '../components/SituationPanel';
 import {
   api,
-  BRIEF_SECTIONS,
   type BriefPrefs,
   type BriefSection,
   briefLayout,
@@ -147,7 +147,15 @@ function changes(t: Tension | null, today: EventItem[], yesterday: EventItem[]):
 // The daily overview (the mock-up's Brief): world and theatre tension with
 // trends, what changed since yesterday, the top events and source health.
 // Each theatre opens the map there.
-export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: () => Promise<void> }) {
+export default function BriefPage({
+  me,
+  onSignedOut,
+  onSaved,
+}: {
+  me: Me;
+  onSignedOut: () => Promise<void>;
+  onSaved: () => Promise<void>;
+}) {
   const navigate = useNavigate();
   const spaceWx = useSpaceWeather();
   const [aiDigest, setAiDigest] = useState(false);
@@ -240,25 +248,18 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
     return () => window.clearInterval(id);
   }, []);
 
-  // The order and hidden sections are the user's (Customize).
-  const [brief, setBrief] = useState<BriefPrefs | undefined>(me.preferences.brief);
+  // The order and hidden sections are the user's (Customize), else the
+  // server's default (Settings > Defaults), else the built-in order.
+  const [brief, setBrief] = useState<BriefPrefs | undefined>(me.preferences.brief ?? undefined);
   const [customizing, setCustomizing] = useState(false);
-  const layout = briefLayout(brief);
-  function saveBrief(next: BriefPrefs) {
-    setBrief(next);
-    void savePreferences({ brief: next }).catch(() => undefined);
-  }
-  function move(id: BriefSection, by: number) {
-    const order = [...layout.order];
-    const i = order.indexOf(id);
-    const j = i + by;
-    if (j < 0 || j >= order.length) return;
-    [order[i], order[j]] = [order[j], order[i]];
-    saveBrief({ order, hidden: layout.hidden });
-  }
-  function toggle(id: BriefSection, on: boolean) {
-    const hidden = on ? layout.hidden.filter((h) => h !== id) : [...layout.hidden, id];
-    saveBrief({ order: layout.order, hidden });
+  const layout = briefLayout(brief, me.defaults?.brief);
+  // Saved, then the app's copy of your account re-read, so coming back
+  // to the Brief shows the new order.
+  function saveBrief(next: BriefPrefs | null) {
+    setBrief(next ?? undefined);
+    void savePreferences({ brief: next })
+      .then(() => onSaved())
+      .catch(() => undefined);
   }
 
   const sections: Record<BriefSection, ReactNode> = {
@@ -509,37 +510,18 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
           <section className="card bcustom">
             <div className="ph">
               <h2>Brief sections</h2>
-              <button className="backlink" onClick={() => saveBrief({ order: [], hidden: [] })}>
-                Reset to default
-              </button>
+              {brief && (
+                <button className="backlink" onClick={() => saveBrief(null)}>
+                  Reset to default
+                </button>
+              )}
             </div>
-            <ul className="cbody">
-              {layout.order.map((id, i, all) => (
-                <li key={id}>
-                  <label className="lrow flat">
-                    <input
-                      type="checkbox"
-                      checked={!layout.hidden.includes(id)}
-                      onChange={(e) => toggle(id, e.target.checked)}
-                    />
-                    <span className="tog" />
-                    <span>{BRIEF_SECTIONS.find((x) => x.id === id)?.label}</span>
-                  </label>
-                  <button className="btn small" disabled={i === 0} title="Move up" onClick={() => move(id, -1)}>
-                    ↑
-                  </button>
-                  <button
-                    className="btn small"
-                    disabled={i === all.length - 1}
-                    title="Move down"
-                    onClick={() => move(id, 1)}
-                  >
-                    ↓
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <p className="quiet small">Saved for your account as you change it.</p>
+            <BriefSectionsEditor layout={layout} onChange={saveBrief} />
+            <p className="quiet small">
+              {brief
+                ? "Your own order, saved as you change it. Reset to default to follow the server's default again."
+                : "The server's default order. Change anything to make it your own."}
+            </p>
           </section>
         )}
 
