@@ -216,7 +216,15 @@ async def related_articles(
     that kind of event in the headline itself. GDELT events use the same
     rule that confirms them (fusion.corroborating_articles)."""
     if event.type in ("conflict", "unrest"):
-        return (await corroborating_articles(db, event))[:limit]
+        # A syndicated headline (AP, Reuters) once, not once per outlet.
+        seen: set[str] = set()
+        out = []
+        for a in await corroborating_articles(db, event):
+            key = " ".join(a.title.lower().split())
+            if key not in seen:
+                seen.add(key)
+                out.append(a)
+        return out[:limit]
     terms = _match_terms(event)
     pattern = TOPIC_WORDS.get(event.type)
     if not terms or not pattern:

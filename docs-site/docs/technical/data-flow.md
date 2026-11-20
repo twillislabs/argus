@@ -60,14 +60,22 @@ Privacy-flagged aircraft are dropped before anything is kept.
   court or legislative story not about war) never joins or starts an event. Such articles that
   joined earlier are taken out and the event recounted; one left with none is retired. Links
   without readable words are kept.
-- **GDELT place check:** GDELT can pin a story on an actor's capital (Russian strikes on Kyiv
-  placed in Moscow). When most of an event's readable links name another big city and hardly any
-  name its own, the event moves there, merging into an event of the same kind already there.
-  Confirmed events of one kind within 50 km whose best headline is the same one are one story
-  split into several clusters, and merge into the biggest.
+- **One story per event:** GDELT groups articles by place and time, whatever they're about, and
+  files an article once for every place it mentions. Argus compares the words of each article's
+  link (and of each headline), weighted by how rare they are in the day's coverage: "Russia" and
+  "strikes" count for little, "Dnipro" and "bridges" a lot. Then:
+  - an article belongs to one event: the one whose city its link names, else the one whose story
+    it fits best;
+  - an event keeps the story most outlets tell; its other stories become events of their own;
+  - events telling the same story merge: nearby ones, ones backed by the same headline, and ones
+    whose links never name their own city but do name the other's (Kyiv strikes pinned on
+    Moscow).
+- **GDELT place check:** when most of an event's readable links name another big city and hardly
+  any name its own, the event moves there.
 - **Titles:** a confirmed event takes the news headline that backs it as its title, the one
-  sharing most words with its own articles; unconfirmed ones keep the cautious "reported in"
-  wording. Opinion, analysis and question headlines never corroborate an event.
+  closest to its own links; unconfirmed ones keep the cautious "reported in" wording. A headline
+  backs an event only when it tells the same story as the event's links (naming the place and
+  using conflict words isn't enough), and opinion, analysis and question headlines never do.
 - **GDELT corroboration:** only lead-paragraph ("root") events count. A cluster is labelled by
   the kind of event most of its outlets reported, not the most alarming code any one used. It
   stays *unconfirmed* until:

@@ -134,12 +134,23 @@ parts connect.
   `PLACE_STOPWORDS`), merging into a same-kind event there, and titles
   confirmed events with their backing headline (`headline_title`).
   `corroborating_articles` skips opinion and question headlines
-  (`opinion`) and sorts by word overlap with the event's links, so two
-  events in one city don't share a headline; bare "offensive" isn't a
-  conflict word (the adjective). After the pass, `merge_duplicates`
-  folds active events of one kind within `MERGE_KM` (50 km) backed by
-  the same top headline into the one with most articles
-  (`merge_into`, shared with `relocate`).
+  (`opinion`); bare "offensive" isn't a conflict word (the adjective).
+  Stories: `argus/story.py` (no AI) turns a link or headline into
+  stemmed words weighted by rarity across the day's links and headlines
+  (`Weights`, IDF), compared by cosine (`SAME_STORY` 0.3). GDELT
+  clusters by place and time and files an article once per place it
+  mentions, so `review_gdelt` runs in phases: `claim_links` (each URL
+  in one event: the one whose city its link names, else best fit),
+  `prune_strays`, `split_stories` (keep the story most outlets tell,
+  backing headlines bridging differently worded links; the rest are
+  `refile`d through `fuse_gdelt`), `relocate`, `merge_stories` (same
+  story within `MERGE_KM`, or elsewhere when the links don't name their
+  own city but name the other's), `judge_event` (headlines must match
+  a link at `HEADLINE_MATCH`), then `merge_duplicates` (sharing a
+  backing headline within 50 km). New records pick a cluster by story
+  too (`pick_cluster`, with the last pass's weights in `_weights`).
+  Tune against real data with a rolled-back dry run, not on the live
+  database.
 - adsb.lol's routeset endpoint is unusable (202, empty); routes come from
   adsbdb, which goes stale when flight numbers are reused
   (`route_progress` flags implausible routes).

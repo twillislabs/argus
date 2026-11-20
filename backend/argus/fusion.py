@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from argus import places
+from argus import places, story
 from argus.collectors.base import RawIn
 from argus.collectors.gdelt import label_for
 from argus.db import utcnow
@@ -395,6 +395,50 @@ def _domain(url: str) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
+# Word weights from the last review pass (story.Weights), used when new
+# records pick a cluster between passes.
+_weights = story.Weights()
+
+
+def event_terms(event: Event) -> list[set[str]]:
+    """The readable links of an event, as story terms."""
+    out = []
+    for url in (event.data or {}).get("urls") or []:
+        terms = story.link_terms(url)
+        if story.readable(terms):
+            out.append(terms)
+    return out
+
+
+def pick_cluster(row: RawRecord, candidates: list[Event]) -> Event | None:
+    """The nearby event a record joins: the one telling the same story
+    (its link close to one of the event's), else the closest event that
+    has no readable links to compare. A readable record that matches no
+    story starts its own event. Unreadable links join the closest."""
+    near = [
+        (distance_km(row.lat, row.lon, e.lat, e.lon), e) for e in candidates
+    ]
+    near = sorted(
+        ((d, e) for d, e in near if d <= CLUSTER_KM), key=lambda x: x[0]
+    )
+    if not near:
+        return None
+    terms = story.link_terms((row.payload or {}).get("url", ""))
+    if not story.readable(terms):
+        return near[0][1]
+    best, best_score = None, 0.0
+    blind = None
+    for _, e in near:
+        links = event_terms(e)
+        if not links:
+            blind = blind or e
+            continue
+        score = story.best_match(terms, links, _weights)
+        if score >= story.SAME_STORY and score > best_score:
+            best, best_score = e, score
+    return best or blind
+
+
 async def fuse_gdelt(db: AsyncSession, row: RawRecord) -> Event | None:
     p = row.payload
     # Only lead-paragraph ("root") events; the rest are background
@@ -419,12 +463,7 @@ async def fuse_gdelt(db: AsyncSession, row: RawRecord) -> Event | None:
             )
         )
     ).scalars()
-    event = None
-    best = CLUSTER_KM
-    for e in candidates:
-        d = distance_km(row.lat, row.lon, e.lat, e.lon)
-        if d <= best:
-            event, best = e, d
+    event = pick_cluster(row, list(candidates))
     domain = _domain(p.get("url", ""))
     sev = gdelt_severity(p.get("code", ""), p.get("root", ""))
     if event is None:
@@ -659,6 +698,8 @@ UNREST_WORDS = re.compile(
     re.IGNORECASE,
 )
 CORROBORATION_WINDOW = timedelta(hours=24)
+# How close a headline must be to one of the event's links.
+HEADLINE_MATCH = 0.3
 REVIEW_HOURS = 48
 
 
@@ -724,17 +765,21 @@ async def corroborating_articles(
         return bool(words.search(a.title)) and any(n in title for n in names)
 
     found = [a for a in rows.scalars() if about(a)]
-    # Best first: the headline sharing most words with the event's own
-    # links, so two events in one city don't both take the same story.
-    link_words = set()
-    for url in (event.data or {}).get("urls") or []:
-        link_words.update(w for w in _url_words(url).split() if len(w) > 3)
-
-    def overlap(a: Article) -> int:
-        words_ = {w for w in re.findall(r"[a-z]{4,}", a.title.lower())}
-        return len(words_ & link_words)
-
-    return sorted(found, key=overlap, reverse=True)
+    # The headline must tell the same story as the event's own links
+    # (a Gaza headline about aid talks doesn't back fighting in Gaza);
+    # best match first, so two events in one city don't share one. An
+    # event with no readable links can't be compared and keeps the
+    # place-and-words rule.
+    links = event_terms(event)
+    if not links:
+        return found
+    scored = [
+        (story.best_match(story.title_terms(a.title), links, _weights), a)
+        for a in found
+    ]
+    scored = [x for x in scored if x[0] >= HEADLINE_MATCH]
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [a for _, a in scored]
 
 
 # Opinion, analysis and question headlines say what someone thinks, not
@@ -1049,120 +1094,443 @@ MERGE_KM = 50
 
 
 async def merge_duplicates(db: AsyncSession, events: list[Event]) -> set[str]:
-    """Events of one kind, close together, backed by the same headline
-    are one story split into clusters over time: merge each into the
-    biggest."""
-    groups: dict[tuple, list[Event]] = {}
-    for e in events:
-        ids = (e.data or {}).get("corroboration") or []
-        if e.status == "active" and ids:
-            groups.setdefault((e.type, ids[0]), []).append(e)
+    """Events of one kind, close together, backed by a same headline are
+    one story whose outlets worded it differently ("tallest skyscraper",
+    "financial district tower"): merge each into the bigger."""
+    backed = [
+        e
+        for e in events
+        if e.status == "active" and (e.data or {}).get("corroboration")
+    ]
+    backed.sort(key=lambda e: e.article_count)
     changed: set[str] = set()
-    for group in groups.values():
-        if len(group) < 2:
-            continue
-        group.sort(key=lambda e: e.article_count, reverse=True)
-        keeper = group[0]
-        for e in group[1:]:
+    for i, e in enumerate(backed):
+        ids = set(e.data["corroboration"])
+        for keeper in reversed(backed[i + 1 :]):
+            if keeper.status == "expired" or keeper.type != e.type:
+                continue
+            if not ids & set(keeper.data.get("corroboration") or []):
+                continue
             if distance_km(e.lat, e.lon, keeper.lat, keeper.lon) > MERGE_KM:
                 continue
             await merge_into(db, e, keeper)
+            keeper.data = dict(keeper.data) | {
+                "corroboration": list(
+                    dict.fromkeys(keeper.data["corroboration"] + list(ids))
+                )[:5]
+            }
             changed.update({e.id, keeper.id})
+            break
     return changed
 
 
-async def review_gdelt(db: AsyncSession) -> set[str]:
-    """Promote or demote recent GDELT events.
+# --- one story per event ----------------------------------------------------
+#
+# GDELT clusters by place and time, and files an article once for every
+# place it mentions. So: each article belongs to one event, each event
+# keeps one story (the others are filed again on their own), and events
+# telling the same story merge.
 
-    Active needs both: enough outlets reporting the same kind of event
-    (set at fusion as "eligible"), and corroboration from the news feeds,
-    one headline, or two from different outlets for seat-of-government
-    places. Events that lose either go back to unconfirmed.
-    """
-    since = utcnow() - timedelta(hours=REVIEW_HOURS)
-    rows = (
-        await db.execute(
-            select(Event).where(
-                Event.key.is_(None),
-                Event.type.in_(("conflict", "unrest")),
-                Event.status != "expired",
-                Event.last_updated >= since,
+WEIGHT_HOURS = 72
+# Share of an event's links matching another's for them to merge.
+MERGE_STORY = 0.5
+# Words in more than this share of the day's articles don't make two
+# events worth comparing.
+COMMON_SHARE = 0.05
+
+
+def _url(r: RawRecord) -> str:
+    return (r.payload or {}).get("url") or ""
+
+
+async def gdelt_records(
+    db: AsyncSession, event_ids: list[str]
+) -> dict[str, list[RawRecord]]:
+    out: dict[str, list[RawRecord]] = {i: [] for i in event_ids}
+    for i in range(0, len(event_ids), 500):
+        rows = await db.execute(
+            select(EventSource.event_id, RawRecord)
+            .join(RawRecord, RawRecord.id == EventSource.raw_record_id)
+            .where(
+                EventSource.event_id.in_(event_ids[i : i + 500]),
+                RawRecord.source == "gdelt",
             )
         )
-    ).scalars()
-    changed: set[str] = set()
-    rows = list(rows)
-    for event in rows:
-        if event.status == "expired":  # merged into another this pass
+        for event_id, record in rows:
+            out[event_id].append(record)
+    return out
+
+
+async def review_weights(
+    db: AsyncSession, records: dict[str, list[RawRecord]]
+) -> story.Weights:
+    """Word weights from the links under review and recent headlines."""
+    urls = {_url(r) for rs in records.values() for r in rs}
+    weights = story.Weights(story.link_terms(u) for u in urls if u)
+    titles = await db.execute(
+        select(Article.title).where(
+            Article.published_at >= utcnow() - timedelta(hours=WEIGHT_HOURS)
+        )
+    )
+    for (title,) in titles:
+        weights.add(story.title_terms(title))
+    return weights
+
+
+def names_own_place(event: Event, url: str) -> bool:
+    own = places.fold((event.place or "").split(",")[0])
+    if len(own) < 4:
+        return False
+    return " {0} ".format(own) in " {0} ".format(
+        places.fold(story.link_text(url))
+    )
+
+
+async def _drop_records(
+    db: AsyncSession, event: Event, drop: list[RawRecord], kept: list
+) -> bool:
+    """Unlink records from an event and recount it; retire it when none
+    are left. Returns whether it survives."""
+    await db.execute(
+        delete(EventSource).where(
+            EventSource.event_id == event.id,
+            EventSource.raw_record_id.in_([r.id for r in drop]),
+        )
+    )
+    if not kept:
+        event.status = "expired"
+        event.data = dict(event.data or {}) | {"retired": "story"}
+        return False
+    _apply_tally(event, tally(kept))
+    return True
+
+
+async def claim_links(
+    db: AsyncSession,
+    events: list[Event],
+    records: dict[str, list[RawRecord]],
+    weights: story.Weights,
+) -> set[str]:
+    """An article filed under several events stays with one: the event
+    whose city its link names, else the one whose other links it fits
+    best, else the biggest."""
+    holders: dict[str, dict[str, Event]] = {}
+    for e in events:
+        for r in records.get(e.id, []):
+            if _url(r):
+                holders.setdefault(_url(r), {})[e.id] = e
+    drop: dict[str, set[str]] = {}
+    for url, evs in holders.items():
+        if len(evs) < 2:
             continue
-        # Off-topic articles that joined before the topic check come out;
-        # an event left with none is retired.
+        terms = story.link_terms(url)
+
+        def fit(e: Event, url: str = url, terms: set = terms) -> tuple:
+            others = [
+                story.link_terms(_url(r))
+                for r in records.get(e.id, [])
+                if _url(r) != url
+            ]
+            others = [t for t in others if story.readable(t)]
+            match = (
+                story.best_match(terms, others, weights)
+                if story.readable(terms)
+                else 0.0
+            )
+            return (names_own_place(e, url), match, e.article_count)
+
+        keeper = max(evs.values(), key=fit)
+        for e in evs.values():
+            if e is not keeper:
+                drop.setdefault(e.id, set()).add(url)
+    changed: set[str] = set()
+    by_id = {e.id: e for e in events}
+    for event_id, urls in drop.items():
+        event = by_id[event_id]
+        recs = records.get(event_id, [])
+        gone = [r for r in recs if _url(r) in urls]
+        kept = [r for r in recs if _url(r) not in urls]
+        await _drop_records(db, event, gone, kept)
+        records[event_id] = kept
+        changed.add(event_id)
+    return changed
+
+
+async def split_stories(
+    db: AsyncSession, event: Event, weights: story.Weights
+) -> list[RawRecord]:
+    """Keep an event's main story (the one most outlets tell) and take
+    the other stories' records out, to be filed again on their own.
+    Unreadable links stay."""
+    records = (await gdelt_records(db, [event.id]))[event.id]
+    readable = []
+    for r in records:
+        terms = story.link_terms(_url(r))
+        if story.readable(terms):
+            readable.append((r, terms))
+    if len(readable) < 2:
+        return []
+    # The headlines backing the event join the stories they match, so
+    # outlets wording one story differently stay together.
+    bridges = []
+    ids = (event.data or {}).get("corroboration") or []
+    if ids:
+        titles = await db.execute(
+            select(Article.title).where(Article.id.in_(ids))
+        )
+        bridges = [story.title_terms(t) for (t,) in titles]
+    groups = story.clusters([t for _, t in readable] + bridges, weights)
+    groups = [[i for i in g if i < len(readable)] for g in groups]
+    groups = [g for g in groups if g]
+    if len(groups) < 2:
+        return []
+
+    def strength(group: list[int]) -> tuple:
+        recs = [readable[i][0] for i in group]
+        outlets = {_domain(_url(r)) for r in recs}
+        articles = sum(
+            max(1, int((r.payload or {}).get("articles") or 1)) for r in recs
+        )
+        return (len(outlets), articles)
+
+    main = max(groups, key=strength)
+    out = [readable[i][0] for g in groups if g is not main for i in g]
+    kept = [r for r in records if r not in out]
+    await _drop_records(db, event, out, kept)
+    return out
+
+
+def _supported(event: Event) -> bool:
+    """The event's links name its own city (or can't be read)."""
+    urls = [
+        u
+        for u in (event.data or {}).get("urls") or []
+        if story.readable(story.link_terms(u))
+    ]
+    if not urls:
+        return True
+    hits = sum(names_own_place(event, u) for u in urls)
+    return hits > OWN_MAX_SHARE * len(urls)
+
+
+def _names_place(event: Event, other: Event) -> bool:
+    """The event's links name the other event's city often enough."""
+    urls = [
+        u
+        for u in (event.data or {}).get("urls") or []
+        if story.readable(story.link_terms(u))
+    ]
+    hits = sum(names_own_place(other, u) for u in urls)
+    return bool(urls) and hits > OWN_MAX_SHARE * len(urls)
+
+
+async def merge_stories(
+    db: AsyncSession, events: list[Event], weights: story.Weights
+) -> set[str]:
+    """Events of one kind telling the same story merge into the bigger:
+    when they're within MERGE_KM, or when the smaller one's links don't
+    name its own city but name the bigger one's (GDELT placed it on an
+    actor's capital or a passing mention)."""
+    live = [e for e in events if e.status != "expired"]
+    terms = {e.id: event_terms(e) for e in live}
+    common = max(3, COMMON_SHARE * weights.n)
+    rare = {
+        e.id: {
+            t
+            for ts in terms[e.id]
+            for t in ts
+            if weights.df.get(t, 0) <= common
+        }
+        for e in live
+    }
+    supported = {e.id: _supported(e) for e in live}
+    changed: set[str] = set()
+    live.sort(key=lambda e: e.article_count)
+    for i, e in enumerate(live):
+        if e.status == "expired" or not terms[e.id]:
+            continue
+        best, best_share = None, 0.0
+        for t in live[i + 1 :]:
+            if t.status == "expired" or t.type != e.type:
+                continue
+            if not rare[e.id] & rare[t.id]:
+                continue
+            close = distance_km(e.lat, e.lon, t.lat, t.lon) <= MERGE_KM
+            if not close and (supported[e.id] or not _names_place(e, t)):
+                continue
+            share = story.shared_story(terms[e.id], terms[t.id], weights)
+            if share >= MERGE_STORY and share > best_share:
+                best, best_share = t, share
+        if best is None:
+            continue
+        await merge_into(db, e, best)
+        terms[best.id] = event_terms(best)
+        rare[best.id] |= rare[e.id]
+        changed.update({e.id, best.id})
+    return changed
+
+
+async def refile(
+    db: AsyncSession, detached: list[RawRecord], events: list[Event]
+) -> list[Event]:
+    """File records taken out of an event on their own (joining an event
+    telling their story nearby, or starting one), unless another event
+    already holds the article. Returns the events that took them."""
+    if not detached:
+        return []
+    live = [e.id for e in events if e.status != "expired"]
+    held = {
+        _url(r) for rs in (await gdelt_records(db, live)).values() for r in rs
+    }
+    out: dict[str, Event] = {}
+    for r in detached:
+        if _url(r) in held:
+            continue
+        event = await fuse_gdelt(db, r)
+        await db.flush()
+        if event is not None:
+            out[event.id] = event
+        held.add(_url(r))
+    return list(out.values())
+
+
+async def review_gdelt(db: AsyncSession) -> set[str]:
+    """Clean up recent GDELT events, then promote or demote them.
+
+    First each event is made one story in one place: every article in one
+    event, off-topic articles out, other stories filed on their own,
+    misplaced events moved, events telling the same story merged.
+
+    Then active needs both: enough outlets reporting the same kind of
+    event ("eligible"), and corroboration from the news feeds, one
+    headline telling the same story, or two from different outlets for
+    seat-of-government places. Events that lose either go back to
+    unconfirmed.
+    """
+    since = utcnow() - timedelta(hours=REVIEW_HOURS)
+    rows = list(
+        (
+            await db.execute(
+                select(Event).where(
+                    Event.key.is_(None),
+                    Event.type.in_(("conflict", "unrest")),
+                    Event.status != "expired",
+                    Event.last_updated >= since,
+                )
+            )
+        ).scalars()
+    )
+    changed: set[str] = set()
+    global _weights
+    records = await gdelt_records(db, [e.id for e in rows])
+    weights = _weights = await review_weights(db, records)
+
+    def live() -> list[Event]:
+        return [e for e in rows if e.status != "expired"]
+
+    def adopt(events: list[Event]) -> None:
+        known = {e.id for e in rows}
+        for e in events:
+            changed.add(e.id)
+            if e.id not in known:
+                rows.append(e)
+
+    # 1. Each article in one event only.
+    changed |= await claim_links(db, rows, records, weights)
+    await db.flush()
+    # 2. Off-topic articles out (an event left with none is retired),
+    # and one story per event, the others filed on their own.
+    detached: list[RawRecord] = []
+    for event in live():
         before = event.article_count
         if not await prune_strays(db, event):
             changed.add(event.id)
             continue
         if event.article_count != before:
             changed.add(event.id)
-        # Misplaced (Kyiv strikes pinned on Moscow): move or merge.
+        split = await split_stories(db, event, weights)
+        if split:
+            detached += split
+            changed.add(event.id)
+    await db.flush()
+    adopt(await refile(db, detached, rows))
+    # 3. Misplaced events (Kyiv strikes pinned on Moscow) move, or merge
+    # into an event there; events telling the same story merge.
+    for event in live():
         holder = await relocate(db, event)
         if holder is not None:
             changed.update({event.id, holder.id})
-            if holder is not event:
-                continue
-        data = dict(event.data or {})
-        # Clusters fused before the crime check, or that turned into one.
-        codes = data.get("codes") or {}
-        top = max(codes, key=codes.get) if codes else ""
-        is_crime = top[:2] in ("18", "19", "20") and crime_cluster(
-            data.get("urls") or []
-        )
-        if is_crime and not data.get("crime"):
-            data.update(crime=True, eligible=False)
-            event.severity = 1
-            event.data = data
-            changed.add(event.id)
-        backing = []
-        if data.get("eligible"):
-            backing = await corroborating_articles(db, event)
-        needed = 2 if seat_of_government(event.place) else 1
-        outlets = {a.outlet for a in backing}
-        corroborated = len(outlets) >= needed
-        status = (
-            "active"
-            if data.get("eligible") and corroborated
-            else ("candidate")
-        )
-        title = gdelt_title(
-            top, event.place or "", status, bool(data.get("crime"))
-        )
-        # A confirmed event reads as the news says it, not as GDELT's
-        # code: the headline that backs it.
-        if status == "active" and backing:
-            title = headline_title(backing[0].title) or title
-        if top and title != event.title:
-            event.title = title
-            changed.add(event.id)
-        ids = [a.id for a in backing[:5]]
-        if status != event.status or ids != data.get("corroboration", []):
-            data["corroboration"] = ids
-            event.data = data
-            event.status = status
-            if corroborated:
-                event.summary = (
-                    "Machine-coded by GDELT from {0} articles across {1} "
-                    "outlets, and backed by {2} headline{3} from your news "
-                    "feeds."
-                ).format(
-                    event.article_count,
-                    event.source_count,
-                    len(backing),
-                    "" if len(backing) == 1 else "s",
-                )
-            changed.add(event.id)
-    # One story split into several clusters: merge them.
-    reviewed = [e for e in rows if e.status != "expired"]
     await db.flush()
-    changed |= await merge_duplicates(db, reviewed)
+    merged = await merge_stories(db, live(), weights)
+    changed |= merged
+    await db.flush()
+    # A merge brings all of an event's records: keep one story.
+    detached = []
+    for event in live():
+        if event.id in merged:
+            detached += await split_stories(db, event, weights)
+    await db.flush()
+    adopt(await refile(db, detached, rows))
+    # 4. Confirm or not, and title.
+    for event in live():
+        if await judge_event(db, event):
+            changed.add(event.id)
+    await db.flush()
+    # One story split into clusters backed by the same headline.
+    changed |= await merge_duplicates(db, live())
+    return changed
+
+
+async def judge_event(db: AsyncSession, event: Event) -> bool:
+    """Set an event's status, title and backing headlines. Returns
+    whether anything changed."""
+    changed = False
+    data = dict(event.data or {})
+    # Clusters fused before the crime check, or that turned into one.
+    codes = data.get("codes") or {}
+    top = max(codes, key=codes.get) if codes else ""
+    is_crime = top[:2] in ("18", "19", "20") and crime_cluster(
+        data.get("urls") or []
+    )
+    if is_crime and not data.get("crime"):
+        data.update(crime=True, eligible=False)
+        event.severity = 1
+        event.data = data
+        changed = True
+    backing = []
+    if data.get("eligible"):
+        backing = await corroborating_articles(db, event)
+    needed = 2 if seat_of_government(event.place) else 1
+    outlets = {a.outlet for a in backing}
+    corroborated = len(outlets) >= needed
+    status = "active" if data.get("eligible") and corroborated else "candidate"
+    title = gdelt_title(
+        top, event.place or "", status, bool(data.get("crime"))
+    )
+    # A confirmed event reads as the news says it, not as GDELT's code:
+    # the headline that backs it.
+    if status == "active" and backing:
+        title = headline_title(backing[0].title) or title
+    if top and title != event.title:
+        event.title = title
+        changed = True
+    ids = [a.id for a in backing[:5]]
+    if status != event.status or ids != data.get("corroboration", []):
+        data["corroboration"] = ids
+        event.data = data
+        event.status = status
+        if corroborated:
+            event.summary = (
+                "Machine-coded by GDELT from {0} articles across {1} "
+                "outlets, and backed by {2} headline{3} from your news "
+                "feeds."
+            ).format(
+                event.article_count,
+                event.source_count,
+                len(backing),
+                "" if len(backing) == 1 else "s",
+            )
+        changed = True
     return changed
 
 
