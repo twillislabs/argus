@@ -51,6 +51,10 @@ class FeedsIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     items: list[FeedIn] = Field(max_length=newsconfig.MAX_FEEDS)
+    # Every section, in order, including empty ones.
+    sections: list[str] | None = Field(
+        default=None, max_length=newsconfig.MAX_NAMES
+    )
 
 
 class ChannelIn(BaseModel):
@@ -68,6 +72,10 @@ class ChannelsIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     items: list[ChannelIn] = Field(max_length=newsconfig.MAX_CHANNELS)
+    # Every group, in order, including empty ones.
+    groups: list[str] | None = Field(
+        default=None, max_length=newsconfig.MAX_NAMES
+    )
 
 
 class TestIn(BaseModel):
@@ -84,7 +92,9 @@ class LookupIn(BaseModel):
     platform: str = Field(default="youtube", pattern="^(youtube|rumble)$")
 
 
-async def _save(db, key: str, items: list[dict] | None, user_id) -> None:
+async def _save(
+    db, key: str, items: list[dict] | None, user_id, **extra
+) -> None:
     row = await db.get(ServerSetting, key)
     if items is None:
         if row is not None:
@@ -93,7 +103,7 @@ async def _save(db, key: str, items: list[dict] | None, user_id) -> None:
     if row is None:
         row = ServerSetting(key=key)
         db.add(row)
-    row.value = {"items": items}
+    row.value = {"items": items, **extra}
     row.updated_at = utcnow()
     row.updated_by = user_id
 
@@ -109,8 +119,12 @@ async def _failing(db) -> list[str]:
 
 @router.get("/api/admin/news/feeds", dependencies=[AdminDep])
 async def get_feeds(db: DbDep, settings: SettingsDep):
+    items = await newsconfig.feeds(db, settings)
     return {
-        "items": await newsconfig.feeds(db, settings),
+        "items": items,
+        "sections": await newsconfig.names(
+            db, newsconfig.FEEDS_KEY, "sections", [f["section"] for f in items]
+        ),
         "customised": await newsconfig.customised(db, newsconfig.FEEDS_KEY),
         "failing": await _failing(db),
     }
@@ -128,7 +142,10 @@ async def put_feeds(
     if len(set(urls)) != len(urls):
         raise HTTPException(422, "Each feed address can only be listed once.")
     items = [newsconfig.clean_feed(f.model_dump()) for f in body.items]
-    await _save(db, newsconfig.FEEDS_KEY, items, session.user_id)
+    extra = {}
+    if body.sections is not None:
+        extra["sections"] = newsconfig.clean_names(body.sections)
+    await _save(db, newsconfig.FEEDS_KEY, items, session.user_id, **extra)
     await audit(
         db, "settings.news_feeds", session.user_id, client_ip(request),
         count=len(items),
@@ -194,8 +211,12 @@ async def test_feed(body: TestIn, settings: SettingsDep):
 
 @router.get("/api/admin/news/channels", dependencies=[AdminDep])
 async def get_channels(db: DbDep):
+    items = await newsconfig.channels(db)
     return {
-        "items": await newsconfig.channels(db),
+        "items": items,
+        "groups": await newsconfig.names(
+            db, newsconfig.CHANNELS_KEY, "groups", [c["group"] for c in items]
+        ),
         "customised": await newsconfig.customised(db, newsconfig.CHANNELS_KEY),
     }
 
@@ -216,7 +237,10 @@ async def put_channels(
                 422, "{0} isn't a {1} channel ID.".format(c.name, c.platform)
             )
     items = [newsconfig.clean_channel(c.model_dump()) for c in body.items]
-    await _save(db, newsconfig.CHANNELS_KEY, items, session.user_id)
+    extra = {}
+    if body.groups is not None:
+        extra["groups"] = newsconfig.clean_names(body.groups)
+    await _save(db, newsconfig.CHANNELS_KEY, items, session.user_id, **extra)
     await audit(
         db, "settings.live_channels", session.user_id, client_ip(request),
         count=len(items),

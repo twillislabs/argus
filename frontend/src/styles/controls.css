@@ -35,3 +35,6 @@
 @media (max-width: 860px) {
   .row2 { grid-template-columns: minmax(0, 1fr); }
 }
+/* ChoiceInput: a typed name with a button back to the list. */
+.choice { display: flex; gap: 6px; align-items: center; }
+.choice input { flex: 1; min-width: 0; }

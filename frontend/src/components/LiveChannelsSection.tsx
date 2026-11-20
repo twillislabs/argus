@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { type ChannelsState, getChannels, lookupChannel, putChannels, resetChannels } from '../lib/api';
+import ChoiceInput from './ChoiceInput';
+import NameHeader from './NameHeader';
 
 // Settings > Live channels (admins): the YouTube and Rumble channels the
 // news player, the News page and the Wall offer, in this order. A
@@ -38,13 +40,19 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
       .then(setState)
       .catch((err) => setStatus(err instanceof Error ? err.message : 'Could not load the channels.'));
   }, []);
-  const groups = useMemo(() => [...new Set((state?.items ?? []).map((c) => c.group))], [state]);
+  // A group being added.
+  const [newGroup, setNewGroup] = useState<string | null>(null);
   if (!state) return <p className="quiet pad">{status || 'Loading…'}</p>;
   const items = state.items;
+  const groups = state.groups;
 
-  async function save(next: Item[], message = 'Saved.') {
+  async function save(next: Item[], message = 'Saved.', names: string[] = groups) {
+    const all = [...new Set([...names, ...next.map((c) => c.group).filter((g) => !names.includes(g))])];
+    // The players list channels in this order: keep groups together, in
+    // the groups' order.
+    const ordered = [...next].sort((x, y) => all.indexOf(x.group) - all.indexOf(y.group));
     try {
-      setState(await putChannels(next));
+      setState(await putChannels(ordered, all));
       // The players read the list from your account: re-read it.
       await onSaved();
       setStatus(message);
@@ -87,9 +95,14 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
       setInput('');
     }
   }
+  // The next channel up or down in the same group, or -1.
+  function neighbour(i: number, by: number): number {
+    for (let j = i + by; j >= 0 && j < items.length; j += by) if (items[j].group === items[i].group) return j;
+    return -1;
+  }
   function move(i: number, by: number) {
-    const j = i + by;
-    if (j < 0 || j >= items.length) return;
+    const j = neighbour(i, by);
+    if (j < 0) return;
     const next = [...items];
     [next[i], next[j]] = [next[j], next[i]];
     void save(next);
@@ -148,6 +161,9 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
               >
                 {busy ? 'Looking up…' : 'Look up'}
               </button>
+              <button className="btn small" onClick={() => setNewGroup('')}>
+                Add group
+              </button>
               {state.customised && (
                 <button
                   className="btn small"
@@ -165,6 +181,31 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
                 </button>
               )}
             </span>
+            {newGroup !== null && (
+              <form
+                className="srename"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const n = newGroup.trim();
+                  if (!n) return;
+                  if (groups.includes(n)) return setStatus(n + ' is already a group.');
+                  void save(items, 'Added the ' + n + ' group.', [...groups, n]).then((ok) => ok && setNewGroup(null));
+                }}
+              >
+                <input
+                  autoFocus
+                  aria-label="New group name"
+                  placeholder="New group name"
+                  value={newGroup}
+                  maxLength={40}
+                  onChange={(e) => setNewGroup(e.target.value)}
+                />
+                <button className="btn small primary">Add</button>
+                <button type="button" className="btn small" onClick={() => setNewGroup(null)}>
+                  Cancel
+                </button>
+              </form>
+            )}
             {found && (
               <div className="feedtest">
                 <p className={found.status === 'live' ? 'ok small' : 'quiet small'}>
@@ -188,20 +229,16 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
                       onChange={(e) => setDraft({ ...draft, short: e.target.value })}
                     />
                   </label>
-                  <label className="field">
+                  <div className="field">
                     <span>Group</span>
-                    <input
-                      list="channel-groups"
+                    <ChoiceInput
+                      label="Group"
                       value={draft.group}
-                      maxLength={40}
-                      onChange={(e) => setDraft({ ...draft, group: e.target.value })}
+                      options={groups}
+                      newLabel="New group…"
+                      onChange={(v) => setDraft({ ...draft, group: v })}
                     />
-                    <datalist id="channel-groups">
-                      {groups.map((g) => (
-                        <option key={g} value={g} />
-                      ))}
-                    </datalist>
-                  </label>
+                  </div>
                 </div>
                 <span className="actions">
                   <button className="btn small primary" onClick={() => void add()}>
@@ -217,12 +254,49 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
         </div>
       </section>
 
-      {groups.map((g) => (
+      {groups.map((g, gi) => (
         <section key={g} className="card">
-          <div className="ph">
-            <h2>{g}</h2>
-            <span className="mono">{items.filter((c) => c.group === g).length}</span>
-          </div>
+          <NameHeader
+            name={g}
+            noun="group"
+            count={items.filter((c) => c.group === g).length}
+            first={gi === 0}
+            last={gi === groups.length - 1}
+            onMove={(by) => {
+              const next = [...groups];
+              const j = gi + by;
+              [next[gi], next[j]] = [next[j], next[gi]];
+              void save(items, 'Moved ' + g + '.', next);
+            }}
+            onRename={(to) =>
+              save(
+                items.map((c) => (c.group === g ? { ...c, group: to } : c)),
+                'Renamed ' + g + ' to ' + to + '.',
+                groups.includes(to) ? groups.filter((x) => x !== g) : groups.map((x) => (x === g ? to : x)),
+              )
+            }
+            onDelete={() => {
+              const n = items.filter((c) => c.group === g).length;
+              const msg = n
+                ? 'Delete the ' +
+                  g +
+                  ' group and its ' +
+                  n +
+                  ' channel' +
+                  (n === 1 ? '' : 's') +
+                  '? To keep them, rename the group to another one instead.'
+                : 'Delete the ' + g + ' group?';
+              if (!window.confirm(msg)) return;
+              void save(
+                items.filter((c) => c.group !== g),
+                'Deleted the ' + g + ' group.',
+                groups.filter((x) => x !== g),
+              );
+            }}
+          />
+          {!items.some((c) => c.group === g) && (
+            <p className="quiet small pad">No channels yet. Add one above and choose this group.</p>
+          )}
           <ul className="nlist">
             {items.map((c, i) =>
               c.group !== g ? null : (
@@ -264,7 +338,7 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
                     <button
                       className="btn small"
                       aria-label={'Move ' + c.name + ' up'}
-                      disabled={i === 0}
+                      disabled={neighbour(i, -1) < 0}
                       onClick={() => move(i, -1)}
                     >
                       ↑
@@ -272,7 +346,7 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
                     <button
                       className="btn small"
                       aria-label={'Move ' + c.name + ' down'}
-                      disabled={i === items.length - 1}
+                      disabled={neighbour(i, 1) < 0}
                       onClick={() => move(i, 1)}
                     >
                       ↓
@@ -310,15 +384,16 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
                             onChange={(e) => setEdit({ ...edit, short: e.target.value })}
                           />
                         </label>
-                        <label className="field">
+                        <div className="field">
                           <span>Group</span>
-                          <input
-                            list="channel-groups"
+                          <ChoiceInput
+                            label="Group"
                             value={edit.group}
-                            maxLength={40}
-                            onChange={(e) => setEdit({ ...edit, group: e.target.value })}
+                            options={groups}
+                            newLabel="New group…"
+                            onChange={(v) => setEdit({ ...edit, group: v })}
                           />
-                        </label>
+                        </div>
                       </div>
                       <span className="actions">
                         <button

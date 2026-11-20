@@ -11,6 +11,10 @@ Feeds: {outlet, url, section, based ("us" or "world": where the outlet
 is based, for telling US stories from world ones), enabled}.
 Channels: {id, name, short, group, platform ("youtube" or "rumble"),
 enabled}.
+
+The stored value can also list the feed sections ("sections") or
+channel groups ("groups") in the admin's order, so a section or group
+can exist before any feed or channel is put in it.
 """
 
 import json
@@ -25,6 +29,7 @@ FEEDS_KEY = "news:feeds"
 CHANNELS_KEY = "news:channels"
 MAX_FEEDS = 200
 MAX_CHANNELS = 80
+MAX_NAMES = 50
 
 # Outlets in the built-in feeds based outside the US.
 NON_US_OUTLETS = {
@@ -172,6 +177,26 @@ async def channels(db: AsyncSession) -> list[dict]:
     stored = await _stored(db, CHANNELS_KEY)
     source = BUILTIN_CHANNELS if stored is None else stored
     return [clean_channel(c) for c in source if isinstance(c, dict)]
+
+
+def clean_names(names: Any) -> list[str]:
+    """Section or group names: trimmed, at most 40 characters, once."""
+    out: list[str] = []
+    for n in names if isinstance(names, list) else []:
+        name = " ".join(str(n or "").split())[:40]
+        if name and name not in out:
+            out.append(name)
+    return out[:MAX_NAMES]
+
+
+async def names(db: AsyncSession, key: str, field: str, used: list[str]):
+    """The admin's section or group names in order, then any others the
+    feeds or channels use."""
+    row = await db.get(ServerSetting, key)
+    stored = []
+    if row is not None and isinstance(row.value, dict):
+        stored = clean_names(row.value.get(field))
+    return stored + [n for n in dict.fromkeys(used) if n not in stored]
 
 
 async def customised(db: AsyncSession, key: str) -> bool:

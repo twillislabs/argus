@@ -99,6 +99,20 @@ async def test_channels_edit_and_me(admin_client):
     assert r.status_code == 200, r.text
     me = (await admin_client.get("/api/me")).json()
     assert [c["name"] for c in me["channels"]] == ["LiveNOW from FOX"]
+    # Groups: kept in the admin's order, empty ones too.
+    r = await admin_client.put(
+        "/api/admin/news/channels",
+        json={"items": items, "groups": ["Weather", " US ", "Weather"]},
+        headers=csrf(admin_client),
+    )
+    assert r.json()["groups"] == ["Weather", "US"]
+    r = await admin_client.put(
+        "/api/admin/news/channels",
+        json={"items": [dict(items[0], group="Local")]},
+        headers=csrf(admin_client),
+    )
+    # A save without groups keeps none stored: the channels' own.
+    assert r.json()["groups"] == ["Local"]
     bad = await admin_client.put(
         "/api/admin/news/channels",
         json={"items": [dict(items[0], id="not-a-channel!")]},
@@ -123,3 +137,16 @@ def test_channel_input_forms():
         "TheAlexJonesShowLive",
     )
     assert p("just words") is None
+
+
+async def test_feed_sections_kept(admin_client):
+    feed = {"outlet": "Example", "url": "https://example.com/rss.xml",
+            "section": "Tech"}  # fmt: skip
+    r = await admin_client.put(
+        "/api/admin/news/feeds",
+        json={"items": [feed], "sections": ["Local", "Tech"]},
+        headers=csrf(admin_client),
+    )
+    assert r.status_code == 200, r.text
+    body = (await admin_client.get("/api/admin/news/feeds")).json()
+    assert body["sections"] == ["Local", "Tech"]

@@ -1125,12 +1125,14 @@ export interface NewsFeed {
 }
 export interface FeedsState {
   items: NewsFeed[];
+  // Every section in order, including empty ones.
+  sections: string[];
   customised: boolean;
   failing: string[];
 }
 export const getFeeds = () => api<FeedsState>('/api/admin/news/feeds');
-export const putFeeds = (items: NewsFeed[]) =>
-  api<FeedsState>('/api/admin/news/feeds', { method: 'PUT', body: { items } });
+export const putFeeds = (items: NewsFeed[], sections: string[]) =>
+  api<FeedsState>('/api/admin/news/feeds', { method: 'PUT', body: { items, sections } });
 export const resetFeeds = () => api<FeedsState>('/api/admin/news/feeds', { method: 'DELETE' });
 export const testFeed = (url: string) =>
   api<{ ok: boolean; error?: string; count?: number; newest?: string; titles?: string[] }>(
@@ -1140,11 +1142,13 @@ export const testFeed = (url: string) =>
 
 export interface ChannelsState {
   items: (Channel & { enabled: boolean })[];
+  // Every group in order, including empty ones.
+  groups: string[];
   customised: boolean;
 }
 export const getChannels = () => api<ChannelsState>('/api/admin/news/channels');
-export const putChannels = (items: ChannelsState['items']) =>
-  api<ChannelsState>('/api/admin/news/channels', { method: 'PUT', body: { items } });
+export const putChannels = (items: ChannelsState['items'], groups: string[]) =>
+  api<ChannelsState>('/api/admin/news/channels', { method: 'PUT', body: { items, groups } });
 export const resetChannels = () => api<ChannelsState>('/api/admin/news/channels', { method: 'DELETE' });
 export const lookupChannel = (input: string, platform: 'youtube' | 'rumble') =>
   api<{ id: string; platform: 'youtube' | 'rumble'; name: string; status: string; starts_at?: number | null }>(
