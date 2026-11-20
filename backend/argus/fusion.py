@@ -49,6 +49,10 @@ HAZARD_LABELS = {
     "snow": "Snow",
     "heat": "Temperature extreme",
     "manmade": "Man-made event",
+    "quake": "Earthquake",
+    "tornado": "Tornado",
+    "winter": "Winter storm",
+    "wind": "Extreme wind",
 }
 DEFAULT_ACTIVE_WINDOW = timedelta(hours=24)
 # GDELT promotion thresholds: independent outlets and total articles.
@@ -63,7 +67,11 @@ PROMOTE_ARTICLES_GENERIC = 20
 # GDELT codes violence (CAMEO 18x assault, 19x fight, 20x mass violence)
 # from crime, crash and court stories as readily as from war. A cluster
 # whose links mostly read like those, and hardly ever like fighting, is
-# a crime or police incident: titled so and never promoted.
+# a crime or police incident: an "incident" event, not conflict. It's
+# confirmed like any other (several outlets, and a headline from the
+# news feeds telling the same story), so only stories the national
+# feeds carry (mass shootings, terror plots, police shootings that
+# bring protests) are; everyday local crime stays unconfirmed.
 CRIME_SLUG = re.compile(
     r"\b(police|cops?|officers?|arrest(s|ed)?|court|trial|jury|judge|"
     r"convicted|guilty|sentenced|charged|suspects?|murder(s|ed|er)?|"
@@ -79,6 +87,20 @@ WAR_SLUG = re.compile(
     r"invasion|battle|bombing|bombs?|fighters)\b"
 )
 CRIME_MIN_LINKS = 3
+INCIDENT = "incident"
+# Links or headlines that make an incident a major one.
+MAJOR_SLUG = re.compile(
+    r"\b(mass|terror\w*|explosions?|explosives?|bomb(s|ing|er)?|"
+    r"hostages?|massacre|gunmen|active shooter|multiple|several|dozens?|"
+    r"manhunt|riots?)\b"
+)
+
+
+def incident_severity(urls: list[str]) -> int:
+    """2 for an incident; 3 when most readable links say it's major."""
+    words = [_url_words(u) for u in urls if _url_words(u)]
+    major = sum(bool(MAJOR_SLUG.search(w)) for w in words)
+    return 3 if words and major * 2 >= len(words) else 2
 
 
 def _url_words(url: str) -> str:
@@ -453,7 +475,7 @@ async def fuse_gdelt(db: AsyncSession, row: RawRecord) -> Event | None:
         await db.execute(
             select(Event).where(
                 and_(
-                    Event.type == kind,
+                    Event.type.in_((kind, INCIDENT)),
                     Event.key.is_(None),
                     Event.status != "expired",
                     Event.lat.between(row.lat - dlat, row.lat + dlat),
@@ -539,8 +561,9 @@ async def fuse_gdelt(db: AsyncSession, row: RawRecord) -> Event | None:
     place = event.place or p.get("place", "")
     crime = top_code[:2] in ("18", "19", "20") and crime_cluster(urls)
     if crime:
-        eligible = False
-        severity = 1
+        severity = incident_severity(urls)
+    kind = (data.get("kind") or kind) if event.type == INCIDENT else kind
+    event.type = INCIDENT if crime else kind
     event.title = gdelt_title(top_code, place, status, crime)
     event.summary = (
         "Machine-coded by GDELT from {0} articles across {1} outlets. "
@@ -560,6 +583,7 @@ async def fuse_gdelt(db: AsyncSession, row: RawRecord) -> Event | None:
         "actors": actors[:20],
         "eligible": eligible,
         "crime": crime,
+        "kind": kind,
         "corroboration": data.get("corroboration", []),
     }
     db.add(EventSource(event_id=event.id, raw_record_id=row.id))
@@ -589,7 +613,11 @@ async def fuse_hazard(db: AsyncSession, row: RawRecord) -> Event:
     p = row.payload
     hazard = p.get("hazard", "")
     near = places.nearest(row.lat, row.lon, max_km=150)
-    place = near.label() if near else (p.get("country") or "")
+    # A source can name the place itself (FEMA: the state, whose centre
+    # is near some town that has nothing to do with it).
+    place = p.get("place") or (
+        near.label() if near else (p.get("country") or "")
+    )
     title = p.get("title") or HAZARD_LABELS.get(hazard, "Hazard")
     summary = " ".join(
         str(p.get("summary") or "").replace("<br/>", " ").split()
@@ -630,6 +658,75 @@ async def fuse_hazard(db: AsyncSession, row: RawRecord) -> Event:
     )
 
 
+# NWS warnings that become events (the rest stay a weather layer): the
+# hazard, its severity, and words in the text that must be there.
+NWS_EVENTS = {
+    "Tornado Warning": ("tornado", 4, None),
+    "Extreme Wind Warning": ("wind", 4, None),
+    "Hurricane Warning": ("cyclone", 4, None),
+    "Typhoon Warning": ("cyclone", 4, None),
+    "Storm Surge Warning": ("cyclone", 3, None),
+    "Blizzard Warning": ("winter", 3, None),
+    "Ice Storm Warning": ("winter", 3, None),
+    # Only the worst: flash flood emergencies, destructive storms.
+    "Flash Flood Warning": ("flood", 4, "FLASH FLOOD EMERGENCY"),
+    "Severe Thunderstorm Warning": ("storm", 3, "DESTRUCTIVE"),
+}
+NWS_WORST = re.compile(
+    r"TORNADO EMERGENCY|PARTICULARLY DANGEROUS SITUATION|"
+    r"CONFIRMED (LARGE AND )?(DESTRUCTIVE )?TORNADO"
+)
+
+
+async def fuse_wxalert(db: AsyncSession, row: RawRecord) -> Event | None:
+    """Severe NWS warnings (tornado, hurricane, flash flood emergency...)
+    as events until they expire."""
+    p = row.payload or {}
+    rule = NWS_EVENTS.get(p.get("event") or "")
+    if rule is None:
+        return None
+    hazard, severity, needs = rule
+    text = "{0} {1}".format(
+        p.get("headline") or "", p.get("description") or ""
+    )
+    upper = text.upper()
+    if needs and needs not in upper:
+        return None
+    if hazard == "tornado" and NWS_WORST.search(upper):
+        severity = 5
+    area = "; ".join((p.get("area") or "").split("; ")[:3])
+    near = places.nearest(row.lat, row.lon, max_km=150)
+    return await _upsert_keyed(
+        db,
+        "nws:{0}".format(row.external_id),
+        row,
+        {
+            "type": "hazard",
+            "severity": severity,
+            "status": "active",
+            "title": "{0}: {1}".format(p.get("event"), area)[:300],
+            "summary": " ".join(
+                (p.get("description") or p.get("headline") or "").split()
+            )[:600],
+            "place": (near.label() if near else area)[:200],
+            "country": "United States",
+            "lat": row.lat,
+            "lon": row.lon,
+            "last_updated": row.observed_at,
+            "confidence": 0.99,
+            "data": {
+                "hazard": hazard,
+                "label": HAZARD_LABELS.get(hazard, hazard),
+                "provider": "NWS",
+                "from": p.get("onset"),
+                "to": p.get("expires"),
+                "until": p.get("expires"),
+                "url": p.get("url"),
+            },
+        },
+    )
+
+
 async def fuse_navwarn(db: AsyncSession, row: RawRecord) -> Event:
     p = row.payload
     return await _upsert_keyed(
@@ -664,6 +761,7 @@ FUSERS = {
     "fire_cluster": fuse_fire,
     "gdelt": fuse_gdelt,
     "hazard": fuse_hazard,
+    "wxalert": fuse_wxalert,
     "navwarn": fuse_navwarn,
 }
 
@@ -695,6 +793,15 @@ CONFLICT_WORDS = re.compile(
 UNREST_WORDS = re.compile(
     r"\b(protest(s|ers|ed|ing)?|demonstrat(ion|ions|ors|ed)|rall(y|ies)|"
     r"march(es|ed)?|riot(s|ing|ers)?|unrest|walkout|strike|strikers)\b",
+    re.IGNORECASE,
+)
+# Headline words for a crime, police or public-safety incident.
+INCIDENT_WORDS = re.compile(
+    r"\b(shoot(s|ing|ings|er|ers)?|shot|gun(man|men|fire)|stabb(ing|ed)|"
+    r"stabs?|killed|kills?|dead|deaths?|murder(s|ed)?|attack(s|ed|er)?|"
+    r"terror\w*|bomb(s|ing|er)?|plot|explosions?|explosives?|blasts?|"
+    r"hostages?|standoff|manhunt|lockdown|riot(s|ing)?|rampage|"
+    r"massacre|arrest(s|ed)?|charged|suspects?|police|raids?)\b",
     re.IGNORECASE,
 )
 CORROBORATION_WINDOW = timedelta(hours=24)
@@ -729,7 +836,10 @@ async def corroborating_articles(
 
     Seat-of-government places need the place itself in the headline.
     """
-    words = CONFLICT_WORDS if event.type == "conflict" else UNREST_WORDS
+    words = {
+        "conflict": CONFLICT_WORDS,
+        INCIDENT: INCIDENT_WORDS,
+    }.get(event.type, UNREST_WORDS)
     strict = seat_of_government(event.place)
     terms = _place_terms(event)
     if not terms:
@@ -866,7 +976,7 @@ def judge(t: dict) -> dict:
     )
     crime = top[:2] in ("18", "19", "20") and crime_cluster(t["urls"])
     if crime:
-        eligible, severity = False, 1
+        severity = incident_severity(t["urls"])
     return {
         "top": top,
         "severity": severity,
@@ -921,6 +1031,9 @@ def _apply_tally(event: Event, t: dict) -> None:
         eligible=j["eligible"],
         crime=j["crime"],
     )
+    if event.type != INCIDENT:
+        data.setdefault("kind", event.type)
+    event.type = INCIDENT if j["crime"] else data.get("kind", event.type)
     event.data = data
     event.severity = j["severity"]
     event.article_count = t["articles"]
@@ -1413,7 +1526,7 @@ async def review_gdelt(db: AsyncSession) -> set[str]:
             await db.execute(
                 select(Event).where(
                     Event.key.is_(None),
-                    Event.type.in_(("conflict", "unrest")),
+                    Event.type.in_(("conflict", "unrest", INCIDENT)),
                     Event.status != "expired",
                     Event.last_updated >= since,
                 )
@@ -1493,8 +1606,10 @@ async def judge_event(db: AsyncSession, event: Event) -> bool:
         data.get("urls") or []
     )
     if is_crime and not data.get("crime"):
-        data.update(crime=True, eligible=False)
-        event.severity = 1
+        data.update(crime=True)
+        data.setdefault("kind", event.type)
+        event.type = INCIDENT
+        event.severity = incident_severity(data.get("urls") or [])
         event.data = data
         changed = True
     backing = []
@@ -1553,10 +1668,25 @@ async def fuse(db: AsyncSession, rows: list[RawRecord]) -> set[str]:
     if any(r.kind in ("gdelt", "article") for r in rows):
         await db.flush()
         changed |= await review_gdelt(db)
+    # New headlines can make or grow a headline-led event.
+    if any(r.kind == "article" for r in rows):
+        from argus import newsevents
+
+        changed |= await newsevents.review(db)
     return changed
 
 
 # --- housekeeping -----------------------------------------------------------
+
+
+def _when(text: str | None) -> datetime | None:
+    if not text:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(text).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 async def expire_and_prune(
@@ -1565,7 +1695,7 @@ async def expire_and_prune(
     """Expire stale events and delete old data. Returns events expired."""
     now = utcnow()
     expired = 0
-    for kind in ("quake", "fire", "conflict", "unrest"):
+    for kind in ("quake", "fire", "conflict", "unrest", INCIDENT):
         window = ACTIVE_WINDOW.get(kind, DEFAULT_ACTIVE_WINDOW)
         result = await db.execute(
             update(Event)
@@ -1577,6 +1707,19 @@ async def expire_and_prune(
             .values(status="expired")
         )
         expired += result.rowcount or 0
+    # Warnings end when they say (data "until").
+    timed = (
+        await db.execute(
+            select(Event).where(
+                Event.key.like("nws:%"), Event.status != "expired"
+            )
+        )
+    ).scalars()
+    for e in timed:
+        until = _when((e.data or {}).get("until"))
+        if until is None or until < now:
+            e.status = "expired"
+            expired += 1
     await db.execute(
         delete(RawRecord).where(
             RawRecord.observed_at < now - timedelta(days=raw_days)

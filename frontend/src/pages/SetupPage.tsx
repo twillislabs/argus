@@ -13,7 +13,7 @@ const PRESETS = [
     label: 'Live picture',
     detail: 'All events, military aircraft, space stations, borders and labels',
     prefs: {
-      layers: { conflict: true, unrest: true, quake: true, fire: true, hazard: true, maritime: false },
+      layers: { conflict: true, unrest: true, incident: true, quake: true, fire: true, hazard: true, maritime: false },
       air: { military: true, civil: false, focus: '' },
       reference: { borders: true, states: false, labels: true, airports: false, ports: false },
     },
@@ -23,7 +23,7 @@ const PRESETS = [
     label: 'Events',
     detail: 'Conflict, unrest, earthquakes, fires and disasters; no aircraft',
     prefs: {
-      layers: { conflict: true, unrest: true, quake: true, fire: true, hazard: true, maritime: false },
+      layers: { conflict: true, unrest: true, incident: true, quake: true, fire: true, hazard: true, maritime: false },
       air: { military: false, civil: false, focus: '' },
       reference: { borders: true, states: true, labels: true, airports: false, ports: false },
     },
@@ -33,7 +33,15 @@ const PRESETS = [
     label: 'Air picture',
     detail: 'Military and civil aircraft with airports; events off',
     prefs: {
-      layers: { conflict: false, unrest: false, quake: false, fire: false, hazard: false, maritime: false },
+      layers: {
+        conflict: false,
+        unrest: false,
+        incident: false,
+        quake: false,
+        fire: false,
+        hazard: false,
+        maritime: false,
+      },
       air: { military: true, civil: true, focus: '' },
       reference: { borders: true, states: false, labels: true, airports: true, ports: false },
     },
@@ -43,7 +51,15 @@ const PRESETS = [
     label: 'Start quiet',
     detail: 'Just borders and labels; turn layers on as you need them',
     prefs: {
-      layers: { conflict: false, unrest: false, quake: false, fire: false, hazard: false, maritime: false },
+      layers: {
+        conflict: false,
+        unrest: false,
+        incident: false,
+        quake: false,
+        fire: false,
+        hazard: false,
+        maritime: false,
+      },
       air: { military: false, civil: false, focus: '' },
       reference: { borders: true, states: false, labels: true, airports: false, ports: false },
     },

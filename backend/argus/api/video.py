@@ -30,6 +30,7 @@ router = APIRouter(tags=["video"])
 WORDS = {
     "conflict": "attack",
     "unrest": "protest",
+    "incident": "",
     "quake": "earthquake",
     "fire": "fire",
     "hazard": "",

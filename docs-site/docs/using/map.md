@@ -88,21 +88,31 @@ speed stay in feet and knots, and ship speed in knots, either way.
 
 ## Brief
 
-**Brief** in the top bar is a one-page overview for the start of a shift:
+**Brief** in the top bar is a one-page overview for the start of a shift.
+By default it opens with the US, then the world:
 
+- **US top stories** and **World top stories**: the day's biggest stories
+  in your news feeds, ranked by how many outlets run them, each linked to
+  its most typical headline. A story counts as US when most of its
+  headlines name a US place, agency or politics and few name another
+  country (or, naming no country, mostly American outlets run it).
+- **US events · 24h** and **World events · 24h**, by severity.
 - **Theatres** (Middle East & Red Sea, Eastern Europe, Sahel, Indo-Pacific,
   Americas): tension, change over 24 hours, a two-week trend of live
   activity and the top event or most affected countries. Click one to
   open the map there.
-- **Top events · 24h** by severity, **Changes since yesterday** in plain
-  sentences, **Source health** for every collector and **Tension by
-  country**.
+- **Changes since yesterday** in plain sentences, **Source health** for
+  every collector and **Tension by country**.
 - **Wikipedia current events** for the latest day, grouped as Wikipedia
   groups them (armed conflicts and attacks, politics, disasters...), with
   each entry's story thread and news sources. Click an entry to open the
   map at its place.
 
-It refreshes every two minutes.
+It refreshes every two minutes (top stories every five).
+
+**Customize** (top right) lists the sections: move them up or down and
+switch them off. The order is saved for your account as you change it;
+**Reset to default** puts it back.
 
 ## Wall
 
@@ -555,6 +565,26 @@ dataset (CC BY-NC 4.0, free for non-commercial use), which Argus's
 server fetches daily. **Settings › Alerts › Sanctioned ships** tells you
 when one comes into view.
 
+## Incidents
+
+**Incidents** are crime, police and public-safety events, kept apart
+from armed conflict:
+
+- **From GDELT:** a cluster whose article links read like a shooting,
+  stabbing, police raid or terror plot. It's confirmed the same way as
+  conflict: several outlets tell the one story, and a headline in your
+  news feeds names the place and tells it too. So the ones the national
+  outlets carry (a mass shooting, a terror plot, a police shooting that
+  brings protests) are confirmed, and everyday local crime stays
+  unconfirmed.
+- **From headlines:** when three or more outlets in your news feeds run
+  the same story naming a US city or state, about something happening
+  (a shooting, derailment, explosion, outage, evacuation...), it's an
+  event there even if GDELT never coded it. Stories about the whole
+  country (systems down, flights grounded) are placed at the middle of
+  the US as *Nationwide*. Political stories aren't events, and a story a
+  confirmed GDELT event or a USGS quake already tells is left to it.
+
 ## Disasters and maritime warnings
 
 Two more event layers:
@@ -562,8 +592,18 @@ Two more event layers:
 - **Disasters**: floods, tropical cyclones, volcanoes, droughts and
   wildfires from GDACS (with its green, orange or red alert level), named
   storms and other natural events from NASA EONET, and bulletins from the
-  US tsunami warning centres (a tsunami warning is catastrophic). Select a
-  storm to see its track.
+  US tsunami warning centres (a tsunami warning is catastrophic). In the
+  US also:
+  - the National Weather Service's most serious warnings while they're in
+    force: tornado (a tornado emergency is catastrophic), extreme wind,
+    hurricane, typhoon and storm surge, blizzard and ice storm, flash
+    flood emergencies and destructive thunderstorms;
+  - FEMA disaster and emergency declarations from the last 30 days, at
+    the state, with the counties they cover;
+  - wildfires of 100 acres or more that aren't yet contained, from the
+    National Interagency Fire Center, with their size and containment.
+
+  Select a storm to see its track.
 - **Maritime warnings** (off by default): NGA's navigational warnings,
   such as rocket launches, live firing, exercises, cable work, piracy and
   hazards to shipping. Select one to see the area it covers.

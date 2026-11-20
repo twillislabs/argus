@@ -151,6 +151,39 @@ parts connect.
   too (`pick_cluster`, with the last pass's weights in `_weights`).
   Tune against real data with a rolled-back dry run, not on the live
   database.
+- Incidents (event type `incident`): GDELT clusters `crime_cluster`
+  flags become `incident` (the original kind kept in `data["kind"]`, and
+  `fuse_gdelt` matches either), confirmed like conflict with
+  `INCIDENT_WORDS` headlines; `incident_severity` from `MAJOR_SLUG`.
+  Headline-led ones: `argus/newsevents.py` `review` (run by `fuse` after
+  RSS) clusters the day's headlines by story; 3+ outlets naming one US
+  place (`place_named`: 100k+ cities minus `AMBIGUOUS`, states,
+  `NATIONWIDE` stories at the centre) and `newsworthy` (a happening, not
+  politics) make a keyed `news:<id>` event, updated by article overlap
+  or story match, retired when a confirmed GDELT event tells it, never
+  for quakes near a USGS one. `related_articles` reads their
+  `data["articles"]`. Adding an event type means: `api/events.TYPES`,
+  alerts' Literal, AI tool enum, `search.EVENT_WORDS`/`LABELS`,
+  `video.WORDS`, frontend `EventType`, `TYPE_INFO`, `share.ts`,
+  LayerPanel defaults and `FEEDS`, SetupPage, MapPage's lists.
+- US feeds: `collectors/usgov.py` (`fema`: OpenFEMA declarations, one
+  per declaration at the state's population centre; `nifc`: WFIGS open
+  wildfires 100+ acres), both kind `hazard`; payloads carry a `seen`
+  stamp so they're re-stamped each poll and stay on the 24 h map. NWS:
+  `fuse_wxalert` turns `NWS_EVENTS` warnings into `nws:` hazard events,
+  expired by `expire_and_prune` at `data["until"]`.
+- `ARGUS_COLLECTORS` empty (the default now) runs every collector in
+  `REGISTRY`; a pinned list in an old `.env` misses new collectors.
+- Brief: sections are `BRIEF_SECTIONS` (schemas.py and api.ts, the
+  default order, US first); the `brief` preference holds `order` and
+  `hidden`, edited by the page's Customize panel; `briefLayout` adds
+  sections added since in their default place. `/api/stories`
+  (`newsevents.top_stories`, cached 5 min) groups the day's headlines
+  by story, ranked by outlets, split by `us_or_world`. `story.clusters`
+  indexes terms, so a day of headlines groups in under a second.
+- AI status (`useAiStatus`) is shared and re-read after a minute or
+  when Settings > AI saves (`forgetAiStatus`): it was cached for the
+  page's life, so turning Ask on showed no button until a reload.
 - adsb.lol's routeset endpoint is unusable (202, empty); routes come from
   adsbdb, which goes stale when flight numbers are reused
   (`route_progress` flags implausible routes).

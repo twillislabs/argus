@@ -16,7 +16,7 @@ import type { Basemap } from '../map/Globe';
 const KEY = 'argus-share';
 const BASEMAPS: Basemap[] = ['dark', 'satellite', 'hybrid', 'photo3d'];
 const VIEWS: CameraMode[] = ['free', 'follow', 'chase', 'orbit', 'cockpit'];
-const EVENT_LAYERS = ['conflict', 'unrest', 'quake', 'fire', 'hazard', 'maritime'] as const;
+const EVENT_LAYERS = ['conflict', 'unrest', 'incident', 'quake', 'fire', 'hazard', 'maritime'] as const;
 const REF_LAYERS = ['borders', 'states', 'labels', 'airports', 'ports', 'advisories'] as const;
 const SPACE_LAYERS = ['iss', 'launches', 'leo', 'meo', 'geo', 'heo', 'starlink'] as const;
 const SEA_LAYERS = ['cargo', 'tanker', 'passenger', 'fishing', 'military', 'other'] as const;
@@ -59,6 +59,7 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
     types: {
       conflict: has('conflict'),
       unrest: has('unrest'),
+      incident: has('incident'),
       quake: has('quake'),
       fire: has('fire'),
       hazard: has('hazard'),

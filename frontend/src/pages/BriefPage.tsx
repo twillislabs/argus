@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SpaceWeatherCard, { useSpaceWeather } from '../components/SpaceWeatherCard';
 import DigestCard from '../components/DigestCard';
@@ -8,15 +8,22 @@ import AppHeader from '../components/AppHeader';
 import { BAND_LABEL, Spark } from '../components/SituationPanel';
 import {
   api,
+  BRIEF_SECTIONS,
+  type BriefPrefs,
+  type BriefSection,
+  briefLayout,
   type EventItem,
   getEvents,
   getCyber,
   type ExploitedVuln,
+  getStories,
   getSummary,
   getTension,
   getWikipedia,
   type Me,
+  savePreferences,
   type SourceStatus,
+  type Story,
   type Summary,
   type Tension,
   type WikiItem,
@@ -25,7 +32,6 @@ import { ago, SEVERITY_COLOR, SEVERITY_NAME, TYPE_INFO } from '../lib/format';
 import { FLY_KEY } from '../lib/share';
 
 type History = Record<string, { day: string; raw: number }[]>;
-
 
 function flyToBbox(navigate: (to: string) => void, bbox: [number, number, number, number]) {
   const [w, s, e, n] = bbox;
@@ -60,11 +66,23 @@ function openPlace(navigate: (to: string) => void, lat: number, lon: number) {
 function dtg(d: Date): string {
   const mon = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
   const p = (n: number) => String(n).padStart(2, '0');
-  return p(d.getUTCDate()) + p(d.getUTCHours()) + p(d.getUTCMinutes()) + 'Z ' + mon + ' ' + String(d.getUTCFullYear()).slice(2);
+  return (
+    p(d.getUTCDate()) +
+    p(d.getUTCHours()) +
+    p(d.getUTCMinutes()) +
+    'Z ' +
+    mon +
+    ' ' +
+    String(d.getUTCFullYear()).slice(2)
+  );
 }
 
 function Delta({ v }: { v: number }) {
-  return <span className={'delta ' + (v > 0 ? 'up' : v < 0 ? 'down' : '')}>{(v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v)} 24h</span>;
+  return (
+    <span className={'delta ' + (v > 0 ? 'up' : v < 0 ? 'down' : '')}>
+      {(v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v)} 24h
+    </span>
+  );
 }
 
 function sourceState(s: SourceStatus): 'ok' | 'warn' | 'off' {
@@ -112,7 +130,15 @@ function changes(t: Tension | null, today: EventItem[], yesterday: EventItem[]):
     if (n === m) continue;
     out.push({
       color: TYPE_INFO[type].color,
-      text: TYPE_INFO[type].label + ': ' + n + ' in the last 24 hours, ' + (n > m ? 'up' : 'down') + ' from ' + m + ' the day before.',
+      text:
+        TYPE_INFO[type].label +
+        ': ' +
+        n +
+        ' in the last 24 hours, ' +
+        (n > m ? 'up' : 'down') +
+        ' from ' +
+        m +
+        ' the day before.',
     });
   }
   return out.slice(0, 7);
@@ -195,34 +221,67 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
   const dayAgo = Date.now() - 86_400_000;
   const today = useMemo(() => events.filter((e) => Date.parse(e.first_seen) >= dayAgo), [events, dayAgo]);
   const yesterday = useMemo(() => events.filter((e) => Date.parse(e.first_seen) < dayAgo), [events, dayAgo]);
-  const top = useMemo(
-    () =>
-      [...today]
-        .sort((a, b) => b.severity - a.severity || Date.parse(b.last_updated) - Date.parse(a.last_updated))
-        .slice(0, 10),
-    [today],
-  );
+
   const sources = summary?.sources ?? [];
   const layers = 20;
 
-  return (
-    <div className="app">
-      <AppHeader me={me} onSignedOut={onSignedOut} />
-      <main className="brief">
-        <div className="bhead">
-          <div>
-            <span className="eyebrow mono">Daily brief · {dtg(new Date())}</span>
-            <h1>World situation</h1>
-            <p>
-              Argus combines {layers}+ layers from {sources.length} sources. Open any theatre to go to it on the map.
-            </p>
-          </div>
-          <button className="btn" onClick={() => navigate('/')}>
-            Open map
-          </button>
-        </div>
-        {error && <p className="err">{error}</p>}
+  // US events: placed in the United States; world events: the rest.
+  const isUs = (e: EventItem) => e.country === 'United States' || /, United States$/.test(e.place);
+  const usTop = useMemo(() => byWeight(today.filter(isUs)).slice(0, 10), [today]);
+  const worldTop = useMemo(() => byWeight(today.filter((e) => !isUs(e))).slice(0, 10), [today]);
+  const [stories, setStories] = useState<{ us: Story[]; world: Story[] } | null>(null);
+  useEffect(() => {
+    const load = () =>
+      getStories()
+        .then(setStories)
+        .catch(() => setStories({ us: [], world: [] }));
+    void load();
+    const id = window.setInterval(() => void load(), 300_000);
+    return () => window.clearInterval(id);
+  }, []);
 
+  // The order and hidden sections are the user's (Customize).
+  const [brief, setBrief] = useState<BriefPrefs | undefined>(me.preferences.brief);
+  const [customizing, setCustomizing] = useState(false);
+  const layout = briefLayout(brief);
+  function saveBrief(next: BriefPrefs) {
+    setBrief(next);
+    void savePreferences({ brief: next }).catch(() => undefined);
+  }
+  function move(id: BriefSection, by: number) {
+    const order = [...layout.order];
+    const i = order.indexOf(id);
+    const j = i + by;
+    if (j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    saveBrief({ order, hidden: layout.hidden });
+  }
+  function toggle(id: BriefSection, on: boolean) {
+    const hidden = on ? layout.hidden.filter((h) => h !== id) : [...layout.hidden, id];
+    saveBrief({ order: layout.order, hidden });
+  }
+
+  const sections: Record<BriefSection, ReactNode> = {
+    us_stories: <StoriesCard title="US top stories" stories={stories?.us ?? null} />,
+    world_stories: <StoriesCard title="World top stories" stories={stories?.world ?? null} />,
+    us_events: (
+      <EventsCard
+        title="US events · 24h"
+        events={usTop}
+        empty="No US events in the last 24 hours."
+        onOpen={(e) => openEvent(navigate, e)}
+      />
+    ),
+    world_events: (
+      <EventsCard
+        title="World events · 24h"
+        events={worldTop}
+        empty="No events in the last 24 hours for the default layers."
+        onOpen={(e) => openEvent(navigate, e)}
+      />
+    ),
+    theatres: (
+      <div className="span2">
         <div className="theatres">
           {(tension?.theatres ?? []).map((t) => {
             const series = (history[t.key] ?? []).map((p) => p.raw);
@@ -240,224 +299,356 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
             );
           })}
         </div>
+      </div>
+    ),
+    digest: aiDigest ? (
+      <div className="span2">
+        <DigestCard canRefresh={aiCanUse} />
+      </div>
+    ) : null,
+    changes: (
+      <section className="card">
+        <div className="ph">
+          <h2>Changes since yesterday</h2>
+        </div>
+        <div className="cbody">
+          <ul className="digest">
+            {changes(tension, today, yesterday).map((c, i) => (
+              <li key={i} style={{ ['--c' as string]: c.color }}>
+                <i />
+                <span>{c.text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    ),
+    wiki: wikiGroups.length > 0 && (
+      <section className="card">
+        <div className="ph">
+          <h2>Wikipedia current events · {wikiDay}</h2>
+          <a className="quiet small" href={wiki[0].url} target="_blank" rel="noreferrer noopener">
+            Portal ↗
+          </a>
+        </div>
+        <div className="cbody wikilist">
+          {wikiGroups.map(([category, items]) => (
+            <div key={category}>
+              <h3>{category}</h3>
+              <ul>
+                {items.map((w) => (
+                  <li
+                    key={w.id}
+                    className={w.lat !== null ? 'clickrow' : undefined}
+                    title={w.lat !== null ? 'Show ' + w.place + ' on the map' : undefined}
+                    onClick={() => w.lat !== null && w.lon !== null && openPlace(navigate, w.lat, w.lon)}
+                  >
+                    {w.topics.length > 0 && <small>{w.topics[w.topics.length - 1]}</small>}
+                    <span>{w.text}</span>
+                    {w.sources.length > 0 && (
+                      <span className="srcs">
+                        {w.sources.slice(0, 3).map((src) => (
+                          <a
+                            key={src.url}
+                            href={src.url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {src.name || 'source'}
+                          </a>
+                        ))}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <p className="quiet small">From Wikipedia, CC BY-SA 4.0.</p>
+        </div>
+      </section>
+    ),
+    kev: (
+      <section className="card">
+        <div className="ph">
+          <h2>Exploited vulnerabilities</h2>
+          <span className="mono">CISA KEV</span>
+        </div>
+        <div className="cbody">
+          {kev === null ? (
+            <p className="quiet small">Loading…</p>
+          ) : kev.length === 0 ? (
+            <p className="quiet small">Not fetched yet: the worker reads CISA's catalogue every six hours.</p>
+          ) : (
+            <ul className="kevlist">
+              {kev.slice(0, 10).map((v) => (
+                <li key={v.cve} title={v.description}>
+                  <a href={'https://nvd.nist.gov/vuln/detail/' + v.cve} target="_blank" rel="noopener noreferrer">
+                    <b className="mono">{v.cve}</b>
+                  </a>{' '}
+                  {v.vendor} {v.product}
+                  {v.ransomware && (
+                    <span className="badge" style={{ ['--c' as string]: '#ff7a59' }}>
+                      ransomware
+                    </span>
+                  )}
+                  <small>
+                    {v.name} · added {v.added}
+                    {v.due ? ', fix federal systems by ' + v.due : ''}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="quiet small">
+            Flaws CISA has seen exploited in the wild, newest first. Hover one for its description.
+          </p>
+        </div>
+      </section>
+    ),
+    space: (
+      <section className="card">
+        <div className="ph">
+          <h2>Space weather</h2>
+          <span className="mono">NOAA SWPC</span>
+        </div>
+        <div className="cbody">
+          <SpaceWeatherCard sw={spaceWx} alerts={6} />
+        </div>
+      </section>
+    ),
+    sources: (
+      <section className="card">
+        <div className="ph">
+          <h2>Source health</h2>
+          <span className="mono">collectors</span>
+        </div>
+        <div className="cbody tblwrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Last pull</th>
+                <th>Items</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sources.map((s) => {
+                const st = sourceState(s);
+                return (
+                  <tr
+                    key={s.name}
+                    className="clickrow"
+                    title={s.last_error ?? 'Open Data sources'}
+                    onClick={() => navigate('/settings/sources')}
+                  >
+                    <td>{s.label}</td>
+                    <td className="mono">{s.last_success_at ? ago(s.last_success_at) : '—'}</td>
+                    <td className="mono">{s.last_count.toLocaleString()}</td>
+                    <td>
+                      <i className={'sdot ' + (st === 'ok' ? '' : st)} />{' '}
+                      {st === 'ok' ? 'OK' : st === 'warn' ? 'Late or failing' : 'Off'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    ),
+    tension: (
+      <section className="card">
+        <div className="ph">
+          <h2>Tension by country</h2>
+          <span className="mono">UCDP to {tension?.ucdp_through ?? '…'}</span>
+        </div>
+        <div className="cbody">
+          <ul className="tlist">
+            {(tension?.countries ?? []).slice(0, 12).map((c) => (
+              <li key={c.key} title={c.deaths_12m.toLocaleString() + ' deaths in 12 months (UCDP)'}>
+                <span className="tname">{c.name}</span>
+                <span className="tmeter">
+                  <i className={'b-' + c.band} style={{ width: c.level + '%' }} />
+                </span>
+                <span className="mono tval">{c.level}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    ),
+  };
 
-        {aiDigest && <DigestCard canRefresh={aiCanUse} />}
+  return (
+    <div className="app">
+      <AppHeader me={me} onSignedOut={onSignedOut} />
+      <main className="brief">
+        <div className="bhead">
+          <div>
+            <span className="eyebrow mono">Daily brief · {dtg(new Date())}</span>
+            <h1>World situation</h1>
+            <p>
+              Argus combines {layers}+ layers from {sources.length} sources. Open any theatre to go to it on the map.
+            </p>
+          </div>
+          <div className="bactions">
+            <button className="btn" aria-pressed={customizing} onClick={() => setCustomizing(!customizing)}>
+              Customize
+            </button>
+            <button className="btn" onClick={() => navigate('/')}>
+              Open map
+            </button>
+          </div>
+        </div>
+        {error && <p className="err">{error}</p>}
+
+        {customizing && (
+          <section className="card bcustom">
+            <div className="ph">
+              <h2>Brief sections</h2>
+              <button className="backlink" onClick={() => saveBrief({ order: [], hidden: [] })}>
+                Reset to default
+              </button>
+            </div>
+            <ul className="cbody">
+              {layout.order.map((id, i, all) => (
+                <li key={id}>
+                  <label className="lrow flat">
+                    <input
+                      type="checkbox"
+                      checked={!layout.hidden.includes(id)}
+                      onChange={(e) => toggle(id, e.target.checked)}
+                    />
+                    <span className="tog" />
+                    <span>{BRIEF_SECTIONS.find((x) => x.id === id)?.label}</span>
+                  </label>
+                  <button className="btn small" disabled={i === 0} title="Move up" onClick={() => move(id, -1)}>
+                    ↑
+                  </button>
+                  <button
+                    className="btn small"
+                    disabled={i === all.length - 1}
+                    title="Move down"
+                    onClick={() => move(id, 1)}
+                  >
+                    ↓
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className="quiet small">Saved for your account as you change it.</p>
+          </section>
+        )}
 
         <div className="bgrid">
-          <section className="card">
-            <div className="ph">
-              <h2>Top events · 24h</h2>
-              <span className="mono">by severity</span>
-            </div>
-            <div className="cbody tblwrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Sev</th>
-                    <th>Event</th>
-                    <th>Where</th>
-                    <th>Age</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {top.map((e) => (
-                    <tr
-                      key={e.id}
-                      className="clickrow"
-                      tabIndex={0}
-                      title="Open on the map"
-                      onClick={() => openEvent(navigate, e)}
-                      onKeyDown={(k) => k.key === 'Enter' && openEvent(navigate, e)}
-                    >
-                      <td>
-                        <span className="sevtag mono" style={{ color: SEVERITY_COLOR[e.severity] }}>
-                          {SEVERITY_NAME[e.severity]}
-                        </span>
-                      </td>
-                      <td>{e.title}</td>
-                      <td>{e.place || e.country}</td>
-                      <td className="mono">{ago(e.first_seen)}</td>
-                    </tr>
-                  ))}
-                  {!top.length && (
-                    <tr>
-                      <td colSpan={4} className="quiet">
-                        No events in the last 24 hours for the default layers.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="card">
-            <div className="ph">
-              <h2>Changes since yesterday</h2>
-            </div>
-            <div className="cbody">
-              <ul className="digest">
-                {changes(tension, today, yesterday).map((c, i) => (
-                  <li key={i} style={{ ['--c' as string]: c.color }}>
-                    <i />
-                    <span>{c.text}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </section>
-
-          {wikiGroups.length > 0 && (
-            <section className="card">
-              <div className="ph">
-                <h2>Wikipedia current events · {wikiDay}</h2>
-                <a className="quiet small" href={wiki[0].url} target="_blank" rel="noreferrer noopener">
-                  Portal ↗
-                </a>
-              </div>
-              <div className="cbody wikilist">
-                {wikiGroups.map(([category, items]) => (
-                  <div key={category}>
-                    <h3>{category}</h3>
-                    <ul>
-                      {items.map((w) => (
-                        <li
-                          key={w.id}
-                          className={w.lat !== null ? 'clickrow' : undefined}
-                          title={w.lat !== null ? 'Show ' + w.place + ' on the map' : undefined}
-                          onClick={() => w.lat !== null && w.lon !== null && openPlace(navigate, w.lat, w.lon)}
-                        >
-                          {w.topics.length > 0 && <small>{w.topics[w.topics.length - 1]}</small>}
-                          <span>{w.text}</span>
-                          {w.sources.length > 0 && (
-                            <span className="srcs">
-                              {w.sources.slice(0, 3).map((src) => (
-                                <a
-                                  key={src.url}
-                                  href={src.url}
-                                  target="_blank"
-                                  rel="noreferrer noopener"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {src.name || 'source'}
-                                </a>
-                              ))}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-                <p className="quiet small">From Wikipedia, CC BY-SA 4.0.</p>
-              </div>
-            </section>
-          )}
-
-          <section className="card">
-            <div className="ph">
-              <h2>Exploited vulnerabilities</h2>
-              <span className="mono">CISA KEV</span>
-            </div>
-            <div className="cbody">
-              {kev === null ? (
-                <p className="quiet small">Loading…</p>
-              ) : kev.length === 0 ? (
-                <p className="quiet small">Not fetched yet: the worker reads CISA's catalogue every six hours.</p>
-              ) : (
-                <ul className="kevlist">
-                  {kev.slice(0, 10).map((v) => (
-                    <li key={v.cve} title={v.description}>
-                      <a href={'https://nvd.nist.gov/vuln/detail/' + v.cve} target="_blank" rel="noopener noreferrer">
-                        <b className="mono">{v.cve}</b>
-                      </a>{' '}
-                      {v.vendor} {v.product}
-                      {v.ransomware && <span className="badge" style={{ ['--c' as string]: '#ff7a59' }}>ransomware</span>}
-                      <small>
-                        {v.name} · added {v.added}
-                        {v.due ? ', fix federal systems by ' + v.due : ''}
-                      </small>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="quiet small">
-                Flaws CISA has seen exploited in the wild, newest first. Hover one for its description.
-              </p>
-            </div>
-          </section>
-
-          <section className="card">
-            <div className="ph">
-              <h2>Space weather</h2>
-              <span className="mono">NOAA SWPC</span>
-            </div>
-            <div className="cbody">
-              <SpaceWeatherCard sw={spaceWx} alerts={6} />
-            </div>
-          </section>
-
-          <section className="card">
-            <div className="ph">
-              <h2>Source health</h2>
-              <span className="mono">collectors</span>
-            </div>
-            <div className="cbody tblwrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Source</th>
-                    <th>Last pull</th>
-                    <th>Items</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sources.map((s) => {
-                    const st = sourceState(s);
-                    return (
-                      <tr
-                        key={s.name}
-                        className="clickrow"
-                        title={s.last_error ?? 'Open Data sources'}
-                        onClick={() => navigate('/settings/sources')}
-                      >
-                        <td>{s.label}</td>
-                        <td className="mono">{s.last_success_at ? ago(s.last_success_at) : '—'}</td>
-                        <td className="mono">{s.last_count.toLocaleString()}</td>
-                        <td>
-                          <i className={'sdot ' + (st === 'ok' ? '' : st)} />{' '}
-                          {st === 'ok' ? 'OK' : st === 'warn' ? 'Late or failing' : 'Off'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="card">
-            <div className="ph">
-              <h2>Tension by country</h2>
-              <span className="mono">UCDP to {tension?.ucdp_through ?? '…'}</span>
-            </div>
-            <div className="cbody">
-              <ul className="tlist">
-                {(tension?.countries ?? []).slice(0, 12).map((c) => (
-                  <li key={c.key} title={c.deaths_12m.toLocaleString() + ' deaths in 12 months (UCDP)'}>
-                    <span className="tname">{c.name}</span>
-                    <span className="tmeter">
-                      <i className={'b-' + c.band} style={{ width: c.level + '%' }} />
-                    </span>
-                    <span className="mono tval">{c.level}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </section>
+          {layout.shown.map((id) => (
+            <Fragment key={id}>{sections[id]}</Fragment>
+          ))}
         </div>
       </main>
     </div>
+  );
+}
+
+// Severity first, then the most recently updated.
+function byWeight(events: EventItem[]): EventItem[] {
+  return [...events].sort((a, b) => b.severity - a.severity || Date.parse(b.last_updated) - Date.parse(a.last_updated));
+}
+
+function EventsCard({
+  title,
+  events,
+  empty,
+  onOpen,
+}: {
+  title: string;
+  events: EventItem[];
+  empty: string;
+  onOpen: (e: EventItem) => void;
+}) {
+  return (
+    <section className="card">
+      <div className="ph">
+        <h2>{title}</h2>
+        <span className="mono">by severity</span>
+      </div>
+      <div className="cbody tblwrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Sev</th>
+              <th>Event</th>
+              <th>Where</th>
+              <th>Age</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((e) => (
+              <tr
+                key={e.id}
+                className="clickrow"
+                tabIndex={0}
+                title="Open on the map"
+                onClick={() => onOpen(e)}
+                onKeyDown={(k) => k.key === 'Enter' && onOpen(e)}
+              >
+                <td>
+                  <span className="sevtag mono" style={{ color: SEVERITY_COLOR[e.severity] }}>
+                    {SEVERITY_NAME[e.severity]}
+                  </span>
+                </td>
+                <td>{e.title}</td>
+                <td>{e.place || e.country}</td>
+                <td className="mono">{ago(e.first_seen)}</td>
+              </tr>
+            ))}
+            {!events.length && (
+              <tr>
+                <td colSpan={4} className="quiet">
+                  {empty}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+// The day's biggest stories, by how many of the news feeds' outlets run
+// them; each links to its most typical headline.
+function StoriesCard({ title, stories }: { title: string; stories: Story[] | null }) {
+  return (
+    <section className="card">
+      <div className="ph">
+        <h2>{title}</h2>
+        <span className="mono">by outlets · 24h</span>
+      </div>
+      <div className="cbody">
+        {stories === null ? (
+          <p className="quiet small">Loading…</p>
+        ) : !stories.length ? (
+          <p className="quiet small">No story has been run by two or more outlets in the last day.</p>
+        ) : (
+          <ol className="storylist">
+            {stories.map((st) => (
+              <li key={st.url}>
+                <a href={st.url} target="_blank" rel="noreferrer noopener">
+                  {st.title}
+                </a>
+                <small>
+                  <b className="mono">{st.outlet_count}</b> outlets · {st.outlets.slice(0, 4).join(', ')}
+                  {st.outlet_count > 4 ? ' and more' : ''} · {ago(st.latest)}
+                </small>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </section>
   );
 }

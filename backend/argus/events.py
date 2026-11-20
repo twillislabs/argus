@@ -215,7 +215,15 @@ async def related_articles(
     """Headlines about this event: they name its place and use words for
     that kind of event in the headline itself. GDELT events use the same
     rule that confirms them (fusion.corroborating_articles)."""
-    if event.type in ("conflict", "unrest"):
+    if (event.key or "").startswith("news:"):
+        ids = (event.data or {}).get("articles") or []
+        found = await db.execute(
+            select(Article)
+            .where(Article.id.in_(ids))
+            .order_by(Article.published_at.desc())
+        )
+        return list(found.scalars())[:limit]
+    if event.type in ("conflict", "unrest", "incident"):
         # A syndicated headline (AP, Reuters) once, not once per outlet.
         seen: set[str] = set()
         out = []

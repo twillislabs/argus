@@ -4,6 +4,7 @@ import {
   type AiFeature,
   type AiKind,
   type AiSettings,
+  forgetAiStatus,
   getAiSettings,
   PROVIDER_LABEL,
   putAiSettings,
@@ -86,6 +87,7 @@ export default function AiSection() {
       });
       setS({ ...r, usage: s?.usage });
       setD(draftFrom(r));
+      forgetAiStatus();
       setStatus('Saved.');
       return true;
     } catch (err) {

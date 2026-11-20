@@ -158,6 +158,8 @@ class Weights:
 
 # Two links tell the same story at this similarity or above.
 SAME_STORY = 0.3
+# Share of articles a word may appear in and still be worth indexing.
+COMMON = 0.2
 
 
 def clusters(
@@ -173,8 +175,21 @@ def clusters(
             i = parent[i]
         return i
 
-    for i in range(len(items)):
-        for j in range(i + 1, len(items)):
+    # Only articles sharing a word can match; index them by word. Words
+    # in more than COMMON of the articles are left out of the index (two
+    # articles sharing only "russia" never reach the threshold anyway).
+    index: dict[str, list[int]] = {}
+    for i, terms in enumerate(items):
+        for t in terms:
+            index.setdefault(t, []).append(i)
+    common = max(50, int(COMMON * len(items)))
+    for i, terms in enumerate(items):
+        near: set[int] = set()
+        for t in terms:
+            hits = index[t]
+            if len(hits) <= common:
+                near.update(j for j in hits if j > i)
+        for j in near:
             if find(i) == find(j):
                 continue
             if weights.similarity(items[i], items[j]) >= threshold:

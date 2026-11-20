@@ -43,7 +43,15 @@ class EventsParams(BaseModel):
     area: Area | None = None
     min_severity: int = Field(default=4, ge=1, le=5)
     types: list[
-        Literal["conflict", "unrest", "quake", "fire", "hazard", "maritime"]
+        Literal[
+            "conflict",
+            "unrest",
+            "incident",
+            "quake",
+            "fire",
+            "hazard",
+            "maritime",
+        ]
     ] = []
 
 

@@ -87,15 +87,25 @@ export const PROVIDER_LABEL: Record<AiKind, string> = {
   local: 'Local / OpenAI-compatible',
 };
 
-// The AI status, fetched once per page load and shared.
+// The AI status, shared by the pages that use it and re-read when it's a
+// minute old or the AI settings were saved (else turning a feature on
+// showed nothing until a reload).
 let statusPromise: Promise<{ features: Record<AiFeature, boolean>; can_use: boolean }> | null = null;
+let statusAt = 0;
+const STATUS_MAX_AGE_MS = 60_000;
+export function forgetAiStatus() {
+  statusPromise = null;
+}
 export function useAiStatus() {
   const [s, setS] = useState<{ features: Record<AiFeature, boolean>; can_use: boolean } | null>(null);
   useEffect(() => {
-    statusPromise ??= getAiStatus().catch(() => ({
-      features: { digest: false, summaries: false, ask: false },
-      can_use: false,
-    }));
+    if (!statusPromise || Date.now() - statusAt > STATUS_MAX_AGE_MS) {
+      statusAt = Date.now();
+      statusPromise = getAiStatus().catch(() => ({
+        features: { digest: false, summaries: false, ask: false },
+        can_use: false,
+      }));
+    }
     let alive = true;
     void statusPromise.then((v) => alive && setS(v));
     return () => {

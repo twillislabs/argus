@@ -21,9 +21,10 @@ export const SEVERITY_NAME: Record<number, string> = {
 export const TYPE_INFO: Record<EventType, { label: string; color: string; source: string }> = {
   conflict: { label: 'Armed conflict', color: '#ff5d5d', source: 'GDELT' },
   unrest: { label: 'Civil unrest', color: '#f5b942', source: 'GDELT' },
+  incident: { label: 'Incidents', color: '#e879c9', source: 'GDELT · news headlines' },
   quake: { label: 'Earthquakes', color: '#b49cff', source: 'USGS' },
   fire: { label: 'Thermal anomalies', color: '#ff8c42', source: 'NASA FIRMS' },
-  hazard: { label: 'Disasters', color: '#3fa7ff', source: 'GDACS · NASA EONET · NOAA tsunami' },
+  hazard: { label: 'Disasters', color: '#3fa7ff', source: 'GDACS · EONET · NOAA · NWS · FEMA · NIFC' },
   maritime: { label: 'Maritime warnings', color: '#7fd1c7', source: 'NGA navigational warnings' },
 };
 

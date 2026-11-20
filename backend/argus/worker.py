@@ -1162,7 +1162,10 @@ async def run_collector(
 
 async def run(settings: Settings) -> None:
     configure_logging(settings.log_level)
-    names = [n.strip() for n in settings.collectors.split(",") if n.strip()]
+    # Empty means every collector, so new ones start after an update.
+    names = [
+        n.strip() for n in settings.collectors.split(",") if n.strip()
+    ] or list(REGISTRY)
     unknown = [n for n in names if n not in REGISTRY]
     if unknown:
         log.warning("Unknown collectors ignored: {0}".format(unknown))

@@ -297,6 +297,37 @@ class Tour(BaseModel):
     shots: list[TourShot] = Field(default_factory=list, max_length=40)
 
 
+BRIEF_SECTIONS = (
+    "us_stories",
+    "us_events",
+    "theatres",
+    "digest",
+    "world_stories",
+    "world_events",
+    "changes",
+    "wiki",
+    "tension",
+    "kev",
+    "space",
+    "sources",
+)
+
+
+class BriefPrefs(BaseModel):
+    """The Brief's sections in the order shown, and the hidden ones."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    order: list[str] = Field(default_factory=list, max_length=40)
+    hidden: list[str] = Field(default_factory=list, max_length=40)
+
+    @field_validator("order", "hidden")
+    @classmethod
+    def known_sections(cls, value: list[str]) -> list[str]:
+        # Unknown ids (a section since removed) are dropped, not refused.
+        return [s for s in dict.fromkeys(value) if s in BRIEF_SECTIONS]
+
+
 class Preferences(BaseModel):
     """Per-user settings. Unknown keys are rejected to keep this small."""
 
@@ -329,6 +360,7 @@ class Preferences(BaseModel):
     show_banner: bool | None = None
     # Director mode: saved map tours (TourPanel).
     tours: list[Tour] | None = Field(default=None, max_length=30)
+    brief: BriefPrefs | None = None
 
 
 class MeOut(BaseModel):

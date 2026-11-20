@@ -121,6 +121,7 @@ const FOCUS_HEIGHT: Record<string, number> = {
   fire: 120_000,
   conflict: 150_000,
   unrest: 60_000,
+  incident: 60_000,
   hazard: 600_000,
   maritime: 500_000,
 };
@@ -1759,7 +1760,15 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     }
     if (r.kind === 'filter' && r.filter) {
       if (r.filter.events) {
-        const types = { conflict: false, unrest: false, quake: false, fire: false, hazard: false, maritime: false };
+        const types = {
+          conflict: false,
+          unrest: false,
+          incident: false,
+          quake: false,
+          fire: false,
+          hazard: false,
+          maritime: false,
+        };
         for (const t of r.filter.events) types[t] = true;
         changeFilters({ ...filters, types });
       }

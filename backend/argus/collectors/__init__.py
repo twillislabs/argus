@@ -20,6 +20,7 @@ from argus.collectors.hazards import (
 )
 from argus.collectors.nga import NgaCollector
 from argus.collectors.rss import RssCollector
+from argus.collectors.usgov import FemaCollector, NifcCollector
 from argus.collectors.usgs import UsgsCollector
 from argus.collectors.weather import NwsCollector, SpcCollector
 
@@ -39,6 +40,8 @@ REGISTRY: dict[str, type[Collector]] = {
         CzibCollector,
         NwsCollector,
         SpcCollector,
+        FemaCollector,
+        NifcCollector,
     )
 }
 

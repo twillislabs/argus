@@ -315,8 +315,55 @@ export interface Preferences {
   show_route?: boolean;
   wall?: WallPrefs;
   video?: { muted: boolean; volume: number };
+  brief?: BriefPrefs;
   [key: string]: unknown;
 }
+
+// The Brief's sections (schemas.BRIEF_SECTIONS), in their default order.
+export const BRIEF_SECTIONS = [
+  { id: 'us_stories', label: 'US top stories' },
+  { id: 'us_events', label: 'US events' },
+  { id: 'theatres', label: 'Theatres' },
+  { id: 'digest', label: 'AI digest' },
+  { id: 'world_stories', label: 'World top stories' },
+  { id: 'world_events', label: 'World events' },
+  { id: 'changes', label: 'Changes since yesterday' },
+  { id: 'wiki', label: 'Wikipedia current events' },
+  { id: 'tension', label: 'Tension by country' },
+  { id: 'kev', label: 'Exploited vulnerabilities' },
+  { id: 'space', label: 'Space weather' },
+  { id: 'sources', label: 'Source health' },
+] as const;
+export type BriefSection = (typeof BRIEF_SECTIONS)[number]['id'];
+export interface BriefPrefs {
+  order: BriefSection[];
+  hidden: BriefSection[];
+}
+
+// The saved order, with sections added since appended in their default
+// place, and the hidden ones taken out.
+export function briefLayout(p: BriefPrefs | undefined): {
+  order: BriefSection[];
+  shown: BriefSection[];
+  hidden: BriefSection[];
+} {
+  const all = BRIEF_SECTIONS.map((s) => s.id) as BriefSection[];
+  const order = (p?.order ?? []).filter((s) => all.includes(s));
+  for (const s of all) if (!order.includes(s)) order.splice(Math.min(all.indexOf(s), order.length), 0, s);
+  const hidden = (p?.hidden ?? []).filter((s) => all.includes(s));
+  return { order, shown: order.filter((s) => !hidden.includes(s)), hidden };
+}
+
+export interface Story {
+  title: string;
+  url: string;
+  outlet: string;
+  outlets: string[];
+  outlet_count: number;
+  latest: string;
+  articles: { outlet: string; title: string; url: string; published_at: string }[];
+}
+export const getStories = () => api<{ us: Story[]; world: Story[] }>('/api/stories');
 
 // Server-wide defaults an admin sets (Settings > Defaults).
 export interface ServerDefaults {
@@ -407,7 +454,7 @@ export const logout = () => api<void>('/api/auth/logout', { method: 'POST' });
 
 // --- Milestone 1: events, summary, news, places -----------------------------
 
-export type EventType = 'conflict' | 'unrest' | 'quake' | 'fire' | 'hazard' | 'maritime';
+export type EventType = 'conflict' | 'unrest' | 'incident' | 'quake' | 'fire' | 'hazard' | 'maritime';
 
 export interface EventItem {
   id: string;

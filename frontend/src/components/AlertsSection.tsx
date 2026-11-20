@@ -31,7 +31,7 @@ const SANCTION_CATEGORIES = [
   ['mare.shadow', 'Shadow fleet'],
   ['poi', 'War-related list'],
 ] as const;
-const TYPES = ['conflict', 'unrest', 'quake', 'fire', 'hazard', 'maritime'] as const;
+const TYPES = ['conflict', 'unrest', 'incident', 'quake', 'fire', 'hazard', 'maritime'] as const;
 
 type Draft = Omit<AlertRule, 'id' | 'created_at' | 'last_fired_at'> & { id?: number };
 

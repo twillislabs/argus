@@ -121,7 +121,15 @@ class AuditLog(Base):
 
 # --- Milestone 1: sources, raw records, events, articles -------------------
 
-EVENT_TYPES = ("conflict", "unrest", "quake", "fire")
+EVENT_TYPES = (
+    "conflict",
+    "unrest",
+    "incident",
+    "quake",
+    "fire",
+    "hazard",
+    "maritime",
+)
 EVENT_STATUSES = ("candidate", "active", "expired")
 
 

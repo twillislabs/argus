@@ -43,7 +43,7 @@ export interface LayerFilters {
 }
 
 export const DEFAULT_FILTERS: LayerFilters = {
-  types: { conflict: true, unrest: true, quake: true, fire: true, hazard: true, maritime: false },
+  types: { conflict: true, unrest: true, incident: true, quake: true, fire: true, hazard: true, maritime: false },
   minSeverity: 1,
   candidates: false,
   hours: 24,
@@ -206,7 +206,8 @@ const FEEDS: Record<string, string[]> = {
   unrest: ['gdelt'],
   quake: ['usgs'],
   fire: ['firms'],
-  hazard: ['gdacs', 'eonet', 'tsunami'],
+  hazard: ['gdacs', 'eonet', 'tsunami', 'nws', 'fema', 'nifc'],
+  incident: ['gdelt', 'rss'],
   maritime: ['nga'],
   military: ['adsb_mil'],
   tfr: ['faa_tfr'],

@@ -23,7 +23,15 @@ from argus.services import load_session
 
 router = APIRouter(tags=["events"])
 
-TYPES = ("conflict", "unrest", "quake", "fire", "hazard", "maritime")
+TYPES = (
+    "conflict",
+    "unrest",
+    "incident",
+    "quake",
+    "fire",
+    "hazard",
+    "maritime",
+)
 
 
 @router.get("/api/events")
@@ -101,6 +109,25 @@ async def get_tension_history(
         "days": days,
         "areas": await tension.history(db, utcnow().date(), days),
     }
+
+
+STORIES_CACHE_S = 300
+
+
+@router.get("/api/stories")
+async def get_stories(session: SessionDep, db: DbDep, request: Request):
+    """The day's biggest stories in the news feeds, US and world, by how
+    many outlets run them (cached five minutes)."""
+    from argus import newsevents
+
+    state = request.app.state
+    cached = getattr(state, "stories_cache", None)
+    now = time.monotonic()
+    if cached and now - cached[0] < STORIES_CACHE_S:
+        return cached[1]
+    body = await newsevents.top_stories(db)
+    state.stories_cache = (now, body)
+    return body
 
 
 @router.get("/api/sources")

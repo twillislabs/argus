@@ -290,8 +290,28 @@ async def test_crime_gdelt_cluster_is_not_military_force(app):
         event = (await db.execute(select(Event))).scalar_one()
         assert event.title.startswith("Crime or police incident")
         assert event.data["crime"] is True
-        assert event.data["eligible"] is False
+        assert event.type == "incident"
+        assert event.data["kind"] == "conflict"
+        # Enough outlets, but no headline from the news feeds backs it.
+        assert event.data["eligible"] is True
         assert event.status == "candidate"
+        now = utcnow()
+        db.add(
+            Article(
+                outlet="Fox News",
+                url="https://fox.example/mall",
+                title="Gunman opens fire at Westfield mall in Kharkiv",
+                summary="",
+                published_at=now,
+                fetched_at=now,
+            )
+        )
+        await db.commit()
+        await fusion.review_gdelt(db)
+        await db.commit()
+        await db.refresh(event)
+        assert event.status == "active"
+        assert event.title == "Gunman opens fire at Westfield mall in Kharkiv"
 
 
 async def test_articles_stored_once(app):

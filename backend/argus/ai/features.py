@@ -198,6 +198,7 @@ ASK_TOOLS = [
                         "enum": [
                             "conflict",
                             "unrest",
+                            "incident",
                             "quake",
                             "fire",
                             "hazard",

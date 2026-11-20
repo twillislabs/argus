@@ -22,6 +22,10 @@ M2–M3), patterns and alerts.
 | `firms` | 3 h | Fire clusters (0.25 degree cells with 8+ detections); needs a key |
 | `gdacs` | 15 min | GDACS disasters (floods, cyclones, volcanoes, droughts, wildfires), one `hazard` event each |
 | `eonet` | 30 min | NASA EONET natural events (storms with their tracks, volcanoes...) as `hazard` events |
+| `nws` | 5 min | NWS active alerts as `wxalert` raw records (the weather layer); the most serious warnings (tornado, hurricane, flash flood emergency...) also become `hazard` events until they expire |
+| `fema` | 6 h | OpenFEMA disaster declarations from the last 30 days, one `hazard` event per declaration at the state's population centre |
+| `nifc` | 30 min | NIFC (WFIGS) wildfire incidents of 100+ acres not yet contained, as `hazard` events |
+| headlines (after `rss`) | 10 min | Headline-led `incident` events: 3+ outlets running one story naming a US place (`argus/newsevents.py`) |
 | `tsunami` | 5 min | Latest NTWC and PTWC bulletins; a warning is severity 5 |
 | `faa_tfr` | 15 min | FAA TFR list joined to their shapes; `airspace` raw records |
 | `sigmet` | 10 min | International and US SIGMETs from aviationweather.gov; `airspace` raw records |
@@ -70,6 +74,9 @@ Privacy-flagged aircraft are dropped before anything is kept.
   - events telling the same story merge: nearby ones, ones backed by the same headline, and ones
     whose links never name their own city but do name the other's (Kyiv strikes pinned on
     Moscow).
+- **Incidents:** a cluster whose links read like crime, police or public-safety stories is an
+  `incident` event, not conflict, confirmed like conflict but by headlines using incident words
+  (shooting, attack, explosion, police...).
 - **GDELT place check:** when most of an event's readable links name another big city and hardly
   any name its own, the event moves there.
 - **Titles:** a confirmed event takes the news headline that backs it as its title, the one

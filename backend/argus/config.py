@@ -35,11 +35,8 @@ class Settings(BaseSettings):
     # polled data).
     nats_url: str = "nats://nats:4222"
 
-    # Collectors (worker process).
-    collectors: str = (
-        "usgs,gdelt,rss,firms,gdacs,eonet,tsunami,nga,faa_tfr,sigmet,czib,"
-        "nws,spc"
-    )
+    # Collectors (worker process), a comma list; empty runs them all.
+    collectors: str = ""
     user_agent: str = "Argus/0.1 (self-hosted OSINT visualizer)"
     # Sentinel imagery tiles, kept a week (argus/imagery.py); empty for
     # argus-imagery in the system temp directory.
