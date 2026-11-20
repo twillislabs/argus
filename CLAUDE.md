@@ -126,8 +126,13 @@ parts connect.
   `off_topic(url)` drops an article before it joins or starts an event
   when its link words are readable and about neither violence nor
   unrest (court, legislative and memorial stories unless about war):
-  GDELT geocodes any article mentioning a place. `review_gdelt` retires
-  events whose every link is off topic.
+  GDELT geocodes any article mentioning a place. `review_gdelt` prunes
+  off-topic records from events (`prune_strays`, recounting with
+  `tally`/`judge`, the same rules as `fuse_gdelt`), moves misplaced ones
+  to the city most links name (`better_place`: 3+ links and 40%+, own
+  city in at most 15%; `gazetteer` is 200k+ cities minus
+  `PLACE_STOPWORDS`), merging into a same-kind event there, and titles
+  confirmed events with their backing headline (`headline_title`).
 - adsb.lol's routeset endpoint is unusable (202, empty); routes come from
   adsbdb, which goes stale when flight numbers are reused
   (`route_progress` flags implausible routes).

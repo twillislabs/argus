@@ -12,6 +12,7 @@ import re
 import secrets
 from collections import Counter
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 from urllib.parse import urlsplit
 
 from sqlalchemy import and_, delete, or_, select, update
@@ -721,6 +722,298 @@ async def corroborating_articles(
     return [a for a in rows.scalars() if about(a)]
 
 
+def headline_title(title: str) -> str:
+    """A news headline as an event title: the outlet's " - Name" or
+    " | Name" tail removed."""
+    t = re.sub(
+        r"\s+[-|–]\s+[^-|–]{2,40}$", "", " ".join((title or "").split())
+    )
+    return t[:200]
+
+
+def tally(records: list[RawRecord]) -> dict:
+    """An event's GDELT picture rebuilt from its records, the same way
+    fuse_gdelt builds it one record at a time."""
+    codes: Counter = Counter()
+    code_outlets: dict[str, list[str]] = {}
+    outlets: list[str] = []
+    urls: list[str] = []
+    actors: list[str] = []
+    articles = 0
+    for r in sorted(records, key=lambda x: x.observed_at):
+        p = r.payload or {}
+        code = p.get("code", "")
+        domain = _domain(p.get("url", ""))
+        codes[code] += 1
+        if domain and domain not in code_outlets.setdefault(code, []):
+            code_outlets[code].append(domain)
+        if domain and domain not in outlets:
+            outlets.append(domain)
+        if p.get("url") and p["url"] not in urls:
+            urls.append(p["url"])
+        for actor in (p.get("actor1"), p.get("actor2")):
+            if actor and actor not in actors:
+                actors.append(actor)
+        articles += max(1, int(p.get("articles") or 1))
+    return {
+        "codes": codes,
+        "code_outlets": code_outlets,
+        "outlets": outlets,
+        "urls": urls,
+        "actors": actors,
+        "articles": articles,
+    }
+
+
+def judge(t: dict) -> dict:
+    """Label, severity and promotion eligibility from a tally."""
+    codes, code_outlets = t["codes"], t["code_outlets"]
+    top = max(
+        codes,
+        key=lambda c: (
+            len(code_outlets.get(c, [])),
+            codes[c],
+            gdelt_severity(c, c[:2]),
+        ),
+    )
+    severity = gdelt_severity(top, top[:2])
+    if t["articles"] >= 30:
+        severity = min(4, severity + 1)
+    root_outlets = {
+        o for c, os_ in code_outlets.items() if c[:2] == top[:2] for o in os_
+    }
+    root_articles = sum(n for c, n in codes.items() if c[:2] == top[:2])
+    needed = (
+        PROMOTE_ARTICLES_GENERIC
+        if set(codes) <= GENERIC_CODES
+        else PROMOTE_ARTICLES
+    )
+    eligible = len(root_outlets) >= PROMOTE_OUTLETS and (
+        t["articles"] >= needed and root_articles >= PROMOTE_OUTLETS
+    )
+    crime = top[:2] in ("18", "19", "20") and crime_cluster(t["urls"])
+    if crime:
+        eligible, severity = False, 1
+    return {
+        "top": top,
+        "severity": severity,
+        "eligible": eligible,
+        "crime": crime,
+    }
+
+
+async def prune_strays(db: AsyncSession, event: Event) -> bool:
+    """Take off-topic articles out of an event (they joined before the
+    topic check) and rebuild its counts. Returns False when nothing is
+    left, after retiring the event."""
+    if not any(off_topic(u) for u in (event.data or {}).get("urls") or []):
+        return True
+    records = list(
+        (
+            await db.execute(
+                select(RawRecord)
+                .join(EventSource, EventSource.raw_record_id == RawRecord.id)
+                .where(
+                    EventSource.event_id == event.id,
+                    RawRecord.source == "gdelt",
+                )
+            )
+        ).scalars()
+    )
+    stray = [r for r in records if off_topic((r.payload or {}).get("url", ""))]
+    kept = [r for r in records if r not in stray]
+    if stray:
+        await db.execute(
+            delete(EventSource).where(
+                EventSource.event_id == event.id,
+                EventSource.raw_record_id.in_([r.id for r in stray]),
+            )
+        )
+    if not kept:
+        event.status = "expired"
+        return False
+    _apply_tally(event, tally(kept))
+    return True
+
+
+def _apply_tally(event: Event, t: dict) -> None:
+    j = judge(t)
+    data = dict(event.data or {})
+    data.update(
+        codes=dict(t["codes"]),
+        code_outlets={c: v[:50] for c, v in t["code_outlets"].items()},
+        outlets=t["outlets"][:50],
+        urls=t["urls"][:50],
+        actors=t["actors"][:20],
+        eligible=j["eligible"],
+        crime=j["crime"],
+    )
+    event.data = data
+    event.severity = j["severity"]
+    event.article_count = t["articles"]
+    event.source_count = len(t["outlets"])
+    event.confidence = round(min(0.9, 0.25 + 0.1 * event.source_count), 2)
+
+
+# --- where an event's articles say it is ----------------------------------
+#
+# GDELT places an event from the actors and places in an article, so a
+# story about Russian strikes on Kyiv can land in Moscow. The article
+# links say where the story is: when most readable links name another
+# city and hardly any name the event's own, the event moves there.
+
+# Cities whose names are also everyday English words in links.
+PLACE_STOPWORDS = {
+    "nice", "mobile", "reading", "split", "bath", "sale", "orange",
+    "victoria", "independence", "enterprise", "spring", "union",
+    "federal", "capital", "central", "mission", "pride", "hope",
+    "liberty", "march", "cork", "most", "bury", "deal", "wells",
+}  # fmt: skip
+CITY_MIN_POP = 200_000
+MOVE_MIN_LINKS = 3
+MOVE_SHARE = 0.4
+OWN_MAX_SHARE = 0.15
+
+
+@lru_cache(maxsize=1)
+def gazetteer() -> dict[str, places.Place]:
+    """Folded city names (200,000+ people) to their place: the largest
+    city wins a shared name."""
+    out: dict[str, places.Place] = {}
+    for p in places.load():
+        if (
+            p.population < CITY_MIN_POP
+            or not p.key
+            or p.key in PLACE_STOPWORDS
+        ):
+            continue
+        if len(p.key) < 4:
+            continue
+        cur = out.get(p.key)
+        if cur is None or p.population > cur.population:
+            out[p.key] = p
+    return out
+
+
+def cities_named(url: str) -> set[str]:
+    """Folded names of the big cities a link's words mention."""
+    words = _url_words(url).split()
+    names = gazetteer()
+    found = set()
+    for n in (3, 2, 1):
+        for i in range(len(words) - n + 1):
+            key = " ".join(words[i : i + n])
+            if key in names:
+                found.add(key)
+    return found
+
+
+def better_place(event: Event, urls: list[str]) -> places.Place | None:
+    """Where the event's links say it is, when that's clearly somewhere
+    other than its own city; else None."""
+    readable = [
+        u for u in urls if len(_url_words(u).split()) >= TOPIC_MIN_WORDS
+    ]
+    if len(readable) < MOVE_MIN_LINKS:
+        return None
+    own = places.fold((event.place or "").split(",")[0])
+    counts: Counter = Counter()
+    own_hits = 0
+    for u in readable:
+        named = cities_named(u)
+        own_hits += own in named
+        counts.update(named - {own})
+    if not counts:
+        return None
+    best, n = counts.most_common(1)[0]
+    if n < MOVE_MIN_LINKS or n < MOVE_SHARE * len(readable):
+        return None
+    if own_hits > OWN_MAX_SHARE * len(readable):
+        return None
+    return gazetteer()[best]
+
+
+async def relocate(db: AsyncSession, event: Event) -> Event | None:
+    """Move a misplaced event to where its links say, merging it into an
+    event of the same kind already there. Returns the event that now
+    holds it (this one, or the one it merged into), or None."""
+    target = better_place(event, (event.data or {}).get("urls") or [])
+    if target is None:
+        return None
+    dlat, dlon = degrees_box(target.lat, CLUSTER_KM)
+    near = (
+        (
+            await db.execute(
+                select(Event).where(
+                    Event.id != event.id,
+                    Event.type == event.type,
+                    Event.key.is_(None),
+                    Event.status != "expired",
+                    Event.lat.between(target.lat - dlat, target.lat + dlat),
+                    Event.lon.between(target.lon - dlon, target.lon + dlon),
+                    Event.last_updated
+                    >= utcnow() - timedelta(hours=REVIEW_HOURS),
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    old_place = event.place
+    if near is not None:
+        linked = set(
+            (
+                await db.execute(
+                    select(EventSource.raw_record_id).where(
+                        EventSource.event_id == near.id
+                    )
+                )
+            ).scalars()
+        )
+        mine = list(
+            (
+                await db.execute(
+                    select(EventSource.raw_record_id).where(
+                        EventSource.event_id == event.id
+                    )
+                )
+            ).scalars()
+        )
+        for rid in mine:
+            if rid not in linked:
+                db.add(EventSource(event_id=near.id, raw_record_id=rid))
+        await db.execute(
+            delete(EventSource).where(EventSource.event_id == event.id)
+        )
+        await db.flush()
+        records = list(
+            (
+                await db.execute(
+                    select(RawRecord)
+                    .join(
+                        EventSource, EventSource.raw_record_id == RawRecord.id
+                    )
+                    .where(
+                        EventSource.event_id == near.id,
+                        RawRecord.source == "gdelt",
+                    )
+                )
+            ).scalars()
+        )
+        if records:
+            _apply_tally(near, tally(records))
+        near.first_seen = min(near.first_seen, event.first_seen)
+        near.last_updated = max(near.last_updated, event.last_updated)
+        event.status = "expired"
+        event.data = dict(event.data or {}) | {"merged_into": near.id}
+        return near
+    event.place = "{0}, {1}".format(target.name, target.country)[:200]
+    event.country = target.country[:80]
+    event.lat, event.lon = round(target.lat, 4), round(target.lon, 4)
+    event.data = dict(event.data or {}) | {"moved_from": old_place}
+    return event
+
+
 async def review_gdelt(db: AsyncSession) -> set[str]:
     """Promote or demote recent GDELT events.
 
@@ -741,15 +1034,24 @@ async def review_gdelt(db: AsyncSession) -> set[str]:
         )
     ).scalars()
     changed: set[str] = set()
-    for event in rows:
-        data = dict(event.data or {})
-        # Fused before the topic check: an event whose every article is
-        # off topic (all readable, none about violence) is retired.
-        urls = [u for u in data.get("urls") or [] if u]
-        if urls and all(off_topic(u) for u in urls):
-            event.status = "expired"
+    for event in list(rows):
+        if event.status == "expired":  # merged into another this pass
+            continue
+        # Off-topic articles that joined before the topic check come out;
+        # an event left with none is retired.
+        before = event.article_count
+        if not await prune_strays(db, event):
             changed.add(event.id)
             continue
+        if event.article_count != before:
+            changed.add(event.id)
+        # Misplaced (Kyiv strikes pinned on Moscow): move or merge.
+        holder = await relocate(db, event)
+        if holder is not None:
+            changed.update({event.id, holder.id})
+            if holder is not event:
+                continue
+        data = dict(event.data or {})
         # Clusters fused before the crime check, or that turned into one.
         codes = data.get("codes") or {}
         top = max(codes, key=codes.get) if codes else ""
@@ -775,6 +1077,10 @@ async def review_gdelt(db: AsyncSession) -> set[str]:
         title = gdelt_title(
             top, event.place or "", status, bool(data.get("crime"))
         )
+        # A confirmed event reads as the news says it, not as GDELT's
+        # code: the headline that backs it.
+        if status == "active" and backing:
+            title = headline_title(backing[0].title) or title
         if top and title != event.title:
             event.title = title
             changed.add(event.id)

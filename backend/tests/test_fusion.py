@@ -406,3 +406,150 @@ async def test_political_cluster_is_not_called_fighting(app):
         )
         await db.refresh(event)
         assert event.status == "active"
+
+
+async def test_stray_articles_pruned_from_event(app):
+    # One real report and one about a parade, fused before the topic
+    # check existed: the review takes the parade out and recounts.
+    async with app.state.db.sessionmaker() as db:
+        await run(
+            db,
+            [
+                gdelt(
+                    "1",
+                    url="a.example.com",
+                    path="missile-strike-hits-kharkiv",
+                )
+            ],
+        )
+        event = (await db.execute(select(Event))).scalar_one()
+        stray = (
+            await store_raw(
+                db,
+                [
+                    gdelt(
+                        "2",
+                        url="b.example.com",
+                        path="mayday-parade-set-for-month-long-return",
+                    )
+                ],
+            )
+        )[0]
+        db.add(EventSource(event_id=event.id, raw_record_id=stray.id))
+        data = dict(event.data)
+        data["urls"] = data["urls"] + [stray.payload["url"]]
+        data["outlets"] = data["outlets"] + ["b.example.com"]
+        event.data = data
+        event.source_count, event.article_count = 2, 8
+        await db.commit()
+        await fusion.review_gdelt(db)
+        await db.commit()
+        await db.refresh(event)
+        assert event.source_count == 1 and event.article_count == 4
+        assert all("parade" not in u for u in event.data["urls"])
+        links = (
+            (
+                await db.execute(
+                    select(EventSource).where(EventSource.event_id == event.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [x.raw_record_id for x in links] != [] and stray.id not in [
+            x.raw_record_id for x in links
+        ]
+
+
+async def test_misplaced_event_moves_to_where_links_say(app):
+    # Russian strikes on Kyiv, pinned by GDELT on Moscow.
+    paths = [
+        "russian-strikes-kyiv-bridges-power-outage",
+        "russia-attacks-kyiv-with-ballistic-missiles",
+        "deadly-attack-on-kyiv-damages-bridges",
+        "kyiv-metro-shelters-residents-as-strikes-kill-three",
+    ]
+    async with app.state.db.sessionmaker() as db:
+        await run(
+            db,
+            [
+                gdelt(
+                    str(i),
+                    lat=55.75,
+                    lon=37.62,
+                    url="{0}.example.com".format("abcd"[i]),
+                    path=p,
+                )
+                for i, p in enumerate(paths)
+            ],
+        )
+        event = (await db.execute(select(Event))).scalar_one()
+        event.place = "Moscow, Moskva, Russia"
+        await db.commit()
+        await fusion.review_gdelt(db)
+        await db.commit()
+        await db.refresh(event)
+        assert event.place.startswith("Kyiv")
+        assert abs(event.lat - 50.45) < 0.2
+        assert event.data["moved_from"] == "Moscow, Moskva, Russia"
+
+
+async def test_misplaced_event_merges_into_one_there(app):
+    async with app.state.db.sessionmaker() as db:
+        # An event already at Kyiv, and a misplaced one at Moscow.
+        await run(
+            db,
+            [
+                gdelt(
+                    "k1",
+                    lat=50.45,
+                    lon=30.52,
+                    url="k.example.com",
+                    path="kyiv-under-attack-again",
+                )
+            ],
+        )
+        await run(
+            db,
+            [
+                gdelt(
+                    "m{0}".format(i),
+                    lat=55.75,
+                    lon=37.62,
+                    url="{0}.example.com".format("abc"[i]),
+                    path=p,
+                )
+                for i, p in enumerate(
+                    [
+                        "russian-missiles-hit-kyiv-overnight",
+                        "kyiv-bridges-struck-in-russian-attack",
+                        "explosions-rock-kyiv-as-drones-attack",
+                    ]
+                )
+            ],
+        )
+        events = {
+            e.lat > 53: e for e in (await db.execute(select(Event))).scalars()
+        }
+        moscow, kyiv = events[True], events[False]
+        moscow.place = "Moscow, Moskva, Russia"
+        await db.commit()
+        await fusion.review_gdelt(db)
+        await db.commit()
+        await db.refresh(moscow)
+        await db.refresh(kyiv)
+        assert (
+            moscow.status == "expired"
+            and moscow.data["merged_into"] == kyiv.id
+        )
+        assert kyiv.source_count == 4
+
+
+def test_headline_title():
+    assert (
+        fusion.headline_title(
+            "Russian attacks on Kyiv kill 3, cripple bridges - CBC News"
+        )
+        == "Russian attacks on Kyiv kill 3, cripple bridges"
+    )
+    assert fusion.headline_title("Plain headline") == "Plain headline"
