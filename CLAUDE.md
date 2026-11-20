@@ -251,7 +251,8 @@ parts connect.
   an admin saves an edited list (`server_settings["news:feeds"]`,
   `["news:channels"]`, `{"items": [...]}`); Reset deletes it, so new
   built-in entries reach installs that never edited. Feeds carry
-  `section` and `based` (us/world, used by `us_or_world` for stories
+  `section` (what the feed covers, never an outlet's politics:
+  `OUTLET_SECTIONS` for whole-site feeds) and `based` (us/world, used by `us_or_world` for stories
   naming no country); `RssCollector.prepare` reads them (the worker
   calls `Collector.prepare(session)` before each `collect`). Channels
   reach browsers in `/api/me` (`channels`, enabled only); the app puts

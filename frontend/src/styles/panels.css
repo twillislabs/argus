@@ -1016,3 +1016,6 @@ tr.dimrow td { color: var(--dim); }
 .feedtest { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); }
 .feedtest ul { margin: 0; padding-left: 18px; font-size: 12px; color: var(--muted); }
 .sfilter { background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 5px 8px; color: var(--text); min-width: 240px; }
+.srename { display: flex; gap: 6px; align-items: center; }
+.srename input { background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 4px 8px; color: var(--text); font-size: 13px; }
+.ph .actions { align-items: center; }

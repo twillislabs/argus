@@ -17,6 +17,14 @@ def test_builtin_feeds_have_sections_and_regions():
     bbc = by_url["https://feeds.bbci.co.uk/news/world/rss.xml"]
     assert bbc["based"] == "world" and bbc["section"] == "World"
     assert by_url["https://www.cbsnews.com/latest/rss/us"]["section"] == "US"
+    # Sections say what a feed covers, never an outlet's politics.
+    assert {f["section"] for f in feeds} <= {
+        "World",
+        "US",
+        "Politics",
+        "UK",
+        "Business",
+    }
 
 
 async def test_feeds_edit_reset_and_worker(admin_client, app):

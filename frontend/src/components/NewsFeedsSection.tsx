@@ -19,6 +19,8 @@ export default function NewsFeedsSection() {
   const [editing, setEditing] = useState<{ index: number; feed: NewsFeed } | null>(null);
   const [test, setTest] = useState<Test | null>(null);
   const [testing, setTesting] = useState(false);
+  // A section being renamed (for every feed in it), and its new name.
+  const [renaming, setRenaming] = useState<{ from: string; to: string } | null>(null);
   const form = useRef<HTMLDivElement>(null);
   // Editing a feed far down the list: bring the form into view.
   const editingIndex = editing?.index;
@@ -207,8 +209,46 @@ export default function NewsFeedsSection() {
       {[...new Set(shown.map(({ f }) => f.section))].sort().map((section) => (
         <section key={section} className="card">
           <div className="ph">
-            <h2>{section}</h2>
-            <span className="mono">{shown.filter(({ f }) => f.section === section).length}</span>
+            {renaming?.from === section ? (
+              <form
+                className="srename"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const to = renaming.to.trim();
+                  if (!to || to === section) return setRenaming(null);
+                  void save(
+                    items.map((x) => (x.section === section ? { ...x, section: to } : x)),
+                    'Renamed ' + section + ' to ' + to + '.',
+                  ).then((ok) => ok && setRenaming(null));
+                }}
+              >
+                <input
+                  autoFocus
+                  aria-label={'New name for ' + section}
+                  value={renaming.to}
+                  maxLength={40}
+                  onChange={(e) => setRenaming({ ...renaming, to: e.target.value })}
+                />
+                <button className="btn small primary">Rename</button>
+                <button type="button" className="btn small" onClick={() => setRenaming(null)}>
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <>
+                <h2>{section}</h2>
+                <span className="actions">
+                  <span className="mono">{shown.filter(({ f }) => f.section === section).length}</span>
+                  <button
+                    className="btn small"
+                    title="Rename this section for all its feeds (or to an existing section, to merge them)"
+                    onClick={() => setRenaming({ from: section, to: section })}
+                  >
+                    Rename
+                  </button>
+                </span>
+              </>
+            )}
           </div>
           <ul className="nlist">
             {shown

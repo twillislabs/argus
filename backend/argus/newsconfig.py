@@ -36,21 +36,13 @@ NON_US_OUTLETS = {
 
 
 # Sections for built-in feeds whose address doesn't say (a whole-site
-# feed): world desks, the UK press, business, and the conservative
-# outlets the default list leans on.
+# feed). Sections say what a feed covers (World, US, Politics, UK,
+# Business), never an outlet's politics.
 OUTLET_SECTIONS = {
     "Al Jazeera": "World", "France 24": "World", "Times of Israel": "World",
     "Kyiv Independent": "World", "Washington Examiner": "Politics",
     "The Telegraph": "UK", "GB News": "UK", "Daily Mail": "UK",
-    "Fox Business": "Business", "Alex Jones Live": "Conservative",
-    "Daily Wire": "Conservative", "Washington Times": "Conservative",
-    "Daily Caller": "Conservative", "Breitbart": "Conservative",
-    "The Blaze": "Conservative", "Just the News": "Conservative",
-    "National Review": "Conservative", "The Federalist": "Conservative",
-    "Washington Free Beacon": "Conservative",
-    "The Daily Signal": "Conservative", "Townhall": "Conservative",
-    "RedState": "Conservative", "PJ Media": "Conservative",
-    "The American Conservative": "Conservative",
+    "Fox Business": "Business",
 }  # fmt: skip
 NPR_SECTIONS = {"1004": "World", "1003": "US", "1001": "General"}
 
@@ -67,7 +59,10 @@ def section_for(url: str, outlet: str = "") -> str:
         return "Politics"
     if re.search(r"world|international|rss-en-world", u):
         return "World"
-    return OUTLET_SECTIONS.get(outlet, "General")
+    # A whole-site feed from a US outlet is US news.
+    return OUTLET_SECTIONS.get(
+        outlet, "World" if outlet in NON_US_OUTLETS else "US"
+    )
 
 
 def builtin_feeds(settings: Any = None) -> list[dict]:
