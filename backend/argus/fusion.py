@@ -98,6 +98,48 @@ def crime_cluster(urls: list[str]) -> bool:
     return crime >= CRIME_MIN_LINKS and crime >= 3 * war
 
 
+# GDELT geocodes any article that mentions a place, then codes its lead
+# sentence: a story about data-centre legislation in Nashville, or a
+# victim testifying in an old case, becomes "violence in Nashville". An
+# article whose link reads like neither violence nor unrest, or like a
+# court or legislative story that isn't about war, is off topic and
+# never joins (or starts) an event. Links with no readable words can't
+# be judged and are kept.
+VIOLENCE_SLUG = re.compile(
+    r"\b(attack(s|ed|er|ers)?|kill(s|ed|ing|er)?|dead|deaths?|died|"
+    r"shoot(s|ing|ings|er)?|shot|gun(s|man|men|fire)?|stab(s|bed|bing)?|"
+    r"bomb(s|ed|ing|er)?|explosions?|blasts?|clash(es|ed)?|fight(s|ing)?|"
+    r"wounded|injur(ed|ies|y)|hostages?|massacre|assault(s|ed)?|"
+    r"murder(s|ed|er)?|homicides?|"
+    r"violen(ce|t)|riot(s|ing)?|protest(s|ers|ed|ing)?|demonstrat\w*|"
+    r"unrest|rally|rallies|march(es|ed)?|curfew|siege|raid(s|ed)?|"
+    r"abduct\w*|kidnap\w*|lynch\w*|arson|torched|looting|terror\w*|"
+    r"insurgen\w*|militan\w*|militias?|rebels?|coup|casualt\w*)\b"
+)
+COURT_SLUG = re.compile(
+    r"\b(testif\w*|trial|court|courts|judge|jury|verdict|sentenc\w*|"
+    r"lawsuit|sues|sued|appeal(s|ed)?|hearing|indict\w*|plea|pleads|"
+    r"legislat\w*|lawmakers?|bill|bills|senate|congress|council|"
+    r"committee|budget|election|campaign|ballot|anniversary|"
+    r"years later|decade later|remember\w*|memorial|obituar\w*)\b"
+)
+TOPIC_MIN_WORDS = 3
+
+
+def off_topic(url: str) -> bool:
+    """The article's link is readable and isn't about violence or unrest
+    happening now (court, legislative and memorial stories aren't,
+    unless they're about war)."""
+    words = _url_words(url)
+    if len(words.split()) < TOPIC_MIN_WORDS:
+        return False
+    if WAR_SLUG.search(words):
+        return False
+    if COURT_SLUG.search(words):
+        return True
+    return not VIOLENCE_SLUG.search(words)
+
+
 # Codes GDELT also uses for crime and accidents: an unconfirmed cluster
 # of these is only "violence", not "military force" or "armed clash".
 VAGUE_CODES = GENERIC_CODES | {"18", "180", "182", "19"}
@@ -356,6 +398,8 @@ async def fuse_gdelt(db: AsyncSession, row: RawRecord) -> Event | None:
     # Only lead-paragraph ("root") events; the rest are background
     # mentions and are GDELT's biggest source of false positives.
     if not p.get("root_event", True):
+        return None
+    if off_topic(p.get("url", "")):
         return None
     kind = p["type"]
     dlat, dlon = degrees_box(row.lat, CLUSTER_KM)
@@ -699,6 +743,13 @@ async def review_gdelt(db: AsyncSession) -> set[str]:
     changed: set[str] = set()
     for event in rows:
         data = dict(event.data or {})
+        # Fused before the topic check: an event whose every article is
+        # off topic (all readable, none about violence) is retired.
+        urls = [u for u in data.get("urls") or [] if u]
+        if urls and all(off_topic(u) for u in urls):
+            event.status = "expired"
+            changed.add(event.id)
+            continue
         # Clusters fused before the crime check, or that turned into one.
         codes = data.get("codes") or {}
         top = max(codes, key=codes.get) if codes else ""

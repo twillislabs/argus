@@ -116,6 +116,11 @@ parts connect.
   Titles come from `gdelt_title`: vague codes (`VAGUE_CODES`) read
   "Violence" until confirmed, and `crime_cluster` (article link words)
   marks crime/crash/court clusters, which are never promoted.
+  `off_topic(url)` drops an article before it joins or starts an event
+  when its link words are readable and about neither violence nor
+  unrest (court, legislative and memorial stories unless about war):
+  GDELT geocodes any article mentioning a place. `review_gdelt` retires
+  events whose every link is off topic.
 - adsb.lol's routeset endpoint is unusable (202, empty); routes come from
   adsbdb, which goes stale when flight numbers are reused
   (`route_progress` flags implausible routes).

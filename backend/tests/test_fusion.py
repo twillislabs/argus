@@ -216,6 +216,40 @@ async def test_generic_gdelt_code_needs_more(app):
         assert event.status == "candidate"
 
 
+def test_off_topic_links_dont_count():
+    # The Nashville case: legislation and an old court case, coded as
+    # violence because they mention the city.
+    assert fusion.off_topic(
+        "https://www.newschannel5.com/news/politics/legislation-impacting-"
+        "data-center-expansion-could-be-a-focus-when-the-legislature-reconvenes"
+    )
+    assert fusion.off_topic(
+        "https://www.local3news.com/local-news/a-decade-later-victim-"
+        "testifies-in-new-assault-case-of-woodmore-bus-driver/article_81.html"
+    )
+    # Court stories about war still count; violence now counts; links
+    # with no readable words can't be judged.
+    assert not fusion.off_topic("https://x.com/hamas-commander-trial-gaza-war")
+    assert not fusion.off_topic("https://x.com/man-shot-dead-downtown")
+    assert not fusion.off_topic("https://x.com/protesters-clash-with-police")
+    assert not fusion.off_topic("https://www.bbc.com/news/world-12345678")
+
+
+async def test_off_topic_article_starts_no_event(app):
+    async with app.state.db.sessionmaker() as db:
+        await run(
+            db,
+            [
+                gdelt(
+                    "1",
+                    path="city-council-approves-budget-for-new-library",
+                    code="190",
+                )
+            ],
+        )
+        assert (await db.execute(select(Event))).scalars().all() == []
+
+
 def test_crime_cluster_reads_the_links():
     crime = [
         "https://a.example/crime/gunman-pleads-guilty-to-shooting-man",
@@ -234,7 +268,7 @@ def test_crime_cluster_reads_the_links():
 
 async def test_crime_gdelt_cluster_is_not_military_force(app):
     paths = [
-        "gunman-pleads-guilty-to-shooting-man",
+        "gunman-opens-fire-shooting-man-at-mall",
         "e-bike-rider-killed-in-hit-and-run",
         "police-officer-injured-alleged-assault",
         "man-arrested-over-murder-in-north-london",

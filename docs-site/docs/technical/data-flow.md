@@ -53,6 +53,11 @@ Privacy-flagged aircraft are dropped before anything is kept.
 - **Severity (1–5):** quakes by magnitude (M7+ is critical, M8+ catastrophic), bumped by a PAGER
   alert or tsunami flag. GDELT by event code, for example artillery or aerial attack is critical.
   Fires by detections and radiative power.
+- **GDELT topic check:** GDELT places an article wherever it mentions a place and codes its lead
+  sentence, so stories about legislation, court cases or anniversaries get coded as violence.
+  An article whose link words are readable and are about neither violence nor unrest (or are a
+  court or legislative story not about war) never joins or starts an event, and an unconfirmed
+  event left with only such articles is retired. Links without readable words are kept.
 - **GDELT corroboration:** only lead-paragraph ("root") events count. A cluster is labelled by
   the kind of event most of its outlets reported, not the most alarming code any one used. It
   stays *unconfirmed* until:
