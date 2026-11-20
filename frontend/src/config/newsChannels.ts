@@ -3,8 +3,9 @@
 // player embeds that video; YouTube no longer plays
 // embed/live_stream?channel=... IDs were checked against each channel's
 // public feed. Only channels with a true live stream (24/7, or live
-// TV simulcast) belong here: event-only channels and ones that are
-// rarely live were removed (2026-11-20 check).
+// TV simulcast) belong here, plus Ryan Hall, Y'all, who streams live
+// through major weather events. Channels that stream only one-off
+// events were removed (2026-11-20 check).
 
 export interface Channel {
   // A YouTube channel ID, or the Rumble channel name for Rumble.
@@ -35,6 +36,8 @@ export const CHANNELS: Channel[] = [
   { id: 'UC_gUM8rL-Lrg6O3adPW9K1g', name: 'WION', short: 'WION', group: 'International' },
   { id: 'UCSPEjw8F2nQDtmUKPFNF7_A', name: 'NHK WORLD-JAPAN', short: 'NHK', group: 'International' },
   { id: 'UCIALMKvObZNtJ6AmdCLP7Lg', name: 'Bloomberg Television', short: 'Bloomberg', group: 'Business' },
+  // Live for major weather events (tornado outbreaks, hurricanes), not 24/7.
+  { id: 'UCJHAT3Uvv-g3I8H3GhHWV7w', name: "Ryan Hall, Y'all", short: 'Ryan Hall', group: 'Weather' },
   { id: 'UC1FbPiXx59_ltnFVx7IxWow', name: 'FOX Weather', short: 'FOX Weather', group: 'Weather' },
 ];
 

@@ -495,10 +495,12 @@ place); **⧉** opens the channel in its own window, for another screen.
 - **International:** GB News, Euronews, CNA, BBC News, Al Jazeera
   English, DW, France 24, TRT World, WION, NHK World
 - **Business:** Bloomberg
-- **Weather:** FOX Weather
+- **Weather:** Ryan Hall, Y'all (live during major weather events), FOX
+  Weather
 
 Only channels with a true live stream are listed: 24/7 streams, or a
-TV channel simulcast live. Channels that stream only special events
+TV channel simulcast live, plus Ryan Hall's storm coverage, which goes
+live for major weather events. Channels that stream only special events
 (Fox News, Fox Business, Reuters, Sky News) or are rarely live were
 left out.
 
