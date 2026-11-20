@@ -75,6 +75,13 @@ parts connect.
   transaction, re-encrypts secrets to this server's key, then the API
   SIGTERMs itself (Docker restarts it). Status in a temp file, readable
   signed out.
+- Releases: `make release VERSION=X.Y.Z` (scripts/release.sh) needs a
+  clean main and a `## [X.Y.Z]` section in CHANGELOG.md; it bumps the
+  version in backend (`__init__`, pyproject, uv.lock), frontend and
+  docs-site (package.json, package-lock.json), commits and tags vX.Y.Z.
+  Push with `git push origin main vX.Y.Z`, then a GitHub release. The
+  account menu shows `ARGUS_VERSION` (vite define, from package.json).
+  Semver from 1.0.0: note anything an upgrade needs under the version.
 - `make ci` runs everything GitHub Actions runs (`scripts/ci.sh`); run it
   before every commit. `make ci-quick` skips migrations.
 - `make test`, `make lint`, `make up`, `make logs`, `make token`.

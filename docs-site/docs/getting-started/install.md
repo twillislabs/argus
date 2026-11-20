@@ -54,8 +54,11 @@ title: Install with Docker Compose
 ## Upgrading
 
 ```bash
-git pull
-docker compose up -d --build
+./argus update
 ```
 
-The API applies database migrations automatically before it starts.
+It refuses if you've changed Argus's files, backs up the database, pulls
+the latest code, rebuilds and waits until Argus is healthy again. The API
+applies database migrations automatically before it starts. Releases are
+tagged (`v1.0.0` and on) with notes on GitHub and in `CHANGELOG.md`; the
+account menu shows the version you're running, as does `/api/health`.

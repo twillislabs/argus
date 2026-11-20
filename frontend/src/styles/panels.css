@@ -968,3 +968,7 @@ tr.dimrow td { color: var(--dim); }
 .bellempty {
   padding: 12px;
 }
+.menuver {
+  padding: 6px 12px;
+  border-top: 1px solid var(--line);
+}

@@ -115,6 +115,28 @@ flowchart LR
   api -->|REST + WebSocket /ws/live| browser
 ```
 
+## Fetched on request
+
+Some sources are only asked when someone looks, by the API, with the
+answer cached and shared by everyone:
+
+| Source | Cached | For |
+|---|---|---|
+| FAA NAS status | 2 min | Ground stops and delays at US airports |
+| NOAA SWPC | 10 min | Space weather |
+| Ukraine air-raid map, Tzeva Adom | 20 s | Air-raid alerts |
+| Planetary Computer | tiles a week (on disk) | Recent Sentinel imagery |
+| OpenStreetMap Nominatim | a week | Address search (one request a second, never as you type) |
+| Open-Meteo, NWS points | minutes | Weather at home |
+| adsb.lol / adsb.fi | 15 s | Civil aircraft in the view |
+| Overpass | a week | Plate reader cameras |
+| openAIP | a day | Restricted areas and control zones |
+| YouTube, Rumble | 5–10 min | Live news stream IDs |
+| AI provider (if set up) | digest an hour | Digest, summaries, Ask Argus |
+
+The API also runs the **alert checker** every minute, against what it
+already holds.
+
 ## Stages
 
 1. **Collect.** Each source has a collector module that knows its API, rate

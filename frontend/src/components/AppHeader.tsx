@@ -125,6 +125,7 @@ export default function AppHeader({ me, onSignedOut, live, search, replay }: Pro
                 <li>
                   <button onClick={() => void signOut()}>Sign out</button>
                 </li>
+                <li className="menuver quiet small">Argus {ARGUS_VERSION}</li>
               </ul>
             )}
           </div>

@@ -65,10 +65,14 @@ restore: ## Restore a backup: make restore FILE=backups/argus-....tar.gz
 	@test -n "$(FILE)" || { echo "Usage: make restore FILE=backups/argus-....tar.gz"; exit 1; }
 	scripts/restore.sh $(FILE)
 
+release: ## Bump the version, commit and tag: make release VERSION=1.2.0
+	@test -n "$(VERSION)" || { echo "Usage: make release VERSION=X.Y.Z"; exit 1; }
+	scripts/release.sh $(VERSION)
+
 ci: ## Everything CI runs, locally (scripts/ci.sh)
 	scripts/ci.sh
 
 ci-quick: ## CI without the migration job, reusing node_modules
 	scripts/ci.sh --quick
 
-.PHONY: help env up down logs token status install dev-api dev-web docs-dev test lint streetmap update backup restore ci ci-quick
+.PHONY: help env up down logs token status install dev-api dev-web docs-dev test lint streetmap update backup restore release ci ci-quick

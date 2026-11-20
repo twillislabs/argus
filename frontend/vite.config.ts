@@ -2,6 +2,8 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
+import pkg from './package.json';
+
 // Build output layout (dist/):
 //   index.html
 //   img/                   static files from public/
@@ -46,6 +48,8 @@ export default defineConfig({
   },
   define: {
     CESIUM_BASE_URL: JSON.stringify('/' + cesiumBase),
+    // The release, from package.json (make release keeps it in step).
+    ARGUS_VERSION: JSON.stringify(pkg.version),
   },
   plugins: [
     react(),

@@ -56,13 +56,31 @@ What it does today:
   or about an event (with free keys).
 - **Context.** US and UK travel advisories by country and Wikipedia's current events, placed on
   the map.
-- **Live news.** A floating player with tabs for 18 news channels and Ryan Hall, Y'all.
+- **Air-raid alerts.** Ukraine by oblast and Israel by locality, live.
+- **Space.** Rocket launches at their pads (Launch Library 2) and space weather from NOAA (storm
+  scales, Kp, alerts).
+- **Cyber.** Internet outages by country (IODA), ransomware claims per country and CISA's newly
+  exploited vulnerabilities.
+- **Patterns.** Military aircraft flying orbits or racetracks, and ships loitering on submarine
+  cables.
+- **Airports and ports.** Hover or click any of them for details and headlines; US airports show
+  the FAA's live ground stops and delays.
+- **Recent satellite imagery.** Draw a box for the newest Sentinel-2 (optical) or Sentinel-1
+  (radar) pass over it, with a before-and-after split.
+- **Alerts.** Your own rules (events near home or in a drawn area, air-raid alerts, ground stops,
+  patterns, a watchlist, geomagnetic storms) delivered to the bell, your phone through ntfy, or
+  a webhook (Discord, Slack, Home Assistant).
+- **Optional AI.** Bring your own model (Anthropic, OpenAI or a local one such as Ollama) for a
+  cited digest on the Brief, event summaries and **Ask Argus** questions over your data.
+- **Live news.** A floating player with tabs for 18 channels that stream live around the clock,
+  plus Ryan Hall, Y'all for major weather events.
 - **Your own receivers.** readsb/tar1090 and AIS-catcher feeds merged into the map.
 - **Satellites.** About 17,000 from CelesTrak, by orbit (LEO, MEO, GEO, HEO, Starlink), moved
   every second in your browser with SGP4. Click one for its orbit, ground track and its passes
   over your home.
 - **Universal search.** Type a flight number (`AA100`), a hex or tail number, an airport, a
-  place, coordinates, an event or a word like `tankers`, and Argus works out what you meant.
+  place, coordinates, an event, a street address or a word like `tankers`, and Argus works out
+  what you meant.
 - **Corroboration before it hits the map.** Machine-coded GDELT reports start as *unconfirmed* and
   only become events when several independent outlets report them.
 - **News from across the spectrum.** Headlines from 34 outlets (world and US desks), left
@@ -70,9 +88,10 @@ What it does today:
 - **A situation panel** with counts by type, what's near home, a live feed, headlines and the
   health of every source. Click any event for its sources, coverage and raw record.
 - **Brief and Wall.** A one-page brief for the start of a shift, and a hands-free watch-floor
-  view that tours the theatres, for TVs paired with a code and set up per screen.
+  view that tours the theatres or shows live TV, for screens paired with a code, set up per
+  screen or from shared profiles, with changes pushed to them at once.
 - **Map tools.** Select an area and export what's in it, draw and measure, notes, a timeline you
-  can replay, share links and PNG capture.
+  can replay, saved camera tours, share links and PNG capture.
 - **First-run setup and accounts.**
   - A one-time setup token from the server log
   - Argon2id passwords and sessions with CSRF protection
@@ -83,8 +102,7 @@ What it does today:
   real visitor addresses behind a reverse proxy, and an optional self-signed certificate.
 - **Built-in documentation** at `/docs/`, including how every part connects.
 
-Coming next: air and sea patterns, more hazards, space weather and launches, Sentinel imagery,
-alerts, and optional AI (Anthropic, OpenAI or a local model).
+Still to come: NOTAMs, sanctions links, ACLED and social media feeds.
 
 <table>
   <tr>

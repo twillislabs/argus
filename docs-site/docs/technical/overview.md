@@ -5,32 +5,39 @@ sidebar_position: 1
 
 # System overview
 
-Argus is four containers on one Docker network. Only `web` is published to
+Argus is six containers on one Docker network. Only `web` is published to
 the host; everything else is reachable only from inside the network.
 
 ```mermaid
 flowchart LR
   subgraph host[Your machine or server]
-    subgraph net[Compose network: argus_default]
+    subgraph net[Compose network]
       web["web<br/>nginx :80<br/>app + docs + proxy"]
       api["api<br/>FastAPI / uvicorn :8000"]
+      worker["worker<br/>collectors"]
       db[("db<br/>PostgreSQL 17<br/>TimescaleDB + PostGIS")]
-      nats[("nats<br/>NATS JetStream :4222")]
+      nats[("nats<br/>NATS :4222")]
+      tiles["tiles<br/>tileserver-gl"]
     end
   end
   browser["Browser<br/>React + CesiumJS"] -->|"HTTP :8080<br/>(ARGUS_HTTP_PORT)"| web
   web -->|"/api/*, /ws/*"| api
+  web -->|"/tiles/"| tiles
   api -->|"SQL (asyncpg)"| db
-  api -.->|"planned, M1+"| nats
-  browser -->|"map tiles (HTTPS)"| gibs["NASA GIBS<br/>(external)"]
+  worker -->|"SQL"| db
+  worker -->|"live aircraft, ships"| nats
+  nats --> api
+  worker -->|"public sources (HTTPS)"| ext["USGS, GDELT, RSS,<br/>ADS-B, AIS, NWS ..."]
 ```
 
 | Component | Built from | Talks to | Why it exists |
 |---|---|---|---|
-| **web** | `frontend/Dockerfile` | `api` | Serves the built React app at `/`, the docs at `/docs/`, and proxies `/api/` and `/ws/` to the API. It also sets the browser security headers (CSP and friends). |
-| **api** | `backend/Dockerfile` | `db`, later `nats` | All business logic: setup, accounts, sessions, preferences, and later layers, events and live updates. It runs migrations on every start. |
-| **db** | `timescale/timescaledb-ha:pg17` | — | The single source of truth. TimescaleDB holds time series (positions) and PostGIS holds spatial queries, both from M1. |
-| **nats** | `nats:2.10-alpine` | — | The message bus between collectors and consumers. It is started now so the topology is stable, and used from M1. |
+| **web** | `frontend/Dockerfile` | `api`, `tiles` | Serves the built React app at `/`, the docs at `/docs/`, and proxies `/api/`, `/ws/` and the street map tiles. It also sets the browser security headers (CSP and friends) and optional TLS. |
+| **api** | `backend/Dockerfile` | `db`, `nats`, public sources | Accounts, settings, every layer's endpoints, live updates, on-request lookups (imagery, FAA status, space weather, air-raid alerts, addresses, AI) and the alert checker. It runs migrations on every start. |
+| **worker** | `backend/Dockerfile` (`python -m argus.worker`) | `db`, `nats`, public sources | The collectors: events, aircraft, ships, satellites, weather, cameras, launches, cyber and the rest, on their own schedules. |
+| **db** | `timescale/timescaledb-ha:pg17` | — | The single source of truth. |
+| **nats** | `nats:2.10-alpine` | — | Carries live aircraft, ships and GPS samples from the worker to the API, which keeps them in memory. |
+| **tiles** | `maptiler/tileserver-gl` | — | Renders the self-hosted street map from the region you downloaded (`make streetmap`). |
 
 ## What happens on `docker compose up`
 
@@ -52,4 +59,4 @@ flowchart LR
 | `frontend/src/` | browser | React app (see [Frontend](frontend.md)) |
 | `frontend/nginx.conf` | web | Routing, proxy and security headers |
 | `docs-site/` | web (static) | This documentation |
-| `docker-compose.yml` | host | Wiring of the four services |
+| `docker-compose.yml` | host | Wiring of the six services |
