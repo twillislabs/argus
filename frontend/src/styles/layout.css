@@ -3,7 +3,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
 }
 /* Optional classification line (Settings › Display), deliberately quiet. */
 .banner {

@@ -4,7 +4,7 @@
 @media (max-width: 860px) {
   /* App frame: tighter edges, the page fills the screen's real height. */
   html, body, #root { height: 100dvh; }
-  .app { padding: 0 max(8px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+  .app { padding: env(safe-area-inset-top, 0px) max(8px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
   .banner {
     margin: 0 calc(-1 * max(8px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(8px, env(safe-area-inset-left, 0px)));
   }

@@ -259,7 +259,7 @@ parts connect.
   them into `CHANNELS` with `setChannels` (in place) before pages draw,
   so code reading `CHANNELS` and `channelGroups()` sees the server's
   list; `frontend/src/config/newsChannels.ts` only holds the fallback.
-  Admins add a channel by link, @handle or ID (`youtube.lookup_channel`:
+  Admins add a channel by link, `@handle` or ID (`youtube.lookup_channel`:
   handle page for the ID, the channel feed's title, `resolve` for live
   status); feed tests fetch through `url_allowed`.
   When adding built-in channels, verify the ID with
@@ -458,6 +458,13 @@ parts connect.
   state in MapPage, `showLeft`/`showRight`, the `.mobtabs` bar; not
   saved, unlike `left_open`/`right_open`), and `openRight` opens the
   sheet. Check new pages at 390 px for sideways scrolling.
+- Icons: `frontend/public/favicon.ico` (16/32/48), `apple-touch-icon.png`
+  (180, full square: iOS rounds it), `img/icon-192.png`, `icon-512.png`,
+  `icon-maskable-512.png` (mark in the 80% safe zone) and
+  `manifest.webmanifest` (nginx gives it `application/manifest+json`).
+  They're renders of `img/favicon.svg`'s mark: re-render all of them
+  if the mark changes. The status bar is see-through when installed, so
+  `.app` pads by `safe-area-inset-top`.
 - YouTube embeds need `referrerPolicy="strict-origin-when-cross-origin"`
   on the iframe: nginx sends `Referrer-Policy: same-origin`, and without
   a referrer YouTube's player shows error 153. Videos pop out to

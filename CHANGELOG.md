@@ -23,6 +23,9 @@ features, and patch versions fix things. Upgrade with `./argus update`.
   Situation as sheets over it from a tab bar, a compact header and map
   controls that fit; tables scroll inside their cards and the Wall
   stacks.
+- Icons for phones and browsers (Apple touch icon, Android and maskable
+  icons, favicon.ico) and a web app manifest, so Argus can be added to
+  a home screen.
 
 ### News and video
 
@@ -90,7 +93,7 @@ configure.
 
 - News feeds: add, test, edit, switch off and remove RSS and Atom feeds,
   grouped in sections you can rename.
-- Live channels: add YouTube or Rumble channels from a link, @handle or
+- Live channels: add YouTube or Rumble channels from a link, `@handle` or
   ID (looked up for their name and whether they're live), with groups,
   tab labels and order.
 - The menu is grouped (You, Map and data, News and video, People and
