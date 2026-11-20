@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
 import { OUTAGE_COLOR, RANSOMWARE_COLOR } from '../map/cyberLayer';
 
 import type { CivilStatus, EventType, SeaStatus, SourceStatus } from '../lib/api';
@@ -12,7 +12,7 @@ import { TENSION_COLOR } from '../map/tensionLayer';
 import { WIKI_COLOR } from '../map/wikiLayer';
 import { ALPR_COLOR } from '../map/alprLayer';
 import { CAM_COLOR, WEBCAM_COLOR } from '../map/camLayer';
-import { DEFAULT_WEATHER, type WeatherFilters } from '../map/wxLayer';
+import { DEFAULT_WEATHER, opacityOf, type WeatherFilters, WX_IMAGERY, type WxImagery, type WxOpacity } from '../map/wxLayer';
 import { distance } from '../lib/units';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 
@@ -90,8 +90,13 @@ const WEATHER_ROWS: { id: keyof WeatherFilters; label: string; source: string; c
   { id: 'alerts', label: 'Storm warnings', source: 'NWS · tornado, thunderstorm, flood', color: '#ff2d3d' },
   { id: 'zones', label: 'Watches and advisories', source: 'NWS · by forecast zone and county', color: '#e3c04b' },
   { id: 'outlook', label: 'Severe weather outlook', source: 'SPC · today, level 1–5', color: '#66a366' },
+  { id: 'storms', label: 'Tropical storms', source: 'GDACS · track, forecast cone, wind swath', color: '#ff9447' },
+  { id: 'radar', label: 'Radar (US)', source: 'NOAA nowCOAST · MRMS mosaic, 5 min', color: '#36d1a0' },
+  { id: 'lightning', label: 'Lightning', source: 'NOAA nowCOAST · strike density', color: '#ffe066' },
   { id: 'clouds', label: 'Clouds (infrared)', source: 'NASA GIBS · GOES, Himawari', color: '#9aa7ba' },
+  { id: 'vapour', label: 'Water vapour', source: 'NOAA nowCOAST · global satellites', color: '#8f7bff' },
   { id: 'precip', label: 'Precipitation', source: 'NASA GIBS · IMERG, a few hours behind', color: '#3fa7ff' },
+  { id: 'sst', label: 'Sea temperature', source: 'NOAA nowCOAST · daily analysis', color: '#ff6b6b' },
 ];
 
 const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color: string }[] = [
@@ -179,6 +184,10 @@ interface Props {
   // Storm warnings and zone alerts drawn on the map.
   weatherCount?: number;
   zoneCount?: number;
+  stormCount?: number;
+  // Weather imagery opacity, by layer.
+  weatherOpacity?: WxOpacity;
+  onWeatherOpacity?: (o: WxOpacity) => void;
   airCounts: { military: number; civil: number };
   civilStatus: CivilStatus;
   satCounts: Partial<Record<keyof SpaceFilters, number>>;
@@ -312,6 +321,9 @@ export default function LayerPanel({
   advisoryCount,
   weatherCount,
   zoneCount,
+  stormCount,
+  weatherOpacity,
+  onWeatherOpacity,
   airCounts,
   civilStatus,
   satCounts,
@@ -545,25 +557,51 @@ export default function LayerPanel({
         ))}
       </Group>
       <Group title="Weather" on={countOn(filters.weather)} total={WEATHER_ROWS.length} forceOpen={Boolean(q)}>
-        {WEATHER_ROWS.map((r) => (
-          <label key={r.id} className="lrow">
-            <input
-              type="checkbox"
-              checked={filters.weather[r.id]}
-              onChange={(e) => onChange({ ...filters, weather: { ...filters.weather, [r.id]: e.target.checked } })}
-            />
-            <span className="tog" />
-            <span className={'sw' + (r.id === 'clouds' || r.id === 'precip' ? '' : ' area')} style={{ background: r.color, borderColor: r.color }} />
-            <span className="lname">
-              <span>{r.label}</span>
-              <small>{r.source}</small>
-            </span>
-            <span className="lcount mono">
-              {r.id === 'alerts' ? (weatherCount ?? '–') : r.id === 'zones' ? (zoneCount ?? '–') : ''}
-              <Dot sources={sources} id={'wx-' + r.id} />
-            </span>
-          </label>
-        ))}
+        {WEATHER_ROWS.map((r) => {
+          const img = (WX_IMAGERY as string[]).includes(r.id) ? (r.id as WxImagery) : null;
+          return (
+            <Fragment key={r.id}>
+              <label className="lrow">
+                <input
+                  type="checkbox"
+                  checked={filters.weather[r.id]}
+                  onChange={(e) => onChange({ ...filters, weather: { ...filters.weather, [r.id]: e.target.checked } })}
+                />
+                <span className="tog" />
+                <span className={'sw' + (img ? '' : ' area')} style={{ background: r.color, borderColor: r.color }} />
+                <span className="lname">
+                  <span>{r.label}</span>
+                  <small>{r.source}</small>
+                </span>
+                <span className="lcount mono">
+                  {r.id === 'alerts'
+                    ? (weatherCount ?? '–')
+                    : r.id === 'zones'
+                      ? (zoneCount ?? '–')
+                      : r.id === 'storms'
+                        ? (stormCount ?? '–')
+                        : ''}
+                  <Dot sources={sources} id={'wx-' + r.id} />
+                </span>
+              </label>
+              {img && filters.weather[img] && onWeatherOpacity && (
+                <label className="lopacity">
+                  <span>Opacity</span>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    step={5}
+                    aria-label={r.label + ' opacity'}
+                    value={Math.round(opacityOf(weatherOpacity, img) * 100)}
+                    onChange={(e) => onWeatherOpacity({ ...weatherOpacity, [img]: Number(e.target.value) / 100 })}
+                  />
+                  <span className="mono">{Math.round(opacityOf(weatherOpacity, img) * 100)}%</span>
+                </label>
+              )}
+            </Fragment>
+          );
+        })}
       </Group>
       <Group title="Infrastructure" on={countOn(filters.infra)} total={INFRA_ROWS.length} forceOpen={Boolean(q)}>
         {INFRA_ROWS.map((r) => (

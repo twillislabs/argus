@@ -60,6 +60,7 @@ import type {
   RaidAlert,
   MapConfig,
   OutlookArea,
+  Storm,
   TensionCountry,
   Vessel,
   WxAlert,
@@ -79,7 +80,7 @@ import { addPatternLayer, type PatternLayer } from './patternLayer';
 import { addRaidLayer, type RaidLayer } from './raidLayer';
 import { addAlprLayer, type AlprLayer } from './alprLayer';
 import { addCamLayer, type CamLayer, WEBCAM_COLOR } from './camLayer';
-import { addWxLayer, type WeatherFilters, type WxLayer } from './wxLayer';
+import { addWxLayer, type WeatherFilters, WX_IMAGERY, WX_OVER_LAND, type WxLayer, type WxOpacity } from './wxLayer';
 import { addSentinelLayer, type SentinelLayer, type SentinelView } from './sentinelLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
 import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './closeModels';
@@ -425,7 +426,9 @@ interface Props {
   wxAlerts?: WxAlert[];
   wxZoned?: WxAlert[];
   outlook?: OutlookArea[];
+  storms?: Storm[];
   weather?: WeatherFilters;
+  weatherOpacity?: WxOpacity;
   showTension: boolean;
   infra: InfraFilters;
   home: Home | null;
@@ -491,7 +494,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     wxAlerts,
     wxZoned,
     outlook,
+    storms,
     weather,
+    weatherOpacity,
     showTension,
     infra,
     home,
@@ -546,6 +551,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const wx = useRef<WxLayer | null>(null);
   const weatherRef = useRef(weather);
   weatherRef.current = weather;
+  const opacityRef = useRef(weatherOpacity);
+  opacityRef.current = weatherOpacity;
   const draw = useRef<DrawTools | null>(null);
   const drawCbRef = useRef(drawCallbacks);
   drawCbRef.current = drawCallbacks;
@@ -750,7 +757,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       dark.current?.setVisible(isDark);
       // Weather imagery lies on the globe under the dark map's land
       // shapes: while clouds or rain are on, keep the land see-through.
-      const wxOn = Boolean(weatherRef.current?.clouds || weatherRef.current?.precip);
+      const wxOn = WX_OVER_LAND.some((k) => weatherRef.current?.[k]);
       // Sentinel imagery the same, fully see-through.
       const landMax = sentinel.current?.on() ? 0 : wxOn ? WX_LAND_ALPHA : 1;
       if (isDark) dark.current?.setFade(Math.min(1 - t, landMax));
@@ -778,6 +785,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       webcamLayer.current?.setDepthDistance(d);
       ships.current?.setDepthDistance(d);
       overlays.current?.setDepthDistance(d);
+      wx.current?.setDepthDistance(d);
     }
     (v as unknown as { applyDepth: () => void }).applyDepth = () => {
       depthNow = -1;
@@ -993,7 +1001,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     }
     // Weather imagery sits over the new base map.
     wx.current?.forget();
-    if (weatherRef.current) wx.current?.setImagery(weatherRef.current);
+    if (weatherRef.current) wx.current?.setImagery(weatherRef.current, opacityRef.current);
     // Inside the installed region, the self-hosted street map draws over
     // Esri; outside it, Esri shows as before.
     if (basemap === 'dark') {
@@ -1161,20 +1169,21 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     draw.current?.setDrawings(drawings ?? []);
   }, [drawings]);
 
-  // Weather: warning and outlook shapes, and cloud / rain imagery (kept
-  // fresh: clouds every 10 minutes, rain hourly).
-  const weatherKey = weather ? [weather.alerts, weather.zones, weather.outlook, weather.clouds, weather.precip].join('') : '';
+  // Weather: warning, outlook and storm shapes, and the imagery layers
+  // (each refreshed on its own schedule; setImagery checks every minute).
+  const weatherKey = weather ? Object.values(weather).map(Number).join('') : '';
+  const opacityKey = WX_IMAGERY.map((k) => weatherOpacity?.[k] ?? '').join(',');
   useEffect(() => {
     if (!weather) return;
-    wx.current?.update(wxAlerts ?? [], wxZoned ?? [], outlook ?? [], weather);
-  }, [wxAlerts, wxZoned, outlook, weatherKey]);
+    wx.current?.update(wxAlerts ?? [], wxZoned ?? [], outlook ?? [], storms ?? [], weather);
+  }, [wxAlerts, wxZoned, outlook, storms, weatherKey]);
   useEffect(() => {
     if (!weather) return;
-    wx.current?.setImagery(weather);
+    wx.current?.setImagery(weather, opacityRef.current);
     (viewer.current as unknown as { applyFade?: () => void } | null)?.applyFade?.();
-    const id = window.setInterval(() => wx.current?.setImagery(weather), 60_000);
+    const id = window.setInterval(() => wx.current?.setImagery(weather, opacityRef.current), 60_000);
     return () => window.clearInterval(id);
-  }, [weatherKey]);
+  }, [weatherKey, opacityKey]);
 
   // The planned route of the selected aircraft.
   const routeLines = useRef<{ lines: PolylineCollection; labels: LabelCollection } | null>(null);

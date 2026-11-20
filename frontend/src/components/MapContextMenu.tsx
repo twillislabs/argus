@@ -11,12 +11,13 @@ interface Props {
   y: number;
   onClose: () => void;
   onCentre: () => void;
+  onWeather?: () => void;
   onCopied: (what: string) => void;
 }
 
 // Right-click on the map: copy the spot's coordinates in a few formats,
-// or centre the map on it.
-export default function MapContextMenu({ lat, lon, x, y, onClose, onCentre, onCopied }: Props) {
+// see its weather, or centre the map on it.
+export default function MapContextMenu({ lat, lon, x, y, onClose, onCentre, onWeather, onCopied }: Props) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const close = (e: Event) => {
@@ -63,6 +64,18 @@ export default function MapContextMenu({ lat, lon, x, y, onClose, onCentre, onCo
       >
         Centre the map here
       </button>
+      {onWeather && (
+        <button
+          role="menuitem"
+          onClick={() => {
+            onWeather();
+            onClose();
+          }}
+        >
+          Weather here
+          <small>Now, 24 hours and 7 days</small>
+        </button>
+      )}
     </div>
   );
 }

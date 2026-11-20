@@ -6,10 +6,14 @@
 - /api/weather/outlook: today's and tomorrow's SPC risk areas.
 - /api/weather/now: current conditions and today's range from Open-Meteo
   (free, no key), cached for 15 minutes per spot.
+- /api/weather/forecast: "Weather here" for any spot: now, the next 24
+  hours and 7 days, from Open-Meteo, cached for 15 minutes per spot.
+- /api/weather/storms: tropical cyclones worldwide (argus/storms.py,
+  GDACS), with track, forecast cone and wind swath.
 """
 
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from fastapi import APIRouter, Query, Request
@@ -222,3 +226,86 @@ async def weather_now(
     }
     cache[key] = (time.monotonic(), out)
     return out
+
+
+FORECAST_HOURS = 24
+
+
+@router.get("/api/weather/forecast")
+async def forecast(
+    session: SessionDep,
+    request: Request,
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+):
+    """A spot's weather now, by the hour for a day and by the day for a
+    week (metric; the browser converts for display)."""
+    client = _client(request)
+    cache = request.app.state.weather_cache
+    key = "forecast:{0:.2f},{1:.2f}".format(lat, lon)
+    hit = cache.get(key)
+    if hit and time.monotonic() - hit[0] < NOW_TTL_S:
+        return hit[1]
+    try:
+        r = await client.get(
+            OPEN_METEO,
+            params={
+                "latitude": round(lat, 2),
+                "longitude": round(lon, 2),
+                "current": "temperature_2m,apparent_temperature,"
+                "relative_humidity_2m,wind_speed_10m,wind_gusts_10m,"
+                "wind_direction_10m,cloud_cover,precipitation,"
+                "pressure_msl,visibility,weather_code,is_day",
+                "hourly": "temperature_2m,precipitation_probability,"
+                "precipitation,wind_speed_10m,wind_gusts_10m,weather_code",
+                "daily": "weather_code,temperature_2m_max,"
+                "temperature_2m_min,precipitation_probability_max,"
+                "precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,"
+                "sunrise,sunset",
+                "forecast_days": 7,
+                "timezone": "auto",
+            },
+        )
+        r.raise_for_status()
+        body = r.json()
+    except (httpx.HTTPError, ValueError):
+        return {"status": "error"}
+    out = {
+        "status": "ok",
+        "current": body.get("current") or {},
+        "hourly": _rows(body.get("hourly") or {}, FORECAST_HOURS, body),
+        "daily": _rows(body.get("daily") or {}, 7),
+        "timezone": body.get("timezone"),
+        "utc_offset_s": body.get("utc_offset_seconds"),
+        "elevation_m": body.get("elevation"),
+        "source": "Open-Meteo",
+    }
+    cache[key] = (time.monotonic(), out)
+    return out
+
+
+def _rows(cols: dict, limit: int, body: dict | None = None) -> list[dict]:
+    """Open-Meteo's columns as rows; hourly ones from the current hour."""
+    times = cols.get("time") or []
+    start = 0
+    if body is not None:
+        now = str((body.get("current") or {}).get("time") or "")[:13]
+        for i, t in enumerate(times):
+            if str(t)[:13] >= now:
+                start = i
+                break
+    rows = []
+    for i in range(start, min(len(times), start + limit)):
+        rows.append(
+            {
+                k: (v[i] if isinstance(v, list) and i < len(v) else None)
+                for k, v in cols.items()
+            }
+        )
+    return rows
+
+
+@router.get("/api/weather/storms")
+async def storms(session: SessionDep, request: Request):
+    since = (datetime.now(UTC) - timedelta(days=21)).strftime("%Y-%m-%d")
+    return await request.app.state.storms.get(since)

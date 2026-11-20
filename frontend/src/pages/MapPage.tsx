@@ -18,6 +18,7 @@ import AlprInspector from '../components/AlprInspector';
 import BridgeHud from '../components/BridgeHud';
 import CamInspector from '../components/CamInspector';
 import WebcamInspector from '../components/WebcamInspector';
+import WeatherHere from '../components/WeatherHere';
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
 import { CursorReadout, LIVE, type Replay, ScaleBar, Timeline } from '../components/MapFooter';
@@ -62,9 +63,11 @@ import {
   getGps,
   type GpsCell,
   getOutlook,
+  getStorms,
   getWeatherNow,
   getWxAlerts,
   type OutlookArea,
+  type Storm,
   type WeatherNow,
   type WxAlert,
   type Tension,
@@ -103,7 +106,7 @@ import { CAM_COLOR, WEBCAM_COLOR } from '../map/camLayer';
 import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { aircraftColor } from '../map/aircraftLayer';
 import { BASE_KINDS, FUEL_COLOR } from '../map/infraLayer';
-import { alertColor } from '../map/wxLayer';
+import { alertColor, stormColor, type WxOpacity } from '../map/wxLayer';
 import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
 import { setHover } from '../lib/hover';
 import type { AirspaceFilters } from '../map/airspaceLayer';
@@ -294,6 +297,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [homeAlerts, setHomeAlerts] = useState<WxAlert[]>([]);
   const [outlook, setOutlook] = useState<OutlookArea[]>([]);
   const [weatherNow, setWeatherNow] = useState<WeatherNow | null>(null);
+  const [storms, setStorms] = useState<Storm[]>([]);
+  const [weatherOpacity, setWeatherOpacity] = useState<WxOpacity>(
+    () => (me.preferences.weather_opacity as WxOpacity | undefined) ?? {},
+  );
+  // "Weather here" from the right-click menu: the spot shown.
+  const [weatherAt, setWeatherAt] = useState<{ lat: number; lon: number } | null>(null);
   const [structureItems, setStructureItems] = useState<AirspaceItem[]>([]);
   const [trafficCams, setTrafficCams] = useState<TrafficCam[]>([]);
   const [camStatus, setCamStatus] = useState<'ok' | 'zoom'>('zoom');
@@ -823,6 +832,21 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       window.clearInterval(id);
     };
   }, [filters.weather.outlook]);
+  // Tropical storms (GDACS, cached half an hour by the API).
+  useEffect(() => {
+    if (!filters.weather.storms) return;
+    let cancelled = false;
+    const load = () =>
+      getStorms()
+        .then((r) => !cancelled && setStorms(r.storms))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 1_800_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [filters.weather.storms]);
   useEffect(() => {
     const h = me.preferences.home;
     if (!h) return;
@@ -1059,6 +1083,16 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     [military, civil],
   );
 
+  // Opacity sliders save once they settle.
+  const opacityTimer = useRef(0);
+  function saveOpacity(o: WxOpacity) {
+    window.clearTimeout(opacityTimer.current);
+    opacityTimer.current = window.setTimeout(
+      () => void savePreferences({ weather_opacity: o }).catch(() => undefined),
+      600,
+    );
+  }
+
   function changeFilters(next: LayerFilters) {
     setFilters(next);
     void savePreferences({
@@ -1106,6 +1140,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     setSelectedCam(null);
     setSelectedWebcam(null);
     setSelectedAlpr(null);
+    setWeatherAt(null);
     setFollowSat(false);
     setCamera('free');
     setTracked(null);
@@ -1378,6 +1413,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         id.startsWith('rw:') ||
         id.startsWith('draw:') ||
         id.startsWith('wx:') ||
+        id.startsWith('storm:') ||
         id.startsWith('spc:'))
     ) {
       clearSelection();
@@ -1658,6 +1694,19 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
           }
         : null;
     }
+    if (id.startsWith('storm:')) {
+      const st = storms.find((x) => x.id === id.slice(6));
+      return st
+        ? {
+            title: st.title || st.name,
+            color: stormColor(st.category),
+            lines: [
+              (st.category_label || 'Tropical cyclone') + ' · GDACS ' + st.alert + ' alert',
+              st.country ? 'Affecting ' + st.country : '',
+            ],
+          }
+        : null;
+    }
     if (id.startsWith('spc:')) {
       const o = outlook.find((x) => x.key === id.slice(4));
       return o ? { title: o.title, color: o.fill ?? '#66a366', lines: ['SPC Day ' + o.day + ' outlook'] } : null;
@@ -1832,6 +1881,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             }
             weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
             zoneCount={filters.weather.zones ? wxZoned.length : undefined}
+            stormCount={filters.weather.storms ? storms.length : undefined}
+            weatherOpacity={weatherOpacity}
+            onWeatherOpacity={(o) => {
+              setWeatherOpacity(o);
+              saveOpacity(o);
+            }}
             airCounts={airCounts}
             civilStatus={civilStatus}
             satCounts={satCounts}
@@ -1890,6 +1945,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             onFocus={focus}
             onHover={onHover}
             onContext={(lat, lon, x, y) => setCtxMenu({ lat, lon, x, y })}
+            storms={filters.weather.storms ? storms : []}
+            weatherOpacity={weatherOpacity}
             drawings={drawings}
             route={
               showRoute && selectedHex && tracked && trackedRoute?.origin?.lat != null && trackedRoute.destination?.lat != null
@@ -2077,6 +2134,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               {...ctxMenu}
               onClose={() => setCtxMenu(null)}
               onCentre={() => globe.current?.flyTo(ctxMenu.lat, ctxMenu.lon)}
+              onWeather={() => {
+                clearSelection();
+                setWeatherAt({ lat: ctxMenu.lat, lon: ctxMenu.lon });
+                openRight();
+              }}
               onCopied={setNotice}
             />
           )}
@@ -2151,7 +2213,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         <Timeline events={shown} hours={filters.hours} replay={replay} onReplay={setReplay} />
         {rightOpen && (
           <aside className="side right" aria-label="Inspector">
-            {selectedWebcam ? (
+            {weatherAt ? (
+              <WeatherHere lat={weatherAt.lat} lon={weatherAt.lon} onBack={() => setWeatherAt(null)} />
+            ) : selectedWebcam ? (
               <WebcamInspector cam={selectedWebcam} onBack={() => setSelectedWebcam(null)} />
             ) : selectedAlpr && alprCameras.some((c) => c.id === selectedAlpr) ? (
               <AlprInspector
@@ -2170,6 +2234,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                     : selectedInfo.startsWith('wx:')
                       ? ([...wxAlerts, ...wxZoned].find((x) => 'wx:' + x.key === selectedInfo)?.description ?? '') +
                         ' (National Weather Service; open the alert for its full text and instructions.)'
+                      : selectedInfo.startsWith('storm:')
+                        ? 'Tropical cyclone from GDACS (UN and EU JRC), from the warning centres\u2019 advisories: the solid line is its track so far, the dashed line the forecast track (coloured by strength), the pale area the forecast cone (where the centre may go) and the tinted areas the winds it has brought so far (60, 90 and 120 km/h). Updated every few hours; for decisions use your national weather service.'
                       : selectedInfo.startsWith('spc:')
                         ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'
                         : selectedInfo.startsWith('raid:')
@@ -2190,7 +2256,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                       : 'A shape you drew. Delete it with the Delete tool.'
                 }
                 links={
-                  selectedInfo.startsWith('raid:ua')
+                  selectedInfo.startsWith('storm:')
+                    ? [{ label: 'GDACS report', url: storms.find((x) => 'storm:' + x.id === selectedInfo)?.report ?? 'https://www.gdacs.org/' }]
+                    : selectedInfo.startsWith('raid:ua')
                     ? [{ label: 'Ukraine air-raid map (alerts.in.ua)', url: 'https://alerts.in.ua/en' }]
                     : selectedInfo.startsWith('raid:il')
                     ? [{ label: 'Tzeva Adom', url: 'https://www.tzevaadom.co.il/en/' }]

@@ -48,6 +48,7 @@ from argus.sanctions import SanctionsIndex
 from argus.sea import LiveSea
 from argus.services import ensure_setup_token
 from argus.spaceweather import SpaceWeather
+from argus.storms import Storms
 from argus.video import Video
 from argus.youtube import LiveIds
 
@@ -92,6 +93,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.video = Video(settings.user_agent)
         app.state.faa = FaaStatus(settings.user_agent)
         app.state.spaceweather = SpaceWeather(settings.user_agent)
+        app.state.storms = Storms(settings.user_agent)
         app.state.geocoder = Geocoder(settings.user_agent)
         app.state.raids = Raids(settings.user_agent)
         app.state.sanctions = SanctionsIndex()
@@ -130,6 +132,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.video.close()
         await app.state.faa.close()
         await app.state.spaceweather.close()
+        await app.state.storms.close()
         await app.state.geocoder.close()
         await app.state.raids.close()
         await app.state.imagery.close()

@@ -1,7 +1,7 @@
 """Request and response bodies."""
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
@@ -179,8 +179,13 @@ WALL_LAYERS = (
     "wx_alerts",
     "wx_zones",
     "wx_outlook",
+    "wx_storms",
+    "radar",
+    "lightning",
     "clouds",
+    "vapour",
     "precip",
+    "sst",
     "stations",
     "advisories",
     "wiki",
@@ -349,6 +354,10 @@ class Preferences(BaseModel):
     wiki: bool | None = None
     cams: dict[str, bool] | None = None
     weather: dict[str, bool] | None = None
+    # Weather imagery opacity by layer (map/wxLayer.ts WX_IMAGERY), 0-1.
+    weather_opacity: dict[str, Annotated[float, Field(ge=0, le=1)]] | None = (
+        None
+    )
     units: Literal["imperial", "metric"] | None = None
     show_route: bool | None = None
     # Wall page (/wall): news, clocks, tour and layers.

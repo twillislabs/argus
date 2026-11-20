@@ -4,6 +4,19 @@ All notable changes to Argus. Versions follow [Semantic Versioning](https://semv
 a new major version may need you to change something when you upgrade, minor versions add
 features, and patch versions fix things. Upgrade with `./argus update`.
 
+## [Unreleased]
+
+### Weather
+
+- Tropical storms worldwide (GDACS): track, forecast cone and wind
+  swath, coloured by strength, on by default.
+- New layers from NOAA nowCOAST: US radar, lightning, water vapour and
+  sea temperature.
+- An opacity slider for each weather imagery layer.
+- Weather here: right-click the map for any spot's weather now, the
+  next 24 hours and 7 days, and NWS alerts there in the US.
+- The Wall can show the new weather layers.
+
 ## [1.1.0] - 2026-11-20
 
 More US coverage, events that match their sources, and news you can

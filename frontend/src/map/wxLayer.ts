@@ -1,8 +1,11 @@
 // Weather on the map: NWS storm-based warnings (polygons, in the NWS's
 // own colours for the main types), SPC risk areas (filled in SPC's
-// colours), and NASA GIBS cloud and precipitation imagery.
+// colours), tropical cyclones (GDACS: cone, track, wind swath), NASA
+// GIBS cloud and precipitation imagery, and NOAA nowCOAST radar,
+// lightning, water vapour and sea temperature (WMS, no key).
 
 import {
+  Cartesian2,
   Cartesian3,
   Color,
   ColorGeometryInstanceAttribute,
@@ -14,26 +17,84 @@ import {
 import {
   GeographicTilingScheme,
   ImageryLayer,
+  LabelCollection,
+  LabelStyle,
   Material,
   PerInstanceColorAppearance,
+  PointPrimitiveCollection,
   PolylineCollection,
   Primitive,
   type Scene,
+  VerticalOrigin,
+  WebMapServiceImageryProvider,
   WebMapTileServiceImageryProvider,
 } from '@cesium/engine';
 
-import type { OutlookArea, WxAlert } from '../lib/api';
+import type { OutlookArea, Storm, WxAlert } from '../lib/api';
 
 export interface WeatherFilters {
   alerts: boolean;
   // Zone-based watches, warnings and advisories (NWS zone outlines).
   zones: boolean;
   outlook: boolean;
+  // Tropical cyclones worldwide: cone, track and wind swath.
+  storms: boolean;
   clouds: boolean;
+  vapour: boolean;
   precip: boolean;
+  radar: boolean;
+  lightning: boolean;
+  sst: boolean;
 }
 
-export const DEFAULT_WEATHER: WeatherFilters = { alerts: true, zones: false, outlook: false, clouds: false, precip: false };
+export const DEFAULT_WEATHER: WeatherFilters = {
+  alerts: true,
+  zones: false,
+  outlook: false,
+  storms: true,
+  clouds: false,
+  vapour: false,
+  precip: false,
+  radar: false,
+  lightning: false,
+  sst: false,
+};
+
+// The weather layers that are imagery, each with its own opacity.
+export type WxImagery = 'clouds' | 'vapour' | 'precip' | 'radar' | 'lightning' | 'sst';
+export const WX_IMAGERY: WxImagery[] = ['clouds', 'vapour', 'precip', 'radar', 'lightning', 'sst'];
+export type WxOpacity = Partial<Record<WxImagery, number>>;
+export const DEFAULT_OPACITY: Record<WxImagery, number> = {
+  clouds: 0.65,
+  vapour: 0.6,
+  precip: 0.8,
+  radar: 0.75,
+  lightning: 0.9,
+  sst: 0.6,
+};
+// Imagery that covers land (the dark map's land shapes are made
+// see-through while it's shown); sea temperature is drawn on the sea.
+export const WX_OVER_LAND: WxImagery[] = ['clouds', 'vapour', 'precip', 'radar', 'lightning'];
+
+export function opacityOf(o: WxOpacity | undefined, id: WxImagery): number {
+  const v = o?.[id];
+  return typeof v === 'number' && v >= 0.05 && v <= 1 ? v : DEFAULT_OPACITY[id];
+}
+
+// Storm colours by category (GDACS track labels), lightest to strongest.
+const STORM_COLOR: Record<string, string> = {
+  TD: '#6fb7ff',
+  TS: '#36d1a0',
+  HU: '#ff9447',
+  H1: '#ffd34d',
+  H2: '#ffa53d',
+  H3: '#ff7a2e',
+  H4: '#ff4b3a',
+  H5: '#d43cff',
+};
+export function stormColor(category: string): string {
+  return STORM_COLOR[category] ?? '#c9d4e3';
+}
 
 // The NWS's colours for the warnings people look for; others by severity.
 const EVENT_COLOR: Record<string, string> = {
@@ -101,9 +162,47 @@ function gibs(layer: string, time: string): ImageryLayer {
   );
 }
 
+// NOAA nowCOAST (public domain): a WMS whose layers update every few
+// minutes. `stamp` changes with each refresh so browsers and nginx don't
+// keep old tiles.
+const NOWCOAST = 'https://nowcoast.noaa.gov/geoserver/ows';
+function nowcoast(layer: string, stamp: number, rectangle?: Rectangle, maximumLevel = 9): ImageryLayer {
+  return new ImageryLayer(
+    new WebMapServiceImageryProvider({
+      url: NOWCOAST,
+      layers: layer,
+      parameters: { transparent: true, format: 'image/png', styles: '', t: String(stamp) },
+      tilingScheme: new GeographicTilingScheme(),
+      rectangle: rectangle ?? Rectangle.fromDegrees(-180, -90, 180, 90),
+      tileWidth: 512,
+      tileHeight: 512,
+      maximumLevel,
+      credit: 'NOAA nowCOAST',
+    }),
+  );
+}
+
+// Each imagery layer: how to make it and how often to refresh it.
+const IMAGERY: Record<WxImagery, { every: number; make: (stamp: number) => ImageryLayer[] }> = {
+  // Clouds: the latest geostationary scan, every 10 minutes.
+  clouds: { every: 600_000, make: () => CLOUD_LAYERS.map((name) => gibs(name, cloudTime())) },
+  vapour: { every: 600_000, make: (t) => [nowcoast('satellite:global_water_vapor_imagery_mosaic', t, undefined, 7)] },
+  // Precipitation (IMERG, half-hourly, a few hours behind): hourly.
+  precip: { every: 3_600_000, make: () => [gibs('IMERG_Precipitation_Rate_30min', 'default')] },
+  // US radar mosaic (CONUS, Alaska, Hawaii, Puerto Rico, Guam): 5 minutes.
+  radar: { every: 300_000, make: (t) => [nowcoast('weather_radar:base_reflectivity_mosaic', t, undefined, 10)] },
+  lightning: { every: 300_000, make: (t) => [nowcoast('lightning_detection:ldn_lightning_strike_density', t)] },
+  // Sea surface temperature: daily analysis, refreshed every 6 hours.
+  sst: {
+    every: 21_600_000,
+    make: (t) => [nowcoast('sea_surface_temperature:global_sea_surface_temperature', t, undefined, 7)],
+  },
+};
+
 export interface WxLayer {
-  update: (alerts: WxAlert[], zoned: WxAlert[], outlook: OutlookArea[], f: WeatherFilters) => void;
-  setImagery: (f: WeatherFilters) => void;
+  update: (alerts: WxAlert[], zoned: WxAlert[], outlook: OutlookArea[], storms: Storm[], f: WeatherFilters) => void;
+  setImagery: (f: WeatherFilters, opacity?: WxOpacity) => void;
+  setDepthDistance: (metres: number) => void;
   // The base map was rebuilt (its imagery layers were all removed).
   forget: () => void;
   destroy: () => void;
@@ -115,23 +214,28 @@ export function addWxLayer(
 ): WxLayer {
   let fill: Primitive | null = null;
   const lines = new PolylineCollection();
+  const points = new PointPrimitiveCollection();
+  const labels = new LabelCollection();
   scene.primitives.add(lines);
-  let clouds: ImageryLayer[] = [];
-  let precip: ImageryLayer | null = null;
-  let cloudsAt = '';
-  let precipAt = 0;
+  scene.primitives.add(points);
+  scene.primitives.add(labels);
+  // Each shown imagery layer, and the refresh slot it was made for.
+  const shown = new Map<WxImagery, { layers: ImageryLayer[]; slot: number }>();
+  let depth = Number.POSITIVE_INFINITY;
 
   const clear = () => {
     if (fill && scene.primitives.contains(fill)) scene.primitives.remove(fill);
     fill = null;
     lines.removeAll();
+    points.removeAll();
+    labels.removeAll();
   };
 
   return {
-    update(alerts, zoned, outlook, f) {
+    update(alerts, zoned, outlook, storms, f) {
       clear();
       const instances: GeometryInstance[] = [];
-      const shape = (id: string, ring: number[][], color: Color, alpha: number, width: number) => {
+      const shape = (id: string, ring: number[][], color: Color, alpha: number, width: number, edge = 0.9) => {
         const positions = Cartesian3.fromDegreesArray(ring.slice(0, -1).flatMap(([x, y]) => [x, y]));
         if (positions.length < 3) return;
         instances.push(
@@ -149,7 +253,7 @@ export function addWxLayer(
           id,
           positions: Cartesian3.fromDegreesArrayHeights(ring.flatMap(([x, y]) => [x, y, 900])),
           width,
-          material: Material.fromType('Color', { color: color.withAlpha(0.9) }),
+          material: Material.fromType('Color', { color: color.withAlpha(edge) }),
         });
       };
       if (f.outlook) {
@@ -172,6 +276,54 @@ export function addWxLayer(
           for (const ring of a.polygons) shape('wx:' + a.key, ring, c, 0.2, a.severity >= 3 ? 2 : 1.4);
         }
       }
+      if (f.storms) {
+        for (const st of storms) {
+          const id = 'storm:' + st.id;
+          // The wind swath so far (60, 90, 120 km/h), then the cone.
+          for (const w of st.swath) {
+            const c = Color.fromCssColorString(
+              w.label.startsWith('120') ? '#ff4b3a' : w.label.startsWith('90') ? '#ff9447' : '#e3c04b',
+            );
+            for (const ring of w.rings) shape(id, ring, c, 0.1, 1, 0.35);
+          }
+          for (const ring of st.cone) shape(id, ring, Color.WHITE, 0.08, 1.2, 0.6);
+          for (const seg of st.track) {
+            const c = Color.fromCssColorString(stormColor(seg.category));
+            lines.add({
+              id,
+              positions: Cartesian3.fromDegreesArrayHeights(seg.coords.flatMap(([x, y]) => [x, y, 1100])),
+              width: seg.forecast ? 2 : 3,
+              material: seg.forecast
+                ? Material.fromType('PolylineDash', { color: c.withAlpha(0.95), dashLength: 14 })
+                : Material.fromType('Color', { color: c.withAlpha(0.95) }),
+            });
+          }
+          const [x, y] = st.position;
+          const at = Cartesian3.fromDegrees(x, y, 1200);
+          points.add({
+            id,
+            position: at,
+            pixelSize: 12,
+            color: Color.fromCssColorString(stormColor(st.category)),
+            outlineColor: Color.BLACK.withAlpha(0.7),
+            outlineWidth: 2,
+            disableDepthTestDistance: depth,
+          });
+          labels.add({
+            id,
+            position: at,
+            text: st.name.replace(/-\d+$/, ''),
+            font: '600 12px Inter, system-ui, sans-serif',
+            fillColor: Color.WHITE,
+            outlineColor: Color.BLACK.withAlpha(0.8),
+            outlineWidth: 3,
+            style: LabelStyle.FILL_AND_OUTLINE,
+            verticalOrigin: VerticalOrigin.BOTTOM,
+            pixelOffset: new Cartesian2(0, -10),
+            disableDepthTestDistance: depth,
+          });
+        }
+      }
       if (!instances.length) return;
       fill = new Primitive({
         geometryInstances: instances,
@@ -180,37 +332,37 @@ export function addWxLayer(
       });
       scene.primitives.add(fill);
     },
-    setImagery(f) {
+    setImagery(f, opacity) {
       const layers = imagery();
-      // Clouds: refresh to the latest scan every 10 minutes.
-      const at = f.clouds ? cloudTime() : '';
-      if (at !== cloudsAt) {
-        for (const l of clouds) layers.remove(l);
-        clouds = at ? CLOUD_LAYERS.map((name) => gibs(name, at)) : [];
-        for (const l of clouds) layers.add(l);
-        cloudsAt = at;
-      }
-      // Precipitation (IMERG, half-hourly, a few hours behind): hourly.
-      const hour = f.precip ? Math.floor(Date.now() / 3_600_000) : 0;
-      if (hour !== precipAt) {
-        if (precip) layers.remove(precip);
-        precip = hour ? gibs('IMERG_Precipitation_Rate_30min', 'default') : null;
-        if (precip) {
-          precip.alpha = 0.8;
-          layers.add(precip);
+      for (const id of WX_IMAGERY) {
+        const spec = IMAGERY[id];
+        const slot = f[id] ? Math.floor(Date.now() / spec.every) : 0;
+        const have = shown.get(id);
+        if ((have?.slot ?? 0) !== slot) {
+          for (const l of have?.layers ?? []) layers.remove(l);
+          shown.delete(id);
+          if (slot) {
+            const made = spec.make(slot);
+            for (const l of made) layers.add(l);
+            shown.set(id, { layers: made, slot });
+          }
         }
-        precipAt = hour;
+        const a = opacityOf(opacity, id);
+        for (const l of shown.get(id)?.layers ?? []) l.alpha = a;
       }
     },
     forget() {
-      clouds = [];
-      precip = null;
-      cloudsAt = '';
-      precipAt = 0;
+      shown.clear();
+    },
+    setDepthDistance(metres) {
+      depth = metres;
+      for (let i = 0; i < points.length; i++) points.get(i).disableDepthTestDistance = metres;
+      for (let i = 0; i < labels.length; i++) labels.get(i).disableDepthTestDistance = metres;
     },
     destroy() {
       clear();
-      if (!scene.isDestroyed() && scene.primitives.contains(lines)) scene.primitives.remove(lines);
+      if (scene.isDestroyed()) return;
+      for (const c of [lines, points, labels]) if (scene.primitives.contains(c)) scene.primitives.remove(c);
     },
   };
 }

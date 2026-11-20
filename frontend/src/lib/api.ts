@@ -51,8 +51,13 @@ export type WallLayer =
   | 'wx_alerts'
   | 'wx_zones'
   | 'wx_outlook'
+  | 'wx_storms'
+  | 'radar'
+  | 'lightning'
   | 'clouds'
+  | 'vapour'
   | 'precip'
+  | 'sst'
   | 'stations'
   | 'advisories'
   | 'wiki';
@@ -90,8 +95,13 @@ export const WALL_LAYERS: { id: WallLayer; label: string; on: boolean; group: st
   { id: 'wx_alerts', label: 'Storm warnings (NWS)', on: false, group: 'Weather' },
   { id: 'wx_zones', label: 'Watches and advisories (NWS)', on: false, group: 'Weather' },
   { id: 'wx_outlook', label: 'Severe weather outlook (SPC)', on: false, group: 'Weather' },
+  { id: 'wx_storms', label: 'Tropical storms (GDACS)', on: true, group: 'Weather' },
+  { id: 'radar', label: 'Radar (US)', on: false, group: 'Weather' },
+  { id: 'lightning', label: 'Lightning', on: false, group: 'Weather' },
   { id: 'clouds', label: 'Clouds (infrared)', on: false, group: 'Weather' },
+  { id: 'vapour', label: 'Water vapour', on: false, group: 'Weather' },
   { id: 'precip', label: 'Precipitation', on: false, group: 'Weather' },
+  { id: 'sst', label: 'Sea temperature', on: false, group: 'Weather' },
   { id: 'nuclear', label: 'Nuclear plants', on: true, group: 'Infrastructure' },
   { id: 'power', label: 'Power plants', on: false, group: 'Infrastructure' },
   { id: 'cables', label: 'Submarine cables', on: false, group: 'Infrastructure' },
@@ -1044,6 +1054,66 @@ export const getWxAlerts = (home: { lat: number; lon: number } | null, zones = f
 export const getOutlook = () => api<{ areas: OutlookArea[] }>('/api/weather/outlook');
 export const getWeatherNow = (lat: number, lon: number) =>
   api<WeatherNow>('/api/weather/now?lat=' + lat.toFixed(2) + '&lon=' + lon.toFixed(2));
+
+// Tropical cyclones worldwide (GDACS): track segments, forecast cone and
+// the wind swath so far. Coordinates are [lon, lat].
+export interface Storm {
+  id: string;
+  name: string;
+  title: string;
+  level: number;
+  alert: string;
+  category: string;
+  category_label: string;
+  position: number[];
+  track: { coords: number[][]; forecast: boolean; category: string }[];
+  cone: number[][][];
+  swath: { label: string; rings: number[][][] }[];
+  country: string;
+  updated: string | null;
+  report: string;
+}
+export const getStorms = () => api<{ status: 'ok' | 'error'; storms: Storm[] }>('/api/weather/storms');
+
+// "Weather here": Open-Meteo for any spot (metric). Hourly rows start at
+// the current hour; times are the spot's local time.
+export interface ForecastHour {
+  time: string;
+  temperature_2m: number | null;
+  precipitation_probability: number | null;
+  precipitation: number | null;
+  wind_speed_10m: number | null;
+  wind_gusts_10m: number | null;
+  weather_code: number | null;
+}
+export interface ForecastDay {
+  time: string;
+  weather_code: number | null;
+  temperature_2m_max: number | null;
+  temperature_2m_min: number | null;
+  precipitation_probability_max: number | null;
+  precipitation_sum: number | null;
+  wind_speed_10m_max: number | null;
+  wind_gusts_10m_max: number | null;
+  sunrise: string | null;
+  sunset: string | null;
+}
+export interface Forecast {
+  status: 'ok' | 'error';
+  current?: WeatherNow['current'] & {
+    apparent_temperature?: number;
+    pressure_msl?: number;
+    visibility?: number;
+    is_day?: number;
+    time?: string;
+  };
+  hourly?: ForecastHour[];
+  daily?: ForecastDay[];
+  timezone?: string;
+  elevation_m?: number;
+}
+export const getForecast = (lat: number, lon: number) =>
+  api<Forecast>('/api/weather/forecast?lat=' + lat.toFixed(2) + '&lon=' + lon.toFixed(2));
 
 // Settings > News feeds and Live channels (admins).
 export interface NewsFeed {

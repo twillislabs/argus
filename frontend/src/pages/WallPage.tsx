@@ -25,12 +25,14 @@ import {
   type WallStop,
   type Advisory,
   type OutlookArea,
+  type Storm,
   type Vessel,
   type WeatherNow,
   type WikiItem,
   type WxAlert,
   getAdvisories,
   getOutlook,
+  getStorms,
   getSatelliteCatalog,
   getVessels,
   getWallProfile,
@@ -171,6 +173,7 @@ export default function WallPage({ me }: { me: Me }) {
     local: [],
   });
   const [outlook, setOutlook] = useState<OutlookArea[]>([]);
+  const [storms, setStorms] = useState<Storm[]>([]);
   const [advisories, setAdvisories] = useState<Advisory[]>([]);
   const [wiki, setWiki] = useState<WikiItem[]>([]);
   const [stations, setStations] = useState<SatCatalog | null>(null);
@@ -229,7 +232,7 @@ export default function WallPage({ me }: { me: Me }) {
   const show = (id: WallSection) => wallSectionOn(wall, id);
   // Which optional layers to load (a string, so the loader reruns only
   // when the set changes).
-  const extras = (['ships', 'wx_alerts', 'wx_zones', 'wx_outlook', 'advisories', 'wiki', 'stations'] as const)
+  const extras = (['ships', 'wx_alerts', 'wx_zones', 'wx_outlook', 'wx_storms', 'advisories', 'wiki', 'stations'] as const)
     .filter((k) => on(k))
     .join(',');
   const wantWeather = show('weather');
@@ -283,6 +286,7 @@ export default function WallPage({ me }: { me: Me }) {
       if (want.has('wx_alerts') || want.has('wx_zones'))
         jobs.push(getWxAlerts(null, want.has('wx_zones')).then((r) => !cancelled && setWx(r)));
       if (want.has('wx_outlook')) jobs.push(getOutlook().then((r) => !cancelled && setOutlook(r.areas)));
+      if (want.has('wx_storms')) jobs.push(getStorms().then((r) => !cancelled && setStorms(r.storms)));
       if (want.has('advisories')) jobs.push(getAdvisories().then((r) => !cancelled && setAdvisories(r.countries)));
       if (want.has('wiki')) jobs.push(getWikipedia().then((r) => !cancelled && setWiki(r.items)));
       await Promise.allSettled(jobs);
@@ -506,12 +510,18 @@ export default function WallPage({ me }: { me: Me }) {
           wxAlerts={wx.alerts}
           wxZoned={wx.zoned}
           outlook={outlook}
+          storms={on('wx_storms') ? storms : []}
           weather={{
             alerts: on('wx_alerts'),
             zones: on('wx_zones'),
             outlook: on('wx_outlook'),
+            storms: on('wx_storms'),
+            radar: on('radar'),
+            lightning: on('lightning'),
             clouds: on('clouds'),
+            vapour: on('vapour'),
             precip: on('precip'),
+            sst: on('sst'),
           }}
           satellites={stations}
           space={{ ...DEFAULT_SPACE, iss: on('stations') }}

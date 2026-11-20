@@ -49,7 +49,7 @@ every user sees the same installed region.
 - **Hover** over anything on the map for a card with what it is and its
   key facts; click for the full details.
 - **Right-click** the map to copy the spot's coordinates (decimal,
-  degrees or MGRS) or centre the map on it. Every **Position** in the side
+  degrees or MGRS), centre the map on it, or see the **weather here**. Every **Position** in the side
   panel has a ⧉ button that copies it.
 - **Double-click** an event to zoom in on its area, or an aircraft, ship or
   satellite to follow it.
@@ -143,8 +143,9 @@ Displays (**Wall settings** next to the screen):
   interrupt** the tour.
 - **Map layers**, grouped as on the Map: country tension, events,
   military aircraft, space stations, conflict zone bulletins, GPS
-  interference and nuclear plants are on by default; ships, weather
-  (alerts, alert zones, storm outlooks, clouds, precipitation), travel
+  interference, nuclear plants and tropical storms are on by default;
+  ships, weather (alerts, alert zones, storm outlooks, radar, lightning,
+  clouds, water vapour, precipitation, sea temperature), travel
   advisories, Wikipedia current events, power plants, submarine cables,
   military bases, SIGMETs and TFRs are off until you turn them on.
 - **Sections:** show or hide the header, clocks, tension panel, figures,
@@ -472,8 +473,23 @@ allowed.
 | **Storm warnings** | NWS warnings that come with their own area (tornado, severe thunderstorm, flash flood, special marine and similar), in the NWS's colours. Hover or click for the text | NWS (US) |
 | **Watches and advisories** | NWS watches, warnings and advisories issued for whole forecast zones or counties (winter storms, heat, wind, flood watches, red flag warnings), drawn on those zones' outlines. Zone shapes are fetched from the NWS as alerts need them, so a fresh install fills in over the first few minutes | NWS (US) |
 | **Severe weather outlook** | Today's Storm Prediction Center risk areas on its 1–5 scale (Marginal, Slight, Enhanced, Moderate, High), in SPC's colours | SPC (US) |
+| **Tropical storms** | Every hurricane, typhoon and cyclone in any ocean (on by default): its track so far (solid) and forecast (dashed), coloured by strength, the forecast cone where the centre may go, and the winds it has brought so far (60, 90 and 120 km/h). Hover or click for its category and the GDACS report. Refreshed every half hour | GDACS (UN and EU JRC), from the warning centres' advisories |
+| **Radar (US)** | Rain and snow from the national radar network: the continental US, Alaska, Hawaii, Puerto Rico and Guam, a few minutes old, refreshed every 5 minutes | NOAA nowCOAST (MRMS) |
+| **Lightning** | Where lightning has struck recently (strike density) | NOAA nowCOAST |
 | **Clouds (infrared)** | The latest geostationary infrared scan (cloud tops, colder = higher), about 40 minutes behind, refreshed every 10 minutes. Covers the Americas, the Pacific and East Asia; GIBS has no Meteosat for Europe and Africa | NASA GIBS (GOES-East, GOES-West, Himawari) |
-| **Precipitation** | Rain and snow rate from satellites, half-hourly, a few hours behind | NASA GIBS (IMERG) |
+| **Water vapour** | Moisture high in the atmosphere, worldwide, from geostationary satellites: the jet stream, storm systems and dry air between them, refreshed every 10 minutes | NOAA nowCOAST |
+| **Precipitation** | Rain and snow rate from satellites, worldwide, half-hourly, a few hours behind | NASA GIBS (IMERG) |
+| **Sea temperature** | The sea surface temperature, a daily analysis (warm water feeds tropical storms) | NOAA nowCOAST |
+
+Each imagery layer (radar, lightning, clouds, water vapour, precipitation,
+sea temperature) gets an **Opacity** slider under it while it's on. Your
+settings are remembered.
+
+**Weather here:** right-click anywhere on the map and choose *Weather
+here* for that spot's weather now (temperature, feels like, wind and
+gusts, humidity, cloud, pressure, visibility), the next 24 hours and the
+next 7 days, from Open-Meteo, in the spot's local time. In the US it also
+lists the NWS warnings, watches and advisories in force there.
 
 With a home location in the US, **Weather at home** in the Situation panel
 shows the temperature, today's high and low, wind and gusts and the chance

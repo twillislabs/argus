@@ -55,7 +55,12 @@ export function speedKms(kms: number): string {
 export function roundDistance(metres: number): { label: string; metres: number } {
   const nice = (x: number) => {
     const pow = 10 ** Math.floor(Math.log10(x));
-    return [1, 2, 5].map((n) => n * pow).filter((n) => n <= x).pop() ?? pow;
+    return (
+      [1, 2, 5]
+        .map((n) => n * pow)
+        .filter((n) => n <= x)
+        .pop() ?? pow
+    );
   };
   if (current === 'metric') {
     if (metres >= 1000) {
@@ -81,4 +86,31 @@ export function temperature(c: number): string {
 // Wind from km/h: "12 mph" or "19 km/h".
 export function windSpeed(kmh: number): string {
   return current === 'metric' ? Math.round(kmh) + ' km/h' : Math.round(kmh * KM_MI) + ' mph';
+}
+
+// WMO weather codes (Open-Meteo) in a few words.
+export function skyText(code: number | undefined): string {
+  if (code === undefined) return '';
+  if (code === 0) return 'Clear';
+  if (code <= 2) return 'Partly cloudy';
+  if (code === 3) return 'Overcast';
+  if (code <= 48) return 'Fog';
+  if (code <= 57) return 'Drizzle';
+  if (code <= 67) return 'Rain';
+  if (code <= 77) return 'Snow';
+  if (code <= 82) return 'Showers';
+  if (code <= 86) return 'Snow showers';
+  return 'Thunderstorms';
+}
+
+// Precipitation from mm: "0.4 in" or "10 mm".
+export function rainfall(mm: number): string {
+  if (current === 'metric') return (mm < 10 ? mm.toFixed(1) : Math.round(mm)) + ' mm';
+  const inch = mm / 25.4;
+  return (inch < 1 ? inch.toFixed(2) : inch.toFixed(1)) + ' in';
+}
+
+// Sea-level pressure from hPa: "1013 hPa" or "29.92 inHg".
+export function pressure(hpa: number): string {
+  return current === 'metric' ? Math.round(hpa) + ' hPa' : (hpa * 0.02953).toFixed(2) + ' inHg';
 }

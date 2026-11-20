@@ -6,7 +6,7 @@ import type { Aircraft, Bbox, EventItem, Home, Patterns, Raids, Summary, Tension
 import { getLiveNear } from '../lib/api';
 import { aircraftColor } from '../map/aircraftLayer';
 import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
-import { distance, temperature, windSpeed } from '../lib/units';
+import { distance, skyText, temperature, windSpeed } from '../lib/units';
 import { alertColor } from '../map/wxLayer';
 import VideoList from './VideoList';
 
@@ -273,21 +273,6 @@ function dtg(d: Date): string {
     ' ' +
     String(d.getUTCFullYear()).slice(2)
   );
-}
-
-// WMO weather codes (Open-Meteo) in a few words.
-function skyText(code: number | undefined): string {
-  if (code === undefined) return '';
-  if (code === 0) return 'Clear';
-  if (code <= 2) return 'Partly cloudy';
-  if (code === 3) return 'Overcast';
-  if (code <= 48) return 'Fog';
-  if (code <= 57) return 'Drizzle';
-  if (code <= 67) return 'Rain';
-  if (code <= 77) return 'Snow';
-  if (code <= 82) return 'Showers';
-  if (code <= 86) return 'Snow showers';
-  return 'Thunderstorms';
 }
 
 function inBox(b: Bbox, lat: number, lon: number): boolean {

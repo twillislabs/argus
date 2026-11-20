@@ -436,6 +436,22 @@ parts connect.
   (`PolylineDash`) until the last click. Capture (`GlobeHandle.capture`)
   renders at twice the device's pixels, waits up to 8 s for the sharper
   tiles, then restores `resolutionScale`.
+- Weather extras (all keyless): `WeatherFilters` in `map/wxLayer.ts`.
+  Imagery layers are `WX_IMAGERY`, each in `IMAGERY` with a refresh
+  period (a new layer per slot, with a `t=` stamp so caches let go) and
+  an opacity (`weather_opacity` preference, `opacityOf`); NASA GIBS
+  (clouds, IMERG) and NOAA nowCOAST WMS (radar mosaic, lightning, water
+  vapour, sea temperature; `nowcoast.noaa.gov` is in the CSP). Land-
+  covering ones are `WX_OVER_LAND` (the dark map's land goes
+  see-through). Tropical storms: `argus/storms.py` (GDACS list, then
+  each storm's geometry: track segments unordered, so the category now
+  is the segment leaving the centroid; `Poly_Cones`; swath polygons
+  labelled 60/90/120 km/h without `featuretype`), `/api/weather/storms`
+  (cached 30 min in API memory, `app.state.storms`), drawn by wxLayer
+  as `storm:<id>`. "Weather here" (`components/WeatherHere.tsx`, from
+  MapContextMenu) reads `/api/weather/forecast` (Open-Meteo, 15 min per
+  spot) and, in the US, `/api/weather/alerts?lat=&lon=`'s `local`.
+  Wall layers `wx_storms`, `radar`, `lightning`, `vapour`, `sst`.
 - Toggles (`.lrow` + `.tog`): the checkbox has `pointer-events: none`,
   so the wrapper must be a `<label>` (or sit inside one), or clicks on
   the switch do nothing. Test toggles with real mouse events, not

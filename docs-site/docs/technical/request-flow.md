@@ -62,7 +62,7 @@ a list of field errors; the client shows the first one.
 
 | Header | Set by | Value |
 |---|---|---|
-| `Content-Security-Policy` | nginx (pages), api (`/api/*`) | Pages: scripts only from the same origin (plus WebAssembly), tiles from NASA GIBS, no framing. API: `default-src 'none'`. |
+| `Content-Security-Policy` | nginx (pages), api (`/api/*`) | Pages: scripts only from the same origin (plus WebAssembly), tiles from NASA GIBS and NOAA nowCOAST, no framing. API: `default-src 'none'`. |
 | `X-Frame-Options` | both | `DENY` |
 | `X-Content-Type-Options` | both | `nosniff` |
 | `Referrer-Policy` | both | `same-origin` |

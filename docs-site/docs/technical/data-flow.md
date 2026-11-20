@@ -152,7 +152,8 @@ answer cached and shared by everyone:
 | Ukraine air-raid map, Tzeva Adom | 20 s | Air-raid alerts |
 | Planetary Computer | tiles a week (on disk) | Recent Sentinel imagery |
 | OpenStreetMap Nominatim | a week | Address search (one request a second, never as you type) |
-| Open-Meteo, NWS points | minutes | Weather at home |
+| Open-Meteo, NWS points | 15 min | Weather at home and Weather here |
+| GDACS cyclone geometry | 30 min | Tropical storm tracks and cones |
 | adsb.lol / adsb.fi | 15 s | Civil aircraft in the view |
 | Overpass | a week | Plate reader cameras |
 | openAIP | a day | Restricted areas and control zones |
