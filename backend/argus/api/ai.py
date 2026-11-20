@@ -14,7 +14,7 @@ from argus.ai import config, features
 from argus.ai.providers import AiError, run
 from argus.api.deps import DbDep, SessionDep, SettingsDep, require
 from argus.db import utcnow
-from argus.models import Event, ServerSetting, UserSession
+from argus.models import Event, ServerSetting, UserPreferences, UserSession
 from argus.roles import can
 from argus.services import audit
 
@@ -200,7 +200,7 @@ async def get_digest(
     body = {
         "sentences": sentences,
         "dropped": max(
-            0, len(features.SENTENCE.split(result.text)) - len(sentences)
+            0, features.sentence_count(result.text) - len(sentences)
         ),
         "model": result.model,
         "generated": utcnow().isoformat(),
@@ -272,6 +272,18 @@ async def ask(
     state.ai_asks[session.user_id] = recent + [now]
     tools = features.AskTools(db, state)
     prompt = body.question.strip()
+    prefs = await db.get(UserPreferences, session.user_id)
+    home = ((prefs.data if prefs else None) or {}).get("home")
+    if home and home.get("lat") is not None:
+        prompt += (
+            "\n\n(The analyst's home is {0} at lat {1:.3f}, lon {2:.3f}, "
+            "watching {3} km around it.)"
+        ).format(
+            home.get("name") or "home",
+            float(home["lat"]),
+            float(home["lon"]),
+            int(home.get("radius_km") or 300),
+        )
     if body.view:
         prompt += "\n\n(The analyst's map shows bbox {0}.)".format(
             [round(x, 3) for x in body.view]

@@ -798,3 +798,15 @@ tr.dimrow td { color: var(--dim); }
   border-color: var(--accent);
   outline: none;
 }
+.unsaved {
+  color: var(--high);
+}
+.aska ul {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.cite.more {
+  cursor: help;
+}

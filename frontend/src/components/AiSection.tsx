@@ -67,8 +67,11 @@ export default function AiSection() {
   const setF = (f: AiFeature, patch: Partial<Draft['features'][AiFeature]>) =>
     setD({ ...d, features: { ...d.features, [f]: { ...d.features[f], ...patch } } });
 
-  async function save() {
-    if (!d) return;
+  // Unsaved edits: a key typed, a model changed, a switch flipped.
+  const dirty = JSON.stringify(d) !== JSON.stringify(draftFrom(s));
+
+  async function save(): Promise<boolean> {
+    if (!d) return false;
     setStatus('Saving…');
     try {
       const r = await putAiSettings({
@@ -84,13 +87,23 @@ export default function AiSection() {
       setS({ ...r, usage: s?.usage });
       setD(draftFrom(r));
       setStatus('Saved.');
+      return true;
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Could not save.');
+      return false;
     }
   }
 
+  // Test what's on the page: save any changes first.
   async function test(k: AiKind) {
-    setTests({ ...tests, [k]: 'Testing…' });
+    if (dirty) {
+      setTests({ ...tests, [k]: 'Saving…' });
+      if (!(await save())) {
+        setTests((t) => ({ ...t, [k]: 'Not tested: the changes could not be saved.' }));
+        return;
+      }
+    }
+    setTests((t) => ({ ...t, [k]: 'Testing…' }));
     try {
       const r = await testAi(k);
       setTests((t) => ({
@@ -112,8 +125,8 @@ export default function AiSection() {
         <div className="cbody">
           <p className="quiet small">
             Argus works fully without AI. Add a provider to turn features on below. Keys are stored encrypted and are
-            never shown again; save first, then <b>Test</b> sends a one-word prompt. Nothing is sent to a cloud provider
-            unless you set one up here; a local server keeps everything on your hardware.
+            never shown again. <b>Test</b> saves any changes, then sends a one-word prompt. Nothing is sent to a cloud
+            provider unless you set one up here; a local server keeps everything on your hardware.
           </p>
         </div>
         <div className="srows">
@@ -161,8 +174,13 @@ export default function AiSection() {
                     <input value={p.model} onChange={(e) => setP(k, { model: e.target.value })} />
                   </label>
                   <span className="rowbtns">
-                    <button className="btn small" disabled={!saved.configured} onClick={() => void test(k)}>
-                      Test
+                    <button
+                      className="btn small"
+                      disabled={!saved.configured && !(p.key.trim() || (k === 'local' && p.base_url.trim()))}
+                      title={dirty ? 'Saves your changes, then sends a one-word prompt' : 'Sends a one-word prompt'}
+                      onClick={() => void test(k)}
+                    >
+                      {dirty ? 'Save and test' : 'Test'}
                     </button>
                   </span>
                 </div>
@@ -184,7 +202,7 @@ export default function AiSection() {
                 <small>{FEATURE_HELP[f]}</small>
               </span>
               <span className="aifeat">
-                <span className="lrow flat">
+                <label className="lrow flat">
                   <input
                     type="checkbox"
                     aria-label={'Turn on ' + s.features[f].label}
@@ -192,7 +210,7 @@ export default function AiSection() {
                     onChange={(e) => setF(f, { on: e.target.checked })}
                   />
                   <span className="tog" />
-                </span>
+                </label>
                 <select
                   value={d.features[f].provider}
                   aria-label="Provider"
@@ -227,8 +245,10 @@ export default function AiSection() {
             />
           </div>
           <div className="srow">
-            <span className="quiet small">{status}</span>
-            <button className="btn primary" onClick={() => void save()}>
+            <span className={'small ' + (dirty ? 'unsaved' : 'quiet')}>
+              {dirty ? 'Unsaved changes: press Save to keep them.' : status}
+            </span>
+            <button className="btn primary" disabled={!dirty} onClick={() => void save()}>
               Save
             </button>
           </div>

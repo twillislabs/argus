@@ -55,18 +55,23 @@ export default function DigestCard({ canRefresh }: { canRefresh: boolean }) {
               {(d?.sentences ?? []).map((s, i) => (
                 <span key={i}>
                   {s.text}
-                  {s.cites.map((id) => (
+                  {s.cites.slice(0, 4).map((id) => (
                     <a key={id} className="cite" href={'/#e=' + id} title="Open this event on the map">
                       {id.slice(0, 6)}
                     </a>
-                  ))}{' '}
+                  ))}
+                  {s.cites.length > 4 && (
+                    <span className="cite more" title={s.cites.slice(4).join(', ')}>
+                      +{s.cites.length - 4}
+                    </span>
+                  )}{' '}
                 </span>
               ))}
             </p>
             <p className="quiet small">
               Written by AI from the events below{d?.generated ? ', ' + ago(d.generated) : ''}
-              {d?.stale ? ' (an hour or more old)' : ''}. Every sentence links the events it rests on; check them
-              before relying on it.
+              {d?.stale ? ' (an hour or more old)' : ''}. Every sentence links the events it rests on; check them before
+              relying on it.
             </p>
           </>
         )}

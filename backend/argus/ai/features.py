@@ -26,6 +26,9 @@ from argus.db import utcnow
 from argus.models import Article, Event
 
 CITE = re.compile(r"\[E:([A-Za-z0-9]{1,16})\]")
+# Citations written after a sentence's full stop ("... Poland. [E:x]
+# Next ..."): moved before it, so sentences split cleanly.
+TRAILING = re.compile(r"([.!?])((?:\s*\[E:[A-Za-z0-9]{1,16}\])+)")
 SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"'(])")
 
 UNTRUSTED = (
@@ -41,11 +44,21 @@ def _data(obj) -> str:
     )
 
 
+def sentence_count(text: str) -> int:
+    norm = TRAILING.sub(
+        lambda m: m.group(2) + m.group(1), " ".join(text.split())
+    )
+    return len([s for s in SENTENCE.split(norm) if s.strip()])
+
+
 def cited_sentences(text: str, valid: set[str]) -> list[dict]:
     """The text split into sentences, keeping only those that cite at
     least one real event; each with its citations, tokens removed."""
     out = []
-    for raw in SENTENCE.split(" ".join(text.split())):
+    text = TRAILING.sub(
+        lambda m: m.group(2) + m.group(1), " ".join(text.split())
+    )
+    for raw in SENTENCE.split(text):
         ids = [i for i in CITE.findall(raw) if i in valid]
         if not ids:
             continue
@@ -58,8 +71,20 @@ def cited_sentences(text: str, valid: set[str]) -> list[dict]:
     return out
 
 
+def _link_words(e: Event, limit: int = 3) -> list[str]:
+    """Headline words from a machine-coded event's article links."""
+    out = []
+    for url in (e.data or {}).get("urls") or []:
+        words = ev._slug_words(str(url))
+        if words and words not in out:
+            out.append(words[:120])
+        if len(out) >= limit:
+            break
+    return out
+
+
 def _brief_event(e: Event) -> dict:
-    return {
+    item = {
         "id": e.id,
         "type": e.type,
         "severity": ev.SEVERITY_NAMES.get(e.severity, "info"),
@@ -71,13 +96,25 @@ def _brief_event(e: Event) -> dict:
         "sources": e.source_count,
         "articles": e.article_count,
     }
+    # GDELT events are machine-coded from news: the place is often a
+    # capital standing in for a whole country, the title generic.
+    if (e.data or {}).get("codes"):
+        item["machine_coded"] = True
+        item["link_words"] = _link_words(e)
+    return item
 
 
 DIGEST_SYSTEM = (
     "You write the opening digest of an open-source intelligence brief for "
     "a watch floor. Write 5 to 8 sentences in plain, neutral English: the "
     "most significant developments first, then notable patterns. State "
-    "only what the events say; no speculation, no recommendations. End "
+    "only what the events say; no speculation, no recommendations. "
+    "Events marked machine_coded come from automated coding of news "
+    "(GDELT): their title is generic and their place is often a capital "
+    "standing in for a whole country (Russian strikes on Ukraine coded as "
+    "fighting in Moscow). Use their link_words to say what and where the "
+    "reports are actually about, call them reports, and leave one out "
+    "when its links don't support it. End "
     "every sentence with the ids of the events it rests on, written as "
     "[E:<id>] (for example [E:a1b2c3]). A sentence without a citation will "
     "be deleted. No headings, lists or preamble. " + UNTRUSTED
@@ -138,7 +175,10 @@ ASK_SYSTEM = (
     "and ships in view) using the tools; don't answer from memory about "
     "current events. Be brief and specific: lead with the answer, then "
     "the evidence. Cite events as [E:<id>]. If the tools return nothing "
-    "relevant, say so plainly. When an answer is about a place, call "
+    "relevant, say so plainly. Events marked machine_coded come from "
+    "automated coding of news (GDELT): read their link_words for what "
+    "and where they're really about, and call them reports. When an "
+    "answer is about a place, call "
     "show_on_map once so the analyst can look. " + UNTRUSTED
 )
 

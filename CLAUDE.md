@@ -204,7 +204,11 @@ parts connect.
   usage in `ai_usage`; `features.py`: digest, summaries, Ask tools),
   `api/ai.py`, capability `ai.use` (admin, analyst). Collector and news
   text goes to models inside `<data>` blocks; digest sentences without a
-  valid `[E:<id>]` citation are dropped; Ask Argus tools are read-only
+  valid `[E:<id>]` citation are dropped (citations after a full stop are
+  moved before it first: Claude writes both); GDELT events reach the
+  model marked `machine_coded` with their link words, since their place
+  is often a capital standing in for a country. Ask gets the user's
+  home. Ask Argus tools are read-only
   and `show_on_map` only returns a suggestion. Frontend: `lib/ai.ts`,
   `AiSection`, `DigestCard` (Brief), `AskPanel`, EventInspector's
   `AiSummary`.
@@ -298,6 +302,10 @@ parts connect.
   prop applies sound changes through the YouTube player API).
 - Page titles are set per route in `App.tsx` (`pageTitle`); only
   NewsPage sets its own.
+- Toggles (`.lrow` + `.tog`): the checkbox has `pointer-events: none`,
+  so the wrapper must be a `<label>` (or sit inside one), or clicks on
+  the switch do nothing. Test toggles with real mouse events, not
+  `input.click()`.
 - Weather: NWS alerts (`nws`, raw kind `wxalert`) and SPC outlooks
   (`spc`, kind `outlook`) in `collectors/weather.py`, served by
   `api/weather.py` (also Open-Meteo `/api/weather/now` and the home's NWS

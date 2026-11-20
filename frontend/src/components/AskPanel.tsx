@@ -102,19 +102,21 @@ export default function AskPanel({
           ) : (
             <>
               <div className="aska">
-                {it.a.answer.split(/\n{2,}/).map((para, j) => (
-                  <p key={j}>
-                    {withCitations(para).map((part, k) =>
-                      'event' in part ? (
-                        <button key={k} className="cite" title="Open this event" onClick={() => onEvent(part.event)}>
-                          {part.event.slice(0, 6)}
-                        </button>
-                      ) : (
-                        <span key={k}>{part.text}</span>
-                      ),
-                    )}
-                  </p>
-                ))}
+                {blocks(it.a.answer).map((b, j) =>
+                  b.list ? (
+                    <ul key={j}>
+                      {b.lines.map((line, k) => (
+                        <li key={k}>
+                          <Rich text={line} onEvent={onEvent} />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p key={j}>
+                      <Rich text={b.lines.join(' ')} onEvent={onEvent} />
+                    </p>
+                  ),
+                )}
               </div>
               {it.a.view && (
                 <button className="btn small" onClick={() => it.a?.view && onView(it.a.view)}>
@@ -130,5 +132,51 @@ export default function AskPanel({
         </section>
       ))}
     </div>
+  );
+}
+
+// The model writes light Markdown: paragraphs, "- " bullet lists and
+// **bold**. Rendered as such (never as HTML), with [E:<id>] citations
+// as buttons that open the event.
+function blocks(text: string): { list: boolean; lines: string[] }[] {
+  const out: { list: boolean; lines: string[] }[] = [];
+  for (const para of text.split(/\n{2,}/)) {
+    let current: { list: boolean; lines: string[] } | null = null;
+    for (const raw of para.split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
+      const bullet = /^[-*•]\s+/.test(line);
+      const clean = line.replace(/^[-*•]\s+/, '').replace(/^#+\s+/, '');
+      if (!current || current.list !== bullet) {
+        current = { list: bullet, lines: [] };
+        out.push(current);
+      }
+      current.lines.push(clean);
+    }
+  }
+  return out;
+}
+
+function Rich({ text, onEvent }: { text: string; onEvent: (id: string) => void }) {
+  return (
+    <>
+      {withCitations(text).map((part, k) =>
+        'event' in part ? (
+          <button key={k} className="cite" title="Open this event" onClick={() => onEvent(part.event)}>
+            {part.event.slice(0, 6)}
+          </button>
+        ) : (
+          part.text
+            .split(/(\*\*[^*]+\*\*)/)
+            .map((bit, m) =>
+              bit.startsWith('**') && bit.endsWith('**') && bit.length > 4 ? (
+                <b key={k + '-' + m}>{bit.slice(2, -2)}</b>
+              ) : (
+                <span key={k + '-' + m}>{bit}</span>
+              ),
+            )
+        ),
+      )}
+    </>
   );
 }

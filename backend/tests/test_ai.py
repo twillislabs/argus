@@ -12,6 +12,20 @@ from tests.conftest import csrf
 from tests.test_users import create, sign_in
 
 
+def test_citations_after_the_full_stop():
+    text = (
+        "Strikes hit Kyiv. [E:a1] [E:a2] Saudi Arabia confirmed an attack. "
+        "[E:b1] Nothing cited here. A quake struck Chile. [E:c1]"
+    )
+    out = features.cited_sentences(text, {"a1", "a2", "b1", "c1"})
+    assert [s["text"] for s in out] == [
+        "Strikes hit Kyiv.",
+        "Saudi Arabia confirmed an attack.",
+        "A quake struck Chile.",
+    ]
+    assert out[0]["cites"] == ["a1", "a2"]
+
+
 def test_cited_sentences_drop_uncited_and_unknown():
     text = (
         "Fighting continued near Kyiv [E:abc123]. A quake struck Chile "
