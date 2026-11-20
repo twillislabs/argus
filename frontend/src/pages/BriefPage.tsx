@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SpaceWeatherCard, { useSpaceWeather } from '../components/SpaceWeatherCard';
+import DigestCard from '../components/DigestCard';
+import { getAiStatus } from '../lib/ai';
 
 import AppHeader from '../components/AppHeader';
 import { BAND_LABEL, Spark } from '../components/SituationPanel';
@@ -122,6 +124,16 @@ function changes(t: Tension | null, today: EventItem[], yesterday: EventItem[]):
 export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: () => Promise<void> }) {
   const navigate = useNavigate();
   const spaceWx = useSpaceWeather();
+  const [aiDigest, setAiDigest] = useState(false);
+  const [aiCanUse, setAiCanUse] = useState(false);
+  useEffect(() => {
+    getAiStatus()
+      .then((s) => {
+        setAiDigest(s.features.digest);
+        setAiCanUse(s.can_use);
+      })
+      .catch(() => undefined);
+  }, []);
   const [kev, setKev] = useState<ExploitedVuln[] | null>(null);
   useEffect(() => {
     getCyber()
@@ -228,6 +240,8 @@ export default function BriefPage({ me, onSignedOut }: { me: Me; onSignedOut: ()
             );
           })}
         </div>
+
+        {aiDigest && <DigestCard canRefresh={aiCanUse} />}
 
         <div className="bgrid">
           <section className="card">

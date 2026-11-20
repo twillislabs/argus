@@ -10,6 +10,10 @@ interface Props {
   drawingCount: number;
   toursOpen: boolean;
   onTours: () => void;
+  // Ask Argus (shown when AI's Ask feature is on for this user).
+  askOn?: boolean;
+  askOpen?: boolean;
+  onAsk?: () => void;
 }
 
 const SELECT: { id: Tool; label: string }[] = [
@@ -136,7 +140,18 @@ function DeleteMenu({
 
 // The map toolbar (as in Foundry Map): select in an area, draw shapes,
 // measure, add notes, capture a screenshot, delete drawings.
-export default function MapToolbar({ tool, onTool, onCapture, onClear, drawingCount, toursOpen, onTours }: Props) {
+export default function MapToolbar({
+  tool,
+  onTool,
+  onCapture,
+  onClear,
+  drawingCount,
+  toursOpen,
+  onTours,
+  askOn,
+  askOpen,
+  onAsk,
+}: Props) {
   const toggle = (t: Tool) => onTool(tool === t ? 'none' : t);
   return (
     <div className="maptoolbar seg" role="toolbar" aria-label="Map tools">
@@ -162,6 +177,11 @@ export default function MapToolbar({ tool, onTool, onCapture, onClear, drawingCo
       <button aria-pressed={toursOpen} title="Director mode: saved camera tours with captions" onClick={onTours}>
         Tours
       </button>
+      {askOn && (
+        <button aria-pressed={askOpen} title="Ask Argus: questions about the map, answered by AI" onClick={onAsk}>
+          Ask
+        </button>
+      )}
       <button title="Save a PNG of the map" onClick={onCapture}>
         Capture
       </button>

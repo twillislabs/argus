@@ -7,6 +7,8 @@ import { BaseInspector, CableInspector, PlantInspector } from '../components/Inf
 import PlaceInspector from '../components/PlaceInspector';
 import ImageryPanel, { type ImageryState, newImagery } from '../components/ImageryPanel';
 import TourPanel from '../components/TourPanel';
+import AskPanel, { type AskItem } from '../components/AskPanel';
+import { askArgus, useAiStatus } from '../lib/ai';
 import { launchColor, padKey } from '../map/launchLayer';
 import { OUTAGE_COLOR, RANSOMWARE_COLOR } from '../map/cyberLayer';
 import { cleanTour, type Tour } from '../lib/tours';
@@ -1157,6 +1159,26 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   // A share link opens here: apply its base map, layers, selection and
   // camera once, without changing the user's saved preferences.
+  // Ask Argus: the conversation stays while the panel is closed.
+  const aiStatus = useAiStatus();
+  const [askOpen, setAskOpen] = useState(false);
+  const [askLog, setAskLog] = useState<AskItem[]>([]);
+  const [askBusy, setAskBusy] = useState(false);
+  async function ask(q: string) {
+    setAskBusy(true);
+    const view = globe.current?.view()?.bbox ?? null;
+    setAskLog((l) => [...l, { q }]);
+    try {
+      const a = await askArgus(q, view && view.length === 4 ? [...view] : null);
+      setAskLog((l) => l.map((x, i) => (i === l.length - 1 ? { ...x, a } : x)));
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Ask failed.';
+      setAskLog((l) => l.map((x, i) => (i === l.length - 1 ? { ...x, error } : x)));
+    } finally {
+      setAskBusy(false);
+    }
+  }
+
   // Director mode: saved tours (preferences), a tour opened from a link,
   // and playback (one tour at a time; a newer play or Stop ends it).
   const [toursOpen, setToursOpen] = useState(false);
@@ -2010,10 +2032,22 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               }}
               drawingCount={drawings.length}
               toursOpen={toursOpen}
+              askOn={Boolean(aiStatus?.features.ask && aiStatus.can_use)}
+              askOpen={askOpen}
+              onAsk={() => {
+                if (askOpen) setAskOpen(false);
+                else {
+                  clearSelection();
+                  setToursOpen(false);
+                  setAskOpen(true);
+                  openRight();
+                }
+              }}
               onTours={() => {
                 if (toursOpen) setToursOpen(false);
                 else {
                   clearSelection();
+                  setAskOpen(false);
                   setToursOpen(true);
                   openRight();
                 }
@@ -2232,6 +2266,18 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 id={selected}
                 onBack={() => setSelected(null)}
                 onFly={(lat, lon) => globe.current?.flyTo(lat, lon)}
+              />
+            ) : askOpen ? (
+              <AskPanel
+                items={askLog}
+                busy={askBusy}
+                onAsk={(q) => void ask(q)}
+                onEvent={(id) => {
+                  clearSelection();
+                  setSelected(id);
+                }}
+                onView={(v) => globe.current?.flyTo(v.lat, v.lon, v.height_m)}
+                onClose={() => setAskOpen(false)}
               />
             ) : toursOpen ? (
               <TourPanel

@@ -31,8 +31,11 @@ CAPABILITIES: dict[str, set[str]] = {
         "backups.manage",
         "analyst.tools",
         "account.edit",
+        "ai.use",
     },
-    "analyst": {"analyst.tools", "account.edit"},
+    # ai.use: run AI features that spend the provider's tokens (Ask Argus,
+    # summaries, refreshing the digest). Anyone can read the digest.
+    "analyst": {"analyst.tools", "account.edit", "ai.use"},
     "viewer": {"account.edit"},
     "display": set(),
 }

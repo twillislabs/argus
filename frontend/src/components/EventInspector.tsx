@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { type EventDetail, getEvent, ApiError, getEventVideo } from '../lib/api';
 import { ago, SEVERITY_COLOR, SEVERITY_NAME, TYPE_INFO, zuluTime } from '../lib/format';
 import CopyCoords from './CopyCoords';
+import { summarizeEvent, useAiStatus } from '../lib/ai';
 import VideoList from './VideoList';
 
 interface Props {
@@ -29,7 +30,8 @@ export default function EventInspector({ id, onBack, onFly }: Props) {
       .catch((err) => {
         if (cancelled) return;
         // Events expire and are pruned; say so rather than "no event".
-        if (err instanceof ApiError && err.status === 404) setError('This event is no longer in Argus; it may have expired.');
+        if (err instanceof ApiError && err.status === 404)
+          setError('This event is no longer in Argus; it may have expired.');
         else setError(err instanceof Error ? err.message : 'Could not load the event.');
       });
     return () => {
@@ -118,6 +120,7 @@ function Detail({
           </div>
         </dl>
       </section>
+      <AiSummary id={e.id} />
       <section className="isec">
         <h3>Source records · {d.sources.length}</h3>
         {d.sources.some((s) => s.check) && (
@@ -200,4 +203,47 @@ function hostOf(url: string): string {
   } catch {
     return '';
   }
+}
+
+// One neutral paragraph from the event's sources (Settings > AI >
+// Event summaries), on request: it spends the provider's tokens.
+function AiSummary({ id }: { id: string }) {
+  const status = useAiStatus();
+  const [text, setText] = useState<{ summary: string; model: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    setText(null);
+    setError('');
+  }, [id]);
+  if (!status?.features.summaries || !status.can_use) return null;
+  return (
+    <section className="isec">
+      <h3>
+        <span className="aibadge">AI</span>Summary
+      </h3>
+      {text ? (
+        <>
+          <p className="small">{text.summary}</p>
+          <p className="quiet small">Written by AI ({text.model}) from the sources below; check them.</p>
+        </>
+      ) : (
+        <button
+          className="btn small"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            setError('');
+            summarizeEvent(id)
+              .then(setText)
+              .catch((err) => setError(err instanceof Error ? err.message : 'The summary failed.'))
+              .finally(() => setBusy(false));
+          }}
+        >
+          {busy ? 'Summarising…' : 'Summarise the sources'}
+        </button>
+      )}
+      {error && <p className="err small">{error}</p>}
+    </section>
+  );
 }

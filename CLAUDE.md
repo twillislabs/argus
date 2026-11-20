@@ -197,6 +197,17 @@ parts connect.
   only (`FeedClient.get(..., only=)`), publishing a bare sample
   (`gps_sample`) on NATS `argus.gps`; the API feeds it to `GpsGrid` and
   nothing else (not stored, not pushed). `ARGUS_GPS_SWEEP=false` stops it.
+- AI (optional): `argus/ai/` (`providers.py`: one `run()` with a
+  manual tool loop for Anthropic via the official SDK and for
+  OpenAI-compatible servers via httpx; `config.py`: `server_settings
+  ["ai"]` with encrypted keys, per-feature provider/model, monthly cap,
+  usage in `ai_usage`; `features.py`: digest, summaries, Ask tools),
+  `api/ai.py`, capability `ai.use` (admin, analyst). Collector and news
+  text goes to models inside `<data>` blocks; digest sentences without a
+  valid `[E:<id>]` citation are dropped; Ask Argus tools are read-only
+  and `show_on_map` only returns a suggestion. Frontend: `lib/ai.ts`,
+  `AiSection`, `DigestCard` (Brief), `AskPanel`, EventInspector's
+  `AiSummary`.
 - Address search: `argus/geocode.py` + `/api/geocode` (OpenStreetMap
   Nominatim). Its policy forbids autocomplete, so the search box only
   asks on "Find address" (kind `lookup`), never as you type; requests

@@ -9,6 +9,7 @@ import ImageryCard from '../components/ImageryCard';
 import UsersCard from '../components/UsersCard';
 import WallEditor from '../components/WallEditor';
 import WallProfiles from '../components/WallProfiles';
+import AiSection from '../components/AiSection';
 import { CHANNELS, DEFAULT_TABS } from '../config/newsChannels';
 import {
   api,
@@ -114,6 +115,14 @@ const SECTIONS: Section[] = [
     capability: 'settings.manage',
   },
   {
+    id: 'ai',
+    label: 'AI',
+    title: 'AI (optional)',
+    description: 'Bring your own model for the Brief digest, event summaries and Ask Argus.',
+    group: 'Administration',
+    capability: 'settings.manage',
+  },
+  {
     id: 'streetmap',
     label: 'Street map',
     title: 'Self-hosted street map',
@@ -151,6 +160,7 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   else if (current.id === 'defaults') body = <DefaultsSection me={me} onSaved={onSaved} />;
   else if (current.id === 'displays') body = <DisplaysSection />;
   else if (current.id === 'backups') body = <BackupsSection />;
+  else if (current.id === 'ai') body = <AiSection />;
   else if (current.id === 'display')
     body = (
       <>

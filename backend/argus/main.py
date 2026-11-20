@@ -12,6 +12,7 @@ from argus import __version__
 from argus.alpr import Alpr
 from argus.api import (
     admin,
+    ai,
     air,
     airspace,
     auth,
@@ -170,6 +171,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         weather.router,
         imagery.router,
         patterns.router,
+        ai.router,
     ):
         app.include_router(router)
     return app
