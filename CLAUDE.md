@@ -133,6 +133,10 @@ parts connect.
   city in at most 15%; `gazetteer` is 200k+ cities minus
   `PLACE_STOPWORDS`), merging into a same-kind event there, and titles
   confirmed events with their backing headline (`headline_title`).
+  `corroborating_articles` skips opinion and question headlines
+  (`opinion`) and sorts by word overlap with the event's links, so two
+  events in one city don't share a headline; bare "offensive" isn't a
+  conflict word (the adjective).
 - adsb.lol's routeset endpoint is unusable (202, empty); routes come from
   adsbdb, which goes stale when flight numbers are reused
   (`route_progress` flags implausible routes).

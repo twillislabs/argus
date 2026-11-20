@@ -63,8 +63,9 @@ Privacy-flagged aircraft are dropped before anything is kept.
 - **GDELT place check:** GDELT can pin a story on an actor's capital (Russian strikes on Kyiv
   placed in Moscow). When most of an event's readable links name another big city and hardly any
   name its own, the event moves there, merging into an event of the same kind already there.
-- **Titles:** a confirmed event takes the news headline that backs it as its title; unconfirmed
-  ones keep the cautious "reported in" wording.
+- **Titles:** a confirmed event takes the news headline that backs it as its title, the one
+  sharing most words with its own articles; unconfirmed ones keep the cautious "reported in"
+  wording. Opinion, analysis and question headlines never corroborate an event.
 - **GDELT corroboration:** only lead-paragraph ("root") events count. A cluster is labelled by
   the kind of event most of its outlets reported, not the most alarming code any one used. It
   stays *unconfirmed* until:

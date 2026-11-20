@@ -74,7 +74,8 @@ CRIME_SLUG = re.compile(
 WAR_SLUG = re.compile(
     r"\b(military|army|troops|soldiers|air ?strikes?|strikes?|missiles?|"
     r"drones?|rockets?|shelling|artillery|militants?|insurgents?|war|"
-    r"offensive|ceasefire|frontline|idf|hamas|hezbollah|houthis?|"
+    r"(counter-?|ground |military |spring |summer )offensive|ceasefire|"
+    r"frontline|idf|hamas|hezbollah|houthis?|"
     r"invasion|battle|bombing|bombs?|fighters)\b"
 )
 CRIME_MIN_LINKS = 3
@@ -646,7 +647,8 @@ SEAT_OF_GOVERNMENT = (
 )
 CONFLICT_WORDS = re.compile(
     r"\b(attack(s|ed)?|air ?strikes?|strikes?|shell(s|ed|ing)|missiles?|"
-    r"drones?|rockets?|fighting|clash(es|ed)?|killed|troops|offensive|"
+    r"drones?|rockets?|fighting|clash(es|ed)?|killed|troops|"
+    r"(counter-?|ground |military )offensive|"
     r"bomb(s|ed|ing)?|artillery|militants?|insurgents?|war|invasion|"
     r"ceasefire|frontline|front line|raid(s|ed)?)\b",
     re.IGNORECASE,
@@ -717,9 +719,35 @@ async def corroborating_articles(
 
     def about(a: Article) -> bool:
         title = a.title.lower()
+        if opinion(a.title):
+            return False
         return bool(words.search(a.title)) and any(n in title for n in names)
 
-    return [a for a in rows.scalars() if about(a)]
+    found = [a for a in rows.scalars() if about(a)]
+    # Best first: the headline sharing most words with the event's own
+    # links, so two events in one city don't both take the same story.
+    link_words = set()
+    for url in (event.data or {}).get("urls") or []:
+        link_words.update(w for w in _url_words(url).split() if len(w) > 3)
+
+    def overlap(a: Article) -> int:
+        words_ = {w for w in re.findall(r"[a-z]{4,}", a.title.lower())}
+        return len(words_ & link_words)
+
+    return sorted(found, key=overlap, reverse=True)
+
+
+# Opinion, analysis and question headlines say what someone thinks, not
+# that something happened: they never corroborate an event.
+OPINION = re.compile(
+    r"^(opinion|analysis|comment|editorial|explainer|think|why|how|what|"
+    r"who|is|are|can|should|will|letters?)\b|\?\s*$|\?\s",
+    re.IGNORECASE,
+)
+
+
+def opinion(title: str) -> bool:
+    return bool(OPINION.search((title or "").strip()))
 
 
 def headline_title(title: str) -> str:

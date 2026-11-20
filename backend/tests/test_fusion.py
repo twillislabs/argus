@@ -553,3 +553,52 @@ def test_headline_title():
         == "Russian attacks on Kyiv kill 3, cripple bridges"
     )
     assert fusion.headline_title("Plain headline") == "Plain headline"
+
+
+def test_opinion_and_offensive_dont_corroborate():
+    assert fusion.opinion("Think the joke was offensive? Stop ignoring Gaza")
+    assert fusion.opinion("Why Russia keeps hitting Kyiv")
+    assert not fusion.opinion("Russian strikes hit 3 Kyiv bridges")
+    assert not fusion.CONFLICT_WORDS.search("The joke was offensive")
+    assert fusion.CONFLICT_WORDS.search("Ukraine's counteroffensive stalls")
+
+
+async def test_best_matching_headline_first(app):
+    async with app.state.db.sessionmaker() as db:
+        await run(
+            db,
+            [
+                gdelt(
+                    "1",
+                    lat=50.45,
+                    lon=30.52,
+                    path="russian-missiles-hit-kyiv-bridges-power-cut",
+                )
+            ],
+        )
+        event = (await db.execute(select(Event))).scalar_one()
+        event.place, event.country = "Kyiv, Ukraine", "Ukraine"
+        now = utcnow()
+        for i, title in enumerate(
+            [
+                "Ukrainian drones strike refinery, Kyiv says",
+                "Russian missiles hit Kyiv bridges, cutting power",
+                "Why Kyiv's air defences are stretched",
+            ]
+        ):
+            db.add(
+                Article(
+                    outlet="o{0}".format(i),
+                    url="https://o{0}.example/{0}".format(i),
+                    title=title,
+                    summary="",
+                    published_at=now,
+                    fetched_at=now,
+                )
+            )
+        await db.commit()
+        found = await fusion.corroborating_articles(db, event)
+        assert [a.title for a in found] == [
+            "Russian missiles hit Kyiv bridges, cutting power",
+            "Ukrainian drones strike refinery, Kyiv says",
+        ]
