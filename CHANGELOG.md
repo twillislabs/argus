@@ -4,6 +4,76 @@ All notable changes to Argus. Versions follow [Semantic Versioning](https://semv
 a new major version may need you to change something when you upgrade, minor versions add
 features, and patch versions fix things. Upgrade with `./argus update`.
 
+## [1.1.0] - 2026-11-20
+
+More US coverage, events that match their sources, and news you can
+configure.
+
+### Upgrading
+
+- `ARGUS_COLLECTORS` now runs every collector when it's empty or unset,
+  and Docker Compose and `.env.example` no longer pin a list. If your
+  `.env` sets it, the new collectors (`fema`, `nifc`) and the NWS ones
+  (`nws`, `spc`) only run if you add them: either delete the line from
+  `.env` or add them to it, then `./argus update`.
+
+### Events
+
+- One story per event: articles and headlines are compared by their
+  words (weighted by how rare they are that day), so each article
+  belongs to one event, an event keeps the story most outlets tell, the
+  same story reported in two places becomes one event (Kyiv strikes
+  GDELT pinned on Moscow), and a headline only backs an event that
+  tells its story. Off-topic articles come out of events.
+- Confirmed events are titled with the headline that backs them;
+  opinion and question headlines never back an event.
+- Incidents: a new layer for crime and public-safety events, confirmed
+  when national outlets carry them (a mass shooting, a terror plot), so
+  everyday local crime stays unconfirmed.
+- Headline-led events: three or more outlets running one story about
+  something happening in a US city or state (a derailment, an
+  evacuation, nationwide outages) make an event there.
+- US disasters: FEMA disaster and emergency declarations, NIFC wildfires
+  not yet contained, and the most serious NWS warnings (tornado,
+  hurricane, flash flood emergency...) while they're in force.
+- Ship sanctions: ships on sanctions, shadow-fleet and war lists
+  (OpenSanctions) get a red ring and a Sanctions and risk section, and
+  an alert kind.
+
+### Brief
+
+- US top stories and world top stories: the day's headlines grouped by
+  story, ranked by how many outlets run them.
+- US events and world events, US first by default.
+- Customize reorders and hides sections for your account; admins set
+  the default in Settings › Defaults.
+
+### Settings
+
+- News feeds: add, test, edit, switch off and remove RSS and Atom feeds,
+  grouped in sections you can rename.
+- Live channels: add YouTube or Rumble channels from a link, @handle or
+  ID (looked up for their name and whether they're live), with groups,
+  tab labels and order.
+- The menu is grouped (You, Map and data, News and video, People and
+  screens, System) and has a search box.
+
+### Map
+
+- Recent imagery is twice as sharp (512 px tiles), and Capture saves the
+  map at twice the screen's resolution.
+- Box and circle tools show a dashed outline until the second click.
+- Rocket launches link to their webcasts, mission pages and Space Launch
+  Now, not just Wikipedia.
+
+### Fixes
+
+- Live near the view found no YouTube streams: the strict safe-search
+  setting drops every live stream.
+- The Ask button didn't appear after Ask was turned on until a reload.
+- The Brief showed an old order after you customized it and came back.
+- `./argus update` fetches release tags.
+
 ## [1.0.0] - 2026-11-20
 
 The first release: everything Argus does, on one self-hosted globe.
@@ -81,4 +151,5 @@ The first release: everything Argus does, on one self-hosted globe.
   documentation with search at `/docs/`.
 - `make release VERSION=X.Y.Z` to cut a release.
 
+[1.1.0]: https://github.com/twillislabs/argus/releases/tag/v1.1.0
 [1.0.0]: https://github.com/twillislabs/argus/releases/tag/v1.0.0
