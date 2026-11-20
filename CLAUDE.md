@@ -176,7 +176,10 @@ parts connect.
   channel ID with `https://www.youtube.com/feeds/videos.xml?channel_id=`.
   YouTube no longer plays `embed/live_stream?channel=`; the API resolves
   the live video ID from the channel's `/live` page (`argus/youtube.py`,
-  cached) and the player embeds `/embed/<video id>`. Channels not on
+  cached) and the player embeds `/embed/<video id>`. A scheduled stream
+  also says `"isLive":true` (its "waiting" count), so `parse_live`
+  checks the video's own `videoDetails` for `isUpcoming` and reports
+  `upcoming` with `starts_at` instead. Channels not on
   YouTube use Rumble (`platform: 'rumble'`, resolved from the channel's
   livestreams JSON plus oEmbed); new embed hosts go in the CSP frame-src.
 - Tension index: `argus/tension.py`. Standing level from UCDP deaths

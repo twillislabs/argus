@@ -369,8 +369,10 @@ export async function api<T>(
 }
 
 export interface LiveVideo {
-  status: 'live' | 'offline' | 'error';
+  // upcoming: the channel's next stream is scheduled, not on air yet.
+  status: 'live' | 'offline' | 'upcoming' | 'error';
   video_id: string | null;
+  starts_at?: number | null; // Unix seconds, for upcoming
 }
 export const getLiveVideo = (channel: string, platform = 'youtube') =>
   api<LiveVideo>('/api/news/live/' + encodeURIComponent(channel) + '?platform=' + platform);

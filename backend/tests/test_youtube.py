@@ -13,6 +13,22 @@ OFFLINE = (
 CHANNEL = "UCoMdktPbSTixAyNGwb-UYkQ"
 
 
+UPCOMING = (
+    '<html><link rel="canonical" '
+    'href="https://www.youtube.com/watch?v=Ps2rryOIn9k">'
+    '"viewCount":{"runs":[{"text":"53"},{"text":" waiting"}]},"isLive":true'
+    '"videoDetails":{"videoId":"Ps2rryOIn9k","title":"WATCH LIVE: tree",'
+    '"thumbnail":{"thumbnails":[]},"isUpcoming":true,"isPrivate":false'
+    '"scheduledStartTime":"1795186800"</html>'
+)
+
+
+def test_scheduled_stream_isnt_live():
+    assert youtube.parse_live(UPCOMING) is None
+    assert youtube.parse_upcoming(UPCOMING) == 1795186800
+    assert youtube.parse_upcoming(LIVE) is None
+
+
 def test_parse_live():
     assert youtube.parse_live(LIVE) == "53SxFKpbKDE"
     assert youtube.parse_live(OFFLINE) is None

@@ -80,9 +80,21 @@ export default function LiveFrame({
         <div className="np-msg">
           {!ready
             ? 'Finding the live stream…'
-            : ready.status === 'offline'
-              ? channel.name + " isn't live right now. Try another channel."
-              : "Couldn't reach " + (platform === 'rumble' ? 'Rumble' : 'YouTube') + '. Try again in a minute.'}
+            : ready.status === 'upcoming'
+              ? channel.name +
+                " isn't live right now" +
+                (ready.starts_at
+                  ? '; its next stream starts ' +
+                    new Date(ready.starts_at * 1000).toLocaleString([], {
+                      weekday: 'short',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })
+                  : '') +
+                '. Try another channel.'
+              : ready.status === 'offline'
+                ? channel.name + " isn't live right now. Try another channel."
+                : "Couldn't reach " + (platform === 'rumble' ? 'Rumble' : 'YouTube') + '. Try again in a minute.'}
         </div>
       )}
     </div>

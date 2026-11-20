@@ -39,10 +39,34 @@ OFFLINE_TTL_S = 300
 ERROR_TTL_S = 60
 
 
+UPCOMING_WINDOW = 12000
+SCHEDULED = re.compile(r'"scheduledStartTime":"(\d{9,11})"')
+
+
+def _details(page: str, video: str) -> str:
+    """The stretch of the page describing that video (its videoDetails)."""
+    i = page.find('"videoDetails":{{"videoId":"{0}"'.format(video))
+    return page[i : i + UPCOMING_WINDOW] if i >= 0 else ""
+
+
+def parse_upcoming(page: str) -> int | None:
+    """When the /live page's video is scheduled, not on air: its start
+    (Unix seconds), else None."""
+    m = CANONICAL.search(page)
+    if not m or '"isUpcoming":true' not in _details(page, m.group(1)):
+        return None
+    s = SCHEDULED.search(page)
+    return int(s.group(1)) if s else 0
+
+
 def parse_live(page: str) -> str | None:
-    """The live video ID on a channel's /live page, or None."""
+    """The live video ID on a channel's /live page, or None. A scheduled
+    stream isn't live: its page also says "isLive" (for the "waiting"
+    count), so check the video's own details for isUpcoming."""
     m = CANONICAL.search(page)
     if not m or '"isLive":true' not in page:
+        return None
+    if '"isUpcoming":true' in _details(page, m.group(1)):
         return None
     return m.group(1)
 
@@ -132,5 +156,12 @@ class LiveIds:
             return {"status": "error", "video_id": None}, ERROR_TTL_S
         video = parse_live(response.text)
         if video is None:
+            starts = parse_upcoming(response.text)
+            if starts is not None:
+                return {
+                    "status": "upcoming",
+                    "video_id": None,
+                    "starts_at": starts or None,
+                }, OFFLINE_TTL_S
             return {"status": "offline", "video_id": None}, OFFLINE_TTL_S
         return {"status": "live", "video_id": video}, LIVE_TTL_S
