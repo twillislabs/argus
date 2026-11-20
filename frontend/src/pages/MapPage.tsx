@@ -19,6 +19,7 @@ import BridgeHud from '../components/BridgeHud';
 import CamInspector from '../components/CamInspector';
 import WebcamInspector from '../components/WebcamInspector';
 import WeatherHere from '../components/WeatherHere';
+import { PHONE_QUERY, useMedia } from '../lib/useMedia';
 import CockpitHud from '../components/CockpitHud';
 import EventInspector from '../components/EventInspector';
 import { CursorReadout, LIVE, type Replay, ScaleBar, Timeline } from '../components/MapFooter';
@@ -575,6 +576,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   const viewTimer = useRef<number | undefined>(undefined);
   const [legendOpen, setLegendOpen] = useState(false);
+  // Phones show the layer panel or the situation panel as a sheet.
+  const phone = useMedia(PHONE_QUERY);
+  const [sheet, setSheet] = useState<'L' | 'R' | null>(null);
+  const showLeft = phone ? sheet === 'L' : leftOpen;
+  const showRight = phone ? sheet === 'R' : rightOpen;
   const [ctxMenu, setCtxMenu] = useState<{ lat: number; lon: number; x: number; y: number } | null>(null);
 
   // Drawing, measuring and area selection (map/drawTools.ts), with the
@@ -1114,6 +1120,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
 
   const togglePanel = useCallback(
     (side: 'L' | 'R') => {
+      // Phones: one panel at a time, as a sheet over the map (not saved).
+      if (phone) {
+        setSheet((s) => (s === side ? null : side));
+        return;
+      }
       if (side === 'L') {
         const v = !leftOpen;
         setLeftOpen(v);
@@ -1124,7 +1135,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         void savePreferences({ right_open: v }).catch(() => undefined);
       }
     },
-    [leftOpen, rightOpen],
+    [leftOpen, rightOpen, phone],
   );
 
   const clearSelection = useCallback(() => {
@@ -1339,7 +1350,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }, []);
 
   function openRight() {
-    if (!rightOpen) setRightOpen(true);
+    if (phone) setSheet('R');
+    else if (!rightOpen) setRightOpen(true);
   }
 
   // Map clicks: event ids, "ac:<hex>" for aircraft, "sat:<norad>".
@@ -1859,7 +1871,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         search={<SearchBox onPick={onSearch} />}
       />
       <main className={'ws' + (leftOpen ? '' : ' noL') + (rightOpen ? '' : ' noR')}>
-        {leftOpen && (
+        {showLeft && (
           <LayerPanel
             filters={filters}
             counts={counts}
@@ -2211,7 +2223,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
           </div>
         </section>
         <Timeline events={shown} hours={filters.hours} replay={replay} onReplay={setReplay} />
-        {rightOpen && (
+        {phone && (
+          <nav className="mobtabs" aria-label="Panels">
+            <button aria-pressed={sheet === null} onClick={() => setSheet(null)}>
+              Map
+            </button>
+            <button aria-pressed={sheet === 'L'} onClick={() => setSheet(sheet === 'L' ? null : 'L')}>
+              Layers
+            </button>
+            <button aria-pressed={sheet === 'R'} onClick={() => setSheet(sheet === 'R' ? null : 'R')}>
+              {selected || selectedHex || selectedMmsi || selectedNorad || selectedInfo || weatherAt ? 'Details' : 'Situation'}
+            </button>
+          </nav>
+        )}
+        {showRight && (
           <aside className="side right" aria-label="Inspector">
             {weatherAt ? (
               <WeatherHere lat={weatherAt.lat} lon={weatherAt.lon} onBack={() => setWeatherAt(null)} />

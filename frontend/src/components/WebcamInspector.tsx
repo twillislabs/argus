@@ -25,7 +25,13 @@ export default function WebcamInspector({ cam, onBack }: { cam: Webcam; onBack: 
         </h1>
         {cam.place && <div className="sub">{cam.place}</div>}
         {player && cam.player ? (
-          <iframe className="camplayer" src={cam.player} title={'Timelapse: ' + cam.title} allowFullScreen />
+          <iframe
+            className="camplayer"
+            src={cam.player}
+            title={'Timelapse: ' + cam.title}
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+          />
         ) : (
           <figure className="camshot">
             {cam.image && !broken ? (

@@ -86,7 +86,7 @@ export default function AppHeader({ me, onSignedOut, live, search, replay }: Pro
               {replay ? 'REPLAY' : live === 'live' ? 'LIVE' : live === 'connecting' ? 'CONNECTING' : 'OFFLINE'}
             </span>
           )}
-          <div className="clock">
+          <div className="clock utc">
             <span className="mono">{now.toISOString().slice(11, 19)}Z</span>
             <small>UTC</small>
           </div>

@@ -6,6 +6,14 @@ import { ago } from '../lib/format';
 // Videos from a YouTube search (live near the view, or about an event),
 // fetched only when asked (the key's daily quota is small), with
 // thumbnails and an inline player. Plays through youtube-nocookie.
+// Argus pages send no referrer to other sites (nginx), but YouTube's
+// player refuses to start without one (error 153), so the frame asks for
+// the origin only. Any video can pop out into its own window (/news?v=).
+
+export function popOutVideo(v: { id: string; title: string }) {
+  const q = new URLSearchParams({ v: v.id, t: v.title.slice(0, 120) });
+  window.open('/news?' + q.toString(), 'argus-video-' + v.id, 'popup,width=960,height=600');
+}
 
 const STATUS: Record<string, string> = {
   nokey: 'Add a YouTube Data API key in Settings › Data sources to search for video.',
@@ -52,10 +60,21 @@ export default function VideoList({
             src={'https://www.youtube-nocookie.com/embed/' + playing.id + '?autoplay=1&mute=1&playsinline=1'}
             title={playing.title}
             allow="autoplay; encrypted-media; picture-in-picture"
+            referrerPolicy="strict-origin-when-cross-origin"
             allowFullScreen
           />
           <div className="vidplaying">
             <span>{playing.title}</span>
+            <button
+              className="btn small"
+              title="Open in its own window"
+              onClick={() => {
+                popOutVideo(playing);
+                setPlaying(null);
+              }}
+            >
+              Pop out ⧉
+            </button>
             <button className="btn small" onClick={() => setPlaying(null)}>
               Close
             </button>
@@ -83,6 +102,14 @@ export default function VideoList({
                     {v.published && !v.live ? ' · ' + ago(v.published) : ''}
                   </small>
                 </span>
+              </button>
+              <button
+                className="vidpop"
+                title="Open in its own window"
+                aria-label={'Pop out ' + v.title}
+                onClick={() => popOutVideo(v)}
+              >
+                ⧉
               </button>
             </li>
           ))}

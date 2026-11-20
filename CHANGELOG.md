@@ -17,6 +17,31 @@ features, and patch versions fix things. Upgrade with `./argus update`.
   next 24 hours and 7 days, and NWS alerts there in the US.
 - The Wall can show the new weather layers.
 
+### Phones
+
+- Argus works on phones: the map fills the screen, with Layers and
+  Situation as sheets over it from a tab bar, a compact header and map
+  controls that fit; tables scroll inside their cards and the Wall
+  stacks.
+
+### News and video
+
+- Feed sections and live channel groups can be added, reordered,
+  renamed and deleted, and the section or group of a feed or channel is
+  picked from a list (or a new one typed).
+- Live videos found near the view or about an event play again
+  (YouTube error 153), and pop out into their own window like the news.
+
+### Fixes
+
+- The New profile form's Add button no longer stretches across the
+  card; the pairing code box is wider and formats the code as you type.
+
+### Upgrading
+
+- `make streetmap` no longer has a default region: give `REGION=` or
+  `BBOX=W,S,E,N`.
+
 ## [1.1.0] - 2026-11-20
 
 More US coverage, events that match their sources, and news you can

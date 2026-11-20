@@ -452,6 +452,22 @@ parts connect.
   MapContextMenu) reads `/api/weather/forecast` (Open-Meteo, 15 min per
   spot) and, in the US, `/api/weather/alerts?lat=&lon=`'s `local`.
   Wall layers `wx_storms`, `radar`, `lightning`, `vapour`, `sst`.
+- Phones (860 px and under, `lib/useMedia` `PHONE_QUERY`):
+  `styles/mobile.css` (imported last) overrides the desktop layout. The
+  map page shows one panel at a time as a sheet over the map (`sheet`
+  state in MapPage, `showLeft`/`showRight`, the `.mobtabs` bar; not
+  saved, unlike `left_open`/`right_open`), and `openRight` opens the
+  sheet. Check new pages at 390 px for sideways scrolling.
+- YouTube embeds need `referrerPolicy="strict-origin-when-cross-origin"`
+  on the iframe: nginx sends `Referrer-Policy: same-origin`, and without
+  a referrer YouTube's player shows error 153. Videos pop out to
+  `/news?v=<id>&t=<title>` (`popOutVideo`), channels to `/news?c=`.
+- Feed sections and channel groups are stored with their lists
+  (`{"items", "sections"}` / `{"items", "groups"}`, `newsconfig.names`)
+  so empty ones exist and keep their order; `NameHeader` moves, renames
+  (merges) and deletes them, `ChoiceInput` picks one (a select plus
+  "New…"; a datalist only matched what was already typed). Channels are
+  saved sorted by group so the players follow the group order.
 - Toggles (`.lrow` + `.tog`): the checkbox has `pointer-events: none`,
   so the wrapper must be a `<label>` (or sit inside one), or clicks on
   the switch do nothing. Test toggles with real mouse events, not

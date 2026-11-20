@@ -48,5 +48,5 @@
 .umenu .who b { color: var(--text); }
 
 @media (max-width: 860px) {
-  .clocks .clock:nth-child(2) { display: none; }
+  .clocks .clock.utc { display: none; }
 }

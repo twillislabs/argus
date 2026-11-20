@@ -164,6 +164,8 @@
 .newspage .np-head { cursor: default; background: var(--bg-1, #0d1117); }
 .newspage select { flex: 1; max-width: 320px; background: transparent; color: var(--text); border: 1px solid var(--line-2); border-radius: 4px; padding: 3px 6px; font-size: 12.5px; }
 .newspage .np-video { aspect-ratio: auto; }
+.newspage iframe.np-video { width: 100%; height: 100%; border: 0; display: block; }
+.newspage .np-title { color: var(--text); }
 
 /* World tension (Situation, Brief, Wall). */
 .tband { font: 600 12px/1 var(--f-head); letter-spacing: 0.1em; text-transform: uppercase; }
