@@ -1,0 +1,17 @@
+Argus
+Copyright 2026 twillislabs
+https://github.com/twillislabs/argus
+
+This product includes software developed as Argus, a self-hosted OSINT
+visualizer, by twillislabs. If you use, modify or redistribute Argus or
+work derived from it, keep this NOTICE file (or its text) with it and
+credit the original project, for example in your documentation or an
+About page: "Based on Argus by twillislabs
+(https://github.com/twillislabs/argus)".
+
+Argus is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The data Argus shows comes from third-party sources under their own
+terms (listed under "Data and credits" in README.md); some of them are
+for non-commercial use only. The Apache License covers Argus's code,
+not that data.

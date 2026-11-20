@@ -245,3 +245,12 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
   planned features.
 - **News headlines:** each outlet's own feed. Argus stores only the headline, a short excerpt and
   the link, and always links to the original.
+
+## License
+
+Argus is free and open source under the [Apache License 2.0](LICENSE):
+you may use, modify and share it, including in commercial work, as long
+as you keep the copyright and license notices and the [NOTICE](NOTICE)
+file, credit the original project ("Based on Argus by twillislabs"), and
+say what you changed. The data sources above keep their own licences;
+some of them are for non-commercial use only.

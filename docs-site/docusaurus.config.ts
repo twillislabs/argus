@@ -63,7 +63,7 @@ const config: Config = {
     },
     footer: {
       style: 'dark',
-      copyright: 'Argus · self-hosted OSINT visualizer',
+      copyright: 'Argus · self-hosted OSINT visualizer · Apache License 2.0',
     },
     prism: { theme: prismThemes.github, darkTheme: prismThemes.dracula },
   } satisfies Preset.ThemeConfig,
