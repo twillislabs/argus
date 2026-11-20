@@ -50,8 +50,8 @@ lint: ## ruff, format check and the TypeScript check
 	cd backend && uv run ruff check . && uv run ruff format --check .
 	cd frontend && npm run typecheck
 
-streetmap: ## Download the street map for REGION (default tennessee)
-	scripts/streetmap.sh $(or $(REGION),tennessee)
+streetmap: ## Download the street map: REGION=southeast|conus|planet, or BBOX=W,S,E,N
+	scripts/streetmap.sh $(if $(BBOX),custom $(BBOX),$(REGION))
 	$(COMPOSE) up -d tiles
 	$(COMPOSE) restart tiles
 

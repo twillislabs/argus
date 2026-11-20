@@ -1017,7 +1017,7 @@ function StreetMapSection() {
         </div>
         <div className="cbody">
           <p>Run on the server, next to docker-compose.yml. Every user sees the installed region.</p>
-          <pre className="raw">{'make streetmap                    # Tennessee\nmake streetmap REGION=southeast   # tennessee, southeast, conus, planet\nscripts/streetmap.sh conus --dry-run   # size only'}</pre>
+          <pre className="raw">{'make streetmap BBOX=W,S,E,N              # any box, e.g. your state\nmake streetmap REGION=southeast   # southeast, conus, planet\nscripts/streetmap.sh conus --dry-run   # size only'}</pre>
           <p className="quiet small">
             Data © OpenStreetMap contributors (ODbL), from the daily Protomaps build. See Documentation →
             Configuration → Street map.

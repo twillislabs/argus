@@ -1,5 +1,5 @@
 // Share links: the camera, base map, layers and one selection, in the
-// URL hash, e.g. /#v=-86.78,36.16,40000,0,-90&b=dark&l=quake.mil&ac=a12345
+// URL hash, e.g. /#v=-77.04,38.9,40000,0,-90&b=dark&l=quake.mil&ac=a12345
 //
 //   v    lon,lat,height (m),heading,pitch (degrees)
 //   b    base map

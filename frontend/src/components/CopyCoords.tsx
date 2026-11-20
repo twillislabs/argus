@@ -21,7 +21,7 @@ export async function copyText(text: string): Promise<boolean> {
 
 export const decimal = (lat: number, lon: number) => lat.toFixed(5) + ', ' + lon.toFixed(5);
 
-// A position with a button that copies it ("36.16220, -86.77430").
+// A position with a button that copies it ("38.89770, -77.03650").
 export default function CopyCoords({ lat, lon }: { lat: number; lon: number }) {
   const [done, setDone] = useState(false);
   return (

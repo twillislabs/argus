@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Download the self-hosted street map for a region into data/streetmap/.
 #
-#   scripts/streetmap.sh tennessee         a named region (see REGIONS)
+#   scripts/streetmap.sh southeast         a named region (see REGIONS)
 #   scripts/streetmap.sh custom W,S,E,N    any bounding box, in degrees
-#   scripts/streetmap.sh tennessee --dry-run   show the size only
+#   scripts/streetmap.sh southeast --dry-run   show the size only
 #
 # Map data: the latest daily Protomaps build of OpenStreetMap (ODbL).
 # Only the region is transferred (HTTP range requests), not the planet.
@@ -17,7 +17,6 @@ ASSETS="https://codeload.github.com/protomaps/basemaps-assets/tar.gz/refs/heads/
 MAXZOOM=15
 
 declare -A REGIONS=(
-  [tennessee]="-90.32,34.97,-81.64,36.68"
   [southeast]="-94.7,24.4,-75.4,39.2"
   [conus]="-125.0,24.3,-66.9,49.4"
   [planet]="-180,-85,180,85"

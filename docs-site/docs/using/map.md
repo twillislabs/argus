@@ -357,9 +357,9 @@ you typed and offers matches:
 | Flight number | `AA100`, `DL 1208`, `UAL696` | Finds the flight if it's airborne, selects it and follows it |
 | Aircraft | `A55EF3` (ICAO hex), `N445UA`, `G-ABCD` | Same as a flight |
 | Squawk | `7700`, `7600`, `7500` | Aircraft squawking that code, and a filter for emergencies |
-| Airport | `BNA`, `KBNA` | Flies to the airport |
+| Airport | `JFK`, `KJFK` | Flies to the airport |
 | Place | `Springfield, IL`, `Kyiv` | Flies to the place (towns of 15,000+) |
-| Coordinates | `36.32, -86.71` | Flies to the point |
+| Coordinates | `51.50, -0.12` | Flies to the point |
 | Address | `1600 Pennsylvania Ave NW, Washington DC`, `10 Downing Street, London` | Pick **Find address** at the bottom of the list (or press Enter when nothing else matched): Argus looks it up in OpenStreetMap, lists the matches, and flies to the one you pick with a pin on it |
 | Event | `Ishinomaki`, `earthquake Japan` | Opens matching events |
 | Layer words | `earthquakes`, `protests`, `military`, `tankers`, `emergencies` | Applies that filter; **Reset filters** undoes it |

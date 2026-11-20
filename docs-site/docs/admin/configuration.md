@@ -48,15 +48,14 @@ and the `tiles` container renders it in the Argus Dark style. Outside the
 region, Esri is used as before.
 
 ```bash
-make streetmap                    # Tennessee (the default)
-make streetmap REGION=southeast   # or tennessee, conus, planet
-scripts/streetmap.sh custom -88.1,34.9,-81.6,36.7   # any W,S,E,N box
-scripts/streetmap.sh conus --dry-run                # size only
+make streetmap BBOX=-80.6,40.4,-71.8,45.1   # any W,S,E,N box (here New York State)
+make streetmap REGION=southeast            # or conus, planet
+scripts/streetmap.sh conus --dry-run       # size only
 ```
 
 | Region | Download |
 |---|---|
-| `tennessee` | 376 MB (measured) |
+| a US state | a few hundred MB (Tennessee measured 376 MB) |
 | `southeast` | a few GB |
 | `conus` | tens of GB |
 | `planet` | about 140 GB |
