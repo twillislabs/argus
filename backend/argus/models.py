@@ -297,3 +297,80 @@ class NwsZone(Base):
     name: Mapped[str] = mapped_column(String(120), default="")
     rings: Mapped[list[Any]] = mapped_column(JSON, default=list)
     fetched_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class AlertRule(Base):
+    """One user's alert rule (argus/alerts.py): what to watch for, in
+    `params`, per `kind`. Deleted with the user (ON DELETE CASCADE)."""
+
+    __tablename__ = "alert_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(80))
+    kind: Mapped[str] = mapped_column(String(24))
+    params: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Push it (ntfy / webhook) as well as showing it in Argus.
+    push: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    last_fired_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime, nullable=True
+    )
+
+
+class AlertChannel(Base):
+    """Where one user's alerts go. The ntfy topic and webhook URL are
+    secrets (anyone with them can read or post), so they're encrypted."""
+
+    __tablename__ = "alert_channels"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    ntfy_server: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    ntfy_topic: Mapped[str | None] = mapped_column(Text, nullable=True)
+    webhook_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    webhook_format: Mapped[str] = mapped_column(String(12), default="json")
+    # Argus's address as the user sees it, for links in pushed alerts.
+    base_url: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Quiet hours (local "HH:MM" in tz): pushes wait, the bell doesn't.
+    quiet_from: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    quiet_to: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    tz: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, default=utcnow, onupdate=utcnow
+    )
+
+
+class Alert(Base):
+    """An alert that fired, once per rule and key (an event id, an oblast
+    alert's start ...), for the bell and so it's never sent twice."""
+
+    __tablename__ = "alerts"
+    __table_args__ = (
+        UniqueConstraint("rule_id", "key", name="uq_alert_rule_key"),
+        Index("ix_alerts_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE")
+    )
+    rule_id: Mapped[int] = mapped_column(
+        ForeignKey("alert_rules.id", ondelete="CASCADE")
+    )
+    key: Mapped[str] = mapped_column(String(120))
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text, default="")
+    # Where clicking it goes in Argus (a share link fragment).
+    link: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    severity: Mapped[int] = mapped_column(Integer, default=3)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    read: Mapped[bool] = mapped_column(Boolean, default=False)
+    # "sent", "quiet" (held by quiet hours), "failed: ...", "off".
+    pushed: Mapped[str | None] = mapped_column(String(120), nullable=True)

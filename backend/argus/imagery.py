@@ -29,9 +29,11 @@ import httpx
 log = logging.getLogger("argus.imagery")
 
 BASE = "https://planetarycomputer.microsoft.com/api"
-STAC_SEARCH = BASE + "/stac/v1/search"
-REGISTER = BASE + "/data/v1/mosaic/register"
-TILE = BASE + "/data/v1/mosaic/{sid}/tiles/WebMercatorQuad/{z}/{x}/{y}@1x.png"
+STAC_SEARCH = "{0}/stac/v1/search".format(BASE)
+REGISTER = "{0}/data/v1/mosaic/register".format(BASE)
+TILE = (
+    "{0}/data/v1/mosaic/{{sid}}/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}@1x.png"
+).format(BASE)
 
 KINDS = {
     "optical": {
@@ -165,7 +167,9 @@ class Imagery:
             json={
                 "collections": [spec["collection"]],
                 "bbox": list(box),
-                "datetime": since.strftime("%Y-%m-%dT%H:%M:%SZ") + "/..",
+                "datetime": "{0}/..".format(
+                    since.strftime("%Y-%m-%dT%H:%M:%SZ")
+                ),
                 "limit": 200,
                 "sortby": [
                     {"field": "properties.datetime", "direction": "desc"}
@@ -204,7 +208,7 @@ class Imagery:
         name = hashlib.sha256(
             "{0}/{1}/{2}/{3}/{4}".format(kind, sid, z, x, y).encode()
         ).hexdigest()
-        return self.cache_dir / name[:2] / (name + ".png")
+        return self.cache_dir / name[:2] / "{0}.png".format(name)
 
     async def tile(self, kind: str, sid: str, z: int, x: int, y: int):
         """PNG bytes, or None where the mosaic has no data."""

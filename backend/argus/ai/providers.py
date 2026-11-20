@@ -215,7 +215,9 @@ async def _openai(cfg, system, prompt, tools, execute, max_tokens, steps):
             if defs:
                 body["tools"] = defs
             try:
-                r = await client.post(base + "/chat/completions", json=body)
+                r = await client.post(
+                    "{0}/chat/completions".format(base), json=body
+                )
             except httpx.HTTPError as exc:
                 raise AiError("Couldn't reach {0}.".format(base)) from exc
             if r.status_code == 401:

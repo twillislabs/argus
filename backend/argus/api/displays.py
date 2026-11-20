@@ -112,7 +112,7 @@ def _new_code(taken: dict) -> str:
 async def pair_start(request: Request):
     """A screen asks for a pairing code (no account needed)."""
     ip = client_ip(request) or "unknown"
-    if not request.app.state.login_limiter.allow("pair:" + ip):
+    if not request.app.state.login_limiter.allow("pair:{0}".format(ip)):
         raise HTTPException(429, "Too many pairing requests. Wait a minute.")
     store = _store(request)
     if len(store) >= MAX_PENDING:
@@ -200,7 +200,7 @@ async def approve(
         )
     if pairing.user_id is not None:
         raise HTTPException(409, "That code has already been used.")
-    username = "display-" + pysecrets.token_hex(3)
+    username = "display-{0}".format(pysecrets.token_hex(3))
     user = User(
         username=username,
         display_name=body.name.strip(),

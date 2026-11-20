@@ -225,6 +225,16 @@ parts connect.
   asks on "Find address" (kind `lookup`), never as you type; requests
   are queued 1.1 s apart server-wide and cached a week.
   `ARGUS_USER_AGENT` reaches the containers through compose.
+- Alerts: `argus/alerts.py` (rule finders per kind, `deliver` to ntfy
+  as JSON publish and webhooks as json/discord/slack, quiet hours,
+  `url_allowed` blocks loopback, link-local and the compose service
+  names), `alerts_loop` runs in the API lifespan every minute (it needs
+  LiveAir/LiveSea), tables `alert_rules`, `alert_channels` (ntfy topic
+  and webhook URL encrypted), `alerts` (unique rule_id+key: never twice).
+  A rule only counts things starting after its `created_at` (reset when
+  re-enabled). `api/alerts.py`, capability `alerts.use` (admin, analyst).
+  Frontend: `lib/alerts.ts`, `AlertsSection` (Settings > Alerts),
+  `AlertBell` (header).
 - Air-raid alerts: `argus/raids.py` (Ukraine from ubilling.net.ua's
   relay, times in Europe/Kyiv; Israel from Tzeva Adom's notifications,
   history and locality list), `/api/raids` (cached 20 s, fetched on

@@ -101,7 +101,7 @@ def parse_ukraine(doc: dict, now: datetime | None = None) -> list[dict]:
         active = bool(state.get("alertnow"))
         out.append(
             {
-                "id": "ua:" + known[0].split(" ")[0].lower(),
+                "id": "ua:{0}".format(known[0].split(" ")[0].lower()),
                 "name": known[0],
                 "lat": known[1],
                 "lon": known[2],

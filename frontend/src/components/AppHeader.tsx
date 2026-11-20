@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import AlertBell from './AlertBell';
 
-import { logout, type Me } from '../lib/api';
+import { can, logout, type Me } from '../lib/api';
 import { zoneTime } from '../lib/format';
 import type { LiveState } from '../lib/live';
 import Brand from './Brand';
@@ -75,6 +76,7 @@ export default function AppHeader({ me, onSignedOut, live, search, replay }: Pro
         </nav>
         {search}
         <div className="clocks">
+          {can(me.user, 'alerts.use') && <AlertBell />}
           {live && (
             <span
               className={'livepill ' + (replay ? 'replay' : live)}

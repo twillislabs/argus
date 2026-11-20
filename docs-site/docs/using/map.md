@@ -548,6 +548,44 @@ Two more event layers:
   such as rocket launches, live firing, exercises, cable work, piracy and
   hazards to shipping. Select one to see the area it covers.
 
+## Alerts
+
+**Settings › Alerts** (analysts and admins) sets up your own alerts.
+Argus checks your rules every minute against what it already watches,
+and each alert fires once.
+
+**Rules** (add as many as you like):
+
+| Rule | Fires when |
+|---|---|
+| **Events in an area** | A new event at or above a severity, of the kinds you tick, starts inside your home radius, a shape you drew on the map, or anywhere |
+| **Air-raid alerts** | An alert starts in the Ukrainian oblasts you pick (or any), or anywhere in Israel. Continuous alerts in occupied areas never fire |
+| **FAA airport status** | A ground stop or closure (and optionally delays) at the US airports you list; once a day each |
+| **Patterns** | A military aircraft flies an orbit or racetrack, or a ship loiters on a cable, in your area |
+| **Watchlist** | A military aircraft (hex, callsign or registration) or a ship (MMSI) you list comes into view; once a day each |
+| **Geomagnetic storm** | NOAA's G scale reaches the level you set |
+
+A new rule (or one switched back on) only fires for things that start
+after it, so it never floods you with the backlog. Each rule sends at
+most 10 alerts an hour.
+
+**Delivery:**
+
+- **The bell** at the top of Argus always shows your alerts; click one to
+  open it on the map. It can also show them as browser notifications
+  while Argus is open.
+- **ntfy:** push to your phone or desktop with the free ntfy app. Press
+  **Make one** for a private topic, subscribe to it in the app, save,
+  then **Send a test**. Anyone who knows the topic can read it, so keep
+  it private (Argus stores it encrypted). Use your own ntfy server by
+  changing **Server**.
+- **Webhook:** each alert is POSTed to a URL, as JSON, or formatted for
+  Discord or Slack (Home Assistant, n8n and the like take the JSON). The
+  URL is stored encrypted. Argus won't post to itself or to loopback and
+  cloud-metadata addresses; addresses on your network are fine.
+- **Quiet hours:** no pushes between two times in your time zone; alerts
+  still collect under the bell.
+
 ## Air-raid alerts
 
 **Air-raid alerts** (Airspace group, on by default) shows alerts as the

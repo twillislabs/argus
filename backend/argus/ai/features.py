@@ -117,7 +117,7 @@ DIGEST_SYSTEM = (
     "when its links don't support it. End "
     "every sentence with the ids of the events it rests on, written as "
     "[E:<id>] (for example [E:a1b2c3]). A sentence without a citation will "
-    "be deleted. No headings, lists or preamble. " + UNTRUSTED
+    "be deleted. No headings, lists or preamble. {0}".format(UNTRUSTED)
 )
 
 
@@ -137,7 +137,7 @@ SUMMARY_SYSTEM = (
     "when, who reported it and how far the sources agree. Translate any "
     "non-English material into English. Mention disagreement between "
     "sources; don't resolve it. Don't add facts that aren't in the data. "
-    + UNTRUSTED
+    "{0}".format(UNTRUSTED)
 )
 
 
@@ -179,7 +179,7 @@ ASK_SYSTEM = (
     "automated coding of news (GDELT): read their link_words for what "
     "and where they're really about, and call them reports. When an "
     "answer is about a place, call "
-    "show_on_map once so the analyst can look. " + UNTRUSTED
+    "show_on_map once so the analyst can look. {0}".format(UNTRUSTED)
 )
 
 ASK_TOOLS = [
@@ -320,7 +320,7 @@ class AskTools:
         self.view: dict | None = None
 
     async def __call__(self, name: str, args: dict) -> str:
-        fn = getattr(self, "_" + name, None)
+        fn = getattr(self, "_{0}".format(name), None)
         if fn is None:
             return "Error: unknown tool."
         return json.dumps(await fn(args), ensure_ascii=False)[:12000]

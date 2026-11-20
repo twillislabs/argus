@@ -9,12 +9,14 @@ from datetime import timedelta
 from fastapi import FastAPI, Request
 
 from argus import __version__
+from argus.alerts import alerts_loop
 from argus.alpr import Alpr
 from argus.api import (
     admin,
     ai,
     air,
     airspace,
+    alerts,
     auth,
     backups,
     cams,
@@ -105,11 +107,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     app.state.gps,
                 )
             )
+        # Alerts are checked here, where the live picture is (one uvicorn
+        # process), alongside the live feeds.
+        alerts_task = (
+            asyncio.create_task(alerts_loop(app))
+            if settings.nats_url
+            else None
+        )
         yield
-        if live_task is not None:
-            live_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await live_task
+        for task in (live_task, alerts_task):
+            if task is not None:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
         await app.state.air_client.close()
         await app.state.openaip.close()
         await app.state.alpr.close()
@@ -175,6 +185,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         imagery.router,
         patterns.router,
         ai.router,
+        alerts.router,
     ):
         app.include_router(router)
     return app

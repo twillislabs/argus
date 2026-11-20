@@ -32,10 +32,12 @@ CAPABILITIES: dict[str, set[str]] = {
         "analyst.tools",
         "account.edit",
         "ai.use",
+        "alerts.use",
     },
     # ai.use: run AI features that spend the provider's tokens (Ask Argus,
     # summaries, refreshing the digest). Anyone can read the digest.
-    "analyst": {"analyst.tools", "account.edit", "ai.use"},
+    # alerts.use: your own alert rules and where they're delivered.
+    "analyst": {"analyst.tools", "account.edit", "ai.use", "alerts.use"},
     "viewer": {"account.edit"},
     "display": set(),
 }

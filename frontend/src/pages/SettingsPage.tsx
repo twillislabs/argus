@@ -10,6 +10,7 @@ import UsersCard from '../components/UsersCard';
 import WallEditor from '../components/WallEditor';
 import WallProfiles from '../components/WallProfiles';
 import AiSection from '../components/AiSection';
+import AlertsSection from '../components/AlertsSection';
 import { CHANNELS, DEFAULT_TABS } from '../config/newsChannels';
 import {
   api,
@@ -59,6 +60,14 @@ const SECTIONS: Section[] = [
     title: 'Account',
     description: 'Your name, email and password.',
     group: 'Personal',
+  },
+  {
+    id: 'alerts',
+    label: 'Alerts',
+    title: 'Alerts',
+    description: 'Rules for what to tell you about, and where: the bell, ntfy on your phone, or a webhook.',
+    group: 'Personal',
+    capability: 'alerts.use',
   },
   {
     id: 'home',
@@ -161,6 +170,7 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   else if (current.id === 'displays') body = <DisplaysSection />;
   else if (current.id === 'backups') body = <BackupsSection />;
   else if (current.id === 'ai') body = <AiSection />;
+  else if (current.id === 'alerts') body = <AlertsSection me={me} />;
   else if (current.id === 'display')
     body = (
       <>
