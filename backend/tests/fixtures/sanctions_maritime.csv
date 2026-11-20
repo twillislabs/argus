@@ -1,0 +1,8 @@
+"type","caption","imo","risk","countries","flag","mmsi","id","url","datasets","aliases"
+"VESSEL","BOUDREAUX TIDE","IMO9427366","mare.detained;reg.warn","vu","vu","","abuja-mou-det-0059aae88f59011c58de8f5bc1d7d986f1603940","https://www.opensanctions.org/entities/abuja-mou-det-0059aae88f59011c58de8f5bc1d7d986f1603940","abuja_mou_detention",""
+"VESSEL","RN Sakhalin","IMO9650016","sanction","ru","","","ca-sema-00289357d0ae53d1c43c3b7b825dca6a29809377","https://www.opensanctions.org/entities/ca-sema-00289357d0ae53d1c43c3b7b825dca6a29809377","ca_dfatd_sema_sanctions",""
+"VESSEL","Akademik Gubkin","IMO9842190","sanction","ru","","","ca-sema-006017da2f7d3040be63e0622a689ba784cb1bb2","https://www.opensanctions.org/entities/ca-sema-006017da2f7d3040be63e0622a689ba784cb1bb2","ca_dfatd_sema_sanctions",""
+"ORGANIZATION","Arctic-trans LLC","IMO0004034","poi","ru","","","imo-org-0004034","https://www.opensanctions.org/entities/imo-org-0004034","ua_war_sanctions",""
+"VESSEL","LADY JASMINE","IMO1031537","mare.shadow;poi","cn;tg;tz","tz","677099900","imo-vsl-1031537","https://www.opensanctions.org/entities/imo-vsl-1031537","ua_war_sanctions","Rino;Sheng You 223;V223"
+"VESSEL","OCEAN FORTUNE 18","IMO1064493","mare.shadow;poi","bz;cn;tz","tz","677087400","imo-vsl-1064493","https://www.opensanctions.org/entities/imo-vsl-1064493","ua_war_sanctions","Zheng Xin You 18"
+"ORGANIZATION","Moonlight Shipmanagement L.L.C – FZ","IMO0011359","sanction","ae","","","eu-fsf-eu-13087-34","https://www.opensanctions.org/entities/eu-fsf-eu-13087-34","eu_fsf","Avebury Hajókezelő Vámszabadterületi Kft.;Avebury Shipmanagement L.L.C – FZ;Moonlight Hajókezelő Vámszabadterületi Kft.;افيبوري شيبمانجمينت ش.ذ.م.م-منطقة حرة;مونلايت لادارة السفن ش.ذ.م.م-منطقة"

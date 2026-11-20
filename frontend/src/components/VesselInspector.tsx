@@ -115,6 +115,42 @@ export default function VesselInspector({ mmsi, camera, onBack, onCamera, onFly,
               <p className="quiet small">As entered by the crew; often abbreviated or out of date.</p>
             </section>
           )}
+          {v.sanctions_listings && v.sanctions_listings.length > 0 && (
+            <section className="isec sanctions">
+              <h3>Sanctions and risk</h3>
+              <ul className="sanclist">
+                {v.sanctions_listings.map((s, i) => (
+                  <li key={i}>
+                    <span className="badges">
+                      {s.labels.map((l) => (
+                        <span
+                          key={l}
+                          className="badge"
+                          style={{ ['--c' as string]: /Sanction|Shadow|War/.test(l) ? '#ff2d3d' : '#8a94a3' }}
+                        >
+                          {l}
+                        </span>
+                      ))}
+                    </span>
+                    <span>
+                      {s.url ? (
+                        <a href={s.url} target="_blank" rel="noopener noreferrer">
+                          {s.name} ↗
+                        </a>
+                      ) : (
+                        s.name
+                      )}
+                      {s.flag ? ' · flag ' + s.flag.toUpperCase() : ''}
+                    </span>
+                    <small>{s.datasets.map((d) => d.replace(/_/g, ' ')).join(', ')}</small>
+                  </li>
+                ))}
+              </ul>
+              <p className="quiet small">
+                Matched by IMO number or MMSI. {v.sanctions_attribution}; check the listing before relying on it.
+              </p>
+            </section>
+          )}
           <section className="isec">
             <dl className="kv">
               <div>

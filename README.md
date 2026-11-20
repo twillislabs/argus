@@ -39,7 +39,8 @@ What it does today:
   route and progress, then ride along in **Follow**, **Chase**, **Orbit** or **Cockpit**
   view (with a head-up display).
 - **Ships.** Live AIS vessels (with a free AISStream key) by type, with flag, destination, speed
-  and the same follow and chase views as aircraft.
+  and the same follow and chase views as aircraft. Ships on sanctions or shadow-fleet lists
+  (OpenSanctions) are ringed in red.
 - **Disasters and warnings.** GDACS and NASA EONET disasters, US tsunami warnings, and NGA
   navigational warnings (rocket launches, live firing, piracy) with their areas.
 - **Airspace and interference.** FAA flight restrictions, SIGMETs, EASA conflict zone bulletins,
@@ -102,7 +103,7 @@ What it does today:
   real visitor addresses behind a reverse proxy, and an optional self-signed certificate.
 - **Built-in documentation** at `/docs/`, including how every part connects.
 
-Still to come: NOTAMs, sanctions links, ACLED and social media feeds.
+Still to come: NOTAMs, aircraft sanctions, ACLED and social media feeds.
 
 <table>
   <tr>

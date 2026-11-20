@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from argus import sea, secrets
+from argus import sanctions, sea, secrets
 from argus.api.deps import DbDep, SessionDep, SettingsDep, client_ip, require
 from argus.db import utcnow
 from argus.events import parse_bbox
@@ -64,19 +64,32 @@ async def list_vessels(
         status = "nokey"
     else:
         status = "waiting" if not live.vessels else "ok"
-    return {
-        "vessels": [sea.public(v) for v in hits],
-        "total": total,
-        "status": status,
-    }
+    index = request.app.state.sanctions
+    await index.refresh(db)
+    out = []
+    for v in hits:
+        item = sea.public(v)
+        # Serious sanctions flags, for the map ring (details per ship).
+        flags = index.flags(v["mmsi"], v.get("imo"))
+        if flags:
+            item["sanctions"] = flags
+        out.append(item)
+    return {"vessels": out, "total": total, "status": status}
 
 
 @router.get("/api/vessels/{mmsi}")
-async def get_vessel(request: Request, session: SessionDep, mmsi: int):
+async def get_vessel(
+    request: Request, session: SessionDep, db: DbDep, mmsi: int
+):
     v = _picture(request).vessels.get(mmsi)
     if v is None or "lat" not in v:
         raise HTTPException(404, "That vessel isn't being seen right now.")
-    return sea.public(v)
+    index = request.app.state.sanctions
+    await index.refresh(db)
+    return sea.public(v) | {
+        "sanctions_listings": index.match(v["mmsi"], v.get("imo")),
+        "sanctions_attribution": sanctions.ATTRIBUTION,
+    }
 
 
 # --- data source keys (admins) ----------------------------------------------

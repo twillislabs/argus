@@ -9,11 +9,16 @@ import {
   type Label,
   LabelCollection,
   LabelStyle,
+  type PointPrimitive,
+  PointPrimitiveCollection,
   type Scene,
   VerticalOrigin,
 } from '@cesium/engine';
 
 import type { Vessel, VesselCategory } from '../lib/api';
+
+// Ships on a sanctions or shadow-fleet list (OpenSanctions).
+export const SANCTION_COLOR = '#ff2d3d';
 
 export const VESSEL_COLOR: Record<VesselCategory, string> = {
   cargo: '#4fc1b0',
@@ -97,8 +102,13 @@ export function addVesselLayer(scene: Scene): VesselLayer {
   const dot = dotImage();
   const billboards = new BillboardCollection({ scene });
   const labels = new LabelCollection({ scene });
+  // A red ring around ships on a sanctions or shadow-fleet list.
+  const rings = new PointPrimitiveCollection();
   scene.primitives.add(billboards);
   scene.primitives.add(labels);
+  scene.primitives.add(rings);
+  const ringBy = new Map<number, PointPrimitive>();
+  const ringColor = Color.fromCssColorString(SANCTION_COLOR);
   // image: which glyph the billboard has, so it's only replaced when it
   // changes (setting an image adds it to the texture atlas again).
   const byMmsi = new Map<number, { bb: Billboard; label: Label | null; image: HTMLCanvasElement }>();
@@ -173,6 +183,33 @@ export function addVesselLayer(scene: Scene): VesselLayer {
           item.label.distanceDisplayCondition = isSel ? always : labelRange;
         }
       }
+      const flagged = new Set<number>();
+      for (const v of list) {
+        if (!v.sanctions?.length) continue;
+        flagged.add(v.mmsi);
+        const position = Cartesian3.fromDegrees(v.lon, v.lat, 20);
+        const ring = ringBy.get(v.mmsi);
+        if (ring) ring.position = position;
+        else
+          ringBy.set(
+            v.mmsi,
+            rings.add({
+              id: 'ship:' + v.mmsi,
+              position,
+              pixelSize: 20,
+              color: ringColor.withAlpha(0.12),
+              outlineColor: ringColor,
+              outlineWidth: 2,
+              scaleByDistance: scale,
+              disableDepthTestDistance: depth,
+            }),
+          );
+      }
+      for (const [mmsi, ring] of ringBy) {
+        if (flagged.has(mmsi)) continue;
+        rings.remove(ring);
+        ringBy.delete(mmsi);
+      }
       for (const [mmsi, item] of byMmsi) {
         item.bb.show = mmsi !== hidden;
         if (seen.has(mmsi)) continue;
@@ -193,10 +230,11 @@ export function addVesselLayer(scene: Scene): VesselLayer {
         item.bb.disableDepthTestDistance = metres;
         if (item.label) item.label.disableDepthTestDistance = metres;
       }
+      for (const ring of ringBy.values()) ring.disableDepthTestDistance = metres;
     },
     destroy() {
       if (scene.isDestroyed()) return;
-      for (const p of [billboards, labels]) {
+      for (const p of [billboards, labels, rings]) {
         if (!p.isDestroyed() && scene.primitives.contains(p)) scene.primitives.remove(p);
       }
     },

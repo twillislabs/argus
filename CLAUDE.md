@@ -237,6 +237,13 @@ parts connect.
   asks on "Find address" (kind `lookup`), never as you type; requests
   are queued 1.1 s apart server-wide and cached a week.
   `ARGUS_USER_AGENT` reaches the containers through compose.
+- Ship sanctions: `argus/sanctions.py` (OpenSanctions maritime CSV,
+  CC BY-NC 4.0, never bundled; the API needs a key now, the bulk data
+  doesn't), worker `sanctions_loop` (daily), `SanctionsIndex` in the API
+  (`app.state.sanctions`, reloads when `layer:sanctions` changes).
+  `/api/vessels` adds `sanctions` (serious tags) per ship and
+  `/api/vessels/{mmsi}` the full `sanctions_listings`. Match by IMO,
+  then MMSI, never by name. Alert kind `sanctions`.
 - Alerts: `argus/alerts.py` (rule finders per kind, `deliver` to ntfy
   as JSON publish and webhooks as json/discord/slack, quiet hours,
   `url_allowed` blocks loopback, link-local and the compose service

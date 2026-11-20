@@ -24,13 +24,21 @@ from sqlalchemy.exc import IntegrityError
 
 from argus import events as ev
 from argus import patterns as pat
-from argus import secrets
+from argus import sanctions, secrets
 from argus.db import utcnow
 from argus.models import Alert, AlertChannel, AlertRule, ServerSetting
 
 log = logging.getLogger("argus.alerts")
 
-KINDS = ("events", "raids", "airport", "pattern", "watch", "space")
+KINDS = (
+    "events",
+    "raids",
+    "airport",
+    "pattern",
+    "watch",
+    "space",
+    "sanctions",
+)
 EVERY_S = 60
 RULE_CAP = 10  # alerts per rule per hour
 NTFY_DEFAULT = "https://ntfy.sh"
@@ -353,6 +361,43 @@ async def find_space(db, rule, state, since):
     ]
 
 
+async def find_sanctions(db, rule, state, since):
+    """Ships on a sanctions or shadow-fleet list in view (OpenSanctions,
+    matched by IMO or MMSI); once a day each."""
+    p = rule.params or {}
+    want = set(p.get("categories") or ["sanction", "mare.shadow"])
+    index = state.sanctions
+    await index.refresh(db)
+    day = utcnow().strftime("%Y%m%d")
+    out = []
+    for v in state.sea.positioned():
+        if not in_area(p.get("area"), v.get("lat"), v.get("lon")):
+            continue
+        flags = set(index.flags(v["mmsi"], v.get("imo"))) & want
+        if not flags:
+            continue
+        labels = ", ".join(sorted(sanctions.LABELS[f] for f in flags))
+        out.append(
+            {
+                "key": "sanc:{0}:{1}".format(v["mmsi"], day),
+                "title": "{0} in view: {1}".format(
+                    v.get("name") or "MMSI {0}".format(v["mmsi"]), labels
+                ),
+                "body": "{0} kn{1}".format(
+                    v.get("sog") if v.get("sog") is not None else "?",
+                    " · to {0}".format(v["destination"])
+                    if v.get("destination")
+                    else "",
+                ),
+                "link": "#ship={0}".format(v["mmsi"]),
+                "lat": v.get("lat"),
+                "lon": v.get("lon"),
+                "severity": 4,
+            }
+        )
+    return out
+
+
 FINDERS = {
     "events": find_events,
     "raids": find_raids,
@@ -360,6 +405,7 @@ FINDERS = {
     "pattern": find_pattern,
     "watch": find_watch,
     "space": find_space,
+    "sanctions": find_sanctions,
 }
 
 

@@ -25,7 +25,12 @@ import type { Drawing } from '../map/drawTools';
 // Settings > Alerts: where your alerts go (ntfy, a webhook, quiet hours)
 // and your rules. Argus checks rules every minute; each alert fires once.
 
-const KINDS: RuleKind[] = ['events', 'raids', 'airport', 'pattern', 'watch', 'space'];
+const KINDS: RuleKind[] = ['events', 'raids', 'airport', 'pattern', 'watch', 'sanctions', 'space'];
+const SANCTION_CATEGORIES = [
+  ['sanction', 'Sanctioned'],
+  ['mare.shadow', 'Shadow fleet'],
+  ['poi', 'War-related list'],
+] as const;
 const TYPES = ['conflict', 'unrest', 'quake', 'fire', 'hazard', 'maritime'] as const;
 
 type Draft = Omit<AlertRule, 'id' | 'created_at' | 'last_fired_at'> & { id?: number };
@@ -38,6 +43,7 @@ function blank(kind: RuleKind, me: Me): Draft {
     airport: { codes: [], levels: ['stop'] },
     pattern: { air: true, sea: true },
     watch: { aircraft: [], vessels: [] },
+    sanctions: { categories: ['sanction', 'mare.shadow'] },
     space: { g_min: 3 },
   }[kind] as Record<string, unknown>;
   return { name: KIND_LABEL[kind], kind, params, enabled: true, push: true };
@@ -76,6 +82,14 @@ function summary(r: Draft): string {
       return (
         [...((p.aircraft as string[]) ?? []), ...((p.vessels as number[]) ?? []).map(String)].join(', ') ||
         'Nothing yet'
+      );
+    case 'sanctions':
+      return (
+        ((p.categories as string[]) ?? [])
+          .map((c) => SANCTION_CATEGORIES.find((x) => x[0] === c)?.[1] ?? c)
+          .join(', ') +
+        ' · ' +
+        areaLabel(p.area as Area)
       );
     case 'space':
       return 'G' + p.g_min + ' or stronger';
@@ -643,6 +657,41 @@ function RuleEditor({
             <span className="srow-label">
               <b>Where</b>
               <small>Only when inside this area, or anywhere</small>
+            </span>
+            <AreaPicker me={me} value={p.area as Area} onChange={(area) => set({ area })} />
+          </div>
+        </>
+      )}
+      {d.kind === 'sanctions' && (
+        <>
+          <div className="srow">
+            <span className="srow-label">
+              <b>Which lists</b>
+              <small>Ships matched by IMO or MMSI to OpenSanctions&apos; maritime data; once a day each</small>
+            </span>
+            <span className="aifeat">
+              {SANCTION_CATEGORIES.map(([id, label]) => (
+                <label key={id} className="check">
+                  <input
+                    type="checkbox"
+                    checked={((p.categories as string[]) ?? []).includes(id)}
+                    onChange={(e) =>
+                      set({
+                        categories: e.target.checked
+                          ? [...((p.categories as string[]) ?? []), id]
+                          : ((p.categories as string[]) ?? []).filter((x) => x !== id),
+                      })
+                    }
+                  />
+                  {label}
+                </label>
+              ))}
+            </span>
+          </div>
+          <div className="srow">
+            <span className="srow-label">
+              <b>Where</b>
+              <small>Only when inside this area, or anywhere Argus sees ships</small>
             </span>
             <AreaPicker me={me} value={p.area as Area} onChange={(area) => set({ area })} />
           </div>

@@ -718,6 +718,11 @@ export interface Vessel {
   cog: number | null;
   heading: number | null;
   status: string | null;
+  // Serious OpenSanctions flags (sanction, mare.shadow, poi), in lists.
+  sanctions?: string[];
+  // Every listing, on the single-vessel answer.
+  sanctions_listings?: { name: string; risks: string[]; labels: string[]; datasets: string[]; flag: string; url: string | null }[];
+  sanctions_attribution?: string;
   destination: string | null;
   eta: string | null;
   draught: number | null;

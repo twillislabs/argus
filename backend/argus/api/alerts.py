@@ -86,6 +86,16 @@ class WatchParams(BaseModel):
     area: Area | None = None
 
 
+class SanctionsParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    categories: list[Literal["sanction", "mare.shadow", "poi"]] = [
+        "sanction",
+        "mare.shadow",
+    ]
+    area: Area | None = None
+
+
 class SpaceParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -99,6 +109,7 @@ PARAMS = {
     "pattern": PatternParams,
     "watch": WatchParams,
     "space": SpaceParams,
+    "sanctions": SanctionsParams,
 }
 
 
@@ -106,7 +117,9 @@ class RuleIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=80)
-    kind: Literal["events", "raids", "airport", "pattern", "watch", "space"]
+    kind: Literal[
+        "events", "raids", "airport", "pattern", "watch", "space", "sanctions"
+    ]
     params: dict = {}
     enabled: bool = True
     push: bool = True

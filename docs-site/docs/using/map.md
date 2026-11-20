@@ -535,6 +535,26 @@ status, destination, ETA, draught and size along the bottom. Search by name, MMS
 AIS is self-reported: ships can enter wrong details, and some switch AIS
 off.
 
+## Ship sanctions
+
+Ships on a sanctions list get a **red ring** on the map, and their panel
+has a **Sanctions and risk** section listing each entry, with a link to
+it on OpenSanctions:
+
+- **Sanctioned:** on a government list (US OFAC, EU, UK, UN, Canada,
+  Switzerland and others).
+- **Shadow fleet:** named as part of the fleet moving sanctioned oil.
+- **War-related list:** on Ukraine's list of vessels involved in the war.
+- **Detained in port inspection** and **regulator warning** appear in the
+  panel only: they're about the ship's condition, not sanctions.
+
+Ships are matched by IMO number first, then MMSI, never by name (names
+repeat). An MMSI can move to another ship when it changes flag, so check
+the listing before relying on it. The list is OpenSanctions' maritime
+dataset (CC BY-NC 4.0, free for non-commercial use), which Argus's
+server fetches daily. **Settings › Alerts › Sanctioned ships** tells you
+when one comes into view.
+
 ## Disasters and maritime warnings
 
 Two more event layers:
@@ -563,6 +583,7 @@ and each alert fires once.
 | **FAA airport status** | A ground stop or closure (and optionally delays) at the US airports you list; once a day each |
 | **Patterns** | A military aircraft flies an orbit or racetrack, or a ship loiters on a cable, in your area |
 | **Watchlist** | A military aircraft (hex, callsign or registration) or a ship (MMSI) you list comes into view; once a day each |
+| **Sanctioned ships** | A ship on a sanctions, shadow-fleet or war-related list comes into view (anywhere, or in your area); once a day each |
 | **Geomagnetic storm** | NOAA's G scale reaches the level you set |
 
 A new rule (or one switched back on) only fires for things that start

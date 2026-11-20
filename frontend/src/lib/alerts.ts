@@ -5,7 +5,7 @@ import type { Drawing } from '../map/drawTools';
 import { api, type Home } from './api';
 import { circleRing, rectRing, type LonLat } from './geo';
 
-export type RuleKind = 'events' | 'raids' | 'airport' | 'pattern' | 'watch' | 'space';
+export type RuleKind = 'events' | 'raids' | 'airport' | 'pattern' | 'watch' | 'sanctions' | 'space';
 
 export interface Area {
   center?: [number, number];
@@ -84,6 +84,7 @@ export const KIND_LABEL: Record<RuleKind, string> = {
   airport: 'FAA airport status',
   pattern: 'Patterns (orbits, cable loitering)',
   watch: 'Watchlist (aircraft, ships)',
+  sanctions: 'Sanctioned ships',
   space: 'Geomagnetic storm',
 };
 
