@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Brand from '../components/Brand';
 import LiveFrame from '../components/LiveFrame';
 import { BAND_LABEL } from '../components/SituationPanel';
-import { channelById, DEFAULT_TABS } from '../config/newsChannels';
+import { CHANNELS, channelById, DEFAULT_TABS } from '../config/newsChannels';
 import {
   type Aircraft,
   type EventItem,
@@ -438,7 +438,9 @@ export default function WallPage({ me }: { me: Me }) {
   // Live TV only: one channel full screen, or a grid of up to four (sound
   // from the first). Night dimming and drift still apply.
   if (wall.mode === 'tv') {
-    const tv = (wall.tv_channels?.length ? wall.tv_channels : [channel.id]).slice(0, 4).map(channelById);
+    // Channels since removed from the list are skipped.
+    const picked = (wall.tv_channels ?? []).filter((id) => CHANNELS.some((c) => c.id === id));
+    const tv = (picked.length ? picked : [channel.id]).slice(0, 4).map(channelById);
     return (
       <div
         className={'walltv n' + tv.length + (night ? ' night' : '')}

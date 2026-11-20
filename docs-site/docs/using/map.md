@@ -490,13 +490,17 @@ corner. Tabs switch channel; **⋯** chooses which channels have tabs;
 **+** adds another player (up to four, each with its own channel and
 place); **⧉** opens the channel in its own window, for another screen.
 
-- **US:** LiveNOW from FOX, Fox News, Newsmax, NBC News, CBS News, MS NOW,
-  ABC News, NewsNation, Alex Jones Live
-- **International:** Sky News, GB News, News24 (formerly Sky News
-  Australia), Euronews, CNA, BBC News, Al Jazeera English, DW, France 24,
-  i24NEWS, TRT World, WION, NHK World
-- **Business:** Reuters, Bloomberg, Fox Business
-- **Weather:** Ryan Hall, Y'all, FOX Weather
+- **US:** LiveNOW from FOX, Newsmax, NBC News NOW, CBS News 24/7, ABC
+  News Live, Alex Jones Live
+- **International:** GB News, Euronews, CNA, BBC News, Al Jazeera
+  English, DW, France 24, TRT World, WION, NHK World
+- **Business:** Bloomberg
+- **Weather:** FOX Weather
+
+Only channels with a true live stream are listed: 24/7 streams, or a
+TV channel simulcast live. Channels that stream only special events
+(Fox News, Fox Business, Reuters, Sky News) or are rarely live were
+left out.
 
 Each tab plays the channel's current live stream: Argus looks up the
 live video from the channel's page (checked every few minutes, once for

@@ -174,6 +174,10 @@ parts connect.
   `app.state.local_air` (NATS `argus.local_air`), ships into `LiveSea`.
 - News channels live in `frontend/src/config/newsChannels.ts`; verify a new
   channel ID with `https://www.youtube.com/feeds/videos.xml?channel_id=`.
+  Only add channels with a true live stream (24/7 or a live TV
+  simulcast): check the channel's Live tab ("N watching") and the
+  stream's `startTimestamp` on its watch page, not just `/live`, which
+  also shows one-off event streams.
   YouTube no longer plays `embed/live_stream?channel=`; the API resolves
   the live video ID from the channel's `/live` page (`argus/youtube.py`,
   cached) and the player embeds `/embed/<video id>`. A scheduled stream

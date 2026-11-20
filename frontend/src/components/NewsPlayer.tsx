@@ -42,9 +42,10 @@ export default function NewsPlayer({ index, channel, tabs, onChannel, onTabs, on
   const [picking, setPicking] = useState(false);
   const drag = useRef<{ dx: number; dy: number } | null>(null);
   const current = CHANNELS.find((c) => c.id === channel) ?? CHANNELS[0];
-  const shown = (tabs.length ? tabs : DEFAULT_TABS)
-    .map((id) => CHANNELS.find((c) => c.id === id))
-    .filter((c): c is (typeof CHANNELS)[number] => Boolean(c));
+  const known = (ids: string[]) =>
+    ids.map((id) => CHANNELS.find((c) => c.id === id)).filter((c): c is (typeof CHANNELS)[number] => Boolean(c));
+  // Saved tabs can name channels since removed: fall back to the defaults.
+  const shown = known(tabs).length ? known(tabs) : known(DEFAULT_TABS);
 
   function save(next: Box) {
     setBox(next);
