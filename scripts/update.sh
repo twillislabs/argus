@@ -35,7 +35,8 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
 fi
 
 branch=$(git rev-parse --abbrev-ref HEAD)
-git fetch --quiet origin "$branch"
+# Tags too, so the checkout knows its release (git describe).
+git fetch --quiet --tags origin "$branch"
 behind=$(git rev-list --count "HEAD..origin/$branch")
 if [ "$behind" = 0 ]; then
   echo "The code is up to date ($(git log -1 --format='%h %s'))."
