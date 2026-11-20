@@ -202,6 +202,16 @@ const SECTIONS: Section[] = [
   },
 ];
 
+// A pairing code as the screen shows it: "ABC 123" (letters and digits
+// only, upper case, a space after the third).
+function pairCode(text: string): string {
+  const raw = text
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 6);
+  return raw.length > 3 ? raw.slice(0, 3) + ' ' + raw.slice(3) : raw;
+}
+
 export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   const { section = 'account' } = useParams();
   const navigate = useNavigate();
@@ -505,12 +515,15 @@ function DisplaysSection() {
               <label htmlFor="pair-code">Code</label>
               <input
                 id="pair-code"
-                className="mono"
+                className="mono paircode"
                 value={code}
-                maxLength={8}
+                maxLength={7}
                 placeholder="ABC 123"
                 autoComplete="off"
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                autoCapitalize="characters"
+                spellCheck={false}
+                inputMode="text"
+                onChange={(e) => setCode(pairCode(e.target.value))}
               />
             </div>
             <div className="field">

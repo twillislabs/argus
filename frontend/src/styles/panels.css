@@ -346,8 +346,16 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 .chanlist .lrow.flat { padding: 0; }
 .volrow { display: flex; gap: 10px; align-items: center; }
 .volrow input { width: 180px; accent-color: var(--accent); }
-.pairform { display: grid; grid-template-columns: 140px minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.pairform { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.pairform.two { grid-template-columns: minmax(0, 1fr) auto; }
 .pairform .field { margin: 0; }
+.pairform input { height: 38px; box-sizing: border-box; }
+.pairform .paircode { font-size: 15px; letter-spacing: 0.12em; }
+/* Phones: fields stack, the button sits under them at its own width. */
+@media (max-width: 600px) {
+  .pairform, .pairform.two { grid-template-columns: minmax(0, 1fr); }
+  .pairform > .btn { justify-self: start; }
+}
 tr.dimrow td { color: var(--dim); }
 .wxtiles .tile .mono { font-size: 15px; }
 

@@ -84,7 +84,7 @@ export default function WallProfiles({ onChange }: { onChange?: () => void }) {
           ))}
           {profiles?.length === 0 && <li className="quiet">No profiles yet.</li>}
         </ul>
-        <form className="pairform" onSubmit={(e) => void create(e)}>
+        <form className="pairform two" onSubmit={(e) => void create(e)}>
           <div className="field">
             <label htmlFor="wp-name">New profile</label>
             <input
