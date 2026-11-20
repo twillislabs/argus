@@ -167,7 +167,9 @@ class Video:
                 "part": "snippet",
                 "type": "video",
                 "maxResults": 15,
-                "safeSearch": "strict",
+                # "strict" drops every live stream (YouTube doesn't rate
+                # live video): moderate, YouTube's default, keeps them.
+                "safeSearch": "moderate",
                 "key": key,
                 **params,
             },

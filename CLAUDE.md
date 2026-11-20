@@ -65,6 +65,8 @@ parts connect.
   on a button press (tiny quota),
   cached and shared; Windy image URLs expire in ~10 min, so the list is
   refetched every 5 and previews go through `/api/webcams/{id}/image`.
+  YouTube search uses `safeSearch=moderate`: `strict` returns no live
+  streams at all (checked 2026-11-20).
   Windy's parser is checked against a live answer (2026-11-19).
 - `make backup` / `make restore FILE=...` (scripts/backup.sh, restore.sh):
   pg_dump plus `.env` in one archive; restore replaces the database and
