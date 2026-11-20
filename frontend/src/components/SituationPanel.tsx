@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import SpaceWeatherCard, { useSpaceWeather } from './SpaceWeatherCard';
 import { PATTERN_COLOR } from '../map/patternLayer';
 
-import type { Aircraft, Bbox, EventItem, Home, Patterns, Summary, Tension, WeatherNow, WxAlert } from '../lib/api';
+import type { Aircraft, Bbox, EventItem, Home, Patterns, Raids, Summary, Tension, WeatherNow, WxAlert } from '../lib/api';
 import { getLiveNear } from '../lib/api';
 import { aircraftColor } from '../map/aircraftLayer';
 import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
@@ -25,6 +25,8 @@ interface Props {
   homeAlerts: WxAlert[];
   patterns: Patterns | null;
   onSelectVessel: (mmsi: number) => void;
+  raids: Raids | null;
+  onFlyTo: (lat: number, lon: number) => void;
 }
 
 function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number) {
@@ -308,6 +310,8 @@ export default function SituationPanel({
   homeAlerts,
   patterns,
   onSelectVessel,
+  raids,
+  onFlyTo,
 }: Props) {
   const spaceWx = useSpaceWeather();
   const milSpark = useSamples(kpis.military);
@@ -530,6 +534,7 @@ export default function SituationPanel({
           )}
         </section>
       )}
+      {raids && <RaidSection raids={raids} onFlyTo={onFlyTo} />}
       {patterns && patterns.air.length + patterns.sea.length > 0 && (
         <section className="isec">
           <h3>Patterns · {patterns.air.length + patterns.sea.length}</h3>
@@ -618,5 +623,62 @@ export default function SituationPanel({
         </ul>
       </section>
     </div>
+  );
+}
+
+// Air-raid alerts: Ukraine's oblasts under alert now (continuous ones in
+// occupied areas apart), and Israel's alerts of the last 24 hours.
+function RaidSection({ raids, onFlyTo }: { raids: Raids; onFlyTo: (lat: number, lon: number) => void }) {
+  const ua = raids.ukraine.filter((a) => a.active && !a.long_running);
+  const uaLong = raids.ukraine.filter((a) => a.active && a.long_running);
+  const ilNow = raids.israel.filter((a) => a.active);
+  const ilRecent = raids.israel.filter((a) => !a.active);
+  return (
+    <section className="isec">
+      <h3>Air-raid alerts</h3>
+      <div className="raidrow">
+        <b>Ukraine</b>
+        {ua.length ? (
+          <span>
+            {ua.length} oblast{ua.length === 1 ? '' : 's'} under alert:{' '}
+            {ua.map((a, i) => (
+              <span key={a.id}>
+                {i ? ', ' : ''}
+                <button className="linkish" onClick={() => onFlyTo(a.lat, a.lon)}>
+                  {a.name.replace(/ Oblast$/, '')}
+                </button>
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="quiet">No alerts now</span>
+        )}
+        {uaLong.length > 0 && (
+          <small className="quiet">
+            Continuous since 2022 in occupied areas: {uaLong.map((a) => a.name.replace(/ Oblast$/, '')).join(', ')}
+          </small>
+        )}
+      </div>
+      <div className="raidrow">
+        <b>Israel</b>
+        {ilNow.length ? (
+          <span className="crit">
+            Sounding now in {ilNow.length} place{ilNow.length === 1 ? '' : 's'}:{' '}
+            {[...new Set(ilNow.map((a) => a.name))].slice(0, 6).join(', ')}
+          </span>
+        ) : (
+          <span className="quiet">No alerts now</span>
+        )}
+        {ilRecent.length > 0 && (
+          <small className="quiet">
+            Last 24 h: {ilRecent.length} alert{ilRecent.length === 1 ? '' : 's'}, latest{' '}
+            {ilRecent[0].threat_label?.toLowerCase()} in {ilRecent[0].name}, {ago(ilRecent[0].time ?? null)}
+          </small>
+        )}
+      </div>
+      {(raids.ukraine_status === 'error' || raids.israel_status === 'error') && (
+        <p className="quiet small">One of the alert feeds didn&apos;t answer.</p>
+      )}
+    </section>
   );
 }

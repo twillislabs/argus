@@ -810,3 +810,24 @@ tr.dimrow td { color: var(--dim); }
 .cite.more {
   cursor: help;
 }
+
+/* Situation panel: air-raid alerts */
+.raidrow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 0;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--line);
+}
+.raidrow .crit {
+  color: var(--crit);
+}
+.linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}

@@ -220,6 +220,13 @@ parts connect.
   asks on "Find address" (kind `lookup`), never as you type; requests
   are queued 1.1 s apart server-wide and cached a week.
   `ARGUS_USER_AGENT` reaches the containers through compose.
+- Air-raid alerts: `argus/raids.py` (Ukraine from ubilling.net.ua's
+  relay, times in Europe/Kyiv; Israel from Tzeva Adom's notifications,
+  history and locality list), `/api/raids` (cached 20 s, fetched on
+  demand), `map/raidLayer.ts`, the Situation panel's `RaidSection`. The
+  toggle is `AirspaceFilters.raids`. oref.org.il is geo-blocked outside
+  Israel: never route around it. Tzeva Adom's threat ids are in
+  `raids.THREATS` (from its own site's table).
 - Patterns: `argus/patterns.py` (military orbits/racetracks from
   LiveAir trails; ships loitering near cables from LiveSea.tracks, a
   sample every 5 min, and `CableIndex`, a grid of cable segments rebuilt

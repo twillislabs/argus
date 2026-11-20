@@ -20,7 +20,7 @@ const EVENT_LAYERS = ['conflict', 'unrest', 'quake', 'fire', 'hazard', 'maritime
 const REF_LAYERS = ['borders', 'states', 'labels', 'airports', 'ports', 'advisories'] as const;
 const SPACE_LAYERS = ['iss', 'launches', 'leo', 'meo', 'geo', 'heo', 'starlink'] as const;
 const SEA_LAYERS = ['cargo', 'tanker', 'passenger', 'fishing', 'military', 'other'] as const;
-const AIRSPACE_LAYERS = ['tfr', 'sigmet', 'czib', 'gps', 'structure'] as const;
+const AIRSPACE_LAYERS = ['tfr', 'sigmet', 'czib', 'gps', 'structure', 'raids'] as const;
 const INFRA_LAYERS = ['nuclear', 'power', 'cables', 'bases', 'alpr', 'outages', 'ransomware'] as const;
 
 export interface Share {
@@ -98,6 +98,7 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
       czib: has('czib'),
       gps: has('gps'),
       structure: has('structure'),
+      raids: has('raids'),
     },
     infra: {
       nuclear: has('nuclear'),

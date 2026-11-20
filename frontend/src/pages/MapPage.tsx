@@ -11,6 +11,7 @@ import AskPanel, { type AskItem } from '../components/AskPanel';
 import { askArgus, useAiStatus } from '../lib/ai';
 import { launchColor, padKey } from '../map/launchLayer';
 import { OUTAGE_COLOR, RANSOMWARE_COLOR } from '../map/cyberLayer';
+import { RAID_COLOR } from '../map/raidLayer';
 import { cleanTour, type Tour } from '../lib/tours';
 import { FAA_COLOR, faaLevel, faaLine, type FaaStatus, getFaaStatus } from '../lib/faa';
 import AlprInspector from '../components/AlprInspector';
@@ -78,6 +79,8 @@ import {
   getLaunches,
   getCyber,
   getPatterns,
+  getRaids,
+  type Raids,
   type Patterns,
   type Cyber,
   type Launch,
@@ -931,6 +934,31 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     };
   }, [launchesOn]);
 
+  // Air-raid alerts while the layer is on (the API caches them 20 s).
+  const raidsOn = filters.airspace.raids;
+  const [raids, setRaids] = useState<Raids | null>(null);
+  useEffect(() => {
+    if (!raidsOn) {
+      setRaids(null);
+      return;
+    }
+    let cancelled = false;
+    const load = () =>
+      getRaids()
+        .then((r) => !cancelled && setRaids(r))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [raidsOn]);
+  const raidAlerts = useMemo(
+    () => [...(raids?.ukraine ?? []).filter((a) => a.active), ...(raids?.israel ?? [])],
+    [raids],
+  );
+
   // Behaviour patterns (military orbits, ships loitering on cables),
   // every minute; the API works them out from what it already holds.
   const [patterns, setPatterns] = useState<Patterns | null>(null);
@@ -1344,6 +1372,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         id.startsWith('wiki:') ||
         id.startsWith('launch:') ||
         id.startsWith('outage:') ||
+        id.startsWith('raid:') ||
         id.startsWith('rw:') ||
         id.startsWith('draw:') ||
         id.startsWith('wx:') ||
@@ -1486,6 +1515,23 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             ],
           }
         : null;
+    }
+    if (id.startsWith('raid:')) {
+      const a = raidAlerts.find((x) => 'raid:' + x.id === id);
+      if (!a) return null;
+      const when = (iso?: string | null) =>
+        iso ? new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      return {
+        title: a.threat_label ? a.threat_label + ' · ' + a.name : 'Air-raid alert · ' + a.name,
+        color: RAID_COLOR,
+        lines: a.threat_label
+          ? [(a.active ? 'Sounding now' : 'Sounded ') + (a.active ? '' : when(a.time) + ' (' + ago(a.time ?? null) + ')')]
+          : [
+              a.long_running
+                ? 'Continuous alert since ' + when(a.since) + ' (occupied area)'
+                : 'Alert since ' + when(a.since) + ' (' + ago(a.since ?? null) + ')',
+            ],
+      };
     }
     if (id.startsWith('outage:')) {
       const o = cyber?.outages.find((x) => 'outage:' + x.cc === id);
@@ -1812,6 +1858,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             showLaunches={launchesOn}
             cyber={cyber}
             patterns={patterns}
+            raids={raidAlerts}
+            showRaids={raidsOn}
             showAirPatterns={filters.air.military}
             showSeaPatterns={seaShown}
             showWiki={filters.wiki}
@@ -2114,6 +2162,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                         ' (National Weather Service; open the alert for its full text and instructions.)'
                       : selectedInfo.startsWith('spc:')
                         ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'
+                        : selectedInfo.startsWith('raid:')
+                          ? 'Air-raid alerts as the authorities issue them: Ukraine from the official air-raid map, by oblast; Israel from the Home Front Command, by locality, for the last 24 hours. Argus refreshes them every 30 seconds; for your own safety use the official apps.'
                         : selectedInfo.startsWith('outage:')
                           ? 'Internet outage detected by IODA (Georgia Tech) from BGP routing, active probing, Google traffic or network telescope data. A high score means a large drop against normal; it can be a shutdown, a power cut, a cable cut or a fault. See the IODA dashboard for the signals.'
                         : selectedInfo.startsWith('rw:')
@@ -2130,7 +2180,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                       : 'A shape you drew. Delete it with the Delete tool.'
                 }
                 links={
-                  selectedInfo.startsWith('outage:')
+                  selectedInfo.startsWith('raid:ua')
+                    ? [{ label: 'Ukraine air-raid map (alerts.in.ua)', url: 'https://alerts.in.ua/en' }]
+                    : selectedInfo.startsWith('raid:il')
+                    ? [{ label: 'Tzeva Adom', url: 'https://www.tzevaadom.co.il/en/' }]
+                    : selectedInfo.startsWith('outage:')
                     ? [{ label: 'IODA dashboard', url: 'https://ioda.inetintel.cc.gatech.edu/country/' + selectedInfo.slice(7) }]
                     : selectedInfo.startsWith('rw:')
                     ? [{ label: 'ransomware.live', url: 'https://www.ransomware.live/' }]
@@ -2320,6 +2374,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 aircraft={aircraft}
                 onSelectAircraft={(hex) => selectAircraft(hex, 'follow')}
                 patterns={patterns}
+                raids={raidsOn ? raids : null}
+                onFlyTo={(lat, lon) => globe.current?.flyTo(lat, lon, 600_000)}
                 onSelectVessel={(mmsi) => selectVessel(mmsi, 'follow')}
                 tension={tension}
                 view={viewBox}

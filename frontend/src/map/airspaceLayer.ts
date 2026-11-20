@@ -30,6 +30,8 @@ export interface AirspaceFilters {
   czib: boolean;
   gps: boolean;
   structure: boolean;
+  // Air-raid alerts (map/raidLayer.ts): Ukraine and Israel.
+  raids: boolean;
 }
 
 export const DEFAULT_AIRSPACE: AirspaceFilters = {
@@ -38,6 +40,7 @@ export const DEFAULT_AIRSPACE: AirspaceFilters = {
   czib: false,
   gps: false,
   structure: false,
+  raids: true,
 };
 
 export const AIRSPACE_COLOR = {
@@ -46,6 +49,7 @@ export const AIRSPACE_COLOR = {
   sigmet: '#f0c94a',
   gps: '#ff6ba1',
   structure: '#5b9bff',
+  raids: '#ff2d3d',
 };
 
 export const STRUCTURE_COLOR: Record<string, string> = {

@@ -40,6 +40,7 @@ from argus.geocode import Geocoder
 from argus.imagery import Imagery
 from argus.live import Hub, subscribe_forever
 from argus.openaip import OpenAip
+from argus.raids import Raids
 from argus.sea import LiveSea
 from argus.services import ensure_setup_token
 from argus.spaceweather import SpaceWeather
@@ -88,6 +89,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.faa = FaaStatus(settings.user_agent)
         app.state.spaceweather = SpaceWeather(settings.user_agent)
         app.state.geocoder = Geocoder(settings.user_agent)
+        app.state.raids = Raids(settings.user_agent)
         app.state.imagery = Imagery(
             settings.user_agent, settings.imagery_cache_dir
         )
@@ -116,6 +118,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.faa.close()
         await app.state.spaceweather.close()
         await app.state.geocoder.close()
+        await app.state.raids.close()
         await app.state.imagery.close()
         if hasattr(app.state, "weather_http"):
             await app.state.weather_http.aclose()

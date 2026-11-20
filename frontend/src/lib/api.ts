@@ -146,6 +146,29 @@ export const putScreenWall = (id: number, wall: WallPrefs, home: Home | null, pr
     body: { wall, home, profile },
   });
 
+// Air-raid alerts (/api/raids). Ukraine: every oblast (active or not);
+// Israel: localities alerted now or in the last 24 hours.
+export interface RaidAlert {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  active: boolean;
+  since?: string | null; // Ukraine: when the state last changed
+  long_running?: boolean; // Ukraine: a continuous alert (occupied areas)
+  threat?: number; // Israel
+  threat_label?: string;
+  time?: string; // Israel: when it sounded
+}
+export interface Raids {
+  ukraine: RaidAlert[];
+  israel: RaidAlert[];
+  ukraine_status?: string;
+  israel_status?: string;
+  attribution?: string;
+}
+export const getRaids = () => api<Raids>('/api/raids');
+
 // Behaviour patterns (/api/patterns): military orbits and racetracks,
 // ships loitering near submarine cables.
 export interface AirPattern {

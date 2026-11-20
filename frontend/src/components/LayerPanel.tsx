@@ -110,6 +110,7 @@ const AIRSPACE_ROWS: { id: keyof AirspaceFilters; label: string; source: string 
   { id: 'czib', label: 'Conflict zone bulletins', source: 'EASA' },
   { id: 'gps', label: 'GPS interference', source: 'Argus, from ADS-B accuracy' },
   { id: 'structure', label: 'Restricted areas, CTRs, TMAs', source: 'openAIP · zoom in to load' },
+  { id: 'raids', label: 'Air-raid alerts', source: 'Ukraine by oblast · Israel by locality, 24 h' },
 ];
 
 const SEA_ROWS: { id: keyof SeaFilters; label: string }[] = [

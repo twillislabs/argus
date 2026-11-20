@@ -143,6 +143,13 @@ async def rocket_launches(session: SessionDep, db: DbDep):
     }
 
 
+@router.get("/api/raids")
+async def air_raid_alerts(request: Request, session: SessionDep):
+    """Air-raid alerts: Ukraine by oblast, Israel by locality
+    (argus/raids.py), cached 20 seconds."""
+    return await request.app.state.raids.get()
+
+
 @router.get("/api/cyber")
 async def cyber_picture(session: SessionDep, db: DbDep):
     """Internet outages, ransomware victims per country and new exploited

@@ -542,6 +542,24 @@ Two more event layers:
   such as rocket launches, live firing, exercises, cable work, piracy and
   hazards to shipping. Select one to see the area it covers.
 
+## Air-raid alerts
+
+**Air-raid alerts** (Airspace group, on by default) shows alerts as the
+authorities issue them, refreshed every 30 seconds:
+
+- **Ukraine**, by oblast, from the official air-raid map (via
+  ubilling.net.ua): a red ring at each oblast under alert, labelled when
+  you zoom in. Hover for how long it's been on. Occupied areas under a
+  continuous alert since 2022 (Luhansk, Sevastopol) are dimmed.
+- **Israel**, by locality, from the Home Front Command (via Tzeva Adom):
+  bright while sounding, dimmer for the rest of the last 24 hours, with
+  the threat (rockets and missiles, hostile aircraft, terrorist
+  infiltration and so on). Drills are left out.
+
+The Situation panel's **Air-raid alerts** section lists the oblasts
+under alert (click one to fly there) and Israel's latest. For your own
+safety, use the official apps: Argus can be up to a minute behind.
+
 ## Patterns
 
 When military aircraft or ships are on, the Situation panel lists

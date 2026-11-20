@@ -95,6 +95,15 @@ export default function Legend({ filters, onClose }: { filters: LayerFilters; on
             ]}
           />
         )}
+        {filters.airspace.raids && (
+          <Section
+            title="Air-raid alerts"
+            rows={[
+              { color: AIRSPACE_COLOR.raids, label: 'Sounding now (Ukraine oblasts, Israel localities)' },
+              { color: '#8a3a44', label: 'Israel, last 24 h · Ukraine, continuous since 2022' },
+            ]}
+          />
+        )}
         {filters.airspace.structure && (
           <Section
             title="Restricted areas, CTRs, TMAs"
