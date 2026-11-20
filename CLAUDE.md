@@ -136,7 +136,10 @@ parts connect.
   `corroborating_articles` skips opinion and question headlines
   (`opinion`) and sorts by word overlap with the event's links, so two
   events in one city don't share a headline; bare "offensive" isn't a
-  conflict word (the adjective).
+  conflict word (the adjective). After the pass, `merge_duplicates`
+  folds active events of one kind within `MERGE_KM` (50 km) backed by
+  the same top headline into the one with most articles
+  (`merge_into`, shared with `relocate`).
 - adsb.lol's routeset endpoint is unusable (202, empty); routes come from
   adsbdb, which goes stale when flight numbers are reused
   (`route_progress` flags implausible routes).

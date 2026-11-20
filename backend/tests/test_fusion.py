@@ -545,6 +545,45 @@ async def test_misplaced_event_merges_into_one_there(app):
         assert kyiv.source_count == 4
 
 
+async def test_same_headline_events_merge(app):
+    async with app.state.db.sessionmaker() as db:
+        # One story fused into two clusters 30 km apart, both backed by
+        # the same headline; and one far away with it too.
+        for ext, lat, lon in (
+            ("a", 50.45, 30.52),
+            ("b", 50.72, 30.52),
+            ("c", 46.48, 30.73),
+        ):
+            await run(
+                db,
+                [
+                    gdelt(
+                        ext,
+                        lat=lat,
+                        lon=lon,
+                        url="{0}.example.com".format(ext),
+                        path="missiles-hit-city-overnight",
+                    )
+                ],
+            )
+        events = list((await db.execute(select(Event))).scalars())
+        assert len(events) == 3
+        for e in events:
+            e.status = "active"
+            e.data = dict(e.data or {}) | {"corroboration": [7]}
+        big = next(e for e in events if e.lat == 50.45)
+        big.article_count = 40
+        await db.flush()
+        changed = await fusion.merge_duplicates(db, events)
+        await db.commit()
+        near = next(e for e in events if e.lat == 50.72)
+        far = next(e for e in events if e.lat == 46.48)
+        assert near.status == "expired"
+        assert near.data["merged_into"] == big.id
+        assert far.status == "active"
+        assert changed == {near.id, big.id}
+
+
 def test_headline_title():
     assert (
         fusion.headline_title(

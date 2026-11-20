@@ -989,57 +989,86 @@ async def relocate(db: AsyncSession, event: Event) -> Event | None:
     )
     old_place = event.place
     if near is not None:
-        linked = set(
-            (
-                await db.execute(
-                    select(EventSource.raw_record_id).where(
-                        EventSource.event_id == near.id
-                    )
-                )
-            ).scalars()
-        )
-        mine = list(
-            (
-                await db.execute(
-                    select(EventSource.raw_record_id).where(
-                        EventSource.event_id == event.id
-                    )
-                )
-            ).scalars()
-        )
-        for rid in mine:
-            if rid not in linked:
-                db.add(EventSource(event_id=near.id, raw_record_id=rid))
-        await db.execute(
-            delete(EventSource).where(EventSource.event_id == event.id)
-        )
-        await db.flush()
-        records = list(
-            (
-                await db.execute(
-                    select(RawRecord)
-                    .join(
-                        EventSource, EventSource.raw_record_id == RawRecord.id
-                    )
-                    .where(
-                        EventSource.event_id == near.id,
-                        RawRecord.source == "gdelt",
-                    )
-                )
-            ).scalars()
-        )
-        if records:
-            _apply_tally(near, tally(records))
-        near.first_seen = min(near.first_seen, event.first_seen)
-        near.last_updated = max(near.last_updated, event.last_updated)
-        event.status = "expired"
-        event.data = dict(event.data or {}) | {"merged_into": near.id}
+        await merge_into(db, event, near)
         return near
     event.place = "{0}, {1}".format(target.name, target.country)[:200]
     event.country = target.country[:80]
     event.lat, event.lon = round(target.lat, 4), round(target.lon, 4)
     event.data = dict(event.data or {}) | {"moved_from": old_place}
     return event
+
+
+async def merge_into(db: AsyncSession, event: Event, near: Event) -> None:
+    """Move an event's records into another and retire it."""
+    linked = set(
+        (
+            await db.execute(
+                select(EventSource.raw_record_id).where(
+                    EventSource.event_id == near.id
+                )
+            )
+        ).scalars()
+    )
+    mine = list(
+        (
+            await db.execute(
+                select(EventSource.raw_record_id).where(
+                    EventSource.event_id == event.id
+                )
+            )
+        ).scalars()
+    )
+    for rid in mine:
+        if rid not in linked:
+            db.add(EventSource(event_id=near.id, raw_record_id=rid))
+    await db.execute(
+        delete(EventSource).where(EventSource.event_id == event.id)
+    )
+    await db.flush()
+    records = list(
+        (
+            await db.execute(
+                select(RawRecord)
+                .join(EventSource, EventSource.raw_record_id == RawRecord.id)
+                .where(
+                    EventSource.event_id == near.id,
+                    RawRecord.source == "gdelt",
+                )
+            )
+        ).scalars()
+    )
+    if records:
+        _apply_tally(near, tally(records))
+    near.first_seen = min(near.first_seen, event.first_seen)
+    near.last_updated = max(near.last_updated, event.last_updated)
+    event.status = "expired"
+    event.data = dict(event.data or {}) | {"merged_into": near.id}
+
+
+MERGE_KM = 50
+
+
+async def merge_duplicates(db: AsyncSession, events: list[Event]) -> set[str]:
+    """Events of one kind, close together, backed by the same headline
+    are one story split into clusters over time: merge each into the
+    biggest."""
+    groups: dict[tuple, list[Event]] = {}
+    for e in events:
+        ids = (e.data or {}).get("corroboration") or []
+        if e.status == "active" and ids:
+            groups.setdefault((e.type, ids[0]), []).append(e)
+    changed: set[str] = set()
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        group.sort(key=lambda e: e.article_count, reverse=True)
+        keeper = group[0]
+        for e in group[1:]:
+            if distance_km(e.lat, e.lon, keeper.lat, keeper.lon) > MERGE_KM:
+                continue
+            await merge_into(db, e, keeper)
+            changed.update({e.id, keeper.id})
+    return changed
 
 
 async def review_gdelt(db: AsyncSession) -> set[str]:
@@ -1062,7 +1091,8 @@ async def review_gdelt(db: AsyncSession) -> set[str]:
         )
     ).scalars()
     changed: set[str] = set()
-    for event in list(rows):
+    rows = list(rows)
+    for event in rows:
         if event.status == "expired":  # merged into another this pass
             continue
         # Off-topic articles that joined before the topic check come out;
@@ -1129,6 +1159,10 @@ async def review_gdelt(db: AsyncSession) -> set[str]:
                     "" if len(backing) == 1 else "s",
                 )
             changed.add(event.id)
+    # One story split into several clusters: merge them.
+    reviewed = [e for e in rows if e.status != "expired"]
+    await db.flush()
+    changed |= await merge_duplicates(db, reviewed)
     return changed
 
 

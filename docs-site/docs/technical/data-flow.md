@@ -63,6 +63,8 @@ Privacy-flagged aircraft are dropped before anything is kept.
 - **GDELT place check:** GDELT can pin a story on an actor's capital (Russian strikes on Kyiv
   placed in Moscow). When most of an event's readable links name another big city and hardly any
   name its own, the event moves there, merging into an event of the same kind already there.
+  Confirmed events of one kind within 50 km whose best headline is the same one are one story
+  split into several clusters, and merge into the biggest.
 - **Titles:** a confirmed event takes the news headline that backs it as its title, the one
   sharing most words with its own articles; unconfirmed ones keep the cautious "reported in"
   wording. Opinion, analysis and question headlines never corroborate an event.
