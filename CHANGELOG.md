@@ -4,6 +4,14 @@ All notable changes to Argus. Versions follow [Semantic Versioning](https://semv
 a new major version may need you to change something when you upgrade, minor versions add
 features, and patch versions fix things. Upgrade with `./argus update`.
 
+## [Unreleased]
+
+### Cameras
+
+- The selected traffic camera's picture on the map: at the end of a
+  3D view cone (View along it flies to just behind the camera), or
+  floating above cameras with no known direction.
+
 ## [1.3.0] - 2026-11-20
 
 Animated wind and air quality worldwide, traffic cameras in Texas,

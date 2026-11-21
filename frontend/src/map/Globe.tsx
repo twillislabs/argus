@@ -84,6 +84,7 @@ import { addRaidLayer, type RaidLayer } from './raidLayer';
 import { addAlprLayer, type AlprLayer } from './alprLayer';
 import { addAirLayer, type AirLayer } from './airLayer';
 import { addCamLayer, type CamLayer, WEBCAM_COLOR } from './camLayer';
+import { addCamView, type CamView } from './camView';
 import { zoomToGroup } from './groups';
 import { governRendering, type RenderGovernor } from './render';
 import { addWindLayer, type WindLayer } from './windLayer';
@@ -304,6 +305,9 @@ export interface GlobeHandle {
   flyHome: () => void;
   flyWorld: () => void;
   flyTo: (lat: number, lon: number, height?: number) => void;
+  // Stand just behind and above a spot, looking along a bearing (a
+  // traffic camera's view, map/camView.ts).
+  lookAlong: (lat: number, lon: number, bearing: number) => void;
   setMode: (mode: '3d' | '2d') => void;
   view: () => { bbox: Bbox | null; height: number } | null;
   // Camera presets around the point at the centre of the screen.
@@ -566,6 +570,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const camLayer = useRef<CamLayer | null>(null);
   const webcamLayer = useRef<CamLayer | null>(null);
   const windLayer = useRef<WindLayer | null>(null);
+  const camView = useRef<CamView | null>(null);
   const airLayer = useRef<AirLayer | null>(null);
   const wx = useRef<WxLayer | null>(null);
   const weatherRef = useRef(weather);
@@ -684,6 +689,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     alprLayer.current = addAlprLayer(scene);
     camLayer.current = addCamLayer(scene);
     windLayer.current = addWindLayer(v, renderRef.current);
+    camView.current = addCamView(scene);
     airLayer.current = addAirLayer(scene);
     webcamLayer.current = addCamLayer(scene, WEBCAM_COLOR, 'webcam:');
     wx.current = addWxLayer(scene, () => ({
@@ -957,6 +963,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['traffic cameras', () => camLayer.current?.destroy()],
         ['webcams', () => webcamLayer.current?.destroy()],
         ['wind', () => windLayer.current?.destroy()],
+        ['camera view', () => camView.current?.destroy()],
         ['air quality', () => airLayer.current?.destroy()],
         ['weather', () => wx.current?.destroy()],
         ['infrastructure', () => infraLayer.current?.destroy()],
@@ -992,6 +999,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       camLayer.current = null;
       webcamLayer.current = null;
       windLayer.current = null;
+      camView.current = null;
       airLayer.current = null;
       infraLayer.current = null;
       air.current = null;
@@ -1193,6 +1201,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     const list = trafficCams ?? [];
     camLayer.current?.update(list, list.length > 0, selectedCam ?? null);
+    camView.current?.show(list.find((c) => c.id === selectedCam) ?? null);
   }, [trafficCams, selectedCam]);
 
   useEffect(() => {
@@ -1413,6 +1422,22 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           viewer.current?.camera.flyTo({
             destination: Cartesian3.fromDegrees(lon, lat, height),
             duration: 1.4,
+          });
+        },
+        lookAlong(lat, lon, bearing) {
+          const v = viewer.current;
+          if (!v) return;
+          remember();
+          tracker.current?.release();
+          // 260 m behind the camera and 120 m up, looking slightly down:
+          // the whole view and its picture (300 m out) in frame.
+          const back = (bearing + 180) * (Math.PI / 180);
+          const dLat = (260 * Math.cos(back)) / 6_371_000 / (Math.PI / 180);
+          const dLon = (260 * Math.sin(back)) / (6_371_000 * Math.cos((lat * Math.PI) / 180)) / (Math.PI / 180);
+          v.camera.flyTo({
+            destination: Cartesian3.fromDegrees(lon + dLon, lat + dLat, 120),
+            orientation: { heading: CesiumMath.toRadians(bearing), pitch: CesiumMath.toRadians(-6), roll: 0 },
+            duration: 1.6,
           });
         },
         view() {

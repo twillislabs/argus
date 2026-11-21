@@ -2306,7 +2306,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 onBack={() => setSelectedAlpr(null)}
               />
             ) : selectedCam ? (
-              <CamInspector cam={selectedCam} onBack={() => setSelectedCam(null)} />
+              <CamInspector
+                cam={selectedCam}
+                onBack={() => setSelectedCam(null)}
+                onLookAlong={() =>
+                  selectedCam.direction !== null &&
+                  globe.current?.lookAlong(selectedCam.lat, selectedCam.lon, selectedCam.direction)
+                }
+              />
             ) : selectedInfo ? (
               <InfoInspector
                 info={hoverInfo(selectedInfo)}

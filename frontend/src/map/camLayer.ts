@@ -62,7 +62,7 @@ function icon(wedge: boolean, color = CAM_COLOR): HTMLCanvasElement {
 }
 
 const VIEW_FOV = 60;
-const VIEW_RANGE_M = 300;
+export const VIEW_RANGE_M = 300;
 const EARTH_M = 6_371_000;
 
 // The sector's outline: the camera, then an arc VIEW_RANGE_M out.

@@ -228,6 +228,10 @@ parts connect.
   as base64 in that JSON field; `_json_image` decodes JPEG or PNG only.
   Left out on purpose: Live Traffic NSW (its images answer only a
   browser's User-Agent; don't fake one) and FL511 (personal use only).
+  The selected camera's still is drawn in the scene by `map/camView.ts`
+  (a view cone and an upright WallGeometry panel with an Image material
+  at camLayer's `VIEW_RANGE_M`, or a billboard when there's no
+  direction); `GlobeHandle.lookAlong` flies behind it.
   The map groups nearby cameras (`map/groups.ts`, shared by camLayer
   and alprLayer: grid by camera height, badge ids
   `group:<prefix>w,s,e,n`, `zoomToGroup` in Globe's click).

@@ -59,7 +59,16 @@ function Player({ cam }: { cam: TrafficCam }) {
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const REFRESH_S = 30;
 
-export default function CamInspector({ cam, onBack }: { cam: TrafficCam; onBack: () => void }) {
+export default function CamInspector({
+  cam,
+  onBack,
+  onLookAlong,
+}: {
+  cam: TrafficCam;
+  onBack: () => void;
+  // Fly to just behind the camera, where its picture faces you.
+  onLookAlong?: () => void;
+}) {
   const [tick, setTick] = useState(() => Date.now());
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading');
   const [loadedAt, setLoadedAt] = useState<number | null>(null);
@@ -104,11 +113,22 @@ export default function CamInspector({ cam, onBack }: { cam: TrafficCam; onBack:
             {state === 'error' && <figcaption className="quiet">The camera has no image right now.</figcaption>}
           </figure>
         )}
-        {cam.video && (
+        {(cam.video || (onLookAlong && cam.direction !== null)) && (
           <div className="actions">
-            <button className="btn small" onClick={() => setPlaying(!playing)}>
-              {playing ? 'Back to the still' : cam.video === 'live' ? '▶ Play live video' : '▶ Play latest clip'}
-            </button>
+            {cam.video && (
+              <button className="btn small" onClick={() => setPlaying(!playing)}>
+                {playing ? 'Back to the still' : cam.video === 'live' ? '▶ Play live video' : '▶ Play latest clip'}
+              </button>
+            )}
+            {onLookAlong && cam.direction !== null && (
+              <button
+                className="btn small"
+                onClick={onLookAlong}
+                title="Fly to just behind the camera: its picture stands at the end of its view on the map"
+              >
+                View along it
+              </button>
+            )}
           </div>
         )}
         <p className="quiet small">
