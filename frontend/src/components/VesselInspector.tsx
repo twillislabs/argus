@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
-import { getVessel, type Vessel } from '../lib/api';
+import { getVessel, type SeaPattern, type Vessel } from '../lib/api';
+import { seaPatternLine, seaPatternTitle } from '../lib/patterns';
+import { PATTERN_COLOR } from '../map/patternLayer';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import { VESSEL_COLOR } from '../map/vesselLayer';
 import { length } from '../lib/units';
@@ -24,6 +26,8 @@ interface Props {
   onCamera: (mode: CameraMode) => void;
   onFly: (lat: number, lon: number) => void;
   onUpdate: (v: Vessel) => void;
+  // Loitering near a cable (Patterns), if it is.
+  pattern?: SeaPattern | null;
 }
 
 function age(s: number | null): string {
@@ -33,7 +37,7 @@ function age(s: number | null): string {
   return Math.round(s / 3600) + ' h ago';
 }
 
-export default function VesselInspector({ mmsi, camera, onBack, onCamera, onFly, onUpdate }: Props) {
+export default function VesselInspector({ mmsi, camera, onBack, onCamera, onFly, onUpdate, pattern }: Props) {
   const [v, setV] = useState<Vessel | null>(null);
   const [error, setError] = useState('');
 
@@ -85,6 +89,13 @@ export default function VesselInspector({ mmsi, camera, onBack, onCamera, onFly,
               {v.name || 'Unnamed vessel'}
             </h1>
             <div className="sub">{[v.type, v.status].filter(Boolean).join(' · ') || 'Type not reported'}</div>
+            {pattern && (
+              <p className="patline small">
+                <b style={{ color: PATTERN_COLOR.sea }}>{seaPatternTitle}</b>
+                {' · '}
+                {seaPatternLine(pattern)}
+              </p>
+            )}
             <div className="views">
               <div className="seg" role="group" aria-label="Camera view">
                 {CAMERA_MODES.map((m) => (
@@ -188,15 +199,15 @@ export default function VesselInspector({ mmsi, camera, onBack, onCamera, onFly,
               <div className="wide">
                 <dt>Position</dt>
                 <dd>
-              <CopyCoords lat={v.lat} lon={v.lon} />
-            </dd>
+                  <CopyCoords lat={v.lat} lon={v.lon} />
+                </dd>
               </div>
             </dl>
           </section>
           <section className="isec">
             <p className="quiet small">
-              AIS from aisstream.io. Vessels broadcast these details themselves; they can be wrong, and some
-              ships switch AIS off.
+              AIS from aisstream.io. Vessels broadcast these details themselves; they can be wrong, and some ships
+              switch AIS off.
             </p>
           </section>
         </>

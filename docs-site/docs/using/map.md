@@ -726,8 +726,9 @@ safety, use the official apps: Argus can be up to a minute behind.
 ## Patterns
 
 When military aircraft or ships are on, the Situation panel lists
-behaviour worth a look, with a ring on the map; click an entry to select
-the aircraft or ship:
+behaviour worth a look, with a ring on the map (orange for aircraft, red
+for ships). Click an entry or the ring itself to select the aircraft or
+ship; its panel and hover card say what it's doing:
 
 - **Orbit** or **Racetrack:** a military aircraft that has turned 1.5
   times or more within about 40 km over the last 45 minutes, above

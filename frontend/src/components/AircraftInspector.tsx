@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
-import { type Aircraft, type AircraftDetail, getAircraftDetail, type RouteAirport } from '../lib/api';
+import { type Aircraft, type AircraftDetail, type AirPattern, getAircraftDetail, type RouteAirport } from '../lib/api';
+import { airPatternLine } from '../lib/patterns';
+import { PATTERN_COLOR } from '../map/patternLayer';
 import { CAMERA_MODES, type CameraMode } from '../map/aircraftCamera';
 import { AIR_COLOR, aircraftColor } from '../map/aircraftLayer';
 import { distance } from '../lib/units';
@@ -19,6 +21,8 @@ interface Props {
   // The planned route drawn on the map, flown part solid.
   showRoute: boolean;
   onShowRoute: (on: boolean) => void;
+  // The orbit or racetrack it's flying (Patterns), if any.
+  pattern?: AirPattern | null;
 }
 
 export default function AircraftInspector({
@@ -30,6 +34,7 @@ export default function AircraftInspector({
   onUpdate,
   showRoute,
   onShowRoute,
+  pattern,
 }: Props) {
   const [d, setD] = useState<AircraftDetail | null>(null);
   const [error, setError] = useState('');
@@ -75,6 +80,7 @@ export default function AircraftInspector({
           onFly={onFly}
           stale={Boolean(error)}
           showRoute={showRoute}
+          pattern={pattern}
           onShowRoute={onShowRoute}
         />
       )}
@@ -95,6 +101,7 @@ function Detail({
   stale,
   showRoute,
   onShowRoute,
+  pattern,
 }: {
   d: AircraftDetail;
   camera: CameraMode;
@@ -103,6 +110,7 @@ function Detail({
   stale: boolean;
   showRoute: boolean;
   onShowRoute: (on: boolean) => void;
+  pattern?: AirPattern | null;
 }) {
   const a = d.aircraft;
   const title = d.route?.flight || a.callsign || a.reg || a.hex.toUpperCase();
@@ -137,6 +145,13 @@ function Detail({
         <div className="sub">
           {[d.route?.airline, typeName, a.reg].filter(Boolean).join(' · ') || 'Unknown aircraft'}
         </div>
+        {pattern && (
+          <p className="patline small">
+            <b style={{ color: PATTERN_COLOR.air }}>Flying {pattern.kind === 'orbit' ? 'an orbit' : 'a racetrack'}</b>
+            {' · '}
+            {airPatternLine(pattern)}
+          </p>
+        )}
         <div className="views">
           <div className="seg" role="group" aria-label="Camera view">
             {CAMERA_MODES.map((m) => (

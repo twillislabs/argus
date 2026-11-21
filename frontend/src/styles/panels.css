@@ -678,6 +678,11 @@ tr.dimrow td { color: var(--dim); }
   display: block;
   color: var(--muted, #8a94a3);
 }
+/* Aircraft and ship inspectors: the pattern it's part of */
+.patline {
+  margin: 6px 0 0;
+  color: var(--muted, #8a94a3);
+}
 
 /* Wall editor: TV channel picks and sound */
 .tvpicks {

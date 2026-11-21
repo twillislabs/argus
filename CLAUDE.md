@@ -360,7 +360,10 @@ parts connect.
   LiveAir trails; ships loitering near cables from LiveSea.tracks, a
   sample every 5 min, and `CableIndex`, a grid of cable segments rebuilt
   when `layer:cables` changes), `/api/patterns` (cached a minute),
-  `map/patternLayer.ts`, the Situation panel's Patterns section.
+  `map/patternLayer.ts` (rings pick as `ac:<hex>` / `ship:<mmsi>`
+  through a wide, near-invisible twin ring: alpha 0 is never picked),
+  the Situation panel's Patterns section; wording in `lib/patterns.ts`,
+  shared with the inspectors' `pattern` prop and the hover card.
 - Cyber: `argus/cyber.py` (IODA, ransomware.live, CISA KEV), worker
   `cyber_loop`, `/api/cyber`, `map/cyberLayer.ts` (outage tints via
   tensionLayer's shapes and `naturalEarthName`, ransomware markers at a

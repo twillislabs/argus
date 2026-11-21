@@ -13,6 +13,12 @@ features, and patch versions fix things. Upgrade with `./argus update`.
   the newer of the two on top), and the panel gives each one's source,
   detail and date.
 
+### Patterns
+
+- The orange and red pattern rings can be clicked and hovered: they
+  open the circling aircraft or loitering ship, whose panel and hover
+  card now say what it's doing (for example 2.3 laps in 40 min).
+
 ### Fixed
 
 - Recent imagery no longer disappears when you switch the base map.

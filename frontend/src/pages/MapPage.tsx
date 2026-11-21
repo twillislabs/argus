@@ -5,6 +5,7 @@ import AirspaceInspector from '../components/AirspaceInspector';
 import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
 import PlaceInspector from '../components/PlaceInspector';
+import { airPatternLine, airPatternTitle, seaPatternLine, seaPatternTitle } from '../lib/patterns';
 import ImageryPanel, { closeUpFor, type ImageryState, newImagery } from '../components/ImageryPanel';
 import TourPanel from '../components/TourPanel';
 import AskPanel, { type AskItem } from '../components/AskPanel';
@@ -1611,6 +1612,17 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     openRight();
   };
 
+  // A pattern's line for the hover card (patternLayer's rings pick as the
+  // aircraft or ship).
+  const airPatternHover = (hex: string) => {
+    const p = patterns?.air.find((x) => x.hex === hex);
+    return p ? [airPatternTitle(p) + ': ' + airPatternLine(p)] : [];
+  };
+  const seaPatternHover = (mmsi: number) => {
+    const p = patterns?.sea.find((x) => x.mmsi === mmsi);
+    return p ? [seaPatternTitle + ': ' + seaPatternLine(p)] : [];
+  };
+
   // What the hover card says about a map item.
   function hoverInfo(id: string): HoverInfo | null {
     if (id.startsWith('ac:')) {
@@ -1625,6 +1637,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             .filter(Boolean)
             .join(' · '),
           a.emergency ? 'Emergency · squawk ' + a.squawk : '',
+          ...airPatternHover(a.hex),
         ],
       };
     }
@@ -1637,6 +1650,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         lines: [
           [v.type, v.flag, v.sog !== null ? v.sog.toFixed(1) + ' kn' : ''].filter(Boolean).join(' · '),
           v.destination ? '→ ' + v.destination : '',
+          ...seaPatternHover(v.mmsi),
         ],
       };
     }
@@ -2568,6 +2582,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             ) : selectedMmsi !== null ? (
               <VesselInspector
                 mmsi={selectedMmsi}
+                pattern={patterns?.sea.find((p) => p.mmsi === selectedMmsi) ?? null}
                 camera={camera}
                 onBack={clearSelection}
                 onCamera={setCamera}
@@ -2600,6 +2615,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             ) : selectedHex ? (
               <AircraftInspector
                 hex={selectedHex}
+                pattern={patterns?.air.find((p) => p.hex === selectedHex) ?? null}
                 camera={camera}
                 onBack={clearSelection}
                 onCamera={setCamera}
