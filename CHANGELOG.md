@@ -4,7 +4,11 @@ All notable changes to Argus. Versions follow [Semantic Versioning](https://semv
 a new major version may need you to change something when you upgrade, minor versions add
 features, and patch versions fix things. Upgrade with `./argus update`.
 
-## [Unreleased]
+## [1.3.0] - 2026-11-20
+
+Animated wind and air quality worldwide, traffic cameras in Texas,
+Washington and Hong Kong, and camera badges that keep busy maps
+readable. Nothing to change when you upgrade.
 
 ### Weather
 
@@ -20,7 +24,8 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 - Traffic cameras in Texas (TxDOT, about 3,500), Washington (WSDOT,
   about 1,600) and Hong Kong (about 1,000), no keys needed.
 - Zoomed out, nearby traffic cameras, webcams and plate reader
-  cameras merge into a badge with their count; click it to zoom in to them.
+  cameras merge into a badge with their count; click it to zoom in
+  to them.
 
 ## [1.2.0] - 2026-11-20
 
