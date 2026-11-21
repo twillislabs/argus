@@ -252,10 +252,18 @@ the imagery over the map. The imagery shows from city zoom in and stays
 on the map while you look at other things; **← Situation (remove
 imagery)** takes it off.
 
+**Close up** (US only): Sentinel's 10 m pixels turn to blocks from about
+street level, so there the newest NAIP aerial photo takes over, at about
+0.6 m (houses, cars and road markings). NAIP is flown every two to three
+years, so it's older than the pass; the panel says when it was flown.
+It's hidden while comparing passes, and **Aerial photos when zoomed in**
+turns it off. Outside the US you keep seeing Sentinel up close.
+
 The imagery comes from Microsoft's Planetary Computer (free, no key).
 Your Argus server fetches the tiles and keeps them a week, so browsers
 never contact Microsoft. Imagery is days old, not live, and commercial
-high-resolution imagery isn't included.
+high-resolution satellite imagery isn't included. NAIP aerial photos are
+from the USDA (public domain).
 
 ## Legend
 

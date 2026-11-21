@@ -87,3 +87,61 @@ async def test_api_rejects_big_box(admin_client):
         "/api/imagery/passes?kind=infrared&bbox=-86.9,36,-86.6,36.3"
     )
     assert r.status_code == 422
+
+
+async def test_aerial_mosaic(tmp_path):
+    bodies = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if url.endswith("/stac/v1/search"):
+            bodies.append(("search", request.content))
+            return httpx.Response(
+                200,
+                json={
+                    "features": [
+                        {"properties": {"datetime": "2023-05-25T16:00:00Z"}},
+                        {"properties": {"datetime": "2023-05-25T16:00:00Z"}},
+                        {"properties": {"datetime": "2021-12-03T16:00:00Z"}},
+                    ]
+                },
+            )
+        if url.endswith("/mosaic/register"):
+            bodies.append(("register", request.content))
+            return httpx.Response(200, json={"searchid": "pc1.42.abcdef"})
+        return httpx.Response(
+            200, content=b"PNG", headers={"content-type": "image/png"}
+        )
+
+    im = imagery.Imagery("test", str(tmp_path))
+    im.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    box = (-86.9, 36.0, -86.6, 36.3)
+    found = await im.aerial(box)
+    assert found == {
+        "available": True,
+        "dates": ["2023-05-25", "2021-12-03"],
+        "sid": "pc1.42.abcdef",
+    }
+    # Newest photo on top, and cached.
+    assert b'"direction":"desc"' in bodies[1][1].replace(b" ", b"")
+    assert await im.aerial(box) == found
+    assert len(bodies) == 2
+    # NAIP tiles go one zoom closer than Sentinel's, but not further out.
+    assert await im.tile("aerial", "pc1.42.abcdef", 17, 1, 1) == b"PNG"
+    with pytest.raises(imagery.ImageryError):
+        await im.tile("optical", "pc1.42.abcdef", 17, 1, 1)
+    with pytest.raises(imagery.ImageryError):
+        await im.tile("aerial", "pc1.42.abcdef", 8, 1, 1)
+    await im.close()
+
+
+async def test_aerial_none_outside_us(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert str(request.url).endswith("/stac/v1/search")
+        return httpx.Response(200, json={"features": []})
+
+    im = imagery.Imagery("test", str(tmp_path))
+    im.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    found = await im.aerial((2.2, 48.8, 2.4, 48.9))
+    assert found == {"available": False, "dates": []}
+    await im.close()

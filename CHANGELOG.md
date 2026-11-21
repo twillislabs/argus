@@ -13,6 +13,11 @@ features, and patch versions fix things. Upgrade with `./argus update`.
   ships, traffic cameras and news. It uses read-only API tokens, made
   in Settings › AI assistants.
 
+### Imagery
+
+- Recent imagery: close up in the US, NAIP aerial photos (about 0.6 m)
+  take over from Sentinel's 10 m pixels, with the date they were flown.
+
 ### Ground
 
 - Radio stations: about 1,300 of the world's most-played stations on

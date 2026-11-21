@@ -9,6 +9,10 @@ at night), from Microsoft's Planetary Computer (no key).
 - tile(): one map tile, fetched by this server and kept on disk for a
   week, so browsers never call Microsoft and each tile is fetched once.
 
+- aerial(): for close zoom in the US, a mosaic of NAIP aerial photos
+  (USDA, about 0.6 m, public domain), newest on top; flown every two to
+  three years, so older than the Sentinel passes.
+
 Sentinel-1 uses the GRD collection: the terrain-corrected one needs a
 Planetary Computer account. Copernicus Sentinel data is free to use
 with attribution ("Contains modified Copernicus Sentinel data").
@@ -49,10 +53,23 @@ KINDS = {
         "params": [("assets", "vv"), ("rescale", "0,350"), ("nodata", "0")],
         "cloud": False,
     },
+    "aerial": {
+        "collection": "naip",
+        "params": [
+            ("assets", "image"),
+            ("asset_bidx", "image|1,2,3"),
+            ("nodata", "0"),
+        ],
+        "cloud": False,
+    },
 }
+# Tile zoom range per kind: Sentinel's 10 m runs out past 16, NAIP's
+# 0.6 m at 17 (512 px tiles).
+ZOOMS = {"optical": (6, 16), "radar": (6, 16), "aerial": (10, 17)}
+# NAIP years used to fill the box, newest on top.
+AERIAL_YEARS = 8
 LOOKBACK_DAYS = 60
 MAX_SPAN_DEG = 1.0  # about 100 km
-MIN_ZOOM, MAX_ZOOM = 6, 16
 PASSES_TTL_S = 3600
 TILE_TTL_S = 7 * 86400
 TILE_MAX_BYTES = 3_000_000
@@ -101,9 +118,32 @@ def group_passes(features: list[dict], cloud: bool) -> list[dict]:
     return out
 
 
-def _cql(collection: str, box, day: str) -> dict:
+def _cql(
+    collection: str, box, day: str | None, since: str | None = None
+) -> dict:
+    """A mosaic search: the collection's scenes over the box on one day,
+    or (no day) all of them since a time."""
     w, s, e, n = box
     ring = [[w, s], [e, s], [e, n], [w, n], [w, s]]
+    when = (
+        {
+            "op": "anyinteracts",
+            "args": [
+                {"property": "datetime"},
+                {
+                    "interval": [
+                        "{0}T00:00:00Z".format(day),
+                        "{0}T23:59:59Z".format(day),
+                    ]
+                },
+            ],
+        }
+        if day
+        else {
+            "op": ">=",
+            "args": [{"property": "datetime"}, {"timestamp": since}],
+        }
+    )
     return {
         "collections": [collection],
         "filter-lang": "cql2-json",
@@ -117,18 +157,7 @@ def _cql(collection: str, box, day: str) -> dict:
                         {"type": "Polygon", "coordinates": [ring]},
                     ],
                 },
-                {
-                    "op": "anyinteracts",
-                    "args": [
-                        {"property": "datetime"},
-                        {
-                            "interval": [
-                                "{0}T00:00:00Z".format(day),
-                                "{0}T23:59:59Z".format(day),
-                            ]
-                        },
-                    ],
-                },
+                when,
             ],
         },
     }
@@ -190,6 +219,55 @@ class Imagery:
             self.passes_cache.pop(oldest, None)
         return found
 
+    async def aerial(self, box) -> dict:
+        """NAIP over the box: whether there is any, the years it was
+        flown, and a mosaic of the newest photo at each spot."""
+        check_box(box)
+        key = "aerial:{0:.3f},{1:.3f},{2:.3f},{3:.3f}".format(*box)
+        hit = self.passes_cache.get(key)
+        if hit and time.monotonic() - hit[0] < PASSES_TTL_S:
+            return hit[1]
+        since = datetime.now(UTC) - timedelta(days=365 * AERIAL_YEARS)
+        stamp = since.strftime("%Y-%m-%dT%H:%M:%SZ")
+        r = await self.client.post(
+            STAC_SEARCH,
+            json={
+                "collections": [KINDS["aerial"]["collection"]],
+                "bbox": list(box),
+                "datetime": "{0}/..".format(stamp),
+                "limit": 200,
+                "sortby": [
+                    {"field": "properties.datetime", "direction": "desc"}
+                ],
+                "fields": {
+                    "include": ["id", "properties.datetime"],
+                    "exclude": ["assets", "links"],
+                },
+            },
+        )
+        r.raise_for_status()
+        days = sorted(
+            {
+                str((f.get("properties") or {}).get("datetime") or "")[:10]
+                for f in r.json().get("features") or []
+            }
+            - {""},
+            reverse=True,
+        )
+        days = [d for d in days if DAY.match(d)]
+        found: dict = {"available": bool(days), "dates": days[:10]}
+        if days:
+            body = _cql(KINDS["aerial"]["collection"], box, None, stamp)
+            body["sortby"] = [{"field": "datetime", "direction": "desc"}]
+            reg = await self.client.post(REGISTER, json=body)
+            reg.raise_for_status()
+            sid = reg.json().get("searchid") or ""
+            if not SEARCH_ID.match(sid):
+                raise ImageryError("The imagery service gave an odd answer.")
+            found["sid"] = sid
+        self.passes_cache[key] = (time.monotonic(), found)
+        return found
+
     async def mosaic(self, kind: str, box, day: str) -> str:
         check_box(box)
         if not DAY.match(day):
@@ -217,7 +295,8 @@ class Imagery:
 
     async def tile(self, kind: str, sid: str, z: int, x: int, y: int):
         """PNG bytes, or None where the mosaic has no data."""
-        if not SEARCH_ID.match(sid) or not MIN_ZOOM <= z <= MAX_ZOOM:
+        low, high = ZOOMS.get(kind, (99, 0))
+        if not SEARCH_ID.match(sid) or not low <= z <= high:
             raise ImageryError("No such tile.")
         if not (0 <= x < 2**z and 0 <= y < 2**z):
             raise ImageryError("No such tile.")

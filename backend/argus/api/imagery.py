@@ -48,6 +48,41 @@ async def imagery_passes(
     return {"passes": found, "attribution": ATTRIBUTION}
 
 
+AERIAL_ATTRIBUTION = (
+    "NAIP aerial photos: USDA Farm Production and Conservation Business "
+    "Center, via Microsoft Planetary Computer"
+)
+
+
+@router.get("/api/imagery/aerial")
+async def imagery_aerial(
+    request: Request,
+    session: SessionDep,
+    bbox: str = Query(..., description="west,south,east,north"),
+):
+    """Sharp aerial photos for close zoom, where there are any (the US)."""
+    box = _box(bbox)
+    try:
+        found = await request.app.state.imagery.aerial(box)
+    except ImageryError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except httpx.HTTPError as exc:
+        log.warning("Aerial search failed: {0}".format(exc))
+        raise HTTPException(
+            502, "The imagery catalogue didn't answer."
+        ) from exc
+    if not found["available"]:
+        return {"available": False, "dates": [], "tiles": None}
+    return {
+        "available": True,
+        "dates": found["dates"],
+        "tiles": "/api/imagery/tiles/aerial/{0}/{{z}}/{{x}}/{{y}}.png".format(
+            found["sid"]
+        ),
+        "attribution": AERIAL_ATTRIBUTION,
+    }
+
+
 @router.get("/api/imagery/mosaic")
 async def imagery_mosaic(
     request: Request,

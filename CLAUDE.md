@@ -398,6 +398,12 @@ parts connect.
   sharp), `map/sentinelLayer.ts` (box-limited
   ImageryLayer, compare via `scene.splitPosition`),
   `components/ImageryPanel.tsx` (state kept in MapPage as `sentinel`).
+  Close up, NAIP aerial photos (US, 0.6 m, kind `aerial`,
+  `Imagery.aerial`: newest on top over the last `AERIAL_YEARS`,
+  `/api/imagery/aerial`) draw over the pass from terrain level
+  `AERIAL_FROM_LEVEL` (ImageryLayer `minimumTerrainLevel`), hidden while
+  comparing; tile zooms per kind are `ZOOMS`. Sentinel-2's 10 m is the
+  source's limit (zoom 13 at 512 px), not a bug.
   Mosaic tile requests need `collection=` as well. Sentinel-1 is the GRD
   collection: sentinel-1-rtc needs a Planetary Computer account. While
   imagery is shown the dark map's land is fully see-through.

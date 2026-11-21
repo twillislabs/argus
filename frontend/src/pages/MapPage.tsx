@@ -676,6 +676,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             box: sentinel.box,
             tiles: sentinel.tiles,
             before: sentinel.beforeTiles,
+            aerial: sentinel.aerialOn ? (sentinel.aerial?.tiles ?? null) : null,
             alpha: sentinel.alpha,
             split: sentinel.split,
           }

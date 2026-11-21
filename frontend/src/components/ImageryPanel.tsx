@@ -5,7 +5,8 @@ import { api } from '../lib/api';
 // Recent imagery (toolbar > Imagery, draw a box): the recent Sentinel
 // passes over the box, the chosen one draped on the map, opacity, and a
 // before/after split against an older pass. The state lives in MapPage,
-// so the imagery stays while you look at other things.
+// so the imagery stays while you look at other things. Close up, NAIP
+// aerial photos (US) take over where Sentinel's 10 m turns to blocks.
 
 export type ImageryKind = 'optical' | 'radar';
 
@@ -28,6 +29,10 @@ export interface ImageryState {
   beforeTiles: string | null;
   alpha: number;
   split: number;
+  // NAIP aerial photos for close zoom: null until looked up; tiles null
+  // where there are none (outside the US).
+  aerial: { tiles: string | null; dates: string[] } | null;
+  aerialOn: boolean;
 }
 
 export const newImagery = (box: ImageryState['box']): ImageryState => ({
@@ -41,7 +46,19 @@ export const newImagery = (box: ImageryState['box']): ImageryState => ({
   beforeTiles: null,
   alpha: 1,
   split: 0.5,
+  aerial: null,
+  aerialOn: true,
 });
+
+const monthYear = (day: string) =>
+  new Date(day + 'T12:00:00Z').toLocaleDateString([], { month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+// "May 2023", or "Dec 2021 to May 2023" when the box spans flights.
+function flown(dates: string[]): string {
+  const newest = monthYear(dates[0]);
+  const oldest = monthYear(dates[dates.length - 1]);
+  return newest === oldest ? newest : oldest + ' to ' + newest;
+}
 
 const bboxParam = (b: ImageryState['box']) => b.map((x) => x.toFixed(4)).join(',');
 
@@ -98,6 +115,23 @@ export default function ImageryPanel({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.kind, s.box.join(), s.passes === null, s.error]);
+
+  // Aerial photos for close zoom over this box (once per box).
+  useEffect(() => {
+    if (s.aerial !== null) return;
+    let cancelled = false;
+    api<{ tiles: string | null; dates: string[] }>('/api/imagery/aerial?bbox=' + bboxParam(s.box))
+      .then((r) => {
+        if (!cancelled) onChange((x) => ({ ...x, aerial: { tiles: r.tiles, dates: r.dates } }));
+      })
+      .catch(() => {
+        if (!cancelled) onChange((x) => ({ ...x, aerial: { tiles: null, dates: [] } }));
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.box.join(), s.aerial === null]);
 
   async function choose(date: string, which: 'main' | 'before') {
     try {
@@ -226,9 +260,42 @@ export default function ImageryPanel({
           </p>
         </section>
       )}
+      {s.tiles && (
+        <section className="isec">
+          <h3>Close up</h3>
+          {s.aerial === null ? (
+            <p className="quiet small">Looking for aerial photos…</p>
+          ) : s.aerial.tiles && s.aerial.dates.length > 0 ? (
+            <>
+              <label className="lrow">
+                <input
+                  type="checkbox"
+                  checked={s.aerialOn}
+                  onChange={(ev) => onChange((x) => ({ ...x, aerialOn: ev.target.checked }))}
+                />
+                <span className="tog" />
+                <span className="lname">
+                  <span>Aerial photos when zoomed in</span>
+                  <small>About 0.6 m, flown {flown(s.aerial.dates)}</small>
+                </span>
+              </label>
+              <p className="quiet small">
+                Sentinel&apos;s 10 m pixels turn to blocks up close, so from street level the newest NAIP aerial photo
+                takes over (USDA, public domain). It&apos;s older than the pass: check the date.
+                {s.before ? ' Hidden while comparing passes.' : ''}
+              </p>
+            </>
+          ) : (
+            <p className="quiet small">
+              No aerial photos here: NAIP covers the US only, so up close you see Sentinel&apos;s 10 m pixels.
+            </p>
+          )}
+        </section>
+      )}
       <section className="isec">
         <p className="quiet small">
           Contains modified Copernicus Sentinel data, via Microsoft Planetary Computer. Imagery is days old, not live.
+          {s.aerial?.tiles ? ' NAIP aerial photos: USDA.' : ''}
         </p>
       </section>
     </div>
