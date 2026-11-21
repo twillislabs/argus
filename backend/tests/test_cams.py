@@ -413,3 +413,204 @@ async def test_new_feeds_fetch_once(app):
     async with app.state.db.sessionmaker() as db:
         source = await db.get(worker.Source, "trafficcams")
     assert len(source.label) <= 80
+
+
+def test_more_open_feeds():
+    austin = cams.parse_austin(
+        {
+            "meta": {
+                "view": {
+                    "columns": [
+                        {"fieldName": "camera_id"},
+                        {"fieldName": "location_name"},
+                        {"fieldName": "camera_status"},
+                        {"fieldName": "location"},
+                    ]
+                }
+            },
+            "data": [
+                [
+                    "1",
+                    "830 BLK W RUNDBERG LN",
+                    "TURNED_ON",
+                    "POINT (-97.7 30.36)",
+                ],
+                ["2", "Planned", "DESIRED", "POINT (-97.7 30.36)"],
+            ],
+        }
+    )
+    assert [c["id"] for c in austin] == ["austin-1"]
+    assert austin[0]["image"] == "https://cctv.austinmobility.io/image/1.jpg"
+    assert (austin[0]["lat"], austin[0]["lon"]) == (30.36, -97.7)
+
+    def king_row(asset, owner="King County", **extra):
+        props = {
+            "AssetID": asset,
+            "Location": "Avondale Rd NE",
+            "ImageURL": "http://info.kingcounty.gov/x/Handler.ashx?id=a.jpg",
+            "Live": 1,
+            "Owner": owner,
+            "CurrentStatus": "Active",
+        } | extra
+        return {
+            "geometry": {"coordinates": [-122.08, 47.75]},
+            "properties": props,
+        }
+
+    king = cams.parse_king(
+        {
+            "features": [
+                king_row(224),
+                king_row(225, owner="WSDOT"),  # WSDOT's feed has it
+                king_row(226, Live=0),
+                king_row(227, owner="Newcastle"),
+            ]
+        }
+    )
+    assert [c["id"] for c in king] == ["king-224", "king-227"]
+    assert king[0]["image"].startswith("https://info.kingcounty.gov/")
+    assert king[1]["agency"] == "Newcastle (King County)"
+
+    toronto = cams.parse_toronto(
+        'jsonTMCEarthCamerasCallback({"Data":[{"Number":"8001",'
+        '"Name":"YORK ST","Latitude":"43.64","Longitude":"-79.38",'
+        '"D1":"n"},{"Number":"../x","Latitude":"1","Longitude":"1"}]});'
+    )
+    assert [c["id"] for c in toronto] == ["toronto-8001"]
+    assert toronto[0]["image"].endswith("/CameraImages/loc8001.jpg")
+    assert toronto[0]["direction"] is None  # D1-D4 aren't a facing
+
+    calgary = cams.parse_calgary(
+        [
+            {
+                "camera_url": {"url": "http://trafficcam.calgary.ca/loc0.jpg"},
+                "camera_location": "Glenmore Trail / Macleod Trail S",
+                "point": {"coordinates": [-114.07, 50.99]},
+            },
+            {
+                "camera_url": {"url": "https://elsewhere.example/loc1.jpg"},
+                "point": {"coordinates": [-114.07, 50.99]},
+            },
+        ]
+    )
+    assert [c["id"] for c in calgary] == ["calgary-0"]
+    assert calgary[0]["image"] == "https://trafficcam.calgary.ca/loc0.jpg"
+
+    def veg(cid, **extra):
+        return {
+            "geometry": {"coordinates": [5.46, 61.83]},
+            "properties": {
+                "cameraId": cid,
+                "stillImageUrl": cams.VEGVESEN_IMAGES + cid,
+                "description": "Langesi",
+                "orientationDescription": "Svelgen",
+                "roadNumber": "F614",
+            }
+            | extra,
+        }
+
+    norway = cams.parse_vegvesen(
+        {
+            "features": [
+                veg("3000063_1"),
+                veg(
+                    "1429037_1",
+                    videoEncodingStandard="hls",
+                    videoUrl=cams.VEGVESEN_VIDEO + "1429037_1/manifest.m3u8",
+                ),
+                veg("bad", stillImageUrl="https://elsewhere.example/x"),
+            ]
+        }
+    )
+    assert [c["id"] for c in norway] == [
+        "vegvesen-3000063_1",
+        "vegvesen-1429037_1",
+    ]
+    assert norway[0]["stream"] is None and norway[1]["stream"]
+    assert norway[0]["place"] == "Norway · towards Svelgen"
+
+    iceland = cams.parse_iceland(
+        [
+            {
+                "Skyring": "Hellisheiði séð til vesturs",
+                "Slod": cams.ICELAND_IMAGES + "hellisheidi_1.jpg",
+                "Breidd": 64.0183,
+                "Lengd": -21.3426,
+            },
+            {
+                "Skyring": "Hellisheiði séð niður á veg",
+                "Slod": cams.ICELAND_IMAGES + "hellisheidi_2.jpg",
+                "Breidd": 64.0183,
+                "Lengd": -21.3426,
+            },
+        ]
+    )
+    assert [c["direction"] for c in iceland] == [270.0, None]
+    assert iceland[1]["lat"] > iceland[0]["lat"]  # spread apart
+
+    deldot = cams.parse_deldot(
+        {
+            "videoCameras": [
+                {
+                    "id": "KCAM001",
+                    "title": "DE 1 @ MILFORD NECK RD",
+                    "county": "Kent",
+                    "lat": 38.99,
+                    "lon": -75.45,
+                    "status": "Active",
+                    "urls": {
+                        "m3u8s": "https://video.deldot.gov:443/live/"
+                        "KCAM001.stream/playlist.m3u8"
+                    },
+                },
+                {
+                    "id": "KCAM002",
+                    "lat": 38.99,
+                    "lon": -75.45,
+                    "status": "Active",
+                    "urls": {"m3u8s": "https://elsewhere.example/a.m3u8"},
+                },
+            ]
+        }
+    )
+    assert [c["id"] for c in deldot] == ["deldot-KCAM001"]
+    assert deldot[0]["image"] is None
+    assert deldot[0]["stream"] == (
+        "https://video.deldot.gov/live/KCAM001.stream/playlist.m3u8"
+    )
+
+
+async def test_video_only_cameras_have_no_image(app, admin_client):
+    from argus.models import ServerSetting
+
+    cam = cams.parse_deldot(
+        {
+            "videoCameras": [
+                {
+                    "id": "KCAM001",
+                    "lat": 38.99,
+                    "lon": -75.45,
+                    "status": "Active",
+                    "urls": {
+                        "m3u8s": "https://video.deldot.gov/live/"
+                        "KCAM001.stream/playlist.m3u8"
+                    },
+                }
+            ]
+        }
+    )
+    async with app.state.db.sessionmaker() as db:
+        db.add(
+            ServerSetting(
+                key="layer:trafficcams", value={"feeds": {"deldot": cam}}
+            )
+        )
+        await db.commit()
+    app.state.cams_catalogue = None
+    r = (
+        await admin_client.get("/api/cams", params={"bbox": "-76,38,-75,40"})
+    ).json()
+    assert r["cameras"][0]["image"] is None
+    assert r["cameras"][0]["video"] == "live"
+    img = await admin_client.get("/api/cams/deldot-KCAM001/image")
+    assert img.status_code == 404

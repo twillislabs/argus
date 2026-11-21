@@ -60,7 +60,7 @@ export function addCamView(scene: Scene): CamView {
     material = null;
   };
 
-  const url = (cam: TrafficCam) => cam.image + '?t=' + Math.floor(Date.now() / 1000);
+  const url = (cam: TrafficCam) => (cam.image ?? '') + '?t=' + Math.floor(Date.now() / 1000);
 
   return {
     show(cam) {
@@ -68,7 +68,8 @@ export function addCamView(scene: Scene): CamView {
       if (key === current) return;
       current = key;
       clear();
-      if (!cam) {
+      // Nothing to show for video-only cameras (no still).
+      if (!cam || !cam.image) {
         scene.requestRender();
         return;
       }

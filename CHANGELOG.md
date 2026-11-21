@@ -14,6 +14,9 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ### Cameras
 
+- About 3,200 more traffic cameras, no keys needed: Austin, King County
+  (WA), Delaware (live video), Toronto, Calgary, Norway (some live
+  video) and Iceland.
 - The selected traffic camera's picture on the map: at the end of a
   3D view cone (View along it flies to just behind the camera), or
   floating above cameras with no known direction.

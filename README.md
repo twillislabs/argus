@@ -53,8 +53,9 @@ What it does today:
 - **Weather.** NWS warnings, watches and advisories (on their zone outlines), the SPC severe weather
   outlook, tropical storms, radar, lightning, satellite clouds and precipitation, animated wind,
   air quality, and conditions at home or anywhere you click.
-- **Cameras and video.** Traffic cameras from Caltrans, TxDOT, WSDOT, TDOT (with a key), DriveBC,
-  London, Finland and Hong Kong, with stills and live video, grouped by count when zoomed out; webcams from Windy and live YouTube streams near the view
+- **Cameras and video.** Traffic cameras from Caltrans, TxDOT, WSDOT, DelDOT, TDOT (with a key),
+  Austin, King County, Toronto, Calgary, DriveBC, London, Finland, Norway, Iceland and Hong Kong,
+  with stills and live video, grouped by count when zoomed out; webcams from Windy and live YouTube streams near the view
   or about an event (with free keys).
 - **Context.** US and UK travel advisories by country and Wikipedia's current events, placed on
   the map.
@@ -244,8 +245,11 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
   [OpenFlights](https://openflights.org/data) airlines (ODbL 1.0). Aircraft whose owners opted out
   (PIA, LADD) are hidden unless military, and owner names are never shown.
 - **Traffic cameras:** each agency's public feed, credited by name on every camera: Caltrans,
-  TxDOT, WSDOT, TDOT SmartWay, DriveBC, TfL (Powered by TfL Open Data), Fintraffic Digitraffic
-  (CC BY 4.0) and the Hong Kong Transport Department (DATA.GOV.HK). Images are fetched by your
+  TxDOT, WSDOT, DelDOT, TDOT SmartWay, the City of Austin (public domain), King County (KCGIS
+  terms of use), DriveBC, TfL (Powered by TfL Open Data), Fintraffic Digitraffic (CC BY 4.0), the
+  Hong Kong Transport Department (DATA.GOV.HK), Statens vegvesen (NLOD), Vegagerðin (CC BY 4.0),
+  and information licensed under the Open Government Licence – Toronto and the Open Government
+  Licence – City of Calgary. Images are fetched by your
   server only when someone opens a camera.
 - **Globe:** [CesiumJS](https://cesium.com/platform/cesiumjs/) (Apache 2.0). Argus uses the
   open-source engine only, not the Cesium ion service.

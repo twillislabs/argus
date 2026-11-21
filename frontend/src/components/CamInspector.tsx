@@ -80,7 +80,9 @@ export default function CamInspector({
     const id = window.setInterval(() => setTick(Date.now()), REFRESH_S * 1000);
     return () => window.clearInterval(id);
   }, [cam.id]);
-  const src = cam.image + '?t=' + Math.floor(tick / 1000);
+  const src = cam.image ? cam.image + '?t=' + Math.floor(tick / 1000) : null;
+  // A camera with no still (DelDOT's) always shows its video.
+  const showVideo = playing || !src;
   const facing = cam.direction !== null ? COMPASS[Math.round(cam.direction / 45) % 8] : null;
   return (
     <div className="inspector-body">
@@ -97,12 +99,12 @@ export default function CamInspector({
         <div className="sub">
           {[cam.road, cam.place, facing ? 'looking ' + facing : null].filter(Boolean).join(' · ')}
         </div>
-        {playing ? (
+        {showVideo ? (
           <Player cam={cam} />
         ) : (
           <figure className="camshot">
             <img
-              src={src}
+              src={src ?? undefined}
               alt={'Traffic camera: ' + cam.name}
               onLoad={() => {
                 setState('ok');
@@ -115,7 +117,7 @@ export default function CamInspector({
         )}
         {(cam.video || (onLookAlong && cam.direction !== null)) && (
           <div className="actions">
-            {cam.video && (
+            {cam.video && src && (
               <button className="btn small" onClick={() => setPlaying(!playing)}>
                 {playing ? 'Back to the still' : cam.video === 'live' ? '▶ Play live video' : '▶ Play latest clip'}
               </button>
@@ -134,7 +136,7 @@ export default function CamInspector({
         <p className="quiet small">
           {cam.agency}
           {loadedAt ? ' · refreshed ' + new Date(loadedAt).toLocaleTimeString() : ''} · updates every {REFRESH_S} s
-          {playing ? ' · video plays straight from ' + cam.agency : ''}
+          {showVideo ? ' · video plays straight from ' + cam.agency : ''}
         </p>
       </section>
     </div>

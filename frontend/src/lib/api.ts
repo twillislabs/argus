@@ -905,7 +905,8 @@ export interface TrafficCam {
   lon: number;
   agency: string;
   refresh_s: number;
-  image: string;
+  // Our proxy's path to its latest still; null for video-only cameras.
+  image: string | null;
   // Live video (HLS) or a short recent clip (MP4), from the agency.
   video: 'live' | 'clip' | null;
 }

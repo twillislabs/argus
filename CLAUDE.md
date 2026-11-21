@@ -226,8 +226,14 @@ parts connect.
   `fetch_image` follows with the same check). New no-key feeds go in
   `cams.OPEN_FEEDS`. A camera with `image_json` (TxDOT) has its still
   as base64 in that JSON field; `_json_image` decodes JPEG or PNG only.
+  Video-only cameras (DelDOT) have `image: None`; `_public` sends
+  `image: null`, the inspector shows the video, camView draws nothing.
+  Video hosts in the CSP: wzmedia.dot.ca.gov, *.skyvdn.com,
+  video.deldot.gov, kamera.vegvesen.no.
   Left out on purpose: Live Traffic NSW (its images answer only a
-  browser's User-Agent; don't fake one) and FL511 (personal use only).
+  browser's User-Agent; don't fake one), FL511 (personal use only),
+  Ottawa (registration certificate) and Catalonia (its HTTPS handshake
+  fails; plain http only).
   The selected camera's still is drawn in the scene by `map/camView.ts`
   (a view cone and an upright WallGeometry panel with an Image material
   at camLayer's `VIEW_RANGE_M`, or a billboard when there's no

@@ -27,6 +27,19 @@ Feeds:
   cameras in it (Oregon DOT, cities, lodges) have their own terms.
 - Hong Kong Transport Department (no key, DATA.GOV.HK, attribution):
   an XML list; each image is tdcctv.data.one.gov.hk/<key>.JPG.
+- City of Austin (public domain, data.austintexas.gov): working cameras
+  (TURNED_ON); images cctv.austinmobility.io/image/<id>.jpg.
+- King County, WA (KCGIS terms of use): the county's ArcGIS layer, only
+  the columns we use; WSDOT's own cameras there are skipped (WSDOT's
+  feed has them).
+- City of Toronto RESCU (Open Government Licence - Toronto): JSONP;
+  images .../CameraImages/loc<number>.jpg.
+- City of Calgary (Open Government Licence - City of Calgary).
+- Statens vegvesen, Norway (NLOD): OGC API features, stills and, for
+  some, live HLS.
+- Vegagerðin, Iceland (CC BY 4.0): one camera per view, the way it
+  looks from the Icelandic description ("séð til vesturs").
+- DelDOT, Delaware: live HLS only, no stills (image None).
 
 Each camera: {id, name, road, place, direction (degrees or None), lat,
 lon, agency, image, stream (HLS), clip (MP4), refresh_s}, plus
@@ -94,6 +107,51 @@ HKTD = (
     "Traffic_Camera_Locations_En.xml"
 )
 HKTD_IMAGE = "https://tdcctv.data.one.gov.hk/{0}.JPG"
+AUSTIN = (
+    "https://data.austintexas.gov/api/views/b4k4-adkb/rows.json"
+    "?accessType=DOWNLOAD"
+)
+AUSTIN_IMAGE = "https://cctv.austinmobility.io/image/{0}.jpg"
+KING = (
+    "https://services.arcgis.com/Ej0PsM5Aw677QF1W/arcgis/rest/services/"
+    "TRAFFICCAMERA_POINT_2029/FeatureServer/0/query?where=1%3D1"
+    "&outFields=AssetID,Location,ImageURL,Live,Owner,CurrentStatus"
+    "&f=geojson"
+)
+KING_IMAGES = "https://info.kingcounty.gov/"
+TORONTO = (
+    "https://opendata.toronto.ca/transportation/tmc/rescucameraimages/"
+    "Data/tmcearthcameras.json"
+)
+TORONTO_IMAGE = (
+    "https://opendata.toronto.ca/transportation/tmc/rescucameraimages/"
+    "CameraImages/loc{0}.jpg"
+)
+CALGARY = "https://data.calgary.ca/resource/k7p9-kppz.json?$limit=1000"
+CALGARY_IMAGES = "https://trafficcam.calgary.ca/"
+VEGVESEN = (
+    "https://ogckart-sn1.atlas.vegvesen.no/ogc/features/v1/collections/"
+    "datex_3_1:CctvSimple/items?f=application/geo%2Bjson&limit=5000"
+)
+VEGVESEN_IMAGES = "https://kamera.atlas.vegvesen.no/api/images/"
+VEGVESEN_VIDEO = "https://kamera.vegvesen.no/public/"
+ICELAND = "https://gagnaveita.vegagerdin.is/api/vefmyndavelar2014_1"
+ICELAND_IMAGES = "https://www.vegagerdin.is/vgdata/vefmyndavelar/"
+DELDOT = "https://tmc.deldot.gov/json/videocamera.json"
+DELDOT_VIDEO = re.compile(
+    r"https://video\.deldot\.gov(:443)?/live/[A-Za-z0-9_.-]+/playlist\.m3u8"
+)
+# Icelandic compass words ("séð til vesturs": looking west).
+ICELAND_FACING = {
+    "norðurs": 0,
+    "norðausturs": 45,
+    "austurs": 90,
+    "suðausturs": 135,
+    "suðurs": 180,
+    "suðvesturs": 225,
+    "vesturs": 270,
+    "norðvesturs": 315,
+}
 
 COMPASS = {
     "north": 0,
@@ -486,6 +544,251 @@ def parse_hktd(xml: bytes) -> list[dict]:
     return out
 
 
+def _cam(**kw) -> dict:
+    """A camera record with the fields every parser fills."""
+    return {
+        "road": None,
+        "place": None,
+        "direction": None,
+        "stream": None,
+        "clip": None,
+        "refresh_s": 60,
+    } | kw
+
+
+def parse_austin(doc: dict) -> list[dict]:
+    cols = [
+        c.get("fieldName")
+        for c in ((doc.get("meta") or {}).get("view") or {}).get("columns")
+        or []
+    ]
+    out = []
+    for row in doc.get("data") or []:
+        r = dict(zip(cols, row, strict=False))
+        cid = str(r.get("camera_id") or "")
+        m = re.fullmatch(
+            r"POINT \((-?[\d.]+) (-?[\d.]+)\)", str(r.get("location") or "")
+        )
+        if (
+            r.get("camera_status") != "TURNED_ON"
+            or not re.fullmatch(r"\d{1,6}", cid)
+            or not m
+        ):
+            continue
+        out.append(
+            _cam(
+                id="austin-{0}".format(cid),
+                name=str(r.get("location_name") or "Camera").strip()[:120],
+                road=(r.get("primary_st") or "").strip() or None,
+                place="Austin",
+                lat=round(float(m.group(2)), 6),
+                lon=round(float(m.group(1)), 6),
+                agency="City of Austin",
+                image=AUSTIN_IMAGE.format(cid),
+            )
+        )
+    return out
+
+
+def parse_king(doc: dict) -> list[dict]:
+    out = []
+    for f in doc.get("features") or []:
+        p = f.get("properties") or {}
+        coords = (f.get("geometry") or {}).get("coordinates") or []
+        image = str(p.get("ImageURL") or "").replace(
+            "http://info.kingcounty.gov/", KING_IMAGES, 1
+        )
+        if (
+            p.get("Live") != 1
+            or p.get("CurrentStatus") != "Active"
+            or p.get("Owner") == "WSDOT"
+            or not isinstance(p.get("AssetID"), int)
+            or not image.startswith(KING_IMAGES)
+            or len(coords) < 2
+        ):
+            continue
+        owner = p.get("Owner") or "King County"
+        out.append(
+            _cam(
+                id="king-{0}".format(p["AssetID"]),
+                name=str(p.get("Location") or "Camera")[:120],
+                place="King County, WA",
+                lat=round(float(coords[1]), 6),
+                lon=round(float(coords[0]), 6),
+                agency=owner
+                if owner == "King County"
+                else "{0} (King County)".format(owner),
+                image=image,
+            )
+        )
+    return out
+
+
+def parse_toronto(text: str) -> list[dict]:
+    m = re.match(r"\s*jsonTMCEarthCamerasCallback\(([\s\S]*)\)\s*;?\s*$", text)
+    doc = json.loads(m.group(1) if m else text)
+    out = []
+    for c in doc.get("Data") or []:
+        num = str(c.get("Number") or "")
+        lat, lon = _num(c.get("Latitude")), _num(c.get("Longitude"))
+        if not re.fullmatch(r"\d{1,6}", num) or lat is None or lon is None:
+            continue
+        out.append(
+            _cam(
+                id="toronto-{0}".format(num),
+                name=str(c.get("Name") or "Camera")[:120],
+                place="Toronto",
+                lat=round(lat, 6),
+                lon=round(lon, 6),
+                agency="City of Toronto",
+                image=TORONTO_IMAGE.format(num),
+            )
+        )
+    return out
+
+
+def parse_calgary(items: list) -> list[dict]:
+    out = []
+    for c in items:
+        url = str((c.get("camera_url") or {}).get("url") or "")
+        url = url.replace("http://", "https://", 1)
+        coords = (c.get("point") or {}).get("coordinates") or []
+        m = re.search(r"loc(\d+)\.jpg$", url, re.IGNORECASE)
+        if not url.startswith(CALGARY_IMAGES) or not m or len(coords) < 2:
+            continue
+        out.append(
+            _cam(
+                id="calgary-{0}".format(m.group(1)),
+                name=str(
+                    c.get("camera_location")
+                    or (c.get("camera_url") or {}).get("description")
+                    or "Camera"
+                )[:120],
+                place="Calgary",
+                lat=round(float(coords[1]), 6),
+                lon=round(float(coords[0]), 6),
+                agency="City of Calgary",
+                image=url,
+            )
+        )
+    return out
+
+
+def parse_vegvesen(doc: dict) -> list[dict]:
+    out = []
+    for f in doc.get("features") or []:
+        p = f.get("properties") or {}
+        coords = (f.get("geometry") or {}).get("coordinates") or []
+        cid = str(p.get("cameraId") or "")
+        if (
+            not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", cid)
+            or p.get("stillImageUrl") != VEGVESEN_IMAGES + cid
+            or p.get("status.stillImageAvailability")
+            not in (None, "videoOrImagesAvailable")
+            or len(coords) < 2
+        ):
+            continue
+        video = p.get("videoUrl") or ""
+        live = (
+            p.get("videoEncodingStandard") == "hls"
+            and video == VEGVESEN_VIDEO + cid + "/manifest.m3u8"
+        )
+        towards = p.get("orientationDescription")
+        out.append(
+            _cam(
+                id="vegvesen-{0}".format(cid),
+                name=str(p.get("description") or towards or cid)[:120],
+                road=p.get("roadNumber") or None,
+                place="Norway"
+                + (" · towards {0}".format(towards) if towards else ""),
+                lat=round(float(coords[1]), 6),
+                lon=round(float(coords[0]), 6),
+                agency="Statens vegvesen",
+                image=VEGVESEN_IMAGES + cid,
+                stream=video if live else None,
+                refresh_s=300,
+            )
+        )
+    return out
+
+
+def iceland_facing(text: str) -> float | None:
+    m = re.search(r"\btil\s+(\w+)", text.lower())
+    if m and m.group(1) in ICELAND_FACING:
+        return float(ICELAND_FACING[m.group(1)])
+    return None
+
+
+def parse_iceland(items: list) -> list[dict]:
+    out = []
+    at: dict[tuple, int] = {}
+    for c in items:
+        image = str(c.get("Slod") or "")
+        lat, lon = c.get("Breidd"), c.get("Lengd")
+        m = re.fullmatch(
+            re.escape(ICELAND_IMAGES) + r"([A-Za-z0-9_-]+)\.jpe?g", image
+        )
+        if (
+            not m
+            or not isinstance(lat, (int, float))
+            or not isinstance(lon, (int, float))
+        ):
+            continue
+        # Views of one station share a spot: spread them a little so
+        # each can be clicked.
+        key = (round(lat, 5), round(lon, 5))
+        n = at.get(key, 0)
+        at[key] = n + 1
+        text = str(c.get("Skyring") or c.get("Myndavel") or "Camera")
+        out.append(
+            _cam(
+                id="iceland-{0}".format(m.group(1)),
+                name=re.sub(r"\s+", " ", text)[:120],
+                road=c.get("Vegheiti") or None,
+                place="Iceland",
+                direction=iceland_facing(text),
+                lat=round(lat + n * 0.00012, 6),
+                lon=round(lon, 6),
+                agency="Vegagerðin (IRCA)",
+                image=image,
+                refresh_s=600,
+            )
+        )
+    return out
+
+
+def parse_deldot(doc: dict) -> list[dict]:
+    out = []
+    for c in doc.get("videoCameras") or []:
+        stream = str((c.get("urls") or {}).get("m3u8s") or "")
+        cid = str(c.get("id") or "")
+        lat, lon = c.get("lat"), c.get("lon")
+        if (
+            str(c.get("status") or "").lower() != "active"
+            or not c.get("enabled", True)
+            or not DELDOT_VIDEO.fullmatch(stream)
+            or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", cid)
+            or not isinstance(lat, (int, float))
+            or not isinstance(lon, (int, float))
+        ):
+            continue
+        out.append(
+            _cam(
+                id="deldot-{0}".format(cid),
+                name=str(c.get("title") or cid)[:120],
+                place="{0} County, Delaware".format(c["county"])
+                if c.get("county")
+                else "Delaware",
+                lat=round(lat, 6),
+                lon=round(lon, 6),
+                agency="DelDOT",
+                image=None,
+                stream=stream.replace(":443/", "/", 1),
+            )
+        )
+    return out
+
+
 async def fetch_drivebc(client: httpx.AsyncClient) -> list[dict]:
     r = await client.get(DRIVEBC)
     r.raise_for_status()
@@ -535,6 +838,42 @@ async def fetch_hktd(client: httpx.AsyncClient) -> list[dict]:
     return parse_hktd(r.content)
 
 
+async def _get(client: httpx.AsyncClient, url: str) -> httpx.Response:
+    r = await client.get(url)
+    r.raise_for_status()
+    return r
+
+
+async def fetch_austin(client: httpx.AsyncClient) -> list[dict]:
+    return parse_austin((await _get(client, AUSTIN)).json())
+
+
+async def fetch_king(client: httpx.AsyncClient) -> list[dict]:
+    return parse_king((await _get(client, KING)).json())
+
+
+async def fetch_toronto(client: httpx.AsyncClient) -> list[dict]:
+    return parse_toronto((await _get(client, TORONTO)).text)
+
+
+async def fetch_calgary(client: httpx.AsyncClient) -> list[dict]:
+    body = (await _get(client, CALGARY)).json()
+    return parse_calgary(body if isinstance(body, list) else [])
+
+
+async def fetch_vegvesen(client: httpx.AsyncClient) -> list[dict]:
+    return parse_vegvesen((await _get(client, VEGVESEN)).json())
+
+
+async def fetch_iceland(client: httpx.AsyncClient) -> list[dict]:
+    body = (await _get(client, ICELAND)).json()
+    return parse_iceland(body if isinstance(body, list) else [])
+
+
+async def fetch_deldot(client: httpx.AsyncClient) -> list[dict]:
+    return parse_deldot((await _get(client, DELDOT)).json())
+
+
 # Feeds that need no key, by name, for the worker.
 OPEN_FEEDS = {
     "drivebc": fetch_drivebc,
@@ -543,6 +882,13 @@ OPEN_FEEDS = {
     "txdot": fetch_txdot,
     "wsdot": fetch_wsdot,
     "hktd": fetch_hktd,
+    "austin": fetch_austin,
+    "king": fetch_king,
+    "toronto": fetch_toronto,
+    "calgary": fetch_calgary,
+    "vegvesen": fetch_vegvesen,
+    "iceland": fetch_iceland,
+    "deldot": fetch_deldot,
 }
 
 

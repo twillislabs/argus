@@ -63,7 +63,10 @@ def _public(c: dict) -> dict:
             "refresh_s",
         )
     } | {
-        "image": "/api/cams/{0}/image".format(c["id"]),
+        # DelDOT's cameras have live video only.
+        "image": "/api/cams/{0}/image".format(c["id"])
+        if c.get("image")
+        else None,
         "video": "live"
         if c.get("stream")
         else "clip"
