@@ -75,7 +75,8 @@ class Wind:
             follow_redirects=False,
         )
         self.cache: dict | None = None
-        self.failed_at = 0.0
+        # None until a fetch fails (monotonic time starts near 0 at boot).
+        self.failed_at: float | None = None
         self.lock = asyncio.Lock()
 
     async def close(self) -> None:
@@ -86,7 +87,10 @@ class Wind:
         async with self.lock:
             if self.cache and self.cache["time"] == step:
                 return self.cache
-            if time.monotonic() - self.failed_at < RETRY_S:
+            if (
+                self.failed_at is not None
+                and time.monotonic() - self.failed_at < RETRY_S
+            ):
                 return self.cache or {"status": "error"}
             try:
                 r = await self.client.get(ERDDAP.format(step, STRIDE))

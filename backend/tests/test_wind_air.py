@@ -88,7 +88,7 @@ async def test_air_quality_cache_and_budget(monkeypatch):
     assert (await aq.point(10, 10))["status"] == "busy"
 
 
-async def test_wind_keeps_last_step_when_noaa_fails():
+async def test_wind_keeps_last_step_when_noaa_fails(monkeypatch):
     calls = []
 
     def handler(request):
@@ -115,6 +115,8 @@ async def test_wind_keeps_last_step_when_noaa_fails():
         )
 
     w = wind.Wind("test")
+    # As on a machine booted a minute ago.
+    monkeypatch.setattr(wind.time, "monotonic", lambda: 60.0)
     w.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     ok = await w.get()
     assert ok["status"] == "ok" and ok["u"] == [1.0] * 4
