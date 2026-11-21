@@ -6,6 +6,13 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-21
+
+Assistants can read the map through MCP, plus world radio, live public
+transport, street photos, sharper close-ups in the US and about 3,200
+more traffic cameras. Nothing to change when you upgrade: the new API
+tokens table is added on start.
+
 ### AI assistants
 
 - An MCP server at /api/mcp, so Claude and other assistants can read
