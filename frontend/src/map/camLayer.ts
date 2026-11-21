@@ -4,8 +4,7 @@
 // ground: a VIEW_FOV sector VIEW_RANGE_M deep (agencies don't publish
 // zoom or tilt, so it's indicative), brighter for the selected camera.
 // Zoomed out, cameras close together merge into one badge with their
-// count (a grid cell that grows with the camera's height); clicking it
-// zooms to them ("group:<prefix><w>,<s>,<e>,<n>", see zoomToGroup).
+// count (map/groups.ts).
 
 import {
   Cartesian3,
@@ -15,11 +14,11 @@ import {
   NearFarScalar,
   PolygonGeometry,
   PolygonHierarchy,
-  Rectangle,
 } from '@cesium/core';
-import { BillboardCollection, type Camera, PerInstanceColorAppearance, Primitive, type Scene } from '@cesium/engine';
+import { BillboardCollection, PerInstanceColorAppearance, Primitive, type Scene } from '@cesium/engine';
 
 import type { TrafficCam } from '../lib/api';
+import { cellFor, groupBillboard, groupByCell, onCellChange } from './groups';
 
 export const CAM_COLOR = '#5fd0ff';
 const DEG = Math.PI / 180;
@@ -62,73 +61,6 @@ function icon(wedge: boolean, color = CAM_COLOR): HTMLCanvasElement {
   return c;
 }
 
-// A count badge: a ring in the layer's colour with the number inside.
-const badges = new Map<string, HTMLCanvasElement>();
-function badge(count: number, color: string): HTMLCanvasElement {
-  const label = count > 999 ? Math.floor(count / 1000) + 'k' : String(count);
-  const key = color + label;
-  const hit = badges.get(key);
-  if (hit) return hit;
-  const px = label.length > 2 ? 52 : 44;
-  const c = document.createElement('canvas');
-  c.width = c.height = px;
-  const ctx = c.getContext('2d');
-  if (ctx) {
-    const m = px / 2;
-    ctx.beginPath();
-    ctx.arc(m, m, m - 3, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(11, 14, 19, 0.88)';
-    ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = color;
-    ctx.stroke();
-    ctx.fillStyle = color;
-    ctx.font = '600 15px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, m, m + 1);
-  }
-  badges.set(key, c);
-  return c;
-}
-
-// Grid cell (degrees of latitude) for a camera this high: about an
-// eighth of the height (a badge's width or more on screen), in powers
-// of two so it changes in steps.
-// Below GROUP_BELOW_M every camera stands alone.
-const GROUP_BELOW_M = 12_000;
-const GROUP_MIN = 3;
-function cellFor(height: number): number {
-  if (height < GROUP_BELOW_M) return 0;
-  return 2 ** Math.round(Math.log2(height / 8 / 111_000));
-}
-
-// The view's height above the ground (in 2D, the zoom's equivalent).
-function heightOf(scene: Scene): number {
-  return scene.camera.positionCartographic.height;
-}
-
-const GROUP_PREFIX = 'group:';
-
-// A group's pick id to the camera flight that shows its cameras; false
-// when the id isn't a group's.
-export function zoomToGroup(camera: Camera, id: string): boolean {
-  if (!id.startsWith(GROUP_PREFIX)) return false;
-  const box = id
-    .slice(id.lastIndexOf(':') + 1)
-    .split(',')
-    .map(Number);
-  if (box.length !== 4 || box.some((n) => !Number.isFinite(n))) return false;
-  const [w, s, e, n] = box;
-  const padLat = Math.max((n - s) * 0.25, 0.004);
-  const padLon = Math.max((e - w) * 0.25, 0.004);
-  camera.flyTo({
-    destination: Rectangle.fromDegrees(w - padLon, s - padLat, e + padLon, n + padLat),
-    duration: 1.2,
-  });
-  return true;
-}
-
 const VIEW_FOV = 60;
 const VIEW_RANGE_M = 300;
 const EARTH_M = 6_371_000;
@@ -162,7 +94,6 @@ export function addCamLayer(scene: Scene, color = CAM_COLOR, prefix = 'cam:'): C
   const withWedge = icon(true, color);
   const plain = icon(false, color);
   const scale = new NearFarScalar(2e3, 0.9, 2e5, 0.4);
-  const groupScale = new NearFarScalar(5e4, 1, 3e6, 0.75);
   let depth = 0;
   let views: Primitive | null = null;
   // What the views were built for: rebuilding on every call would
@@ -173,42 +104,15 @@ export function addCamLayer(scene: Scene, color = CAM_COLOR, prefix = 'cam:'): C
   let shown: Placed[] = [];
   let isVisible = false;
   let picked: string | null = null;
-  let cell = cellFor(heightOf(scene));
+  let cell = cellFor(scene);
   const dropViews = () => {
     if (views && !scene.isDestroyed() && scene.primitives.contains(views)) scene.primitives.remove(views);
     views = null;
   };
 
-  // Cameras alone, and groups of GROUP_MIN or more sharing a cell. The
-  // selected camera always stands alone.
-  const group = (cams: Placed[]) => {
-    if (!cell) return { alone: cams, groups: [] as Placed[][] };
-    const cells = new Map<string, Placed[]>();
-    const alone: Placed[] = [];
-    for (const c of cams) {
-      if (c.id === picked) {
-        alone.push(c);
-        continue;
-      }
-      const row = Math.floor(c.lat / cell);
-      // Cells keep roughly square on the ground away from the equator.
-      const lonCell = cell / Math.max(0.2, Math.cos((row + 0.5) * cell * DEG));
-      const key = row + '/' + Math.floor(c.lon / lonCell);
-      const list = cells.get(key);
-      if (list) list.push(c);
-      else cells.set(key, [c]);
-    }
-    const groups: Placed[][] = [];
-    for (const list of cells.values()) {
-      if (list.length >= GROUP_MIN) groups.push(list);
-      else alone.push(...list);
-    }
-    return { alone, groups };
-  };
-
   const draw = () => {
     billboards.removeAll();
-    const { alone, groups } = isVisible ? group(shown) : { alone: [], groups: [] };
+    const { alone, groups } = isVisible ? groupByCell(shown, cell, picked) : { alone: [], groups: [] };
     const key = isVisible
       ? picked + '|' + alone.map((c) => (c.direction != null ? c.id + '@' + c.direction : '')).join(',')
       : '';
@@ -261,46 +165,21 @@ export function addCamLayer(scene: Scene, color = CAM_COLOR, prefix = 'cam:'): C
         disableDepthTestDistance: depth,
       });
     }
-    for (const list of groups) {
-      let w = 180,
-        s = 90,
-        e = -180,
-        n = -90,
-        lat = 0,
-        lon = 0;
-      for (const c of list) {
-        w = Math.min(w, c.lon);
-        e = Math.max(e, c.lon);
-        s = Math.min(s, c.lat);
-        n = Math.max(n, c.lat);
-        lat += c.lat;
-        lon += c.lon;
-      }
-      billboards.add({
-        id: GROUP_PREFIX + prefix + [w, s, e, n].map((x) => x.toFixed(5)).join(','),
-        position: Cartesian3.fromDegrees(lon / list.length, lat / list.length, 60),
-        image: badge(list.length, color),
-        scaleByDistance: groupScale,
-        disableDepthTestDistance: depth,
-      });
-    }
+    for (const list of groups) billboards.add(groupBillboard(list, prefix, color, depth));
     scene.requestRender();
   };
 
-  const onMoved = () => {
-    const next = cellFor(heightOf(scene));
-    if (next === cell) return;
+  const stopListening = onCellChange(scene, (next) => {
     cell = next;
     if (isVisible) draw();
-  };
-  const stopListening = scene.camera.moveEnd.addEventListener(onMoved);
+  });
 
   return {
     update(cams, visible, selected) {
       shown = cams;
       isVisible = visible;
       picked = selected;
-      cell = cellFor(heightOf(scene));
+      cell = cellFor(scene);
       draw();
     },
     setDepthDistance(metres) {

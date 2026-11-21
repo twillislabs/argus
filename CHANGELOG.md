@@ -10,8 +10,8 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 - Traffic cameras in Texas (TxDOT, about 3,500), Washington (WSDOT,
   about 1,600) and Hong Kong (about 1,000), no keys needed.
-- Zoomed out, nearby cameras and webcams merge into a badge with
-  their count; click it to zoom in to them.
+- Zoomed out, nearby traffic cameras, webcams and plate reader
+  cameras merge into a badge with their count; click it to zoom in to them.
 
 ## [1.2.0] - 2026-11-20
 

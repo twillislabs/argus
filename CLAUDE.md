@@ -228,8 +228,9 @@ parts connect.
   as base64 in that JSON field; `_json_image` decodes JPEG or PNG only.
   Left out on purpose: Live Traffic NSW (its images answer only a
   browser's User-Agent; don't fake one) and FL511 (personal use only).
-  The map groups nearby cameras (`camLayer.ts`, grid by camera height,
-  badge ids `group:<prefix>w,s,e,n`, `zoomToGroup` in Globe's click).
+  The map groups nearby cameras (`map/groups.ts`, shared by camLayer
+  and alprLayer: grid by camera height, badge ids
+  `group:<prefix>w,s,e,n`, `zoomToGroup` in Globe's click).
   `cams_loop` runs `cams_pass` under a catch-all and
   saves after each feed, TDOT first. TDOT's
   field names aren't public: `parse_tdot` guesses and logs the keys of

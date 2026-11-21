@@ -1,11 +1,13 @@
 // Automatic licence plate reader cameras (OpenStreetMap / DeFlock): a
 // small camera dot, with a wedge for the way it faces where that's
-// mapped. Pickable as "alpr:<osm type/id>". Locations only.
+// mapped. Pickable as "alpr:<osm type/id>". Locations only. Zoomed
+// out, cameras close together merge into a count badge (map/groups.ts).
 
 import { Cartesian3, NearFarScalar } from '@cesium/core';
 import { BillboardCollection, type Scene } from '@cesium/engine';
 
 import type { AlprCamera } from '../lib/api';
+import { cellFor, groupBillboard, groupByCell, onCellChange } from './groups';
 
 export const ALPR_COLOR = '#ffb03a';
 const DEG = Math.PI / 180;
@@ -52,28 +54,45 @@ export function addAlprLayer(scene: Scene): AlprLayer {
   const plain = icon(false);
   const scale = new NearFarScalar(2e3, 0.85, 1.5e5, 0.32);
   let depth = 0;
+  let shown: AlprCamera[] = [];
+  let isVisible = false;
+  let cell = cellFor(scene);
+  const draw = () => {
+    billboards.removeAll();
+    if (!isVisible) return;
+    const { alone, groups } = groupByCell(shown, cell);
+    for (const c of alone) {
+      const facing = c.direction !== null;
+      billboards.add({
+        id: 'alpr:' + c.id,
+        position: Cartesian3.fromDegrees(c.lon, c.lat, 30),
+        image: facing ? withWedge : plain,
+        rotation: facing ? -(c.direction ?? 0) * DEG : 0,
+        alignedAxis: Cartesian3.UNIT_Z,
+        scaleByDistance: scale,
+        disableDepthTestDistance: depth,
+      });
+    }
+    for (const list of groups) billboards.add(groupBillboard(list, 'alpr:', ALPR_COLOR, depth));
+    scene.requestRender();
+  };
+  const stopListening = onCellChange(scene, (next) => {
+    cell = next;
+    if (isVisible) draw();
+  });
   return {
     update(cameras, visible) {
-      billboards.removeAll();
-      if (!visible) return;
-      for (const c of cameras) {
-        const facing = c.direction !== null;
-        billboards.add({
-          id: 'alpr:' + c.id,
-          position: Cartesian3.fromDegrees(c.lon, c.lat, 30),
-          image: facing ? withWedge : plain,
-          rotation: facing ? -(c.direction ?? 0) * DEG : 0,
-          alignedAxis: Cartesian3.UNIT_Z,
-          scaleByDistance: scale,
-          disableDepthTestDistance: depth,
-        });
-      }
+      shown = cameras;
+      isVisible = visible;
+      cell = cellFor(scene);
+      draw();
     },
     setDepthDistance(metres) {
       depth = metres;
       for (let i = 0; i < billboards.length; i++) billboards.get(i).disableDepthTestDistance = metres;
     },
     destroy() {
+      stopListening();
       if (!scene.isDestroyed() && scene.primitives.contains(billboards)) scene.primitives.remove(billboards);
     },
   };
