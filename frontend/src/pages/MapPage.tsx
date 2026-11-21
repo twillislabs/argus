@@ -1958,6 +1958,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             onHover={onHover}
             onContext={(lat, lon, x, y) => setCtxMenu({ lat, lon, x, y })}
             storms={filters.weather.storms ? storms : []}
+            render={me.preferences.render ?? 'balanced'}
             weatherOpacity={weatherOpacity}
             drawings={drawings}
             route={

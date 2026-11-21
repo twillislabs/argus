@@ -86,6 +86,13 @@ Distances, lengths and heights are in **imperial** units (miles, feet) by
 default; switch to metric in Settings > Display. Aircraft altitude and
 speed stay in feet and knots, and ship speed in knots, either way.
 
+**Map frame rate** (Settings > Display) sets how hard the map works when
+nothing moves. **Balanced**, the default, draws at full speed while you
+pan, zoom or follow an aircraft and about ten times a second otherwise,
+which keeps laptops and wall PCs cool. **Smooth** draws every frame
+(the most power); **Power saver** draws about twice a second and turns
+off edge smoothing.
+
 ## Brief
 
 **Brief** in the top bar is a one-page overview for the start of a shift.

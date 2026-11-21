@@ -33,6 +33,7 @@ import {
   type Home,
   type KeyState,
   type Me,
+  type RenderMode,
   putDefaults,
   saveKeys,
   saveReceivers,
@@ -97,7 +98,7 @@ const SECTIONS: Section[] = [
     title: 'Display',
     description: 'How Argus looks on this account.',
     group: 'You',
-    keywords: 'units banner video volume muted wall clocks theme',
+    keywords: 'units banner video volume muted wall clocks theme frame rate performance power battery heat fps',
   },
   {
     id: 'users',
@@ -900,6 +901,18 @@ function WallSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) 
 function DisplaySection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
   const [banner, setBanner] = useState(me.preferences.show_banner === true);
   const [unitPref, setUnitPref] = useState<Units>(me.preferences.units === 'metric' ? 'metric' : 'imperial');
+  const [renderPref, setRenderPref] = useState<RenderMode>(me.preferences.render ?? 'balanced');
+
+  async function chooseRender(next: RenderMode) {
+    const before = renderPref;
+    setRenderPref(next);
+    try {
+      await savePreferences({ render: next });
+      await onSaved();
+    } catch {
+      setRenderPref(before);
+    }
+  }
 
   async function chooseUnits(next: Units) {
     const before = unitPref;
@@ -937,6 +950,25 @@ function DisplaySection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> 
             {(['imperial', 'metric'] as const).map((u) => (
               <button key={u} aria-pressed={unitPref === u} onClick={() => void chooseUnits(u)}>
                 {u === 'imperial' ? 'Imperial (mi, ft)' : 'Metric (km, m)'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="srow">
+          <span className="srow-label">
+            <b>Map frame rate</b>
+            <small>
+              {renderPref === 'smooth'
+                ? 'Redraws the map every frame, as smooth as your screen allows. Uses the most power.'
+                : renderPref === 'saver'
+                  ? 'Redraws about twice a second while nothing moves, without edge smoothing. Coolest and quietest; moving aircraft step.'
+                  : 'Full speed while you move the map, about ten frames a second otherwise. Keeps the computer cooler.'}
+            </small>
+          </span>
+          <div className="seg" role="group" aria-label="Map frame rate">
+            {(['smooth', 'balanced', 'saver'] as const).map((m) => (
+              <button key={m} aria-pressed={renderPref === m} onClick={() => void chooseRender(m)}>
+                {m === 'smooth' ? 'Smooth' : m === 'balanced' ? 'Balanced' : 'Power saver'}
               </button>
             ))}
           </div>

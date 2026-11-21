@@ -511,6 +511,7 @@ export default function WallPage({ me }: { me: Me }) {
           wxZoned={wx.zoned}
           outlook={outlook}
           storms={on('wx_storms') ? storms : []}
+          render={me.preferences.render ?? 'balanced'}
           weather={{
             alerts: on('wx_alerts'),
             zones: on('wx_zones'),

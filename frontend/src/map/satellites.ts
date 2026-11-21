@@ -225,7 +225,8 @@ export function addSatelliteLayer(scene: Scene): SatelliteLayer {
   }
 
   function tick() {
-    if (destroyed || !meta.length) return;
+    // Nothing to draw in a hidden tab: skip the propagation work.
+    if (destroyed || !meta.length || document.hidden) return;
     // Propagate only while some satellites are on.
     const any =
       filter.iss || filter.leo || filter.meo || filter.geo || filter.heo || filter.starlink || selected !== null;

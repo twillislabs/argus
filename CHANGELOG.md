@@ -17,6 +17,15 @@ features, and patch versions fix things. Upgrade with `./argus update`.
   next 24 hours and 7 days, and NWS alerts there in the US.
 - The Wall can show the new weather layers.
 
+### Performance
+
+- The map no longer redraws every display frame while nothing moves:
+  it renders at full speed while you move it or follow an aircraft, and
+  about ten times a second otherwise, so computers run much cooler.
+  Settings > Display > Map frame rate picks Smooth (every frame),
+  Balanced (the default) or Power saver (about twice a second).
+- Satellites aren't propagated while the tab is hidden.
+
 ### Phones
 
 - Argus works on phones: the map fills the screen, with Layers and

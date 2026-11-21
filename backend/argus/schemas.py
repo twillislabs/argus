@@ -359,6 +359,8 @@ class Preferences(BaseModel):
         None
     )
     units: Literal["imperial", "metric"] | None = None
+    # How often the map redraws when nothing moves (map/render.ts).
+    render: Literal["smooth", "balanced", "saver"] | None = None
     show_route: bool | None = None
     # Wall page (/wall): news, clocks, tour and layers.
     wall: WallPrefs | None = None

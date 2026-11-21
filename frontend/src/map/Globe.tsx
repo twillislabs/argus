@@ -60,6 +60,7 @@ import type {
   RaidAlert,
   MapConfig,
   OutlookArea,
+  RenderMode,
   Storm,
   TensionCountry,
   Vessel,
@@ -80,6 +81,7 @@ import { addPatternLayer, type PatternLayer } from './patternLayer';
 import { addRaidLayer, type RaidLayer } from './raidLayer';
 import { addAlprLayer, type AlprLayer } from './alprLayer';
 import { addCamLayer, type CamLayer, WEBCAM_COLOR } from './camLayer';
+import { governRendering, type RenderGovernor } from './render';
 import { addWxLayer, type WeatherFilters, WX_IMAGERY, WX_OVER_LAND, type WxLayer, type WxOpacity } from './wxLayer';
 import { addSentinelLayer, type SentinelLayer, type SentinelView } from './sentinelLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
@@ -429,6 +431,8 @@ interface Props {
   storms?: Storm[];
   weather?: WeatherFilters;
   weatherOpacity?: WxOpacity;
+  // How often the map redraws when idle (map/render.ts).
+  render?: RenderMode;
   showTension: boolean;
   infra: InfraFilters;
   home: Home | null;
@@ -497,6 +501,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     storms,
     weather,
     weatherOpacity,
+    render = 'balanced',
     showTension,
     infra,
     home,
@@ -551,6 +556,12 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const wx = useRef<WxLayer | null>(null);
   const weatherRef = useRef(weather);
   weatherRef.current = weather;
+  const renderRef = useRef(render);
+  renderRef.current = render;
+  const governor = useRef<RenderGovernor | null>(null);
+  useEffect(() => {
+    governor.current?.setMode(render);
+  }, [render]);
   const opacityRef = useRef(weatherOpacity);
   opacityRef.current = weatherOpacity;
   const draw = useRef<DrawTools | null>(null);
@@ -593,6 +604,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       orderIndependentTranslucency: false,
     });
     const scene = v.scene;
+    // Render on demand: full rate while something moves, a few frames a
+    // second otherwise (map/render.ts).
+    const gov = governRendering(v, renderRef.current, () => applyMsaa());
+    governor.current = gov;
     // ?fps=1 shows a frame-rate counter, for performance reports. (Cesium's
     // own needs its widget stylesheet, which Argus doesn't load.)
     let fpsOff: (() => void) | null = null;
@@ -800,7 +815,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     // 2D fills the whole canvas, so 4x MSAA (Cesium's default) quadruples
     // the pixel work for lines that are flat anyway: off in 2D.
     const applyMsaa = () => {
-      scene.msaaSamples = scene.mode === SceneMode.SCENE2D ? 1 : 4;
+      scene.msaaSamples = scene.mode === SceneMode.SCENE2D ? 1 : gov.msaa();
     };
     const removeMorph = scene.morphComplete.addEventListener(() => {
       depthNow = -1;
@@ -927,6 +942,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['sentinel', () => sentinel.current?.destroy()],
         ['pulse listener', removePulse],
         ['fps counter', () => fpsOff?.()],
+        ['render governor', () => gov.destroy()],
         ['input handler', () => handler.destroy()],
         ['drawings', () => draw.current?.destroy()],
         ['context menu', () => scene.canvas.removeEventListener('contextmenu', noMenu)],
@@ -1479,17 +1495,20 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
             const until = Date.now() + 8000;
             for (;;) {
               v.resize();
+              v.scene.requestRender();
               v.render();
               if (v.scene.globe.tilesLoaded || Date.now() > until) break;
               await new Promise((r) => setTimeout(r, 150));
             }
             // The drawing buffer is only readable straight after a render.
+            v.scene.requestRender();
             v.render();
             return await new Promise<Blob | null>((resolve) => v.scene.canvas.toBlob((b) => resolve(b), 'image/png'));
           } finally {
             v.useBrowserRecommendedResolution = before.recommended;
             v.resolutionScale = before.scale;
             v.resize();
+            v.scene.requestRender();
           }
         },
         attitude() {

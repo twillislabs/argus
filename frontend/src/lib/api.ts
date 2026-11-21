@@ -318,6 +318,9 @@ export interface Advisory {
 export const getAdvisories = () =>
   api<{ fetched: string | null; countries: Advisory[]; attribution: string }>('/api/advisories');
 
+// How the map redraws (map/render.ts).
+export type RenderMode = 'smooth' | 'balanced' | 'saver';
+
 export interface Preferences {
   home?: Home;
   basemap?: string;
@@ -325,6 +328,7 @@ export interface Preferences {
   left_open?: boolean;
   right_open?: boolean;
   units?: 'imperial' | 'metric';
+  render?: RenderMode;
   drawings?: unknown[];
   show_route?: boolean;
   wall?: WallPrefs;

@@ -496,6 +496,15 @@ parts connect.
 - Pages: Map (`/`), Brief (`/brief`), Wall (`/wall`, reuses `Globe` with
   minimal props), Settings. A Brief theatre card hands the map a place to
   fly to through `sessionStorage[FLY_KEY]` (lib/share.ts).
+- Rendering is on demand (`map/render.ts`, `governRendering`): Cesium
+  redraws at full rate on input (for 1.5 s), camera moves, tile loads
+  and while a camera rides an aircraft, and otherwise every
+  `IDLE_MS[mode]` (the `render` preference: smooth 0, balanced 100,
+  saver 500 ms; MSAA 4/2/1 in 3D). Anything that changes primitives
+  shows on the next idle frame; code that must show at once (capture)
+  calls `scene.requestRender()` before `render()`. `?fps=1` turns
+  on-demand off so the counter measures the real rate. The satellite
+  tick skips hidden tabs.
 - The globe is created with `orderIndependentTranslucency: false`; add
   `?fps=1` to the URL for a frame-rate counter (our own `.fpsbox`;
   Cesium's needs its widget CSS, which isn't loaded).
