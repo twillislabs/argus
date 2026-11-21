@@ -4,7 +4,16 @@ All notable changes to Argus. Versions follow [Semantic Versioning](https://semv
 a new major version may need you to change something when you upgrade, minor versions add
 features, and patch versions fix things. Upgrade with `./argus update`.
 
-## [Unreleased]
+## [1.2.0] - 2026-11-20
+
+Keyless weather extras, Argus on phones, a cooler-running map and
+news settings you can organise. Argus is now licensed under the
+Apache License 2.0.
+
+### Upgrading
+
+- `make streetmap` no longer has a default region: give `REGION=` or
+  `BBOX=W,S,E,N`.
 
 ### Weather
 
@@ -44,15 +53,16 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 - Live videos found near the view or about an event play again
   (YouTube error 153), and pop out into their own window like the news.
 
+### Project
+
+- Licensed under the Apache License 2.0: use, modify and share it
+  freely, keeping the NOTICE file that credits the original project.
+- The docs use neutral examples, not one install's hosts or region.
+
 ### Fixes
 
 - The New profile form's Add button no longer stretches across the
   card; the pairing code box is wider and formats the code as you type.
-
-### Upgrading
-
-- `make streetmap` no longer has a default region: give `REGION=` or
-  `BBOX=W,S,E,N`.
 
 ## [1.1.0] - 2026-11-20
 
@@ -201,5 +211,6 @@ The first release: everything Argus does, on one self-hosted globe.
   documentation with search at `/docs/`.
 - `make release VERSION=X.Y.Z` to cut a release.
 
+[1.2.0]: https://github.com/twillislabs/argus/releases/tag/v1.2.0
 [1.1.0]: https://github.com/twillislabs/argus/releases/tag/v1.1.0
 [1.0.0]: https://github.com/twillislabs/argus/releases/tag/v1.0.0
