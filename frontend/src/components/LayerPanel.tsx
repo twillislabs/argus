@@ -12,6 +12,7 @@ import { TENSION_COLOR } from '../map/tensionLayer';
 import { WIKI_COLOR } from '../map/wikiLayer';
 import { ALPR_COLOR } from '../map/alprLayer';
 import { TRANSIT_COLOR } from '../map/transitLayer';
+import { RADIO_COLOR } from '../map/radioLayer';
 import { CAM_COLOR, WEBCAM_COLOR } from '../map/camLayer';
 import { DEFAULT_WEATHER, opacityOf, type WeatherFilters, WX_IMAGERY, type WxImagery, type WxOpacity } from '../map/wxLayer';
 import { distance } from '../lib/units';
@@ -109,6 +110,7 @@ const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color
   { id: 'bases', label: 'Military bases', source: 'OpenStreetMap', color: BASE_COLOR },
   { id: 'alpr', label: 'Plate reader cameras', source: 'Flock and other ALPR · OpenStreetMap', color: ALPR_COLOR },
   { id: 'transit', label: 'Public transport (live)', source: 'Operators’ GTFS-Realtime · 9 cities', color: TRANSIT_COLOR },
+  { id: 'radio', label: 'Radio stations', source: 'Radio Browser · 1,500 most played', color: RADIO_COLOR },
   { id: 'outages', label: 'Internet outages', source: 'IODA · countries, last 24 hours', color: OUTAGE_COLOR },
   { id: 'ransomware', label: 'Ransomware victims', source: 'ransomware.live · latest 100 claims, per country', color: RANSOMWARE_COLOR },
 ];
@@ -181,6 +183,7 @@ interface Props {
   alprCount?: number;
   alprLoading?: boolean;
   transitCount?: string;
+  radioCount?: number;
   camCount?: number;
   webcamCount?: number;
   // "zoom in", "no key" and so on, while there's no count.
@@ -322,6 +325,7 @@ export default function LayerPanel({
   alprCount,
   alprLoading,
   transitCount,
+  radioCount,
   camCount,
   webcamCount,
   webcamNote,
@@ -634,7 +638,9 @@ export default function LayerPanel({
                   : (alprCount ?? 'zoom in')
                 : r.id === 'transit' && filters.infra.transit
                   ? (transitCount ?? '–')
-                  : null}
+                  : r.id === 'radio' && filters.infra.radio
+                    ? (radioCount ?? '–')
+                    : null}
               <Dot sources={sources} id={r.id} />
             </span>
           </label>

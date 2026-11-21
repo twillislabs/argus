@@ -1099,6 +1099,23 @@ export interface WindGrid {
 }
 export const getWind = () => api<WindGrid>('/api/weather/wind');
 
+// World radio stations (Radio Browser) with a place and an HTTPS stream.
+export interface RadioStation {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  country: string | null;
+  state: string | null;
+  language: string | null;
+  tags: string[];
+  codec: string | null;
+  bitrate: number | null;
+  stream: string;
+  homepage: string | null;
+}
+export const getRadio = () => api<{ status: 'ok' | 'error'; stations: RadioStation[] }>('/api/radio');
+
 // Street-level photos near a spot (Panoramax), images via our proxy.
 export interface StreetPhoto {
   id: string;

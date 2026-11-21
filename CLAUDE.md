@@ -484,6 +484,10 @@ parts connect.
   key); the image proxy fetches only URLs a search returned (`allowed`),
   never a client's. KartaView's image hosts were down (2026-11); Mapillary
   needs a key. `components/StreetPhotos.tsx` from MapContextMenu.
+- Radio: `argus/radio.py` (Radio Browser mirrors de1/de2, daily, HTTPS
+  non-HLS streams only), `map/radioLayer.ts` (`radio:<uuid>`, grouped),
+  `components/RadioInspector.tsx` (an `<audio>` that stops on leaving).
+  `media-src https:` in the CSP is for these streams.
 - Animated wind: `argus/wind.py` (GFS u/v at 10 m from PacIOOS ERDDAP
   `ncep_global`, 1 degree, once per 3-hour step, `app.state.wind`),
   `/api/weather/wind`, drawn by `map/windLayer.ts` on its own 2D canvas

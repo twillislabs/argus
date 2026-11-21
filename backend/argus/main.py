@@ -28,6 +28,7 @@ from argus.api import (
     me,
     news,
     patterns,
+    radio,
     setup,
     streetphotos,
     transit,
@@ -46,6 +47,7 @@ from argus.geocode import Geocoder
 from argus.imagery import Imagery
 from argus.live import Hub, subscribe_forever
 from argus.openaip import OpenAip
+from argus.radio import Radio
 from argus.raids import Raids
 from argus.sanctions import SanctionsIndex
 from argus.sea import LiveSea
@@ -103,6 +105,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.wind = Wind(settings.user_agent)
         app.state.transit = Transit(settings.user_agent)
         app.state.streetphotos = StreetPhotos(settings.user_agent)
+        app.state.radio = Radio(settings.user_agent)
         app.state.air_quality = AirQuality(settings.user_agent)
         app.state.geocoder = Geocoder(settings.user_agent)
         app.state.raids = Raids(settings.user_agent)
@@ -146,6 +149,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.wind.close()
         await app.state.transit.close()
         await app.state.streetphotos.close()
+        await app.state.radio.close()
         await app.state.air_quality.close()
         await app.state.geocoder.close()
         await app.state.raids.close()
@@ -201,6 +205,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         sea_api.router,
         airspace.router,
         displays.router,
+        radio.router,
         streetphotos.router,
         transit.router,
         weather.router,

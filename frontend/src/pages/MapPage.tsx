@@ -14,6 +14,7 @@ import { OUTAGE_COLOR, RANSOMWARE_COLOR } from '../map/cyberLayer';
 import { RAID_COLOR } from '../map/raidLayer';
 import { cleanTour, type Tour } from '../lib/tours';
 import { FAA_COLOR, faaLevel, faaLine, type FaaStatus, getFaaStatus } from '../lib/faa';
+import RadioInspector from '../components/RadioInspector';
 import AlprInspector from '../components/AlprInspector';
 import BridgeHud from '../components/BridgeHud';
 import CamInspector from '../components/CamInspector';
@@ -68,6 +69,7 @@ import {
   getStorms,
   getWind,
   getTransit,
+  getRadio,
   getAir,
   getWeatherNow,
   getWxAlerts,
@@ -76,6 +78,7 @@ import {
   type WindGrid,
   type TransitVehicle,
   type TransitOperator,
+  type RadioStation,
   type AirPoint,
   type WeatherNow,
   type WxAlert,
@@ -112,6 +115,7 @@ import { ADVISORY_COLOR } from '../map/advisoryLayer';
 import { WIKI_COLOR, WIKI_CONFLICT_COLOR } from '../map/wikiLayer';
 import { ALPR_COLOR } from '../map/alprLayer';
 import { TRANSIT_COLOR } from '../map/transitLayer';
+import { RADIO_COLOR } from '../map/radioLayer';
 import { CAM_COLOR, WEBCAM_COLOR } from '../map/camLayer';
 import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { aircraftColor } from '../map/aircraftLayer';
@@ -334,6 +338,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     status: 'zoom',
   });
   const [selectedAlpr, setSelectedAlpr] = useState<string | null>(null);
+  const [radioStations, setRadioStations] = useState<RadioStation[]>([]);
+  const [selectedRadio, setSelectedRadio] = useState<string | null>(null);
   const [alprStatus, setAlprStatus] = useState<AlprStatus>('zoom');
   const alprTimer = useRef<number | undefined>(undefined);
   const [structureStatus, setStructureStatus] = useState<'ok' | 'zoom' | 'nokey' | 'blocked' | 'error'>('zoom');
@@ -743,6 +749,17 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     const id = window.setInterval(() => void loadAir(), 900_000);
     return () => window.clearInterval(id);
   }, [filters.weather.air, loadAir]);
+  // World radio stations (the API keeps the list a day).
+  useEffect(() => {
+    if (!filters.infra.radio) return;
+    let cancelled = false;
+    getRadio()
+      .then((r) => !cancelled && setRadioStations(r.stations))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.infra.radio]);
   useEffect(() => {
     if (!filters.infra.transit) {
       setTransit({ vehicles: [], operators: [], status: 'zoom' });
@@ -1242,6 +1259,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     setSelectedCam(null);
     setSelectedWebcam(null);
     setSelectedAlpr(null);
+    setSelectedRadio(null);
     setWeatherAt(null);
     setPhotosAt(null);
     setFollowSat(false);
@@ -1473,6 +1491,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       openRight();
       return;
     }
+    if (id && id.startsWith('radio:')) {
+      clearSelection();
+      setSelectedRadio(id.slice(6));
+      openRight();
+      return;
+    }
     // Transit vehicles have a hover card only.
     if (id && id.startsWith('transit:')) return;
     if (id && id.startsWith('alpr:')) {
@@ -1644,6 +1668,19 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       const c = trafficCams.find((x) => 'cam:' + x.id === id);
       return c
         ? { title: c.name, color: CAM_COLOR, lines: [[c.road, c.place, c.agency].filter(Boolean).join(' · ')] }
+        : null;
+    }
+    if (id.startsWith('radio:')) {
+      const r = radioStations.find((x) => 'radio:' + x.id === id);
+      return r
+        ? {
+            title: r.name,
+            color: RADIO_COLOR,
+            lines: [
+              [r.state, r.country].filter(Boolean).join(', '),
+              [r.tags.slice(0, 3).join(', '), r.bitrate ? r.bitrate + ' kbps' : null].filter(Boolean).join(' · '),
+            ].filter(Boolean),
+          }
         : null;
     }
     if (id.startsWith('transit:')) {
@@ -1990,6 +2027,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             wikiCount={wikiOn ? wikiItems.length : undefined}
             alprCount={filters.infra.alpr && alprStatus !== 'zoom' ? alprCameras.length : undefined}
             alprLoading={filters.infra.alpr && alprStatus === 'partial'}
+            radioCount={filters.infra.radio ? radioStations.length : undefined}
             transitCount={
               filters.infra.transit ? (transit.status === 'zoom' ? 'zoom in' : String(transit.vehicles.length)) : undefined
             }
@@ -2058,6 +2096,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             showWiki={filters.wiki}
             alprCameras={alprCameras}
             transitVehicles={filters.infra.transit ? transit.vehicles : []}
+            radioStations={filters.infra.radio ? radioStations : []}
+            selectedRadio={selectedRadio}
             trafficCams={filters.cams.traffic ? trafficCams : []}
             webcams={filters.cams.webcams ? webcams : []}
             selectedCam={selectedCam?.id ?? null}
@@ -2358,7 +2398,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               Layers
             </button>
             <button aria-pressed={sheet === 'R'} onClick={() => setSheet(sheet === 'R' ? null : 'R')}>
-              {selected || selectedHex || selectedMmsi || selectedNorad || selectedInfo || weatherAt || photosAt ? 'Details' : 'Situation'}
+              {selected || selectedHex || selectedMmsi || selectedNorad || selectedInfo || weatherAt || photosAt || selectedRadio ? 'Details' : 'Situation'}
             </button>
           </nav>
         )}
@@ -2379,6 +2419,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               <WeatherHere lat={weatherAt.lat} lon={weatherAt.lon} onBack={() => setWeatherAt(null)} />
             ) : selectedWebcam ? (
               <WebcamInspector cam={selectedWebcam} onBack={() => setSelectedWebcam(null)} />
+            ) : selectedRadio && radioStations.some((s) => s.id === selectedRadio) ? (
+              <RadioInspector
+                station={radioStations.find((s) => s.id === selectedRadio) as RadioStation}
+                onBack={() => setSelectedRadio(null)}
+              />
             ) : selectedAlpr && alprCameras.some((c) => c.id === selectedAlpr) ? (
               <AlprInspector
                 cam={alprCameras.find((c) => c.id === selectedAlpr) as AlprCamera}
