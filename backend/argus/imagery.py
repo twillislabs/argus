@@ -9,6 +9,9 @@ at night), from Microsoft's Planetary Computer (no key).
 - tile(): one map tile, fetched by this server and kept on disk for a
   week, so browsers never call Microsoft and each tile is fetched once.
 
+- esri_source(): what Esri World Imagery (the close-up photo
+  everywhere else, drawn by browsers straight from Esri) shows at a
+  spot: capture date, resolution and source, from its identify service.
 - aerial(): for close zoom in the US, a mosaic of NAIP aerial photos
   (USDA, about 0.6 m, public domain), newest on top; flown every two to
   three years, so older than the Sentinel passes.
@@ -66,6 +69,41 @@ KINDS = {
 # Tile zoom range per kind: Sentinel's 10 m runs out past 16, NAIP's
 # 0.6 m at 17 (512 px tiles).
 ZOOMS = {"optical": (6, 16), "radar": (6, 16), "aerial": (10, 17)}
+ESRI_IDENTIFY = (
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/"
+    "MapServer/identify"
+)
+ESRI_TTL_S = 7 * 86400
+
+
+def parse_esri_identify(body: dict) -> dict | None:
+    """The detailed photo's capture date (YYYY-MM-DD), resolution in
+    metres and source, from layer 0 (World Imagery) of an identify."""
+    for r in body.get("results") or []:
+        if r.get("layerId") != 0:
+            continue
+        a = r.get("attributes") or {}
+        raw = str(a.get("DATE (YYYYMMDD)") or "")
+        date = (
+            "{0}-{1}-{2}".format(raw[:4], raw[4:6], raw[6:8])
+            if re.match(r"^\d{8}$", raw)
+            else None
+        )
+        try:
+            res = float(a.get("RESOLUTION (M)"))
+        except (TypeError, ValueError):
+            res = None
+        source = str(a.get("SOURCE") or "").strip()
+        if not date and res is None:
+            return None
+        return {
+            "date": date,
+            "resolution": res,
+            "source": source if source and source != "Null" else None,
+        }
+    return None
+
+
 # NAIP years used to fill the box, newest on top.
 AERIAL_YEARS = 8
 LOOKBACK_DAYS = 60
@@ -217,6 +255,39 @@ class Imagery:
                 self.passes_cache, key=lambda k: self.passes_cache[k][0]
             )
             self.passes_cache.pop(oldest, None)
+        return found
+
+    async def esri_source(self, lon: float, lat: float) -> dict | None:
+        """Esri World Imagery's photo at a spot, cached a week by 0.01
+        degree. None when Esri has nothing detailed there or failed."""
+        key = "esri:{0:.2f},{1:.2f}".format(lon, lat)
+        hit = self.passes_cache.get(key)
+        if hit and time.monotonic() - hit[0] < ESRI_TTL_S:
+            return hit[1]
+        d = 0.002
+        try:
+            r = await self.client.get(
+                ESRI_IDENTIFY,
+                params={
+                    "geometry": "{0:.5f},{1:.5f}".format(lon, lat),
+                    "geometryType": "esriGeometryPoint",
+                    "sr": "4326",
+                    "layers": "all:0",
+                    "tolerance": "0",
+                    "mapExtent": "{0:.5f},{1:.5f},{2:.5f},{3:.5f}".format(
+                        lon - d, lat - d, lon + d, lat + d
+                    ),
+                    "imageDisplay": "400,400,96",
+                    "returnGeometry": "false",
+                    "f": "json",
+                },
+            )
+            r.raise_for_status()
+            found = parse_esri_identify(r.json())
+        except (httpx.HTTPError, ValueError) as exc:
+            log.info("Esri identify failed: {0}".format(exc))
+            return None
+        self.passes_cache[key] = (time.monotonic(), found)
         return found
 
     async def aerial(self, box) -> dict:

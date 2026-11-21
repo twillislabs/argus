@@ -145,3 +145,37 @@ async def test_aerial_none_outside_us(tmp_path):
     found = await im.aerial((2.2, 48.8, 2.4, 48.9))
     assert found == {"available": False, "dates": []}
     await im.close()
+
+
+def test_parse_esri_identify():
+    body = {
+        "results": [
+            {
+                "layerId": 1,
+                "attributes": {"RESOLUTION (M)": "15", "SOURCE": "Earthstar"},
+            },
+            {
+                "layerId": 0,
+                "attributes": {
+                    "DATE (YYYYMMDD)": "20250325",
+                    "RESOLUTION (M)": "0.5",
+                    "SOURCE": "Vantor",
+                },
+            },
+        ]
+    }
+    assert imagery.parse_esri_identify(body) == {
+        "date": "2025-03-25",
+        "resolution": 0.5,
+        "source": "Vantor",
+    }
+    odd = {
+        "results": [
+            {
+                "layerId": 0,
+                "attributes": {"DATE (YYYYMMDD)": "Null", "SOURCE": "Null"},
+            }
+        ]
+    }
+    assert imagery.parse_esri_identify(odd) is None
+    assert imagery.parse_esri_identify({}) is None

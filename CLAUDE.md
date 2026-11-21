@@ -398,11 +398,17 @@ parts connect.
   sharp), `map/sentinelLayer.ts` (box-limited
   ImageryLayer, compare via `scene.splitPosition`),
   `components/ImageryPanel.tsx` (state kept in MapPage as `sentinel`).
-  Close up, NAIP aerial photos (US, 0.6 m, kind `aerial`,
-  `Imagery.aerial`: newest on top over the last `AERIAL_YEARS`,
-  `/api/imagery/aerial`) draw over the pass from terrain level
-  `AERIAL_FROM_LEVEL` (ImageryLayer `minimumTerrainLevel`), hidden while
-  comparing; tile zooms per kind are `ZOOMS`. Sentinel-2's 10 m is the
+  Close up, Esri World Imagery (browsers fetch it from Esri, like the
+  basemap) and NAIP aerial photos (US, 0.6 m, kind `aerial`,
+  `Imagery.aerial`: newest on top over the last `AERIAL_YEARS`) draw
+  over the pass from terrain level `CLOSE_FROM_LEVEL` (ImageryLayer
+  `minimumTerrainLevel`), the newer of the two on top (`closeUpFor`),
+  hidden while comparing. `/api/imagery/aerial` returns both: NAIP's
+  mosaic and dates, and `esri` (`Imagery.esri_source`, Esri's identify
+  service at the box's centre: date, resolution, source). The base map
+  effect's `removeAll()` drops these layers: `sentinel.reattach()` adds
+  them back, and `raise()` keeps them over the late street map layer.
+  Tile zooms per kind are `ZOOMS`. Sentinel-2's 10 m is the
   source's limit (zoom 13 at 512 px), not a bug.
   Mosaic tile requests need `collection=` as well. Sentinel-1 is the GRD
   collection: sentinel-1-rtc needs a Planetary Computer account. While

@@ -60,8 +60,13 @@ async def imagery_aerial(
     session: SessionDep,
     bbox: str = Query(..., description="west,south,east,north"),
 ):
-    """Sharp aerial photos for close zoom, where there are any (the US)."""
+    """Sharp photos for close zoom: NAIP where there are any (the US),
+    and what Esri World Imagery shows at the box's centre (everywhere)."""
     box = _box(bbox)
+    w, south, e, n = box
+    esri = await request.app.state.imagery.esri_source(
+        (w + e) / 2, (south + n) / 2
+    )
     try:
         found = await request.app.state.imagery.aerial(box)
     except ImageryError as exc:
@@ -72,9 +77,15 @@ async def imagery_aerial(
             502, "The imagery catalogue didn't answer."
         ) from exc
     if not found["available"]:
-        return {"available": False, "dates": [], "tiles": None}
+        return {
+            "available": False,
+            "dates": [],
+            "tiles": None,
+            "esri": esri,
+        }
     return {
         "available": True,
+        "esri": esri,
         "dates": found["dates"],
         "tiles": "/api/imagery/tiles/aerial/{0}/{{z}}/{{x}}/{{y}}.png".format(
             found["sid"]

@@ -252,18 +252,26 @@ the imagery over the map. The imagery shows from city zoom in and stays
 on the map while you look at other things; **← Situation (remove
 imagery)** takes it off.
 
-**Close up** (US only): Sentinel's 10 m pixels turn to blocks from about
-street level, so there the newest NAIP aerial photo takes over, at about
-0.6 m (houses, cars and road markings). NAIP is flown every two to three
-years, so it's older than the pass; the panel says when it was flown.
-It's hidden while comparing passes, and **Aerial photos when zoomed in**
-turns it off. Outside the US you keep seeing Sentinel up close.
+**Close up**: Sentinel's 10 m pixels turn to blocks from about street
+level, so there a sharper, older photo takes over, showing houses, cars
+and road markings:
+
+- **Esri World Imagery** everywhere (the Satellite basemap's photos,
+  often 30 to 50 cm, from Vantor and others).
+- **NAIP aerial photos** in the US (USDA, about 60 cm, flown every two
+  to three years).
+
+Where both exist, the newer one is on top and the other fills its gaps.
+The panel gives each one's source, detail and date (Esri's for the
+middle of the box), so you know how old the close-up is. It's hidden
+while comparing passes, and **Sharper photos when zoomed in** turns it
+off.
 
 The imagery comes from Microsoft's Planetary Computer (free, no key).
 Your Argus server fetches the tiles and keeps them a week, so browsers
 never contact Microsoft. Imagery is days old, not live, and commercial
-high-resolution satellite imagery isn't included. NAIP aerial photos are
-from the USDA (public domain).
+high-resolution satellite imagery isn't included beyond Esri's
+basemap photos. NAIP aerial photos are from the USDA (public domain).
 
 ## Legend
 

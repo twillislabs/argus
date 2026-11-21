@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 
 import { api } from '../lib/api';
+import type { CloseUp } from '../map/sentinelLayer';
 
 // Recent imagery (toolbar > Imagery, draw a box): the recent Sentinel
 // passes over the box, the chosen one draped on the map, opacity, and a
 // before/after split against an older pass. The state lives in MapPage,
-// so the imagery stays while you look at other things. Close up, NAIP
-// aerial photos (US) take over where Sentinel's 10 m turns to blocks.
+// so the imagery stays while you look at other things. Close up, where
+// Sentinel's 10 m turns to blocks, sharper photos take over: Esri World
+// Imagery anywhere and NAIP aerial photos in the US, the newer on top.
 
 export type ImageryKind = 'optical' | 'radar';
 
@@ -29,10 +31,27 @@ export interface ImageryState {
   beforeTiles: string | null;
   alpha: number;
   split: number;
-  // NAIP aerial photos for close zoom: null until looked up; tiles null
-  // where there are none (outside the US).
-  aerial: { tiles: string | null; dates: string[] } | null;
+  // Close-up photos: null until looked up. NAIP tiles are null where
+  // there are none (outside the US); esri is what Esri World Imagery
+  // shows at the box's centre (null if unknown).
+  aerial: { tiles: string | null; dates: string[]; esri: EsriSource | null } | null;
   aerialOn: boolean;
+}
+
+export interface EsriSource {
+  date: string | null;
+  resolution: number | null;
+  source: string | null;
+}
+
+// The close-up layers to draw for this state, or null.
+export function closeUpFor(s: ImageryState): CloseUp | null {
+  if (!s.aerialOn || !s.aerial) return null;
+  const naip = s.aerial.tiles && s.aerial.dates.length > 0 ? s.aerial.tiles : null;
+  const esriDate = s.aerial.esri?.date ?? '';
+  // NAIP's newest flight against Esri's photo date (ISO dates compare as
+  // text); with no Esri date, NAIP's known date wins.
+  return { naip, naipOnTop: naip !== null && s.aerial.dates[0] >= esriDate };
 }
 
 export const newImagery = (box: ImageryState['box']): ImageryState => ({
@@ -52,6 +71,26 @@ export const newImagery = (box: ImageryState['box']): ImageryState => ({
 
 const monthYear = (day: string) =>
   new Date(day + 'T12:00:00Z').toLocaleDateString([], { month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+const metres = (m: number) => (m < 1 ? Math.round(m * 100) + ' cm' : m.toFixed(1).replace(/\.0$/, '') + ' m');
+
+// "Esri (Vantor, 30 cm, Jan 2025) · NAIP (60 cm, May 2023)".
+function closeUpLine(a: NonNullable<ImageryState['aerial']>): string {
+  const e = a.esri;
+  const esri =
+    'Esri' +
+    (e
+      ? ' (' +
+        [e.source, e.resolution ? metres(e.resolution) : null, e.date ? monthYear(e.date) : null]
+          .filter(Boolean)
+          .join(', ') +
+        ')'
+      : '');
+  const naip = a.tiles && a.dates.length > 0 ? 'NAIP (60 cm, ' + flown(a.dates) + ')' : null;
+  if (!naip) return esri;
+  const naipFirst = a.dates[0] >= (e?.date ?? '');
+  return naipFirst ? naip + ' over ' + esri : esri + ' over ' + naip;
+}
 
 // "May 2023", or "Dec 2021 to May 2023" when the box spans flights.
 function flown(dates: string[]): string {
@@ -120,12 +159,14 @@ export default function ImageryPanel({
   useEffect(() => {
     if (s.aerial !== null) return;
     let cancelled = false;
-    api<{ tiles: string | null; dates: string[] }>('/api/imagery/aerial?bbox=' + bboxParam(s.box))
+    api<{ tiles: string | null; dates: string[]; esri: EsriSource | null }>(
+      '/api/imagery/aerial?bbox=' + bboxParam(s.box),
+    )
       .then((r) => {
-        if (!cancelled) onChange((x) => ({ ...x, aerial: { tiles: r.tiles, dates: r.dates } }));
+        if (!cancelled) onChange((x) => ({ ...x, aerial: { tiles: r.tiles, dates: r.dates, esri: r.esri } }));
       })
       .catch(() => {
-        if (!cancelled) onChange((x) => ({ ...x, aerial: { tiles: null, dates: [] } }));
+        if (!cancelled) onChange((x) => ({ ...x, aerial: { tiles: null, dates: [], esri: null } }));
       });
     return () => {
       cancelled = true;
@@ -264,8 +305,8 @@ export default function ImageryPanel({
         <section className="isec">
           <h3>Close up</h3>
           {s.aerial === null ? (
-            <p className="quiet small">Looking for aerial photos…</p>
-          ) : s.aerial.tiles && s.aerial.dates.length > 0 ? (
+            <p className="quiet small">Looking for sharper photos…</p>
+          ) : (
             <>
               <label className="lrow">
                 <input
@@ -275,27 +316,26 @@ export default function ImageryPanel({
                 />
                 <span className="tog" />
                 <span className="lname">
-                  <span>Aerial photos when zoomed in</span>
-                  <small>About 0.6 m, flown {flown(s.aerial.dates)}</small>
+                  <span>Sharper photos when zoomed in</span>
+                  <small>{closeUpLine(s.aerial)}</small>
                 </span>
               </label>
               <p className="quiet small">
-                Sentinel&apos;s 10 m pixels turn to blocks up close, so from street level the newest NAIP aerial photo
-                takes over (USDA, public domain). It&apos;s older than the pass: check the date.
+                Sentinel&apos;s 10 m pixels turn to blocks up close, so from street level an older, sharper photo takes
+                over{s.aerial.tiles ? ', the newer of the two on top' : ''}. Check its date: it can be years old.
+                {s.aerial.esri?.date ? ' The Esri date is for the middle of the box.' : ''}
                 {s.before ? ' Hidden while comparing passes.' : ''}
               </p>
             </>
-          ) : (
-            <p className="quiet small">
-              No aerial photos here: NAIP covers the US only, so up close you see Sentinel&apos;s 10 m pixels.
-            </p>
           )}
         </section>
       )}
       <section className="isec">
         <p className="quiet small">
           Contains modified Copernicus Sentinel data, via Microsoft Planetary Computer. Imagery is days old, not live.
-          {s.aerial?.tiles ? ' NAIP aerial photos: USDA.' : ''}
+          {s.aerial
+            ? ' Close-ups: Esri World Imagery' + (s.aerial.tiles ? ' and NAIP aerial photos (USDA).' : '.')
+            : ''}
         </p>
       </section>
     </div>

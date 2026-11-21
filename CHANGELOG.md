@@ -6,6 +6,17 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Imagery
+
+- Recent imagery close-ups everywhere: past street level, Esri World
+  Imagery takes over from Sentinel's 10 m pixels (with NAIP in the US,
+  the newer of the two on top), and the panel gives each one's source,
+  detail and date.
+
+### Fixed
+
+- Recent imagery no longer disappears when you switch the base map.
+
 ## [1.4.0] - 2026-11-21
 
 Assistants can read the map through MCP, plus world radio, live public

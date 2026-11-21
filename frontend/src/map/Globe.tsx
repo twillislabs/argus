@@ -1071,6 +1071,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     // Weather imagery sits over the new base map.
     wx.current?.forget();
     if (weatherRef.current) wx.current?.setImagery(weatherRef.current, opacityRef.current);
+    // Recent imagery too (removeAll took it off).
+    sentinel.current?.reattach();
     // Inside the installed region, the self-hosted street map draws over
     // Esri; outside it, Esri shows as before.
     if (basemap === 'dark') {
@@ -1080,6 +1082,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         DETAIL_LAYERS.add(layer);
         v.scene.imageryLayers.add(layer);
         tiles.current = [...tiles.current, layer];
+        sentinel.current?.raise();
         (v as unknown as { applyFade?: () => void }).applyFade?.();
       });
     }

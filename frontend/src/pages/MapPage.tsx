@@ -5,7 +5,7 @@ import AirspaceInspector from '../components/AirspaceInspector';
 import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
 import PlaceInspector from '../components/PlaceInspector';
-import ImageryPanel, { type ImageryState, newImagery } from '../components/ImageryPanel';
+import ImageryPanel, { closeUpFor, type ImageryState, newImagery } from '../components/ImageryPanel';
 import TourPanel from '../components/TourPanel';
 import AskPanel, { type AskItem } from '../components/AskPanel';
 import { askArgus, useAiStatus } from '../lib/ai';
@@ -676,7 +676,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             box: sentinel.box,
             tiles: sentinel.tiles,
             before: sentinel.beforeTiles,
-            aerial: sentinel.aerialOn ? (sentinel.aerial?.tiles ?? null) : null,
+            closeUp: closeUpFor(sentinel),
             alpha: sentinel.alpha,
             split: sentinel.split,
           }
