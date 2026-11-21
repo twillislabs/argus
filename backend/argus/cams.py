@@ -17,17 +17,31 @@ Feeds:
   short MP4 clips, api.tfl.gov.uk/Place/Type/JamCam.
 - Digitraffic weather cameras (Finland, no key, CC BY 4.0 Fintraffic):
   one camera per preset, weathercam.digitraffic.fi/<preset>.jpg.
+- TxDOT ITS (Texas, no key): one status list per district,
+  its.txdot.gov/its/DistrictIts/GetCctvStatusListByDistrict. Its
+  snapshot endpoint answers JSON with the JPEG in base64 ("snippet"),
+  so those cameras carry image_json and the proxy decodes it.
+- WSDOT Travel Center (Washington, no key, a low-volume public feed):
+  data.wsdot.wa.gov/travelcenter/Cameras.json, Esri JSON in Web
+  Mercator and Windows-1252. Only WSDOT's own images: the partner
+  cameras in it (Oregon DOT, cities, lodges) have their own terms.
+- Hong Kong Transport Department (no key, DATA.GOV.HK, attribution):
+  an XML list; each image is tdcctv.data.one.gov.hk/<key>.JPG.
 
 Each camera: {id, name, road, place, direction (degrees or None), lat,
-lon, agency, image, stream (HLS), clip (MP4), refresh_s}. The worker
+lon, agency, image, stream (HLS), clip (MP4), refresh_s}, plus
+image_json (the JSON field holding a base64 image) where needed. The worker
 keeps the catalogue in server_settings["layer:trafficcams"].
 """
 
+import json
 import logging
+import math
 import re
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 import httpx
+from defusedxml import ElementTree
 
 log = logging.getLogger("argus.cams")
 
@@ -41,6 +55,45 @@ DIGITRAFFIC = "https://tie.digitraffic.fi/api/weathercam/v1/stations"
 DIGITRAFFIC_IMAGE = "https://weathercam.digitraffic.fi/{0}.jpg"
 # Digitraffic asks clients to say who they are in this header.
 DIGITRAFFIC_USER = {"Digitraffic-User": "Argus/self-hosted"}
+TXDOT = (
+    "https://its.txdot.gov/its/DistrictIts/GetCctvStatusListByDistrict"
+    "?districtCode={0}"
+)
+TXDOT_IMAGE = "https://its.txdot.gov/its/DistrictIts/GetCctvSnapshotByIcdId"
+TXDOT_DISTRICTS = [
+    "ABL",
+    "AMA",
+    "ATL",
+    "AUS",
+    "BMT",
+    "BRY",
+    "BWD",
+    "CHS",
+    "CRP",
+    "DAL",
+    "ELP",
+    "FTW",
+    "HOU",
+    "LBB",
+    "LFK",
+    "LRD",
+    "ODA",
+    "PAR",
+    "PHR",
+    "SAT",
+    "SJT",
+    "TYL",
+    "WAC",
+    "WFS",
+    "YKM",
+]
+WSDOT = "https://data.wsdot.wa.gov/travelcenter/Cameras.json"
+WSDOT_IMAGES = "https://images.wsdot.wa.gov/"
+HKTD = (
+    "https://static.data.gov.hk/td/traffic-snapshot-images/code/"
+    "Traffic_Camera_Locations_En.xml"
+)
+HKTD_IMAGE = "https://tdcctv.data.one.gov.hk/{0}.JPG"
 
 COMPASS = {
     "north": 0,
@@ -292,6 +345,147 @@ def parse_digitraffic(doc: dict) -> list[dict]:
     return out
 
 
+# TxDOT names say which way a camera looks only as a trailing token
+# ("FM-734 @ US-290 EB"); its direction fields describe the road.
+TXDOT_FACING = re.compile(r"\b(NB|SB|EB|WB|N|S|E|W)$", re.IGNORECASE)
+
+
+def parse_txdot(doc: dict, district: str) -> list[dict]:
+    out, seen = [], set()
+    roads = doc.get("roadwayCctvStatuses") or {}
+    for rows in roads.values() if isinstance(roads, dict) else []:
+        for c in rows or []:
+            icd = c.get("icd_Id")
+            lat, lon = c.get("latitude"), c.get("longitude")
+            if (
+                c.get("statusDescription") != "Device Online"
+                or c.get("hasSnapshot") is False
+                or not isinstance(icd, str)
+                or not icd
+                or icd in seen
+                or not isinstance(lat, (int, float))
+                or not isinstance(lon, (int, float))
+            ):
+                continue
+            seen.add(icd)
+            name = str(c.get("name") or icd)
+            facing = TXDOT_FACING.search(name.strip())
+            out.append(
+                {
+                    "id": "txdot-{0}-{1}".format(
+                        district.lower(),
+                        re.sub(r"[^A-Za-z0-9]+", "-", icd).strip("-"),
+                    ),
+                    "name": name[:120],
+                    "road": (c.get("equipLoc") or {}).get("roadway") or None,
+                    "place": "Texas",
+                    "direction": bearing(facing.group(1)) if facing else None,
+                    "lat": round(float(lat), 6),
+                    "lon": round(float(lon), 6),
+                    "agency": "TxDOT",
+                    "image": "{0}?{1}".format(
+                        TXDOT_IMAGE,
+                        urlencode({"icdId": icd, "districtCode": district}),
+                    ),
+                    "image_json": "snippet",
+                    "stream": None,
+                    "clip": None,
+                    "refresh_s": 60,
+                }
+            )
+    return out
+
+
+def mercator_to_lonlat(x: float, y: float) -> tuple[float, float]:
+    r = 6378137.0
+    lon = math.degrees(x / r)
+    lat = math.degrees(2 * math.atan(math.exp(y / r)) - math.pi / 2)
+    return lon, lat
+
+
+def parse_wsdot(doc: dict) -> list[dict]:
+    out = []
+    for f in doc.get("features") or []:
+        a = f.get("attributes") or {}
+        g = f.get("geometry") or {}
+        image = a.get("ImageURL") or ""
+        cid = a.get("CameraID")
+        x, y = _num(g.get("x")), _num(g.get("y"))
+        if (
+            not isinstance(cid, int)
+            or not image.startswith(WSDOT_IMAGES)
+            or x is None
+            or y is None
+        ):
+            continue
+        lon, lat = mercator_to_lonlat(x, y)
+        if not (45 <= lat <= 49.5 and -125 <= lon <= -116):
+            continue
+        out.append(
+            {
+                "id": "wsdot-{0}".format(cid),
+                "name": str(a.get("CameraTitle") or "Camera")[:120],
+                "road": None,
+                "place": "Washington",
+                # "B" (both ways) and "O" (other) say nothing.
+                "direction": bearing(a.get("CompassDirection"))
+                if a.get("CompassDirection") in ("N", "S", "E", "W")
+                else None,
+                "lat": round(lat, 6),
+                "lon": round(lon, 6),
+                "agency": "WSDOT",
+                "image": image,
+                "stream": None,
+                "clip": None,
+                "refresh_s": 120,
+            }
+        )
+    return out
+
+
+def parse_hktd(xml: bytes) -> list[dict]:
+    out, seen = [], set()
+    root = ElementTree.fromstring(xml)
+    for el in root.iter("image"):
+        key = (el.findtext("key") or "").strip().upper()
+        lat = _num(el.findtext("latitude"))
+        lon = _num(el.findtext("longitude"))
+        if (
+            not re.fullmatch(r"[A-Z0-9]{1,32}", key)
+            or key in seen
+            or lat is None
+            or lon is None
+            or not (22 <= lat <= 22.7 and 113.7 <= lon <= 114.5)
+        ):
+            continue
+        seen.add(key)
+        out.append(
+            {
+                "id": "hktd-{0}".format(key.lower()),
+                "name": (el.findtext("description") or key).strip()[:120],
+                "road": None,
+                "place": " · ".join(
+                    x
+                    for x in (
+                        (el.findtext("district") or "").strip(),
+                        (el.findtext("region") or "").strip(),
+                    )
+                    if x
+                )
+                or "Hong Kong",
+                "direction": None,
+                "lat": round(lat, 6),
+                "lon": round(lon, 6),
+                "agency": "Hong Kong Transport Department",
+                "image": HKTD_IMAGE.format(key),
+                "stream": None,
+                "clip": None,
+                "refresh_s": 120,
+            }
+        )
+    return out
+
+
 async def fetch_drivebc(client: httpx.AsyncClient) -> list[dict]:
     r = await client.get(DRIVEBC)
     r.raise_for_status()
@@ -312,11 +506,43 @@ async def fetch_digitraffic(client: httpx.AsyncClient) -> list[dict]:
     return parse_digitraffic(r.json())
 
 
+async def fetch_txdot(client: httpx.AsyncClient) -> list[dict]:
+    cams: list[dict] = []
+    failed = 0
+    for d in TXDOT_DISTRICTS:
+        try:
+            r = await client.get(TXDOT.format(d))
+            r.raise_for_status()
+            cams += parse_txdot(r.json(), d)
+        except (httpx.HTTPError, ValueError) as exc:
+            failed += 1
+            log.warning("TxDOT {0}: {1}".format(d, exc))
+    if failed == len(TXDOT_DISTRICTS):
+        raise httpx.HTTPError("every TxDOT district failed")
+    return cams
+
+
+async def fetch_wsdot(client: httpx.AsyncClient) -> list[dict]:
+    r = await client.get(WSDOT)
+    r.raise_for_status()
+    # Windows-1252 bytes, with no charset said.
+    return parse_wsdot(json.loads(r.content.decode("cp1252")))
+
+
+async def fetch_hktd(client: httpx.AsyncClient) -> list[dict]:
+    r = await client.get(HKTD)
+    r.raise_for_status()
+    return parse_hktd(r.content)
+
+
 # Feeds that need no key, by name, for the worker.
 OPEN_FEEDS = {
     "drivebc": fetch_drivebc,
     "tfl": fetch_tfl,
     "digitraffic": fetch_digitraffic,
+    "txdot": fetch_txdot,
+    "wsdot": fetch_wsdot,
+    "hktd": fetch_hktd,
 }
 
 

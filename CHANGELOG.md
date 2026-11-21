@@ -4,6 +4,15 @@ All notable changes to Argus. Versions follow [Semantic Versioning](https://semv
 a new major version may need you to change something when you upgrade, minor versions add
 features, and patch versions fix things. Upgrade with `./argus update`.
 
+## [Unreleased]
+
+### Cameras
+
+- Traffic cameras in Texas (TxDOT, about 3,500), Washington (WSDOT,
+  about 1,600) and Hong Kong (about 1,000), no keys needed.
+- Zoomed out, nearby cameras and webcams merge into a badge with
+  their count; click it to zoom in to them.
+
 ## [1.2.0] - 2026-11-20
 
 Keyless weather extras, Argus on phones, a cooler-running map and

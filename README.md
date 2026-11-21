@@ -52,8 +52,8 @@ What it does today:
   live events on top, tinting the map.
 - **Weather.** NWS warnings, watches and advisories (on their zone outlines), the SPC severe weather
   outlook, satellite clouds and precipitation, and conditions at home.
-- **Cameras and video.** Traffic cameras from Caltrans, TDOT (with a key), DriveBC, London and
-  Finland, with stills and live video; webcams from Windy and live YouTube streams near the view
+- **Cameras and video.** Traffic cameras from Caltrans, TxDOT, WSDOT, TDOT (with a key), DriveBC,
+  London, Finland and Hong Kong, with stills and live video, grouped by count when zoomed out; webcams from Windy and live YouTube streams near the view
   or about an event (with free keys).
 - **Context.** US and UK travel advisories by country and Wikipedia's current events, placed on
   the map.
@@ -239,6 +239,10 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
   for routes and types, [OurAirports](https://ourairports.com/data/) (public domain) and
   [OpenFlights](https://openflights.org/data) airlines (ODbL 1.0). Aircraft whose owners opted out
   (PIA, LADD) are hidden unless military, and owner names are never shown.
+- **Traffic cameras:** each agency's public feed, credited by name on every camera: Caltrans,
+  TxDOT, WSDOT, TDOT SmartWay, DriveBC, TfL (Powered by TfL Open Data), Fintraffic Digitraffic
+  (CC BY 4.0) and the Hong Kong Transport Department (DATA.GOV.HK). Images are fetched by your
+  server only when someone opens a camera.
 - **Globe:** [CesiumJS](https://cesium.com/platform/cesiumjs/) (Apache 2.0). Argus uses the
   open-source engine only, not the Cesium ion service.
 - **Ideas:** [God's Eye View](https://github.com/bilawalsidhu/gods-eye-view) (MIT), for several

@@ -80,7 +80,7 @@ import { addCyberLayer, type CyberLayer } from './cyberLayer';
 import { addPatternLayer, type PatternLayer } from './patternLayer';
 import { addRaidLayer, type RaidLayer } from './raidLayer';
 import { addAlprLayer, type AlprLayer } from './alprLayer';
-import { addCamLayer, type CamLayer, WEBCAM_COLOR } from './camLayer';
+import { addCamLayer, type CamLayer, WEBCAM_COLOR, zoomToGroup } from './camLayer';
 import { governRendering, type RenderGovernor } from './render';
 import { addWxLayer, type WeatherFilters, WX_IMAGERY, WX_OVER_LAND, type WxLayer, type WxOpacity } from './wxLayer';
 import { addSentinelLayer, type SentinelLayer, type SentinelView } from './sentinelLayer';
@@ -853,6 +853,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       if (draw.current?.click(e.position)) return;
       const picked = scene.pick(e.position);
       const id = picked && typeof picked.id === 'string' ? picked.id : null;
+      // A camera group's badge zooms to its cameras.
+      if (id && zoomToGroup(v.camera, id)) return;
       onSelectRef.current(id);
     }, ScreenSpaceEventType.LEFT_CLICK);
     // Right-click: undo the last point while drawing; otherwise the map's

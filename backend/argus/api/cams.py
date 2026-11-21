@@ -10,6 +10,8 @@ browsers never call the agencies.
                        only when someone presses play
 """
 
+import base64
+import binascii
 import time
 
 import httpx
@@ -27,6 +29,8 @@ IMAGE_TTL_S = 30
 IMAGE_MAX_BYTES = 2_000_000
 MAX_SPAN = 8.0
 MAX_CACHED = 400
+# Cameras in one view; the map groups them when zoomed out.
+MAX_SHOWN = 3000
 
 
 async def catalogue(request: Request, db) -> dict[str, dict]:
@@ -87,7 +91,7 @@ async def cams_in_view(
         for c in cams.values()
         if w <= c["lon"] <= e and s <= c["lat"] <= n
     ]
-    return {"cameras": shown[:1500], "status": "ok"}
+    return {"cameras": shown[:MAX_SHOWN], "status": "ok"}
 
 
 def _client(request: Request) -> httpx.AsyncClient:
@@ -119,6 +123,22 @@ async def fetch_image(client: httpx.AsyncClient, url: str) -> httpx.Response:
     raise httpx.HTTPError("too many redirects")
 
 
+def _json_image(r: httpx.Response, field: str) -> tuple[bytes, str]:
+    """The image inside a JSON answer, as base64 in one field; a JPEG
+    or PNG only."""
+    if len(r.content) > IMAGE_MAX_BYTES * 2:
+        return b"", ""
+    try:
+        raw = base64.b64decode(r.json().get(field) or "", validate=True)
+    except (ValueError, AttributeError, binascii.Error):
+        return b"", ""
+    if raw.startswith(b"\xff\xd8\xff"):
+        return raw, "image/jpeg"
+    if raw.startswith(b"\x89PNG"):
+        return raw, "image/png"
+    return b"", ""
+
+
 @router.get("/api/cams/{cam_id}/image")
 async def cam_image(
     cam_id: str, request: Request, session: SessionDep, db: DbDep
@@ -136,11 +156,15 @@ async def cam_image(
         except httpx.HTTPError as exc:
             raise HTTPException(502, "The camera didn't answer.") from exc
         kind = r.headers.get("content-type", "").split(";")[0]
+        body = r.content
+        if r.status_code == 200 and cam.get("image_json"):
+            # TxDOT: JSON with the JPEG in base64.
+            body, kind = _json_image(r, cam["image_json"])
         if r.status_code != 200 or not kind.startswith("image/"):
             raise HTTPException(502, "The camera has no image right now.")
-        if len(r.content) > IMAGE_MAX_BYTES:
+        if len(body) > IMAGE_MAX_BYTES:
             raise HTTPException(502, "The camera's image is too large.")
-        hit = (time.monotonic(), r.content, kind)
+        hit = (time.monotonic(), body, kind)
         cache[cam_id] = hit
         if len(cache) > MAX_CACHED:
             oldest = min(cache, key=lambda k: cache[k][0])

@@ -675,9 +675,11 @@ async def save_cams(
     started: datetime,
     errors: list[str],
     fetched: str | None = None,
+    tried: list[str] | None = None,
 ) -> int:
     """Store the camera catalogue. A pass part-way through keeps the old
-    fetched time (pass fetched=), so only a finished pass counts."""
+    fetched time (pass fetched=), so only a finished pass counts; tried
+    is the feeds a finished pass asked for."""
     count = sum(len(v) for v in feeds.values())
     async with db.sessionmaker() as session:
         row = await session.get(ServerSetting, "layer:trafficcams")
@@ -690,6 +692,7 @@ async def save_cams(
             else utcnow().isoformat(),
             "tdot_key": bool(tdot_key),
             "feeds": feeds,
+            "tried": tried or [],
         }
         row.updated_at = utcnow()
         source = await session.get(Source, "trafficcams")
@@ -710,7 +713,8 @@ async def cams_pass(
         row = await session.get(ServerSetting, "layer:trafficcams")
         previous = dict(row.value or {}) if row else {}
         source = await session.get(Source, "trafficcams")
-        label = "Traffic cameras (Caltrans, DriveBC, TfL, Digitraffic, TDOT)"
+        # Source labels are at most 80 characters (models.Source).
+        label = "Traffic cameras (US, Canada, UK, Finland, Hong Kong)"
         if source is not None:
             source.label = label
         if source is None:
@@ -726,9 +730,16 @@ async def cams_pass(
     fetched = previous.get("fetched")
     tdot_key = await read_key(db, settings, "tdot")
     key_changed = bool(tdot_key) != bool(previous.get("tdot_key"))
+    # A feed added in an upgrade is fetched at once, not tomorrow
+    # (once: one that fails then waits for the next daily pass).
+    tried = previous.get("tried") or list(previous.get("feeds") or {})
+    new_feed = any(
+        name not in tried for name in ("caltrans", *traffic_cams.OPEN_FEEDS)
+    )
     due = (
         fetched is None
         or key_changed
+        or new_feed
         or utcnow() - datetime.fromisoformat(fetched) >= CAMS_EVERY
     )
     if due:
@@ -766,9 +777,16 @@ async def cams_pass(
             # Saved after each feed, so one slow feed doesn't hold the
             # others back.
             count = await save_cams(
-                db, feeds, tdot_key, started, errors, fetched
+                db, feeds, tdot_key, started, errors, fetched, tried
             )
-        count = await save_cams(db, feeds, tdot_key, started, errors)
+        count = await save_cams(
+            db,
+            feeds,
+            tdot_key,
+            started,
+            errors,
+            tried=[name for name, _ in jobs],
+        )
         log.info("traffic cameras: {0}".format(count))
 
 
