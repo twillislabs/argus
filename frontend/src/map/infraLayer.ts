@@ -22,6 +22,8 @@ export interface InfraFilters {
   bases: boolean;
   // ALPR cameras (map/alprLayer.ts), fetched for the view.
   alpr: boolean;
+  // Public transport vehicles (map/transitLayer.ts), fetched for the view.
+  transit: boolean;
   // Cyber (map/cyberLayer.ts): internet outages and ransomware victims.
   outages: boolean;
   ransomware: boolean;
@@ -33,6 +35,7 @@ export const DEFAULT_INFRA: InfraFilters = {
   cables: false,
   bases: false,
   alpr: false,
+  transit: false,
   outages: false,
   ransomware: false,
 };

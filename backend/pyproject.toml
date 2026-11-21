@@ -20,6 +20,7 @@ dependencies = [
     "cryptography>=43",
     "websockets>=14",
     "anthropic>=1,<2",
+    "gtfs-realtime-bindings>=3.0.0",
 ]
 
 [dependency-groups]

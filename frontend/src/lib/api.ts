@@ -1099,6 +1099,28 @@ export interface WindGrid {
 }
 export const getWind = () => api<WindGrid>('/api/weather/wind');
 
+// Public transport vehicles in view (operators' GTFS-Realtime feeds).
+export interface TransitVehicle {
+  id: string;
+  operator: string;
+  route: string | null;
+  label: string | null;
+  lat: number;
+  lon: number;
+  bearing: number | null;
+  ts: number | null;
+}
+export interface TransitOperator {
+  key: string;
+  name: string;
+  licence: string;
+  count: number;
+}
+export const getTransit = (bbox: Bbox) =>
+  api<{ status: 'ok' | 'zoom'; vehicles: TransitVehicle[]; operators: TransitOperator[] }>(
+    '/api/transit?bbox=' + bbox.map((x) => x.toFixed(3)).join(','),
+  );
+
 // Air quality now (Open-Meteo, CAMS): US AQI and the pollutants, µg/m³.
 export interface AirReading {
   us_aqi: number;

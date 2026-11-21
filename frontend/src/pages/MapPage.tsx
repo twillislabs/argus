@@ -66,12 +66,15 @@ import {
   getOutlook,
   getStorms,
   getWind,
+  getTransit,
   getAir,
   getWeatherNow,
   getWxAlerts,
   type OutlookArea,
   type Storm,
   type WindGrid,
+  type TransitVehicle,
+  type TransitOperator,
   type AirPoint,
   type WeatherNow,
   type WxAlert,
@@ -107,6 +110,7 @@ import { TINT_FROM } from '../map/tensionLayer';
 import { ADVISORY_COLOR } from '../map/advisoryLayer';
 import { WIKI_COLOR, WIKI_CONFLICT_COLOR } from '../map/wikiLayer';
 import { ALPR_COLOR } from '../map/alprLayer';
+import { TRANSIT_COLOR } from '../map/transitLayer';
 import { CAM_COLOR, WEBCAM_COLOR } from '../map/camLayer';
 import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { aircraftColor } from '../map/aircraftLayer';
@@ -322,6 +326,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [webcamStatus, setWebcamStatus] = useState<string>('zoom');
   const [selectedWebcam, setSelectedWebcam] = useState<Webcam | null>(null);
   const [alprCameras, setAlprCameras] = useState<AlprCamera[]>([]);
+  const [transit, setTransit] = useState<{ vehicles: TransitVehicle[]; operators: TransitOperator[]; status: string }>({
+    vehicles: [],
+    operators: [],
+    status: 'zoom',
+  });
   const [selectedAlpr, setSelectedAlpr] = useState<string | null>(null);
   const [alprStatus, setAlprStatus] = useState<AlprStatus>('zoom');
   const alprTimer = useRef<number | undefined>(undefined);
@@ -462,6 +471,23 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       setTrafficCams(r.cameras);
     } catch {
       // Keep what's shown; the next view change retries.
+    }
+  }, []);
+
+  // Public transport vehicles for a city-sized view.
+  const loadTransit = useCallback(async () => {
+    if (!filtersRef.current.infra.transit) return;
+    const bbox = viewRef.current;
+    if (!bbox) {
+      setTransit({ vehicles: [], operators: [], status: 'zoom' });
+      return;
+    }
+    try {
+      const r = await getTransit(bbox);
+      if (viewRef.current !== bbox) return;
+      setTransit({ vehicles: r.vehicles, operators: r.operators, status: r.status });
+    } catch {
+      // Keep what's shown; the next poll retries.
     }
   }, []);
 
@@ -696,9 +722,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         void loadCams();
         void loadWebcams();
         void loadAir();
+        void loadTransit();
       }, 400);
     },
-    [loadCivil, loadVessels, loadStructure, loadAlpr, loadCams, loadWebcams, loadAir],
+    [loadCivil, loadVessels, loadStructure, loadAlpr, loadCams, loadWebcams, loadAir, loadTransit],
   );
   useEffect(() => {
     if (filters.airspace.structure) void loadStructure();
@@ -714,6 +741,18 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     const id = window.setInterval(() => void loadAir(), 900_000);
     return () => window.clearInterval(id);
   }, [filters.weather.air, loadAir]);
+  useEffect(() => {
+    if (!filters.infra.transit) {
+      setTransit({ vehicles: [], operators: [], status: 'zoom' });
+      return;
+    }
+    void loadTransit();
+    // Operators report every 10 to 30 seconds.
+    const id = window.setInterval(() => {
+      if (!document.hidden) void loadTransit();
+    }, 20_000);
+    return () => window.clearInterval(id);
+  }, [filters.infra.transit, loadTransit]);
   useEffect(() => {
     if (filters.infra.alpr) void loadAlpr();
     else setAlprCameras([]);
@@ -1431,6 +1470,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       openRight();
       return;
     }
+    // Transit vehicles have a hover card only.
+    if (id && id.startsWith('transit:')) return;
     if (id && id.startsWith('alpr:')) {
       clearSelection();
       setSelectedAlpr(id.slice(5));
@@ -1601,6 +1642,22 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       return c
         ? { title: c.name, color: CAM_COLOR, lines: [[c.road, c.place, c.agency].filter(Boolean).join(' · ')] }
         : null;
+    }
+    if (id.startsWith('transit:')) {
+      const v = transit.vehicles.find((x) => 'transit:' + x.id === id);
+      const op = v && transit.operators.find((o) => o.key === v.operator);
+      if (!v) return null;
+      const ago = v.ts ? Math.max(0, Math.round(Date.now() / 1000 - v.ts)) : null;
+      return {
+        title: (v.route ? 'Route ' + v.route : 'Vehicle') + (v.label ? ' · ' + v.label : ''),
+        color: TRANSIT_COLOR,
+        lines: [
+          op?.name ?? v.operator,
+          (v.bearing !== null ? 'Heading ' + v.bearing + '°' : 'Heading not given') +
+            (ago !== null ? ' · reported ' + (ago < 60 ? ago + ' s' : Math.round(ago / 60) + ' min') + ' ago' : ''),
+          op ? op.licence : '',
+        ].filter(Boolean),
+      };
     }
     if (id.startsWith('alpr:')) {
       const c = alprCameras.find((x) => 'alpr:' + x.id === id);
@@ -1930,6 +1987,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             wikiCount={wikiOn ? wikiItems.length : undefined}
             alprCount={filters.infra.alpr && alprStatus !== 'zoom' ? alprCameras.length : undefined}
             alprLoading={filters.infra.alpr && alprStatus === 'partial'}
+            transitCount={
+              filters.infra.transit ? (transit.status === 'zoom' ? 'zoom in' : String(transit.vehicles.length)) : undefined
+            }
             camCount={filters.cams.traffic && camStatus !== 'zoom' ? trafficCams.length : undefined}
             webcamCount={webcamStatus === 'ok' ? webcams.length : undefined}
             webcamNote={
@@ -1994,6 +2054,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             showSeaPatterns={seaShown}
             showWiki={filters.wiki}
             alprCameras={alprCameras}
+            transitVehicles={filters.infra.transit ? transit.vehicles : []}
             trafficCams={filters.cams.traffic ? trafficCams : []}
             webcams={filters.cams.webcams ? webcams : []}
             selectedCam={selectedCam?.id ?? null}

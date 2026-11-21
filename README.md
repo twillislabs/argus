@@ -249,7 +249,11 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
   terms of use), DriveBC, TfL (Powered by TfL Open Data), Fintraffic Digitraffic (CC BY 4.0), the
   Hong Kong Transport Department (DATA.GOV.HK), Statens vegvesen (NLOD), Vegagerðin (CC BY 4.0),
   and information licensed under the Open Government Licence – Toronto and the Open Government
-  Licence – City of Calgary. Images are fetched by your
+  Licence – City of Calgary.
+- **Public transport:** each operator's GTFS-Realtime feed, credited on every vehicle: MBTA
+  (MassDOT Developers' License Agreement), RTD, TTC and the City of Toronto, Calgary Transit and
+  Edmonton Transit Service (Open Government Licences), BC Transit, HSL and Translink (CC BY 4.0),
+  and OVapi. Images are fetched by your
   server only when someone opens a camera.
 - **Globe:** [CesiumJS](https://cesium.com/platform/cesiumjs/) (Apache 2.0). Argus uses the
   open-source engine only, not the Cesium ion service.

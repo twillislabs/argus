@@ -50,6 +50,7 @@ import type {
   Advisory,
   AirPoint,
   AlprCamera,
+  TransitVehicle,
   GpsCell,
   TrafficCam,
   Webcam,
@@ -87,6 +88,7 @@ import { addCamLayer, type CamLayer, WEBCAM_COLOR } from './camLayer';
 import { addCamView, type CamView } from './camView';
 import { zoomToGroup } from './groups';
 import { governRendering, type RenderGovernor } from './render';
+import { addTransitLayer, type TransitLayer } from './transitLayer';
 import { addWindLayer, type WindLayer } from './windLayer';
 import { addWxLayer, type WeatherFilters, WX_IMAGERY, WX_OVER_LAND, type WxLayer, type WxOpacity } from './wxLayer';
 import { addSentinelLayer, type SentinelLayer, type SentinelView } from './sentinelLayer';
@@ -428,6 +430,8 @@ interface Props {
   showSeaPatterns?: boolean;
   // ALPR cameras for the view, drawn while infra.alpr is on.
   alprCameras?: AlprCamera[];
+  // Public transport vehicles in view (empty when the layer is off).
+  transitVehicles?: TransitVehicle[];
   // Traffic cameras for the view (empty when the layer is off).
   trafficCams?: TrafficCam[];
   selectedCam?: string | null;
@@ -505,6 +509,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     showAirPatterns,
     showSeaPatterns,
     alprCameras,
+    transitVehicles,
     trafficCams,
     selectedCam,
     webcams,
@@ -567,6 +572,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const patternLayer = useRef<PatternLayer | null>(null);
   const raidLayer = useRef<RaidLayer | null>(null);
   const alprLayer = useRef<AlprLayer | null>(null);
+  const transitLayer = useRef<TransitLayer | null>(null);
   const camLayer = useRef<CamLayer | null>(null);
   const webcamLayer = useRef<CamLayer | null>(null);
   const windLayer = useRef<WindLayer | null>(null);
@@ -687,6 +693,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     patternLayer.current = addPatternLayer(scene);
     raidLayer.current = addRaidLayer(scene);
     alprLayer.current = addAlprLayer(scene);
+    transitLayer.current = addTransitLayer(scene);
     camLayer.current = addCamLayer(scene);
     windLayer.current = addWindLayer(v, renderRef.current);
     camView.current = addCamView(scene);
@@ -819,6 +826,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       cyberLayer.current?.setDepthDistance(d);
       raidLayer.current?.setDepthDistance(d);
       alprLayer.current?.setDepthDistance(d);
+      transitLayer.current?.setDepthDistance(d);
       camLayer.current?.setDepthDistance(d);
       webcamLayer.current?.setDepthDistance(d);
       ships.current?.setDepthDistance(d);
@@ -960,6 +968,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['patterns', () => patternLayer.current?.destroy()],
         ['raids', () => raidLayer.current?.destroy()],
         ['alpr', () => alprLayer.current?.destroy()],
+        ['transit', () => transitLayer.current?.destroy()],
         ['traffic cameras', () => camLayer.current?.destroy()],
         ['webcams', () => webcamLayer.current?.destroy()],
         ['wind', () => windLayer.current?.destroy()],
@@ -996,6 +1005,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       advisoryLayer.current = null;
       wikiLayer.current = null;
       alprLayer.current = null;
+      transitLayer.current = null;
       camLayer.current = null;
       webcamLayer.current = null;
       windLayer.current = null;
@@ -1197,6 +1207,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     alprLayer.current?.update(alprCameras ?? [], infra.alpr);
   }, [alprCameras, infra.alpr]);
+
+  useEffect(() => {
+    transitLayer.current?.update(transitVehicles ?? [], infra.transit);
+  }, [transitVehicles, infra.transit]);
 
   useEffect(() => {
     const list = trafficCams ?? [];

@@ -155,6 +155,7 @@ answer cached and shared by everyone:
 | Open-Meteo, NWS points | 15 min | Weather at home and Weather here |
 | GDACS cyclone geometry | 30 min | Tropical storm tracks and cones |
 | NOAA GFS via PacIOOS ERDDAP | each 3-hour model step | Animated wind: u and v at 10 m on a 1° grid (`argus/wind.py`, `/api/weather/wind`, in API memory; a failed fetch keeps the last step and retries after 5 minutes) |
+| Operators' GTFS-Realtime feeds | 20 s per operator | Public transport: vehicles for a city-sized view, only from operators whose area it overlaps (`argus/transit.py` `FEEDS`, `/api/transit`, in API memory; a failing feed keeps its last vehicles) |
 | Open-Meteo air quality | the hour, per point | Air quality: a grid over the view of at most 120 points on multiples of the step, asked in batches of 60, at most 3,000 new points an hour per server (`argus/airquality.py`, `/api/weather/air`, `/api/weather/air/here`) |
 | adsb.lol / adsb.fi | 15 s | Civil aircraft in the view |
 | Overpass | a week | Plate reader cameras |

@@ -474,6 +474,12 @@ parts connect.
   `visible` (sunlit by a cylindrical shadow test, `sunEci` low-precision
   Sun, observer's Sun below -6°); SatelliteInspector can use the map
   centre instead of home (`mapCentre`).
+- Public transport: `argus/transit.py` (`FEEDS`: operator, area, URL,
+  licence; GTFS-Realtime via `gtfs-realtime-bindings`), `/api/transit`
+  (6-degree views at most), only overlapping feeds are fetched, each at
+  most every `MIN_AGE_S`; `map/transitLayer.ts` (`transit:<op>:<id>`,
+  hover card only, no selection). Add a feed only with a keyless URL
+  and an open licence, credited in README.
 - Animated wind: `argus/wind.py` (GFS u/v at 10 m from PacIOOS ERDDAP
   `ncep_global`, 1 degree, once per 3-hour step, `app.state.wind`),
   `/api/weather/wind`, drawn by `map/windLayer.ts` on its own 2D canvas
