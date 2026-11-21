@@ -6,13 +6,14 @@ from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, Response, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from argus.config import Settings
 from argus.db import utcnow
-from argus.models import UserSession
+from argus.models import ApiToken, UserSession
 from argus.roles import can
-from argus.security import digests_match
+from argus.security import digests_match, token_digest
 from argus.services import load_session
 
 SESSION_COOKIE = "argus_session"
@@ -80,11 +81,93 @@ def clear_session_cookies(response: Response, settings: Settings) -> None:
         )
 
 
+TOKEN_PREFIX = "argus_"  # noqa: S105 - a prefix, not a secret
+# What an API token may read: map data, never accounts, admin or backups.
+TOKEN_PATHS = (
+    "/api/summary",
+    "/api/tension",
+    "/api/events",
+    "/api/search",
+    "/api/places",
+    "/api/aircraft",
+    "/api/vessels",
+    "/api/weather/",
+    "/api/cams",
+    "/api/transit",
+    "/api/news",
+    "/api/launches",
+    "/api/spaceweather",
+    "/api/satellites",
+    "/api/gps",
+    "/api/airspace",
+    "/api/advisories",
+)
+
+
+def token_allowed(path: str) -> bool:
+    return any(
+        path == p or path.startswith(p if p.endswith("/") else p + "/")
+        for p in TOKEN_PATHS
+    )
+
+
+async def token_session(db: AsyncSession, header: str) -> UserSession | None:
+    """A Bearer API token as a session that's never stored: the token's
+    user, read-only. None when there's no such token or the account
+    can't use one."""
+    if not header.startswith("Bearer " + TOKEN_PREFIX):
+        return None
+    row = await db.scalar(
+        select(ApiToken).where(
+            ApiToken.digest == token_digest(header[len("Bearer ") :])
+        )
+    )
+    if (
+        row is None
+        or row.user is None
+        or not row.user.is_active
+        or row.user.must_change_password
+        or row.user.role == "display"
+    ):
+        return None
+    now = utcnow()
+    if row.last_used_at is None or now - row.last_used_at > timedelta(
+        minutes=5
+    ):
+        row.last_used_at = now
+        await db.commit()
+    return UserSession(
+        id="token:{0}".format(row.id),
+        user_id=row.user_id,
+        user=row.user,
+        csrf_token="",
+        created_at=row.created_at,
+        last_seen_at=now,
+        expires_at=now,
+    )
+
+
 async def current_session(
     request: Request, db: DbDep, settings: SettingsDep
 ) -> UserSession:
     token = request.cookies.get(SESSION_COOKIE)
     session = await load_session(db, token, settings) if token else None
+    if session is None and not token:
+        auth = request.headers.get("authorization", "")
+        if auth.startswith("Bearer "):
+            session = await token_session(db, auth)
+            if session is None:
+                raise HTTPException(
+                    status.HTTP_401_UNAUTHORIZED, "That API token isn't valid."
+                )
+            if request.method not in SAFE_METHODS or not token_allowed(
+                request.url.path
+            ):
+                raise HTTPException(
+                    status.HTTP_403_FORBIDDEN,
+                    "API tokens are read-only and only read map data.",
+                )
+            return session
     if session is None:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, "Sign in to continue."

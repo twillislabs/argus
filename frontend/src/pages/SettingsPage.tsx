@@ -10,6 +10,7 @@ import UsersCard from '../components/UsersCard';
 import WallEditor from '../components/WallEditor';
 import WallProfiles from '../components/WallProfiles';
 import AiSection from '../components/AiSection';
+import AssistantsSection from '../components/AssistantsSection';
 import AlertsSection from '../components/AlertsSection';
 import LiveChannelsSection from '../components/LiveChannelsSection';
 import NewsFeedsSection from '../components/NewsFeedsSection';
@@ -83,6 +84,14 @@ const SECTIONS: Section[] = [
     group: 'You',
     keywords: 'ntfy webhook discord slack notifications quiet hours',
     capability: 'alerts.use',
+  },
+  {
+    id: 'assistants',
+    label: 'AI assistants',
+    title: 'AI assistants and API tokens',
+    description: 'Read-only tokens, and connecting Claude or another assistant to Argus through MCP.',
+    group: 'You',
+    keywords: 'mcp claude token api key script integration',
   },
   {
     id: 'home',
@@ -229,6 +238,7 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   else if (current.id === 'backups') body = <BackupsSection />;
   else if (current.id === 'ai') body = <AiSection />;
   else if (current.id === 'alerts') body = <AlertsSection me={me} />;
+  else if (current.id === 'assistants') body = <AssistantsSection />;
   else if (current.id === 'display')
     body = (
       <>

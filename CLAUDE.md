@@ -488,6 +488,14 @@ parts connect.
   non-HLS streams only), `map/radioLayer.ts` (`radio:<uuid>`, grouped),
   `components/RadioInspector.tsx` (an `<audio>` that stops on leaving).
   `media-src https:` in the CSP is for these streams.
+- API tokens and MCP: `models.ApiToken` (SHA-256 digest only, shown
+  once; migration 0010), `api/tokens.py` (`/api/me/tokens`, cookie
+  sessions only), `deps.token_session` makes a transient read-only
+  UserSession for `Authorization: Bearer argus_...`; GET only and only
+  `TOKEN_PATHS` (map data; never admin, me, backups). `api/mcp.py`: MCP
+  Streamable HTTP, stateless JSON at POST `/api/mcp`; tools call our own
+  API through ASGITransport with the caller's token; Origin must match
+  Host when sent. New tools: read-only, add their paths to TOKEN_PATHS.
 - Animated wind: `argus/wind.py` (GFS u/v at 10 m from PacIOOS ERDDAP
   `ncep_global`, 1 degree, once per 3-hour step, `app.state.wind`),
   `/api/weather/wind`, drawn by `map/windLayer.ts` on its own 2D canvas

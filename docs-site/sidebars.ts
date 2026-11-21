@@ -13,7 +13,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Using Argus',
       collapsed: false,
-      items: ['using/map'],
+      items: ['using/map', 'using/assistants'],
     },
     {
       type: 'category',

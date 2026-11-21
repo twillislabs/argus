@@ -92,6 +92,27 @@ class UserSession(Base):
     user: Mapped[User] = relationship(lazy="joined")
 
 
+class ApiToken(Base):
+    """A read-only token for scripts and AI assistants (the MCP server,
+    api/mcp.py). Only the SHA-256 of the token is kept; it's shown once,
+    when made."""
+
+    __tablename__ = "api_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(80))
+    digest: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime, nullable=True
+    )
+
+    user: Mapped[User] = relationship(lazy="joined")
+
+
 class SetupToken(Base):
     __tablename__ = "setup_tokens"
 

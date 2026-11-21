@@ -6,6 +6,13 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### AI assistants
+
+- An MCP server at /api/mcp, so Claude and other assistants can read
+  the situation, events, search, weather and air quality, aircraft,
+  ships, traffic cameras and news. It uses read-only API tokens, made
+  in Settings › AI assistants.
+
 ### Ground
 
 - Radio stations: about 1,300 of the world's most-played stations on

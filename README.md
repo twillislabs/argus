@@ -57,6 +57,8 @@ What it does today:
   Austin, King County, Toronto, Calgary, DriveBC, London, Finland, Norway, Iceland and Hong Kong,
   with stills and live video, grouped by count when zoomed out; webcams from Windy and live YouTube streams near the view
   or about an event (with free keys).
+- **AI assistants.** An MCP server so Claude and other assistants can read the map, with read-only
+  API tokens.
 - **Context.** US and UK travel advisories by country and Wikipedia's current events, placed on
   the map.
 - **Air-raid alerts.** Ukraine by oblast and Israel by locality, live.
