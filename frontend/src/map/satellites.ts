@@ -92,6 +92,12 @@ export interface Pass {
   set: number;
   peak: number;
   maxEl: number;
+  // Compass bearings (degrees) it rises and sets at.
+  riseAz: number;
+  setAz: number;
+  // Sunlit while the observer's sky is dark at some point: you can see
+  // it with the eye (brightness not judged).
+  visible: boolean;
 }
 
 export function satVisible(m: SatMeta, f: SpaceFilters): boolean {

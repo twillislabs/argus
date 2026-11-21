@@ -2455,6 +2455,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               <SatelliteInspector
                 norad={selectedNorad}
                 home={home}
+                mapCentre={() => {
+                  const b = globe.current?.view()?.bbox;
+                  if (!b) return null;
+                  const [w, s, e, n] = b;
+                  return { lat: (s + n) / 2, lon: e >= w ? (w + e) / 2 : (((w + e + 360) / 2 + 180) % 360) - 180 };
+                }}
                 following={followSat}
                 onBack={clearSelection}
                 onFollow={setFollowSat}

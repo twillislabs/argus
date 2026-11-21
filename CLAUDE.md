@@ -464,6 +464,10 @@ parts connect.
   spot) and, in the US, `/api/weather/alerts?lat=&lon=`'s `local`.
   Wall layers `wx_storms`, `radar`, `lightning`, `vapour`, `sst`,
   `wind`.
+- Satellite passes (`satWorker.ts` `passes`): rise/set azimuths and
+  `visible` (sunlit by a cylindrical shadow test, `sunEci` low-precision
+  Sun, observer's Sun below -6°); SatelliteInspector can use the map
+  centre instead of home (`mapCentre`).
 - Animated wind: `argus/wind.py` (GFS u/v at 10 m from PacIOOS ERDDAP
   `ncep_global`, 1 degree, once per 3-hour step, `app.state.wind`),
   `/api/weather/wind`, drawn by `map/windLayer.ts` on its own 2D canvas

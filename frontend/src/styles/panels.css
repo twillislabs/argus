@@ -293,7 +293,10 @@ pre.raw { margin: 0; font: 11.5px/1.55 var(--f-mono); color: #aebbd0; background
 
 /* Satellite passes. */
 .passes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
-.passes li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; }
+.passes li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.passes li > :first-child { flex: 1 0 auto; }
+.passes .badge { font-size: 10px; padding: 1px 6px; }
+.passover { margin: 4px 0 8px; }
 .passes .dim { color: var(--dim); font-size: 11px; }
 .sw.hull { border-radius: 50% 50% 2px 2px / 70% 70% 2px 2px; width: 8px; height: 12px; }
 .ghint { margin: -2px 12px 4px; font-size: 11px; color: var(--dim); }

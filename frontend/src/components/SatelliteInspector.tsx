@@ -34,7 +34,12 @@ interface Props {
   onFly: () => void;
   orbit: (norad: number) => Promise<OrbitInfo | null>;
   passes: (norad: number, lat: number, lon: number) => Promise<Pass[]>;
+  // The spot at the centre of the map, for passes over somewhere else.
+  mapCentre?: () => { lat: number; lon: number } | null;
 }
+
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const compass = (deg: number) => COMPASS[Math.round(deg / 45) % 8];
 
 function clock(t: number): string {
   return new Date(t).toISOString().slice(11, 16) + 'Z';
@@ -47,8 +52,21 @@ function when(t: number): string {
   return 'in ' + Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min';
 }
 
-export default function SatelliteInspector({ norad, home, following, onBack, onFollow, onFly, orbit, passes }: Props) {
+export default function SatelliteInspector({
+  norad,
+  home,
+  following,
+  onBack,
+  onFollow,
+  onFly,
+  orbit,
+  passes,
+  mapCentre,
+}: Props) {
   const [d, setD] = useState<SatelliteDetail | null>(null);
+  // Where passes are worked out for: home, or a spot picked from the map.
+  const [spot, setSpot] = useState<{ lat: number; lon: number } | null>(null);
+  const over = spot ?? (home ? { lat: home.lat, lon: home.lon } : null);
   const [live, setLive] = useState<OrbitInfo | null>(null);
   const [next, setNext] = useState<Pass[] | null>(null);
   const [error, setError] = useState('');
@@ -67,17 +85,25 @@ export default function SatelliteInspector({ norad, home, following, onBack, onF
       });
     refresh();
     const id = window.setInterval(refresh, 5000);
-    if (home) {
-      void passes(norad, home.lat, home.lon).then((p) => {
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+    // orbit comes from the globe and doesn't change.
+  }, [norad]);
+  useEffect(() => {
+    let cancelled = false;
+    setNext(null);
+    if (over) {
+      void passes(norad, over.lat, over.lon).then((p) => {
         if (!cancelled) setNext(p);
       });
     }
     return () => {
       cancelled = true;
-      window.clearInterval(id);
     };
-    // orbit and passes come from the globe and don't change.
-  }, [norad, home?.lat, home?.lon]);
+    // passes comes from the globe and doesn't change.
+  }, [norad, over?.lat, over?.lon]);
 
   return (
     <div className="inspector-body">
@@ -150,9 +176,25 @@ export default function SatelliteInspector({ norad, home, following, onBack, onF
             </dl>
           </section>
           <section className="isec">
-            <h3>Passes over home · next 24 h</h3>
-            {!home ? (
-              <p className="quiet">Set a home location to see passes.</p>
+            <h3>Passes over {spot ? 'the map spot' : 'home'} · next 24 h</h3>
+            <div className="seg passover" role="group" aria-label="Passes over">
+              <button aria-pressed={!spot} disabled={!home} onClick={() => setSpot(null)}>
+                Home
+              </button>
+              <button
+                aria-pressed={Boolean(spot)}
+                disabled={!mapCentre}
+                title="The spot at the centre of the map now"
+                onClick={() => {
+                  const c = mapCentre?.();
+                  if (c) setSpot({ lat: Math.round(c.lat * 1e3) / 1e3, lon: Math.round(c.lon * 1e3) / 1e3 });
+                }}
+              >
+                Map centre
+              </button>
+            </div>
+            {!over ? (
+              <p className="quiet">Set a home location, or pick Map centre, to see passes.</p>
             ) : next === null ? (
               <p className="quiet">Working out passes…</p>
             ) : next.length === 0 ? (
@@ -165,14 +207,23 @@ export default function SatelliteInspector({ norad, home, following, onBack, onF
                       {clock(p.rise)}–{clock(p.set)}
                     </span>
                     <span className="mono">{Math.round(p.maxEl)}° max</span>
+                    <span className="mono dim">
+                      {compass(p.riseAz)} → {compass(p.setAz)}
+                    </span>
                     <span className="dim">{when(p.rise)}</span>
+                    {p.visible && (
+                      <span className="badge" title="Sunlit against a dark sky: you can see it with the eye">
+                        visible
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
             )}
             <p className="quiet small">
-              Above 10° elevation from {home?.name ?? 'home'}. Elements from CelesTrak; positions by SGP4 in your
-              browser.
+              Above 10° elevation from{' '}
+              {spot ? spot.lat.toFixed(3) + ', ' + spot.lon.toFixed(3) : (home?.name ?? 'home')}; rises → sets. Visible:
+              sunlit while the sky there is dark. Elements from CelesTrak; positions by SGP4 in your browser.
             </p>
           </section>
         </>

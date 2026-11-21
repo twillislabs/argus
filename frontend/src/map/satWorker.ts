@@ -63,6 +63,39 @@ function ecf(rec: SatRec, date: Date): { x: number; y: number; z: number } | nul
   return f;
 }
 
+// The Sun's position (Earth-centred inertial, km), to about 0.01 degrees:
+// the Astronomical Almanac's low-precision formula.
+const AU_KM = 149_597_870.7;
+function sunEci(date: Date): { x: number; y: number; z: number } {
+  const n = date.getTime() / 86_400_000 + 2_440_587.5 - 2_451_545.0;
+  const rad = Math.PI / 180;
+  const g = (357.528 + 0.9856003 * n) * rad;
+  const lambda = (280.46 + 0.9856474 * n + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * rad;
+  const eps = (23.439 - 0.0000004 * n) * rad;
+  const r = (1.00014 - 0.01671 * Math.cos(g) - 0.00014 * Math.cos(2 * g)) * AU_KM;
+  return {
+    x: r * Math.cos(lambda),
+    y: r * Math.cos(eps) * Math.sin(lambda),
+    z: r * Math.sin(eps) * Math.sin(lambda),
+  };
+}
+
+// Whether a satellite (ECI, km) is in sunlight: outside Earth's shadow,
+// taken as a cylinder (close enough for a yes/no).
+const EARTH_KM = 6378.137;
+function sunlit(sat: { x: number; y: number; z: number }, sun: { x: number; y: number; z: number }): boolean {
+  const len = Math.hypot(sun.x, sun.y, sun.z);
+  const ux = sun.x / len;
+  const uy = sun.y / len;
+  const uz = sun.z / len;
+  const along = sat.x * ux + sat.y * uy + sat.z * uz;
+  if (along > 0) return true;
+  const px = sat.x - along * ux;
+  const py = sat.y - along * uy;
+  const pz = sat.z - along * uz;
+  return Math.hypot(px, py, pz) > EARTH_KM;
+}
+
 function find(norad: number): Entry | undefined {
   return sats.find((s) => s.norad === norad);
 }
@@ -162,21 +195,50 @@ self.onmessage = (event: MessageEvent<Msg>) => {
   }
   if (msg.type === 'passes') {
     // Passes above 10 degrees for an observer, stepping 30 s and
-    // refining each rise and set to the second.
+    // refining each rise and set to the second, with the compass
+    // bearings it rises and sets at and whether it can be seen with the
+    // eye (sunlit while the observer's sky is dark: Sun 6 degrees or
+    // more below the horizon) at any point.
     const observer = {
       latitude: degreesToRadians(msg.lat),
       longitude: degreesToRadians(msg.lon),
       height: 0.2,
     };
-    const elevation = (t: number) => {
+    const look = (t: number) => {
       const f = ecf(s.rec, new Date(t));
-      return f ? (ecfToLookAngles(observer, f).elevation * 180) / Math.PI : -90;
+      return f ? ecfToLookAngles(observer, f) : null;
+    };
+    const elevation = (t: number) => {
+      const a = look(t);
+      return a ? (a.elevation * 180) / Math.PI : -90;
+    };
+    const azimuth = (t: number) => {
+      const a = look(t);
+      return a ? Math.round(((((a.azimuth * 180) / Math.PI) % 360) + 360) % 360) : 0;
+    };
+    const seen = (t: number) => {
+      const date = new Date(t);
+      const sun = sunEci(date);
+      const sunLook = ecfToLookAngles(observer, eciToEcf(sun, gstime(date)));
+      if ((sunLook.elevation * 180) / Math.PI > -6) return false;
+      const pv = propagate(s.rec, date);
+      return Boolean(pv && typeof pv.position === 'object' && pv.position && sunlit(pv.position, sun));
     };
     const minEl = 10;
     const end = msg.time + msg.hours * 3_600_000;
-    const passes: { rise: number; set: number; peak: number; maxEl: number }[] = [];
+    const passes: {
+      rise: number;
+      set: number;
+      peak: number;
+      maxEl: number;
+      riseAz: number;
+      setAz: number;
+      visible: boolean;
+    }[] = [];
+    let visible = false;
     let prev = elevation(msg.time);
     let rise: number | null = prev >= minEl ? msg.time : null;
+    if (rise !== null) visible = seen(msg.time);
     let peak = msg.time;
     let maxEl = prev;
     for (let t = msg.time + 30_000; t <= end && passes.length < 12; t += 30_000) {
@@ -192,11 +254,13 @@ self.onmessage = (event: MessageEvent<Msg>) => {
         rise = hi;
         maxEl = el;
         peak = t;
+        visible = seen(t);
       } else if (rise !== null) {
         if (el > maxEl) {
           maxEl = el;
           peak = t;
         }
+        if (el >= minEl && !visible) visible = seen(t);
         if (el < minEl) {
           let lo = t - 30_000;
           let hi = t;
@@ -205,15 +269,17 @@ self.onmessage = (event: MessageEvent<Msg>) => {
             if (elevation(mid) >= minEl) lo = mid;
             else hi = mid;
           }
-          passes.push({ rise, set: lo, peak, maxEl });
+          passes.push({ rise, set: lo, peak, maxEl, riseAz: azimuth(rise), setAz: azimuth(lo), visible });
           rise = null;
+          visible = false;
           maxEl = -90;
         }
       }
       prev = el;
     }
     // Still up at the end (geostationary, or a pass in progress).
-    if (rise !== null && passes.length < 12) passes.push({ rise, set: end, peak, maxEl });
+    if (rise !== null && passes.length < 12)
+      passes.push({ rise, set: end, peak, maxEl, riseAz: azimuth(rise), setAz: azimuth(end), visible });
     (self as unknown as Worker).postMessage({ type: 'passes', id: msg.id, passes });
   }
 };

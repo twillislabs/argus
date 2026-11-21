@@ -6,6 +6,12 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Space
+
+- Satellite passes show the directions a satellite rises and sets in,
+  and mark passes you can see with the eye (sunlit against a dark
+  sky). They can be worked out for the map's centre as well as home.
+
 ### Cameras
 
 - The selected traffic camera's picture on the map: at the end of a

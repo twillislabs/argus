@@ -802,7 +802,12 @@ like `1998-067A`) to see:
   a half;
 - altitude and speed now, period, inclination, perigee and apogee;
 - its **passes over home** in the next 24 hours: rise and set times (UTC),
-  the highest elevation, and how soon. Passes count above 10°.
+  the highest elevation, the compass directions it rises and sets in, and
+  how soon. Passes count above 10°. **Visible** marks a pass you can see
+  with the eye: the satellite is sunlit while the sky there is dark (the
+  Sun 6° or more below the horizon), as at dusk and dawn. **Map centre**
+  works the passes out for the spot at the centre of the map instead of
+  home.
 
 **Follow** keeps it in view as it moves; scroll to zoom. The ISS moves at
 7.7 km/s, so following is the easiest way to watch it.
