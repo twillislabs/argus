@@ -502,6 +502,15 @@ quality (US AQI and category, the European index, PM2.5, PM10, ozone and
 NO₂). In the US it also lists the NWS warnings, watches and advisories in
 force there.
 
+**Street photos here:** right-click anywhere and choose *Street photos
+here* for the nearest street-level photos within 250 m, from
+[Panoramax](https://panoramax.fr/), the open, volunteer-built catalogue
+(no key). The nearest opens large, with the way it looks, when it was
+taken, its author and licence (mostly CC BY-SA 4.0) and a link to it on
+Panoramax; a pin marks where it was taken. Pick another from the
+thumbnails. Coverage is best in France and parts of Europe. Photos come
+through Argus's server.
+
 With a home location in the US, **Weather at home** in the Situation panel
 shows the temperature, today's high and low, wind and gusts and the chance
 of rain (Open-Meteo), plus every NWS warning, watch and advisory for your

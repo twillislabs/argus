@@ -1099,6 +1099,26 @@ export interface WindGrid {
 }
 export const getWind = () => api<WindGrid>('/api/weather/wind');
 
+// Street-level photos near a spot (Panoramax), images via our proxy.
+export interface StreetPhoto {
+  id: string;
+  lat: number;
+  lon: number;
+  distance_m: number;
+  heading: number | null;
+  taken: string | null;
+  author: string | null;
+  licence: string | null;
+  licence_url: string | null;
+  thumb: string;
+  image: string;
+  link: string;
+}
+export const getStreetPhotos = (lat: number, lon: number) =>
+  api<{ status: 'ok' | 'error'; photos: StreetPhoto[] }>(
+    '/api/streetphotos?lat=' + lat.toFixed(5) + '&lon=' + lon.toFixed(5),
+  );
+
 // Public transport vehicles in view (operators' GTFS-Realtime feeds).
 export interface TransitVehicle {
   id: string;

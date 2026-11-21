@@ -18,6 +18,7 @@ import AlprInspector from '../components/AlprInspector';
 import BridgeHud from '../components/BridgeHud';
 import CamInspector from '../components/CamInspector';
 import WebcamInspector from '../components/WebcamInspector';
+import StreetPhotos from '../components/StreetPhotos';
 import WeatherHere from '../components/WeatherHere';
 import { PHONE_QUERY, useMedia } from '../lib/useMedia';
 import CockpitHud from '../components/CockpitHud';
@@ -318,6 +319,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   );
   // "Weather here" from the right-click menu: the spot shown.
   const [weatherAt, setWeatherAt] = useState<{ lat: number; lon: number } | null>(null);
+  const [photosAt, setPhotosAt] = useState<{ lat: number; lon: number } | null>(null);
   const [structureItems, setStructureItems] = useState<AirspaceItem[]>([]);
   const [trafficCams, setTrafficCams] = useState<TrafficCam[]>([]);
   const [camStatus, setCamStatus] = useState<'ok' | 'zoom'>('zoom');
@@ -1241,6 +1243,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     setSelectedWebcam(null);
     setSelectedAlpr(null);
     setWeatherAt(null);
+    setPhotosAt(null);
     setFollowSat(false);
     setCamera('free');
     setTracked(null);
@@ -2269,6 +2272,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                 setWeatherAt({ lat: ctxMenu.lat, lon: ctxMenu.lon });
                 openRight();
               }}
+              onPhotos={() => {
+                clearSelection();
+                setPhotosAt({ lat: ctxMenu.lat, lon: ctxMenu.lon });
+                openRight();
+              }}
               onCopied={setNotice}
             />
           )}
@@ -2350,13 +2358,24 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               Layers
             </button>
             <button aria-pressed={sheet === 'R'} onClick={() => setSheet(sheet === 'R' ? null : 'R')}>
-              {selected || selectedHex || selectedMmsi || selectedNorad || selectedInfo || weatherAt ? 'Details' : 'Situation'}
+              {selected || selectedHex || selectedMmsi || selectedNorad || selectedInfo || weatherAt || photosAt ? 'Details' : 'Situation'}
             </button>
           </nav>
         )}
         {showRight && (
           <aside className="side right" aria-label="Inspector">
-            {weatherAt ? (
+            {photosAt ? (
+              <StreetPhotos
+                lat={photosAt.lat}
+                lon={photosAt.lon}
+                onBack={() => setPhotosAt(null)}
+                onShow={(p) =>
+                  globe.current?.showPin(
+                    p ? { lat: p.lat, lon: p.lon, label: 'Photo' + (p.heading !== null ? ' · ' + p.heading + '°' : '') } : null,
+                  )
+                }
+              />
+            ) : weatherAt ? (
               <WeatherHere lat={weatherAt.lat} lon={weatherAt.lon} onBack={() => setWeatherAt(null)} />
             ) : selectedWebcam ? (
               <WebcamInspector cam={selectedWebcam} onBack={() => setSelectedWebcam(null)} />

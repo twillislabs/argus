@@ -8,6 +8,8 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ### Ground
 
+- Street photos here (right-click): the nearest street-level photos
+  from Panoramax, with their author and licence, no key.
 - Public transport, live: buses, trams, metros, trains and ferries in
   Boston, Denver, Toronto, Calgary, Edmonton, Victoria BC, Helsinki,
   the Netherlands and South East Queensland, from the operators' open

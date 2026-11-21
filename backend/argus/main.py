@@ -29,6 +29,7 @@ from argus.api import (
     news,
     patterns,
     setup,
+    streetphotos,
     transit,
     users,
     video,
@@ -51,6 +52,7 @@ from argus.sea import LiveSea
 from argus.services import ensure_setup_token
 from argus.spaceweather import SpaceWeather
 from argus.storms import Storms
+from argus.streetphotos import StreetPhotos
 from argus.transit import Transit
 from argus.video import Video
 from argus.wind import Wind
@@ -100,6 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.storms = Storms(settings.user_agent)
         app.state.wind = Wind(settings.user_agent)
         app.state.transit = Transit(settings.user_agent)
+        app.state.streetphotos = StreetPhotos(settings.user_agent)
         app.state.air_quality = AirQuality(settings.user_agent)
         app.state.geocoder = Geocoder(settings.user_agent)
         app.state.raids = Raids(settings.user_agent)
@@ -142,6 +145,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.storms.close()
         await app.state.wind.close()
         await app.state.transit.close()
+        await app.state.streetphotos.close()
         await app.state.air_quality.close()
         await app.state.geocoder.close()
         await app.state.raids.close()
@@ -197,6 +201,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         sea_api.router,
         airspace.router,
         displays.router,
+        streetphotos.router,
         transit.router,
         weather.router,
         imagery.router,

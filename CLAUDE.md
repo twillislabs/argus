@@ -480,6 +480,10 @@ parts connect.
   most every `MIN_AGE_S`; `map/transitLayer.ts` (`transit:<op>:<id>`,
   hover card only, no selection). Add a feed only with a keyless URL
   and an open licence, credited in README.
+- Street photos: `argus/streetphotos.py` (Panoramax `api/search`, no
+  key); the image proxy fetches only URLs a search returned (`allowed`),
+  never a client's. KartaView's image hosts were down (2026-11); Mapillary
+  needs a key. `components/StreetPhotos.tsx` from MapContextMenu.
 - Animated wind: `argus/wind.py` (GFS u/v at 10 m from PacIOOS ERDDAP
   `ncep_global`, 1 degree, once per 3-hour step, `app.state.wind`),
   `/api/weather/wind`, drawn by `map/windLayer.ts` on its own 2D canvas
