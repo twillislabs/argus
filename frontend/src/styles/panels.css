@@ -1036,6 +1036,10 @@ tr.dimrow td { color: var(--dim); }
 .wxnow { display: flex; align-items: center; gap: 14px; margin: 12px 0; }
 .wxnow .wxtemp { font: 600 32px/1 var(--f-head); }
 .wxnow span { display: grid; gap: 2px; }
+.aqnow { display: flex; align-items: center; gap: 14px; margin: 8px 0 12px; }
+.aqnow b { font: 600 28px/1 var(--f-head); }
+.aqnow span { display: grid; gap: 2px; }
+.aqnow small { color: var(--dim); font-size: 11.5px; }
 .wxnow small { color: var(--dim); font-size: 11.5px; }
 .wxhours { display: grid; grid-auto-flow: column; grid-auto-columns: 56px; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
 .wxhours div { display: grid; gap: 2px; justify-items: center; padding: 6px 2px; border-radius: 6px; background: var(--surface-2); }

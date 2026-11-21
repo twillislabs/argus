@@ -65,10 +65,14 @@ import {
   type GpsCell,
   getOutlook,
   getStorms,
+  getWind,
+  getAir,
   getWeatherNow,
   getWxAlerts,
   type OutlookArea,
   type Storm,
+  type WindGrid,
+  type AirPoint,
   type WeatherNow,
   type WxAlert,
   type Tension,
@@ -299,6 +303,12 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [outlook, setOutlook] = useState<OutlookArea[]>([]);
   const [weatherNow, setWeatherNow] = useState<WeatherNow | null>(null);
   const [storms, setStorms] = useState<Storm[]>([]);
+  const [wind, setWind] = useState<WindGrid | null>(null);
+  const [air, setAir] = useState<{ points: AirPoint[]; step: number; status: string }>({
+    points: [],
+    step: 1,
+    status: 'zoom',
+  });
   const [weatherOpacity, setWeatherOpacity] = useState<WxOpacity>(
     () => (me.preferences.weather_opacity as WxOpacity | undefined) ?? {},
   );
@@ -450,6 +460,23 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       if (viewRef.current !== bbox) return;
       setCamStatus(r.status);
       setTrafficCams(r.cameras);
+    } catch {
+      // Keep what's shown; the next view change retries.
+    }
+  }, []);
+
+  // Air quality for the view (a grid the API sizes to the view).
+  const loadAir = useCallback(async () => {
+    if (!filtersRef.current.weather.air) return;
+    const bbox = viewRef.current;
+    if (!bbox) {
+      setAir({ points: [], step: 1, status: 'zoom' });
+      return;
+    }
+    try {
+      const r = await getAir(bbox);
+      if (viewRef.current !== bbox) return;
+      setAir({ points: r.points, step: r.step ?? 1, status: r.status });
     } catch {
       // Keep what's shown; the next view change retries.
     }
@@ -668,9 +695,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         void loadAlpr();
         void loadCams();
         void loadWebcams();
+        void loadAir();
       }, 400);
     },
-    [loadCivil, loadVessels, loadStructure, loadAlpr, loadCams, loadWebcams],
+    [loadCivil, loadVessels, loadStructure, loadAlpr, loadCams, loadWebcams, loadAir],
   );
   useEffect(() => {
     if (filters.airspace.structure) void loadStructure();
@@ -679,6 +707,13 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (filters.cams.traffic) void loadCams();
     else setTrafficCams([]);
   }, [filters.cams.traffic, loadCams]);
+  useEffect(() => {
+    if (!filters.weather.air) return;
+    void loadAir();
+    // Readings change by the hour.
+    const id = window.setInterval(() => void loadAir(), 900_000);
+    return () => window.clearInterval(id);
+  }, [filters.weather.air, loadAir]);
   useEffect(() => {
     if (filters.infra.alpr) void loadAlpr();
     else setAlprCameras([]);
@@ -853,6 +888,21 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       window.clearInterval(id);
     };
   }, [filters.weather.storms]);
+  // Animated wind (NOAA GFS, a new grid every 3 hours on the API).
+  useEffect(() => {
+    if (!filters.weather.wind) return;
+    let cancelled = false;
+    const load = () =>
+      getWind()
+        .then((r) => !cancelled && r.status === 'ok' && setWind(r))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 1_800_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [filters.weather.wind]);
   useEffect(() => {
     const h = me.preferences.home;
     if (!h) return;
@@ -1894,6 +1944,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
             zoneCount={filters.weather.zones ? wxZoned.length : undefined}
             stormCount={filters.weather.storms ? storms.length : undefined}
+            airCount={
+              filters.weather.air ? (air.status === 'zoom' ? 'zoom in' : String(air.points.length)) : undefined
+            }
             weatherOpacity={weatherOpacity}
             onWeatherOpacity={(o) => {
               setWeatherOpacity(o);
@@ -1958,6 +2011,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             onHover={onHover}
             onContext={(lat, lon, x, y) => setCtxMenu({ lat, lon, x, y })}
             storms={filters.weather.storms ? storms : []}
+            wind={filters.weather.wind ? wind : null}
+            airPoints={filters.weather.air ? air.points : []}
+            airStep={air.step}
             render={me.preferences.render ?? 'balanced'}
             weatherOpacity={weatherOpacity}
             drawings={drawings}

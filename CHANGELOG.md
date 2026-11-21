@@ -6,6 +6,15 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Weather
+
+- Animated wind worldwide (NOAA GFS, no key): streaks coloured by
+  speed, on their own canvas so the globe still redraws only when
+  something changes. Also on the Wall.
+- Air quality (Open-Meteo, CAMS, no key): a US AQI tint with the index
+  on each point for the view, and an Air quality section in Weather
+  here.
+
 ### Cameras
 
 - Traffic cameras in Texas (TxDOT, about 3,500), Washington (WSDOT,

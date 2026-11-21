@@ -48,6 +48,7 @@ import type {
   Bbox,
   EventItem,
   Advisory,
+  AirPoint,
   AlprCamera,
   GpsCell,
   TrafficCam,
@@ -64,6 +65,7 @@ import type {
   Storm,
   TensionCountry,
   Vessel,
+  WindGrid,
   WxAlert,
 } from '../lib/api';
 import { SEVERITY_COLOR } from '../lib/format';
@@ -80,9 +82,11 @@ import { addCyberLayer, type CyberLayer } from './cyberLayer';
 import { addPatternLayer, type PatternLayer } from './patternLayer';
 import { addRaidLayer, type RaidLayer } from './raidLayer';
 import { addAlprLayer, type AlprLayer } from './alprLayer';
+import { addAirLayer, type AirLayer } from './airLayer';
 import { addCamLayer, type CamLayer, WEBCAM_COLOR } from './camLayer';
 import { zoomToGroup } from './groups';
 import { governRendering, type RenderGovernor } from './render';
+import { addWindLayer, type WindLayer } from './windLayer';
 import { addWxLayer, type WeatherFilters, WX_IMAGERY, WX_OVER_LAND, type WxLayer, type WxOpacity } from './wxLayer';
 import { addSentinelLayer, type SentinelLayer, type SentinelView } from './sentinelLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
@@ -430,6 +434,10 @@ interface Props {
   wxZoned?: WxAlert[];
   outlook?: OutlookArea[];
   storms?: Storm[];
+  // The wind grid (animated wind) and air quality points for the view.
+  wind?: WindGrid | null;
+  airPoints?: AirPoint[];
+  airStep?: number;
   weather?: WeatherFilters;
   weatherOpacity?: WxOpacity;
   // How often the map redraws when idle (map/render.ts).
@@ -500,6 +508,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     wxZoned,
     outlook,
     storms,
+    wind,
+    airPoints,
+    airStep = 1,
     weather,
     weatherOpacity,
     render = 'balanced',
@@ -554,6 +565,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const alprLayer = useRef<AlprLayer | null>(null);
   const camLayer = useRef<CamLayer | null>(null);
   const webcamLayer = useRef<CamLayer | null>(null);
+  const windLayer = useRef<WindLayer | null>(null);
+  const airLayer = useRef<AirLayer | null>(null);
   const wx = useRef<WxLayer | null>(null);
   const weatherRef = useRef(weather);
   weatherRef.current = weather;
@@ -562,6 +575,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const governor = useRef<RenderGovernor | null>(null);
   useEffect(() => {
     governor.current?.setMode(render);
+    windLayer.current?.setMode(render);
   }, [render]);
   const opacityRef = useRef(weatherOpacity);
   opacityRef.current = weatherOpacity;
@@ -669,6 +683,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     raidLayer.current = addRaidLayer(scene);
     alprLayer.current = addAlprLayer(scene);
     camLayer.current = addCamLayer(scene);
+    windLayer.current = addWindLayer(v, renderRef.current);
+    airLayer.current = addAirLayer(scene);
     webcamLayer.current = addCamLayer(scene, WEBCAM_COLOR, 'webcam:');
     wx.current = addWxLayer(scene, () => ({
       add: (l) => v.scene.imageryLayers.add(l),
@@ -940,6 +956,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['alpr', () => alprLayer.current?.destroy()],
         ['traffic cameras', () => camLayer.current?.destroy()],
         ['webcams', () => webcamLayer.current?.destroy()],
+        ['wind', () => windLayer.current?.destroy()],
+        ['air quality', () => airLayer.current?.destroy()],
         ['weather', () => wx.current?.destroy()],
         ['infrastructure', () => infraLayer.current?.destroy()],
         ['sentinel', () => sentinel.current?.destroy()],
@@ -973,6 +991,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       alprLayer.current = null;
       camLayer.current = null;
       webcamLayer.current = null;
+      windLayer.current = null;
+      airLayer.current = null;
       infraLayer.current = null;
       air.current = null;
       tracker.current = null;
@@ -1174,6 +1194,14 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     const list = trafficCams ?? [];
     camLayer.current?.update(list, list.length > 0, selectedCam ?? null);
   }, [trafficCams, selectedCam]);
+
+  useEffect(() => {
+    windLayer.current?.update(wind ?? null, Boolean(weather?.wind));
+  }, [wind, weather?.wind]);
+
+  useEffect(() => {
+    airLayer.current?.update(airPoints ?? [], airStep, Boolean(weather?.air));
+  }, [airPoints, airStep, weather?.air]);
 
   useEffect(() => {
     const list = webcams ?? [];

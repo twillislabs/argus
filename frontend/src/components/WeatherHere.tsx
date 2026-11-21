@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 
-import { type Forecast, getForecast, getWxAlerts, type WxAlert } from '../lib/api';
+import { type AirReading, type Forecast, getAirHere, getForecast, getWxAlerts, type WxAlert } from '../lib/api';
 import { latLon } from '../lib/format';
 import { distance, length, pressure, rainfall, skyText, temperature, windSpeed } from '../lib/units';
+import { aqiBand } from '../map/airLayer';
 import { alertColor } from '../map/wxLayer';
 
 // "Weather here" (the map's right-click menu): any spot's weather now,
 // the next 24 hours and the week, from Open-Meteo (no key), plus the
-// NWS alerts in force there when it's in the US.
+// NWS alerts in force there when it's in the US, and the air quality
+// (Open-Meteo, CAMS).
 
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const compass = (deg: number) => COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
@@ -32,10 +34,15 @@ function dayOf(t: string, i: number): string {
 export default function WeatherHere({ lat, lon, onBack }: { lat: number; lon: number; onBack: () => void }) {
   const [fc, setFc] = useState<Forecast | null>(null);
   const [alerts, setAlerts] = useState<WxAlert[] | null>(null);
+  const [air, setAir] = useState<Partial<AirReading> | null>(null);
   useEffect(() => {
     let cancelled = false;
     setFc(null);
     setAlerts(null);
+    setAir(null);
+    getAirHere(lat, lon)
+      .then((r) => !cancelled && r.status === 'ok' && setAir(r))
+      .catch(() => undefined);
     getForecast(lat, lon)
       .then((r) => !cancelled && setFc(r))
       .catch(() => !cancelled && setFc({ status: 'error' }));
@@ -106,6 +113,37 @@ export default function WeatherHere({ lat, lon, onBack }: { lat: number; lon: nu
           </dl>
         )}
       </section>
+
+      {air?.us_aqi != null && (
+        <section className="isec">
+          <h3>Air quality</h3>
+          <div className="aqnow">
+            <b className="mono" style={{ color: aqiBand(air.us_aqi).color }}>
+              {Math.round(air.us_aqi)}
+            </b>
+            <span>
+              {aqiBand(air.us_aqi).label}
+              <small>US AQI{air.european_aqi != null ? ' · European index ' + Math.round(air.european_aqi) : ''}</small>
+            </span>
+          </div>
+          <dl className="kv">
+            {(
+              [
+                ['PM2.5', air.pm2_5],
+                ['PM10', air.pm10],
+                ['Ozone', air.ozone],
+                ['NO₂', air.nitrogen_dioxide],
+              ] as const
+            ).map(([k, val]) => (
+              <div key={k}>
+                <dt>{k}</dt>
+                <dd>{val != null ? Math.round(val) + ' µg/m³' : '—'}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="quiet small">Modelled (CAMS via Open-Meteo), about 40 km across; not a sensor reading.</p>
+        </section>
+      )}
 
       {alerts && alerts.length > 0 && (
         <section className="isec">

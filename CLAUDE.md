@@ -458,7 +458,23 @@ parts connect.
   as `storm:<id>`. "Weather here" (`components/WeatherHere.tsx`, from
   MapContextMenu) reads `/api/weather/forecast` (Open-Meteo, 15 min per
   spot) and, in the US, `/api/weather/alerts?lat=&lon=`'s `local`.
-  Wall layers `wx_storms`, `radar`, `lightning`, `vapour`, `sst`.
+  Wall layers `wx_storms`, `radar`, `lightning`, `vapour`, `sst`,
+  `wind`.
+- Animated wind: `argus/wind.py` (GFS u/v at 10 m from PacIOOS ERDDAP
+  `ncep_global`, 1 degree, once per 3-hour step, `app.state.wind`),
+  `/api/weather/wind`, drawn by `map/windLayer.ts` on its own 2D canvas
+  over the globe (`v.container`), NOT through Cesium, so render-on-
+  demand stays intact; its FPS and particle count follow the `render`
+  preference. Never pass a frozen Cesium constant (`Rectangle.MAX_VALUE`)
+  as a `result` scratch: it throws inside Cesium's render and stops the
+  globe. Capture doesn't include the wind canvas.
+- Air quality: `argus/airquality.py` (Open-Meteo, `app.state.air_quality`;
+  `app.state.air` is the aircraft feed), a grid over the view
+  (`grid_step`, at most `MAX_POINTS`, points on step multiples so pans
+  reuse the hourly per-point cache, `HOURLY_BUDGET` new points an hour
+  per server), `/api/weather/air?bbox=`, `/api/weather/air/here`.
+  `map/airLayer.ts` paints one pixel per point and stretches it over
+  the area (Image material) for a smooth tint, plus labels.
 - Phones (860 px and under, `lib/useMedia` `PHONE_QUERY`):
   `styles/mobile.css` (imported last) overrides the desktop layout. The
   map page shows one panel at a time as a sheet over the map (`sheet`

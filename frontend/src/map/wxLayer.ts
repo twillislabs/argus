@@ -45,6 +45,9 @@ export interface WeatherFilters {
   radar: boolean;
   lightning: boolean;
   sst: boolean;
+  // Animated wind (map/windLayer.ts) and air quality (map/airLayer.ts).
+  wind: boolean;
+  air: boolean;
 }
 
 export const DEFAULT_WEATHER: WeatherFilters = {
@@ -58,6 +61,8 @@ export const DEFAULT_WEATHER: WeatherFilters = {
   radar: false,
   lightning: false,
   sst: false,
+  wind: false,
+  air: false,
 };
 
 // The weather layers that are imagery, each with its own opacity.

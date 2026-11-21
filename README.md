@@ -51,7 +51,8 @@ What it does today:
 - **World tension.** A per-country, theatre and world index anchored to UCDP conflict deaths, with
   live events on top, tinting the map.
 - **Weather.** NWS warnings, watches and advisories (on their zone outlines), the SPC severe weather
-  outlook, satellite clouds and precipitation, and conditions at home.
+  outlook, tropical storms, radar, lightning, satellite clouds and precipitation, animated wind,
+  air quality, and conditions at home or anywhere you click.
 - **Cameras and video.** Traffic cameras from Caltrans, TxDOT, WSDOT, TDOT (with a key), DriveBC,
   London, Finland and Hong Kong, with stills and live video, grouped by count when zoomed out; webcams from Windy and live YouTube streams near the view
   or about an event (with free keys).
@@ -230,6 +231,9 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
 - **Maps and imagery:** Natural Earth (public domain), NASA GIBS (Blue Marble), and Esri (Dark
   Gray Canvas, World Imagery and reference layers; © Esri and its data providers).
 - **Earthquakes:** USGS (public domain).
+- **Weather:** NWS, SPC, NOAA nowCOAST, NASA GIBS, GDACS, [Open-Meteo](https://open-meteo.com/)
+  (CC BY 4.0) for forecasts and air quality (Copernicus Atmosphere Monitoring Service data), and
+  NOAA GFS wind via [PacIOOS](https://www.pacioos.hawaii.edu/) ERDDAP.
 - **Events:** the GDELT Project.
 - **Fires:** NASA FIRMS.
 - **Conflict data:** [UCDP](https://ucdp.uu.se/) Georeferenced Event Dataset and Candidate

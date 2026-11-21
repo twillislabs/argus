@@ -186,6 +186,7 @@ WALL_LAYERS = (
     "vapour",
     "precip",
     "sst",
+    "wind",
     "stations",
     "advisories",
     "wiki",

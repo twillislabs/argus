@@ -10,17 +10,22 @@
   hours and 7 days, from Open-Meteo, cached for 15 minutes per spot.
 - /api/weather/storms: tropical cyclones worldwide (argus/storms.py,
   GDACS), with track, forecast cone and wind swath.
+- /api/weather/wind: the 10 m wind grid worldwide (argus/wind.py, NOAA
+  GFS), for the animated wind.
+- /api/weather/air: air quality on a grid over the view, and
+  /api/weather/air/here for one spot (argus/airquality.py, Open-Meteo).
 """
 
 import time
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import select
 
 from argus.api.deps import DbDep, SessionDep
 from argus.db import utcnow
+from argus.events import parse_bbox
 from argus.models import NwsZone, RawRecord
 
 router = APIRouter(tags=["weather"])
@@ -309,3 +314,33 @@ def _rows(cols: dict, limit: int, body: dict | None = None) -> list[dict]:
 async def storms(session: SessionDep, request: Request):
     since = (datetime.now(UTC) - timedelta(days=21)).strftime("%Y-%m-%d")
     return await request.app.state.storms.get(since)
+
+
+@router.get("/api/weather/wind")
+async def wind(session: SessionDep, request: Request):
+    return await request.app.state.wind.get()
+
+
+@router.get("/api/weather/air")
+async def air(
+    session: SessionDep,
+    request: Request,
+    bbox: str = Query(..., description="west,south,east,north"),
+):
+    try:
+        w, s, e, n = parse_bbox(bbox)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(422, "bbox must be west,south,east,north") from exc
+    if e < w:
+        return {"status": "zoom", "points": []}
+    return await request.app.state.air_quality.grid(w, s, e, n)
+
+
+@router.get("/api/weather/air/here")
+async def air_here(
+    session: SessionDep,
+    request: Request,
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+):
+    return await request.app.state.air_quality.point(lat, lon)

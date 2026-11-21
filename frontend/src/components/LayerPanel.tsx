@@ -97,6 +97,8 @@ const WEATHER_ROWS: { id: keyof WeatherFilters; label: string; source: string; c
   { id: 'vapour', label: 'Water vapour', source: 'NOAA nowCOAST · global satellites', color: '#8f7bff' },
   { id: 'precip', label: 'Precipitation', source: 'NASA GIBS · IMERG, a few hours behind', color: '#3fa7ff' },
   { id: 'sst', label: 'Sea temperature', source: 'NOAA nowCOAST · daily analysis', color: '#ff6b6b' },
+  { id: 'wind', label: 'Wind (animated)', source: 'NOAA GFS · 10 m, every 3 hours', color: '#7ee0c2' },
+  { id: 'air', label: 'Air quality', source: 'Open-Meteo · CAMS, US AQI, hourly', color: '#4cc96b' },
 ];
 
 const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color: string }[] = [
@@ -185,6 +187,7 @@ interface Props {
   weatherCount?: number;
   zoneCount?: number;
   stormCount?: number;
+  airCount?: string;
   // Weather imagery opacity, by layer.
   weatherOpacity?: WxOpacity;
   onWeatherOpacity?: (o: WxOpacity) => void;
@@ -322,6 +325,7 @@ export default function LayerPanel({
   weatherCount,
   zoneCount,
   stormCount,
+  airCount,
   weatherOpacity,
   onWeatherOpacity,
   airCounts,
@@ -580,7 +584,9 @@ export default function LayerPanel({
                       ? (zoneCount ?? '–')
                       : r.id === 'storms'
                         ? (stormCount ?? '–')
-                        : ''}
+                        : r.id === 'air'
+                          ? (airCount ?? '')
+                          : ''}
                   <Dot sources={sources} id={'wx-' + r.id} />
                 </span>
               </label>

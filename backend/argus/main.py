@@ -9,6 +9,7 @@ from datetime import timedelta
 from fastapi import FastAPI, Request
 
 from argus import __version__
+from argus.airquality import AirQuality
 from argus.alerts import alerts_loop
 from argus.alpr import Alpr
 from argus.api import (
@@ -50,6 +51,7 @@ from argus.services import ensure_setup_token
 from argus.spaceweather import SpaceWeather
 from argus.storms import Storms
 from argus.video import Video
+from argus.wind import Wind
 from argus.youtube import LiveIds
 
 log = logging.getLogger("argus")
@@ -94,6 +96,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.faa = FaaStatus(settings.user_agent)
         app.state.spaceweather = SpaceWeather(settings.user_agent)
         app.state.storms = Storms(settings.user_agent)
+        app.state.wind = Wind(settings.user_agent)
+        app.state.air_quality = AirQuality(settings.user_agent)
         app.state.geocoder = Geocoder(settings.user_agent)
         app.state.raids = Raids(settings.user_agent)
         app.state.sanctions = SanctionsIndex()
@@ -133,6 +137,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.faa.close()
         await app.state.spaceweather.close()
         await app.state.storms.close()
+        await app.state.wind.close()
+        await app.state.air_quality.close()
         await app.state.geocoder.close()
         await app.state.raids.close()
         await app.state.imagery.close()

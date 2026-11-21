@@ -487,6 +487,8 @@ allowed.
 | **Water vapour** | Moisture high in the atmosphere, worldwide, from geostationary satellites: the jet stream, storm systems and dry air between them, refreshed every 10 minutes | NOAA nowCOAST |
 | **Precipitation** | Rain and snow rate from satellites, worldwide, half-hourly, a few hours behind | NASA GIBS (IMERG) |
 | **Sea temperature** | The sea surface temperature, a daily analysis (warm water feeds tropical storms) | NOAA nowCOAST |
+| **Wind (animated)** | Wind 10 m above the ground, worldwide, as drifting streaks coloured by speed (the Legend has the scale). From the GFS forecast model's 3-hourly step nearest now, on a 1° grid, so it shows the large-scale flow rather than gusts at one spot. The streaks animate on their own layer, so the globe itself still redraws only when something changes; the **Map frame rate** setting sets their pace (fewer and slower in Power saver). They aren't in Capture images | NOAA GFS, via PacIOOS ERDDAP |
+| **Air quality** | A tint by US AQI category (Good to Hazardous, in the EPA's colours) with the index written on each point, for a regional or national view (zoom in further for a finer grid, down to a quarter of a degree). Modelled, not sensor readings: about 40 km across, updated hourly | Open-Meteo (Copernicus Atmosphere Monitoring Service) |
 
 Each imagery layer (radar, lightning, clouds, water vapour, precipitation,
 sea temperature) gets an **Opacity** slider under it while it's on. Your
@@ -495,8 +497,10 @@ settings are remembered.
 **Weather here:** right-click anywhere on the map and choose *Weather
 here* for that spot's weather now (temperature, feels like, wind and
 gusts, humidity, cloud, pressure, visibility), the next 24 hours and the
-next 7 days, from Open-Meteo, in the spot's local time. In the US it also
-lists the NWS warnings, watches and advisories in force there.
+next 7 days, from Open-Meteo, in the spot's local time, and its air
+quality (US AQI and category, the European index, PM2.5, PM10, ozone and
+NO₂). In the US it also lists the NWS warnings, watches and advisories in
+force there.
 
 With a home location in the US, **Weather at home** in the Situation panel
 shows the temperature, today's high and low, wind and gusts and the chance

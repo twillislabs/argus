@@ -58,6 +58,7 @@ export type WallLayer =
   | 'vapour'
   | 'precip'
   | 'sst'
+  | 'wind'
   | 'stations'
   | 'advisories'
   | 'wiki';
@@ -102,6 +103,7 @@ export const WALL_LAYERS: { id: WallLayer; label: string; on: boolean; group: st
   { id: 'vapour', label: 'Water vapour', on: false, group: 'Weather' },
   { id: 'precip', label: 'Precipitation', on: false, group: 'Weather' },
   { id: 'sst', label: 'Sea temperature', on: false, group: 'Weather' },
+  { id: 'wind', label: 'Wind (animated)', on: false, group: 'Weather' },
   { id: 'nuclear', label: 'Nuclear plants', on: true, group: 'Infrastructure' },
   { id: 'power', label: 'Power plants', on: false, group: 'Infrastructure' },
   { id: 'cables', label: 'Submarine cables', on: false, group: 'Infrastructure' },
@@ -1078,6 +1080,45 @@ export interface Storm {
   report: string;
 }
 export const getStorms = () => api<{ status: 'ok' | 'error'; storms: Storm[] }>('/api/weather/storms');
+
+// Wind at 10 m worldwide (NOAA GFS), m/s on a regular grid: rows from
+// lat0 southwards by dlat, columns from lon0 (0 = Greenwich) eastwards.
+export interface WindGrid {
+  status: 'ok' | 'error';
+  time?: string;
+  source?: string;
+  lat0: number;
+  lon0: number;
+  dlat: number;
+  dlon: number;
+  nx: number;
+  ny: number;
+  u: number[];
+  v: number[];
+}
+export const getWind = () => api<WindGrid>('/api/weather/wind');
+
+// Air quality now (Open-Meteo, CAMS): US AQI and the pollutants, µg/m³.
+export interface AirReading {
+  us_aqi: number;
+  european_aqi: number | null;
+  pm2_5: number | null;
+  pm10: number | null;
+  ozone: number | null;
+  nitrogen_dioxide: number | null;
+}
+export interface AirPoint extends AirReading {
+  lat: number;
+  lon: number;
+}
+export const getAir = (bbox: Bbox) =>
+  api<{ status: 'ok' | 'partial' | 'zoom'; step?: number; points: AirPoint[] }>(
+    '/api/weather/air?bbox=' + bbox.map((x) => x.toFixed(3)).join(','),
+  );
+export const getAirHere = (lat: number, lon: number) =>
+  api<{ status: 'ok' | 'none' | 'busy' | 'error' } & Partial<AirReading>>(
+    '/api/weather/air/here?lat=' + lat.toFixed(4) + '&lon=' + lon.toFixed(4),
+  );
 
 // "Weather here": Open-Meteo for any spot (metric). Hourly rows start at
 // the current hour; times are the spot's local time.

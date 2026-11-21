@@ -3,10 +3,12 @@ import { SEVERITY_COLOR, SEVERITY_NAME } from '../lib/format';
 import { AIR_COLOR } from '../map/aircraftLayer';
 import { ADVISORY_COLOR } from '../map/advisoryLayer';
 import { AIRSPACE_COLOR, STRUCTURE_COLOR } from '../map/airspaceLayer';
+import { AQI_BANDS } from '../map/airLayer';
 import { ALPR_COLOR } from '../map/alprLayer';
 import { BASE_COLOR, FUEL_COLOR } from '../map/infraLayer';
 import { SAT_COLOR } from '../map/satellites';
 import { VESSEL_COLOR } from '../map/vesselLayer';
+import { WIND_BANDS } from '../map/windLayer';
 import { LAUNCH_COLOR } from '../map/launchLayer';
 import { OUTAGE_COLOR, RANSOMWARE_COLOR } from '../map/cyberLayer';
 
@@ -112,6 +114,22 @@ export default function Legend({ filters, onClose }: { filters: LayerFilters; on
               .map(([label, color]) => ({ color, label, shape: 'area' as const }))}
           />
         )}
+        {filters.weather.wind && (
+          <Section
+            title="Wind at 10 m"
+            rows={WIND_BANDS.map((b) => ({ color: b.color, label: b.label, shape: 'line' as const }))}
+          />
+        )}
+        {filters.weather.air && (
+          <Section
+            title="Air quality (US AQI)"
+            rows={AQI_BANDS.map((b, i) => ({
+              color: b.color,
+              label: (i ? AQI_BANDS[i - 1].upTo + 1 : 0) + (b.upTo === Infinity ? '+' : '–' + b.upTo) + ' ' + b.label,
+              shape: 'area' as const,
+            }))}
+          />
+        )}
         {sea.length > 0 && (
           <Section
             title="Ships"
@@ -136,10 +154,16 @@ export default function Legend({ filters, onClose }: { filters: LayerFilters; on
             rows={[
               ...(filters.infra.outages
                 ? [
-                    { color: OUTAGE_COLOR, label: 'Internet outage, ongoing (stronger) or in the last 24 h', shape: 'area' as const },
+                    {
+                      color: OUTAGE_COLOR,
+                      label: 'Internet outage, ongoing (stronger) or in the last 24 h',
+                      shape: 'area' as const,
+                    },
                   ]
                 : []),
-              ...(filters.infra.ransomware ? [{ color: RANSOMWARE_COLOR, label: 'Ransomware victims, latest claims (sized by count)' }] : []),
+              ...(filters.infra.ransomware
+                ? [{ color: RANSOMWARE_COLOR, label: 'Ransomware victims, latest claims (sized by count)' }]
+                : []),
             ]}
           />
         )}
