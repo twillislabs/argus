@@ -501,6 +501,13 @@ parts connect.
   drawn by wxLayer (`WeatherFilters.fires`, `fire:<id>`); a click opens
   the event whose `key` is the perimeter's `event_key` (`nifc:<id>`;
   `event_dict` now returns `key`), else an info panel.
+- Sign-in pages: `components/AuthShell.tsx` (HUD brackets `.bracket`,
+  not `.hud`: that class is the cockpit HUD's; UTC readout, `WATCHES`
+  ticker), `AuthGlobe.tsx` (canvas: stars, night from `subsolar`,
+  `ROUTES` flights, `ORBITS`, conic sweep; all still under reduced
+  motion). The globe fills the page behind a frosted form card (left of
+  centre on wide pages, near the top on tall ones: `tall`), dimmed
+  towards the form by `.auth-art::after`.
 - Global Fishing Watch: `argus/fishing.py` (key `gfw` in Data sources,
   Events API POST per `TILE_DEG` tile, encounters/loitering/gaps, last
   `DAYS`, cached `TTL_S` in API memory: CC BY-NC and the token must stay

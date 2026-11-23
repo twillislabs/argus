@@ -6,6 +6,13 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-23
+
+Wildfire outlines, Global Fishing Watch at sea, sharp imagery close-ups
+anywhere, clickable pattern rings and a livelier sign-in page. Nothing
+to change when you upgrade; Global Fishing Watch needs its own free
+token in Settings › Data sources if you want that layer.
+
 ### Hazards
 
 - Wildfire outlines (US): the mapped edge of every current wildfire of
@@ -29,6 +36,12 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 - The sign-in page says "Sign in to Argus" rather than "Welcome back",
   for people signing in for the first time.
+- A livelier sign-in page: the globe now fills the background behind
+  the form, dimmed, with day and night, flights tracing between cities,
+  satellites on their orbits and a radar sweep, a live UTC readout and
+  what Argus watches. Phones get it too instead of a plain form.
+- The documentation links to the GitHub repository (navbar, footer and
+  introduction).
 - Layer descriptions mention keys only when one is missing, and the
   traffic cameras row no longer names only Caltrans and TDOT.
 

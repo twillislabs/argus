@@ -1,21 +1,70 @@
 /* Sign-in and first-run setup pages. */
 .auth {
-  flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-  border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+  flex: 1; min-height: 0; overflow: auto; position: relative; display: flex; align-items: center;
+  border: 1px solid var(--line); border-radius: 6px; background: #070a0e;
 }
-.auth-art { position: relative; overflow: hidden; background: #070a0e; border-right: 1px solid var(--line); min-height: 260px; }
-.auth-globe-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.auth-art .claim { position: absolute; left: 28px; right: 28px; bottom: 28px; }
-.auth-art .claim b { display: block; font: 600 30px/1.1 var(--f-head); letter-spacing: 0.04em; }
-.auth-form { padding: 36px clamp(16px, 5vw, 56px); display: grid; gap: 16px; align-content: center; max-width: 540px; width: 100%; justify-self: center; }
+/* The globe fills the page behind the form, dimmed towards the form. */
+.auth-art { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.auth-globe-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0.75; }
+.auth-art::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(7, 10, 14, 0) 0%, rgba(7, 10, 14, 0.25) 45%, rgba(7, 10, 14, 0.7) 75%, rgba(7, 10, 14, 0.85) 100%);
+}
+.auth-art .claim { position: absolute; left: 28px; right: 28px; bottom: 28px; display: grid; gap: 4px; z-index: 1; max-width: 520px; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9); }
+.auth-art .claim b {
+  display: block; font: 600 34px/1.05 var(--f-head); letter-spacing: 0.14em;
+  background: linear-gradient(90deg, #e9f1ff, var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.auth-art .watching { font: 500 14px/1.4 var(--f-mono); color: var(--muted); letter-spacing: 0.02em; }
+.auth-art .watching em { font-style: normal; color: #ffc45c; }
+.auth-art .tick { display: inline-block; animation: auth-tick 2.6s ease both; }
+.auth-art .tagline { font-size: 13px; color: var(--dim); }
+@keyframes auth-tick {
+  0% { opacity: 0; transform: translateY(6px); }
+  12%, 85% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+/* HUD corner brackets and a live UTC readout over the globe. */
+.auth-art .bracket { position: absolute; width: 22px; height: 22px; border: 0 solid rgba(91, 155, 255, 0.45); z-index: 1; }
+.auth-art .bracket.tl { top: 14px; left: 14px; border-top-width: 2px; border-left-width: 2px; }
+.auth-art .bracket.tr { top: 14px; right: 14px; border-top-width: 2px; border-right-width: 2px; }
+.auth-art .bracket.bl { bottom: 14px; left: 14px; border-bottom-width: 2px; border-left-width: 2px; }
+.auth-art .bracket.br { bottom: 14px; right: 14px; border-bottom-width: 2px; border-right-width: 2px; }
+.auth-readout { position: absolute; top: 22px; left: 46px; display: flex; gap: 12px; font-size: 11px; letter-spacing: 0.08em; color: var(--muted); z-index: 1; }
+.auth-readout .live { color: #ff5260; animation: auth-blink 2s ease-in-out infinite; }
+@keyframes auth-blink { 50% { opacity: 0.35; } }
+/* The form: a card over the globe, frosted so the globe stays behind it. */
+.auth-form {
+  position: relative; z-index: 2; display: grid; gap: 16px; align-content: center;
+  width: min(500px, calc(100% - 32px)); margin: 24px clamp(24px, 9vw, 140px) 24px auto; box-sizing: border-box;
+  padding: 32px clamp(20px, 3vw, 36px); border: 1px solid var(--line-2); border-radius: 10px;
+  background: rgba(13, 17, 23, 0.78); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-art .tick, .auth-readout .live { animation: none; }
+}
 .steps { display: flex; gap: 6px; flex-wrap: wrap; }
 .steps span { font: 600 10.5px/1 var(--f-mono); letter-spacing: 0.06em; padding: 5px 8px; border-radius: 3px; background: var(--surface-2); color: var(--dim); }
 .steps span.on { background: var(--accent-soft); color: var(--accent); }
 .steps span.done { color: var(--ok); }
 
 @media (max-width: 860px) {
-  .auth { grid-template-columns: minmax(0, 1fr); }
-  .auth-art { display: none; }
+  /* Phones: the globe sits behind, near the top; the card below it. */
+  .auth { flex-direction: column; align-items: stretch; }
+  .auth-globe-canvas { opacity: 0.6; }
+  .auth-art::after { background: linear-gradient(180deg, rgba(7, 10, 14, 0) 0%, rgba(7, 10, 14, 0.2) 35%, rgba(7, 10, 14, 0.75) 70%, rgba(7, 10, 14, 0.9) 100%); }
+  .auth-art .claim { left: 18px; right: 18px; top: 46px; bottom: auto; }
+  .auth-art .claim b { font-size: 24px; }
+  .auth-art .watching { font-size: 12px; }
+  .auth-art .tagline { display: none; }
+  .auth-readout { top: 16px; left: 40px; }
+  .auth-art .bracket { width: 16px; height: 16px; }
+  .auth-art .bracket.tl, .auth-art .bracket.tr { top: 10px; }
+  .auth-art .bracket.bl, .auth-art .bracket.br { bottom: 10px; }
+  .auth-art .bracket.tl, .auth-art .bracket.bl { left: 10px; }
+  .auth-art .bracket.tr, .auth-art .bracket.br { right: 10px; }
+  .auth-form { margin: 34vh auto 24px; padding: 24px 20px; }
 }
 
 /* First-run starting layer presets. */

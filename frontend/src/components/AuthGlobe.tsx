@@ -3,9 +3,12 @@ import { feature, mesh } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 
 // The sign-in page's globe: Natural Earth countries (bundled, 110m) on a
-// slowly turning orthographic globe, with a graticule, an atmosphere and
-// a few lit cities. Drawn on a canvas; no tiles, no data from the API,
-// so it works before anyone signs in. Still for reduced motion.
+// slowly turning orthographic globe, with a graticule, an atmosphere, a
+// starfield, the real day and night (the Sun's position now), a few lit
+// cities and alerts, flight arcs tracing between cities, satellites on
+// their orbits and a slow radar sweep. Drawn on a canvas; no tiles, no
+// data from the API, so it works before anyone signs in. Still for
+// reduced motion.
 
 const DEG = Math.PI / 180;
 const TILT = 18 * DEG; // look down a little on the northern hemisphere
@@ -38,6 +41,47 @@ const ALERTS: [number, number][] = [
   [32.5, 15.6],
 ];
 
+// Flights traced between cities (indexes into CITIES), each on its own
+// clock so they don't all start together.
+const ROUTES: [number, number][] = [
+  [0, 1],
+  [1, 4],
+  [12, 4],
+  [2, 9],
+  [5, 6],
+  [7, 11],
+  [3, 5],
+  [8, 2],
+  [13, 1],
+  [15, 6],
+];
+const ROUTE_S = 7; // seconds a flight takes to draw
+// Satellite orbits: inclination, ascending node, height (globe radii) and
+// seconds per orbit.
+const ORBITS: [number, number, number, number][] = [
+  [51.6, 20, 1.12, 26],
+  [98, 140, 1.16, 34],
+  [28, 250, 1.2, 44],
+];
+
+// Where the Sun is overhead now (degrees), close enough for shading.
+function subsolar(date: Date): [number, number] {
+  const start = Date.UTC(date.getUTCFullYear(), 0, 0);
+  const day = (date.getTime() - start) / 86_400_000;
+  const decl = -23.44 * Math.cos(((2 * Math.PI) / 365) * (day + 10));
+  const hours = date.getUTCHours() + date.getUTCMinutes() / 60;
+  return [-(hours - 12) * 15, decl];
+}
+
+// A fixed starfield (positions 0..1 across the canvas).
+const STARS = Array.from({ length: 170 }, (_, i) => {
+  const r = (n: number) => {
+    const x = Math.sin(i * 12.9898 + n * 78.233) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  return { x: r(1), y: r(2), a: 0.15 + r(3) * 0.55, size: r(4) < 0.9 ? 0.7 : 1.3, tw: r(5) * 6.28 };
+});
+
 type Ring = number[][];
 
 export default function AuthGlobe() {
@@ -53,6 +97,12 @@ export default function AuthGlobe() {
     let stopped = false;
     const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     const start = performance.now();
+    // Night side, drawn small and stretched over the disc (soft edge).
+    const NIGHT_PX = 120;
+    const night = document.createElement('canvas');
+    night.width = night.height = NIGHT_PX;
+    const nctx = night.getContext('2d');
+    const nimg = nctx?.createImageData(NIGHT_PX, NIGHT_PX);
 
     void fetch('/data/countries-110m.json')
       .then((r) => (r.ok ? (r.json() as Promise<Topology>) : null))
@@ -82,9 +132,13 @@ export default function AuthGlobe() {
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      const r = Math.min(w, h) * 0.42;
-      const cx = w / 2;
-      const cy = h * 0.46;
+      // The globe is the page's background: on a wide page it sits left
+      // of centre, away from the form on the right; on a tall phone page
+      // it sits up top, behind the name, with the form below.
+      const tall = h > w * 1.15;
+      const r = tall ? w * 0.62 : Math.min(w * 0.3, h * 0.44);
+      const cx = tall ? w / 2 : w * 0.34;
+      const cy = tall ? h * 0.3 : h * 0.5;
       const lon0 = (still ? 20 : 20 - ((now - start) / 1000) * SPIN) * DEG;
       const sinT = Math.sin(TILT);
       const cosT = Math.cos(TILT);
@@ -108,6 +162,15 @@ export default function AuthGlobe() {
         }
         return [cx + x * r, cy - y * r];
       };
+
+      const t = (now - start) / 1000;
+
+      // Stars behind everything.
+      for (const st of STARS) {
+        const tw = still ? 1 : 0.65 + 0.35 * Math.sin(t * 1.3 + st.tw);
+        ctx.fillStyle = 'rgba(200, 220, 255, ' + (st.a * tw).toFixed(3) + ')';
+        ctx.fillRect(st.x * w, st.y * h, st.size, st.size);
+      }
 
       // Atmosphere and ocean.
       const glow = ctx.createRadialGradient(cx, cy, r * 0.96, cx, cy, r * 1.22);
@@ -181,8 +244,89 @@ export default function AuthGlobe() {
       ctx.lineWidth = 0.7;
       for (const b of borders) line(b as [number, number][]);
 
+      // Night: the hemisphere facing away from the Sun, darker, with a
+      // soft terminator.
+      const [sLon, sLat] = subsolar(new Date());
+      const sun = project(sLon, sLat);
+      if (nctx && nimg) {
+        const d = nimg.data;
+        for (let j = 0; j < NIGHT_PX; j++) {
+          for (let i = 0; i < NIGHT_PX; i++) {
+            const x = (i + 0.5) / (NIGHT_PX / 2) - 1;
+            const y = 1 - (j + 0.5) / (NIGHT_PX / 2);
+            const q = x * x + y * y;
+            const k = (j * NIGHT_PX + i) * 4;
+            if (q > 1) {
+              d[k + 3] = 0;
+              continue;
+            }
+            const z = Math.sqrt(1 - q);
+            const lit = x * sun[0] + y * sun[1] + z * sun[2];
+            const a = Math.min(1, Math.max(0, (0.12 - lit) / 0.3));
+            d[k] = 2;
+            d[k + 1] = 4;
+            d[k + 2] = 10;
+            d[k + 3] = Math.round(a * 150);
+          }
+        }
+        nctx.putImageData(nimg, 0, 0);
+        ctx.drawImage(night, cx - r, cy - r, 2 * r, 2 * r);
+      }
+
+      // Flights tracing great circles between cities, lifted off the
+      // ground in the middle, a bright head and a fading tail.
+      if (!still) {
+        ROUTES.forEach(([a, b], n) => {
+          const phase = ((t + n * 2.3) / ROUTE_S) % 1.5;
+          if (phase > 1.15) return;
+          const [lo1, la1] = CITIES[a];
+          const [lo2, la2] = CITIES[b];
+          const v = (lon: number, lat: number) => [
+            Math.cos(lat * DEG) * Math.cos(lon * DEG),
+            Math.cos(lat * DEG) * Math.sin(lon * DEG),
+            Math.sin(lat * DEG),
+          ];
+          const p1 = v(lo1, la1);
+          const p2 = v(lo2, la2);
+          const omega = Math.acos(Math.min(1, p1[0] * p2[0] + p1[1] * p2[1] + p1[2] * p2[2]));
+          if (omega < 0.01) return;
+          const head = Math.min(1, phase);
+          const tail = Math.max(0, phase - 0.45);
+          const steps = 28;
+          let prev: [number, number] | null = null;
+          for (let i = 0; i <= steps; i++) {
+            const f = tail + ((head - tail) * i) / steps;
+            const s1 = Math.sin((1 - f) * omega) / Math.sin(omega);
+            const s2 = Math.sin(f * omega) / Math.sin(omega);
+            const q = [s1 * p1[0] + s2 * p2[0], s1 * p1[1] + s2 * p2[1], s1 * p1[2] + s2 * p2[2]];
+            const lat = Math.asin(q[2]) / DEG;
+            const lon = Math.atan2(q[1], q[0]) / DEG;
+            const lift = 1 + 0.1 * Math.sin(Math.PI * f) * Math.min(1, omega);
+            const [x, y, z] = project(lon, lat);
+            const visible = z > 0;
+            const sx = cx + x * lift * r;
+            const sy = cy - y * lift * r;
+            if (prev && visible) {
+              const alpha = (i / steps) * 0.85 * Math.min(1, (1.15 - phase) * 4);
+              ctx.strokeStyle = 'rgba(255, 196, 92, ' + alpha.toFixed(3) + ')';
+              ctx.lineWidth = 1.3;
+              ctx.beginPath();
+              ctx.moveTo(prev[0], prev[1]);
+              ctx.lineTo(sx, sy);
+              ctx.stroke();
+            }
+            prev = visible ? [sx, sy] : null;
+            if (i === steps && visible && phase <= 1) {
+              ctx.fillStyle = 'rgba(255, 220, 150, 0.95)';
+              ctx.beginPath();
+              ctx.arc(sx, sy, 1.8, 0, 2 * Math.PI);
+              ctx.fill();
+            }
+          }
+        });
+      }
+
       // Lit cities and a few alerts, pulsing.
-      const t = (now - start) / 1000;
       const dot = (lon: number, lat: number, color: string, size: number, pulse: number) => {
         const [x, y, z] = project(lon, lat);
         if (z < 0.05) return;
@@ -217,6 +361,64 @@ export default function AuthGlobe() {
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, 2 * Math.PI);
       ctx.stroke();
+
+      // Satellites on their orbits: a faint path, hidden behind the
+      // globe, and a dot with a short trail.
+      ORBITS.forEach(([inc, node, k, period], n) => {
+        const pos = (u: number): [number, number, boolean] => {
+          const lat = Math.asin(Math.sin(inc * DEG) * Math.sin(u)) / DEG;
+          const lon = node + Math.atan2(Math.cos(inc * DEG) * Math.sin(u), Math.cos(u)) / DEG;
+          const [x, y, z] = project(lon, lat);
+          const sx = cx + x * k * r;
+          const sy = cy - y * k * r;
+          const hidden = z < 0 && Math.hypot(x * k, y * k) < 1;
+          return [sx, sy, !hidden];
+        };
+        ctx.lineWidth = 0.8;
+        ctx.strokeStyle = 'rgba(126, 224, 194, 0.16)';
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath();
+        let down = false;
+        for (let i = 0; i <= 120; i++) {
+          const [sx, sy, vis] = pos((i / 120) * 2 * Math.PI);
+          if (!vis) {
+            down = false;
+            continue;
+          }
+          if (down) ctx.lineTo(sx, sy);
+          else ctx.moveTo(sx, sy);
+          down = true;
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        const u = ((still ? n * 2 : t) / period) * 2 * Math.PI + n * 2.1;
+        for (let i = 8; i >= 0; i--) {
+          const [sx, sy, vis] = pos(u - i * 0.025);
+          if (!vis) continue;
+          ctx.fillStyle = 'rgba(126, 224, 194, ' + (i === 0 ? 1 : (1 - i / 9) * 0.45).toFixed(3) + ')';
+          ctx.beginPath();
+          ctx.arc(sx, sy, i === 0 ? 2.4 : 1.4, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      });
+
+      // A slow radar sweep over the disc.
+      if (!still && 'createConicGradient' in ctx) {
+        const angle = (t * 0.5) % (2 * Math.PI);
+        const sweep = ctx.createConicGradient(angle - 0.09 * 2 * Math.PI, cx, cy);
+        // Faint behind, brightest at the leading edge.
+        sweep.addColorStop(0, 'rgba(91, 155, 255, 0)');
+        sweep.addColorStop(0.09, 'rgba(91, 155, 255, 0.11)');
+        sweep.addColorStop(0.0905, 'rgba(91, 155, 255, 0)');
+        sweep.addColorStop(1, 'rgba(91, 155, 255, 0)');
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+        ctx.clip();
+        ctx.fillStyle = sweep;
+        ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+        ctx.restore();
+      }
 
       if (!still) frame = requestAnimationFrame(draw);
     }

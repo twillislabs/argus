@@ -9,10 +9,15 @@ Argus is a self-hosted visualizer for open-source intelligence (OSINT). It puts
 aircraft, ships, satellites, events, airspace, infrastructure, weather and live
 video on one map that zooms from the whole globe to street level.
 
+The source code, releases and issue tracker are on GitHub:
+[github.com/twillislabs/argus](https://github.com/twillislabs/argus).
+
 :::info Status
-Argus has live events (earthquakes, conflict and protest reports, fires),
-news headlines, and dark, satellite and hybrid base maps down to street
-level. Air traffic and search come next.
+Argus is in regular use, with tagged releases (see the
+[changelog](https://github.com/twillislabs/argus/blob/main/CHANGELOG.md)).
+It has live events, aircraft, ships, satellites, airspace, weather,
+cameras, news and video, a Brief page, wall displays, alerts and
+optional AI features.
 :::
 
 ## Principles

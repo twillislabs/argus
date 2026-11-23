@@ -59,10 +59,21 @@ const config: Config = {
           position: 'right',
           value: '<a class="navbar__item navbar__link" href="/">Open Argus</a>',
         },
+        { href: 'https://github.com/twillislabs/argus', label: 'GitHub', position: 'right' },
       ],
     },
     footer: {
       style: 'dark',
+      links: [
+        {
+          title: 'Project',
+          items: [
+            { label: 'Source code (GitHub)', href: 'https://github.com/twillislabs/argus' },
+            { label: 'Releases', href: 'https://github.com/twillislabs/argus/releases' },
+            { label: 'Report an issue', href: 'https://github.com/twillislabs/argus/issues' },
+          ],
+        },
+      ],
       copyright: 'Argus · self-hosted OSINT visualizer · Apache License 2.0',
     },
     prism: { theme: prismThemes.github, darkTheme: prismThemes.dracula },
