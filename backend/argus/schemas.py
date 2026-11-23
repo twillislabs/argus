@@ -89,7 +89,10 @@ class UserOut(BaseModel):
 
     @model_validator(mode="after")
     def fill_capabilities(self):
-        self.capabilities = capabilities(self.role)
+        # The role's, unless already set: /api/me sets what the user may
+        # actually do (argus/access.py), and must survive revalidation.
+        if not self.capabilities:
+            self.capabilities = capabilities(self.role)
         return self
 
 

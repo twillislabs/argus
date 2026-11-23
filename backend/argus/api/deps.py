@@ -9,6 +9,7 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from argus import access
 from argus.config import Settings
 from argus.db import utcnow
 from argus.models import ApiToken, UserSession
@@ -128,6 +129,8 @@ async def token_session(db: AsyncSession, header: str) -> UserSession | None:
         or not row.user.is_active
         or row.user.must_change_password
         or row.user.role == "display"
+        or row.user.approval_pending
+        or not await access.may(db, row.user, "api.tokens")
     ):
         return None
     now = utcnow()
@@ -205,11 +208,18 @@ PASSWORD_CHANGE_PATHS = {
 def require(capability: str):
     """Dependency: the signed-in user's role must have capability."""
 
-    async def check(session: SessionDep) -> UserSession:
+    async def check(session: SessionDep, db: DbDep) -> UserSession:
         if not can(session.user.role, capability):
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN,
                 "Your role can't do this. Ask an administrator.",
+            )
+        # An admin may have limited this feature to some groups.
+        if not await access.may(db, session.user, capability):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "This feature is limited to some groups. Ask an "
+                "administrator for access.",
             )
         return session
 

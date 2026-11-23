@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { setChannels } from './config/newsChannels';
-import { ApiError, getMe, getSetupStatus, type Me } from './lib/api';
+import { ApiError, getMe, getSetupStatus, type Me, setMyCapabilities } from './lib/api';
 import { applyServerTheme, applyTheme, chooseTheme } from './lib/themes';
 import { stashShareLink } from './lib/share';
 
@@ -66,6 +66,7 @@ export default function App() {
       const me = await getMe();
       // The server's live channels, before any page draws a player.
       setChannels(me.channels);
+      setMyCapabilities(me.user.capabilities);
       applyTheme(chooseTheme(me.themes ?? [], me.preferences.theme, me.defaults?.theme));
       setBoot({ state: 'signedIn', me });
     } catch (err) {

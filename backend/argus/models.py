@@ -95,6 +95,32 @@ class UserSession(Base):
     user: Mapped[User] = relationship(lazy="joined")
 
 
+class UserGroup(Base):
+    """A named set of people, for limiting features (argus/access.py)."""
+
+    __tablename__ = "user_groups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(60), unique=True)
+    description: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class UserGroupMember(Base):
+    # Rows go with their group or user (ON DELETE CASCADE); no ORM
+    # relationships point here, so nothing tries to blank the keys.
+    __tablename__ = "user_group_members"
+
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("user_groups.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+
+
 class ApiToken(Base):
     """A read-only token for scripts and AI assistants (the MCP server,
     api/mcp.py). Only the SHA-256 of the token is kept; it's shown once,

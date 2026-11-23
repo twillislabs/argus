@@ -16,7 +16,17 @@ parts connect.
     on NATS `argus.air`; civil traffic is fetched by the API per view.
   - `roles.py`: roles and their capabilities. Gate endpoints with
     `Depends(require("capability"))` from `api/deps.py`, never by
-    comparing role names; the frontend checks `can(user, "...")`.
+    comparing role names; the frontend checks `can(user, "...")` or,
+    where the user isn't passed down, `canI("...")` (set by App).
+    `argus/access.py` narrows `RESTRICTABLE` capabilities (ai.use,
+    alerts.use, api.tokens, video.search) to groups and people
+    (`server_settings["access"]`, tables `user_groups` and
+    `user_group_members`, migration 0012, `api/groups.py`);
+    `capabilities_for`/`may` are the only answer to "may they", used by
+    `require`, `/api/me` (UserOut keeps capabilities it's given),
+    `token_session`, tokens and AI. Admins always pass. A new
+    limitable feature: a capability in roles.py, an entry in
+    RESTRICTABLE, and the UI's check.
   - `api/users.py`: user management (admins) and your own account.
     Sign-ups: `server_settings["signup"]` (`SignupSettings`: open,
     approval, role viewer|analyst), `POST /api/auth/signup` (public,

@@ -41,6 +41,16 @@ async def _with_profile(db: DbDep, data: dict) -> dict:
     }
 
 
+async def _user_out(db, user: User) -> UserOut:
+    """The user with what they may actually do: their role's
+    capabilities, minus features an admin limited to other groups."""
+    from argus import access
+
+    out = UserOut.model_validate(user)
+    out.capabilities = await access.capabilities_for(db, user)
+    return out
+
+
 async def _pending(db, user: User) -> int:
     """Sign-ups waiting for approval, for those who can approve them."""
     from sqlalchemy import func, select
@@ -67,7 +77,7 @@ async def me(session: SessionDep, db: DbDep) -> MeOut:
     user = await db.get(User, session.user_id)
     prefs = await _prefs(db, user)
     return MeOut(
-        user=UserOut.model_validate(user),
+        user=await _user_out(db, user),
         preferences=await _with_profile(db, prefs.data or {}),
         defaults=await _defaults(db),
         channels=await _channels(db),
@@ -95,7 +105,7 @@ async def update_preferences(
     prefs.data = merged
     await db.commit()
     return MeOut(
-        user=UserOut.model_validate(user),
+        user=await _user_out(db, user),
         preferences=merged,
         defaults=await _defaults(db),
         channels=await _channels(db),

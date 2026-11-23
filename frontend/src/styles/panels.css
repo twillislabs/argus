@@ -1128,3 +1128,15 @@ tr.dimrow td { color: var(--dim); }
   .outletlist li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
 }
 .snav a .badge { margin-left: 6px; font-size: 10px; padding: 1px 6px; }
+
+/* Groups and feature access (Settings › Users & roles). */
+.groupedit { display: grid; gap: 10px; }
+.pickpeople { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 12px; margin: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-s); }
+.accessrow { display: grid; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
+.accessrow:first-of-type { border-top: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.chip.person { border-style: dashed; }
+.chip.on { border-color: var(--accent); border-style: solid; background: var(--accent-soft); color: var(--text); }
+.chips .warn { color: var(--high); }
+.accessrow .seg { justify-self: start; }

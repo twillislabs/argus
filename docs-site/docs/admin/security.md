@@ -63,6 +63,31 @@ their own accounts. It's off unless you turn it on.
 Anyone who can reach your Argus can sign up while this is on, so keep
 approval on unless the server is only reachable by people you trust.
 
+### Groups and feature access
+
+Roles set what each kind of account can do. On top of them you can
+limit a few features to chosen people, in **Groups** and **Feature
+access** at the bottom of Settings → Users & roles.
+
+- **Groups:** **New group**, give it a name, tick its members, then
+  **Add group**. **Edit** changes the name and members; **Delete**
+  removes the group (not its people).
+- **Feature access:** each feature is either **Everyone in those roles**
+  (the default) or **Only chosen**, where you pick groups and people
+  (dashed outlines are people). Their role must still have the feature:
+  choosing a Viewer for AI doesn't give them AI. Administrators always
+  keep every feature, so nobody can lock the admins out.
+
+| Feature | What it covers | Roles that have it |
+|---|---|---|
+| **AI** | Ask Argus, event summaries and refreshing the digest (spends the AI provider's tokens); anyone can still read the digest | Administrator, Analyst |
+| **Alerts** | Your own alert rules and delivery to ntfy or webhooks | Administrator, Analyst |
+| **API tokens and AI assistants** | Read-only API tokens and the MCP server; tokens of people who lose it stop working at once | Administrator, Analyst, Viewer |
+| **Live video search** | Live near the view and video about an event (spends the YouTube key's quota) | Administrator, Analyst, Viewer |
+
+The server checks this on every request, and the page hides what
+someone can't use. Changes to groups and access are in the audit log.
+
 ## Brute-force protection
 
 - After 5 failed sign-ins an account is locked for 15 minutes.

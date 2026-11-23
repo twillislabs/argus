@@ -6,6 +6,7 @@ import BackupsSection from '../components/BackupsSection';
 import AppHeader from '../components/AppHeader';
 import HomePicker from '../components/HomePicker';
 import ImageryCard from '../components/ImageryCard';
+import GroupsCard from '../components/GroupsCard';
 import UsersCard, { SignupCard } from '../components/UsersCard';
 import WallEditor from '../components/WallEditor';
 import WallProfiles from '../components/WallProfiles';
@@ -95,6 +96,7 @@ const SECTIONS: Section[] = [
     description: 'Read-only tokens, and connecting Claude or another assistant to Argus through MCP.',
     group: 'You',
     keywords: 'mcp claude token api key script integration',
+    capability: 'api.tokens',
   },
   {
     id: 'home',
@@ -116,9 +118,9 @@ const SECTIONS: Section[] = [
     id: 'users',
     label: 'Users & roles',
     title: 'Users and roles',
-    description: 'Who can sign in, sign-ups and approvals, and what each person can do.',
+    description: 'Who can sign in, sign-ups and approvals, groups, and what each person can do.',
     group: 'People and screens',
-    keywords: 'roles admin analyst viewer accounts lockout sign up signups register approve approval',
+    keywords: 'roles admin analyst viewer accounts lockout sign up signups register approve approval groups access limit restrict ai feature',
     capability: 'users.manage',
   },
   {
@@ -264,6 +266,7 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
       <>
         <SignupCard />
         <UsersCard me={me} onSaved={onSaved} />
+        <GroupsCard onSaved={onSaved} />
       </>
     );
   else if (current.id === 'imagery') body = <ImageryCard />;

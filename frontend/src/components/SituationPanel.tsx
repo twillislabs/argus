@@ -15,7 +15,7 @@ import type {
   WeatherNow,
   WxAlert,
 } from '../lib/api';
-import { getLiveNear } from '../lib/api';
+import { canI, getLiveNear } from '../lib/api';
 import { aircraftColor } from '../map/aircraftLayer';
 import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
 import { distance, skyText, temperature, windSpeed } from '../lib/units';
@@ -393,7 +393,7 @@ export default function SituationPanel({
           )}
         </section>
       )}
-      {view && (
+      {view && canI('video.search') && (
         <section className="isec">
           <h3>Live near the view</h3>
           <VideoList

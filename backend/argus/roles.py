@@ -33,12 +33,24 @@ CAPABILITIES: dict[str, set[str]] = {
         "account.edit",
         "ai.use",
         "alerts.use",
+        "api.tokens",
+        "video.search",
     },
     # ai.use: run AI features that spend the provider's tokens (Ask Argus,
     # summaries, refreshing the digest). Anyone can read the digest.
     # alerts.use: your own alert rules and where they're delivered.
-    "analyst": {"analyst.tools", "account.edit", "ai.use", "alerts.use"},
-    "viewer": {"account.edit"},
+    # api.tokens: read-only API tokens and the MCP server.
+    # video.search: live video searches (YouTube quota). Admins can limit
+    # these and ai.use and alerts.use to groups (argus/access.py).
+    "analyst": {
+        "analyst.tools",
+        "account.edit",
+        "ai.use",
+        "alerts.use",
+        "api.tokens",
+        "video.search",
+    },
+    "viewer": {"account.edit", "api.tokens", "video.search"},
     "display": set(),
 }
 

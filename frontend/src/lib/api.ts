@@ -16,6 +16,13 @@ export interface User {
 export type Role = 'admin' | 'analyst' | 'viewer' | 'display';
 
 export const can = (user: User, capability: string) => user.capabilities.includes(capability);
+// The signed-in user's capabilities, for parts of the page that don't
+// get the user passed down (App sets them from /api/me).
+let myCapabilities: string[] = [];
+export const setMyCapabilities = (caps: string[]) => {
+  myCapabilities = caps;
+};
+export const canI = (capability: string) => myCapabilities.includes(capability);
 
 export interface Home {
   name: string;
@@ -405,6 +412,38 @@ export interface ServerDefaults {
   // The theme everyone starts with (a built-in or custom id).
   theme?: string | null;
 }
+
+// User groups and feature access (Settings › Users & roles).
+export interface UserGroupRow {
+  id: number;
+  name: string;
+  description: string | null;
+  members: number[];
+}
+export interface AccessRule {
+  mode: 'role' | 'only';
+  groups: number[];
+  users: number[];
+}
+export interface AccessFeature {
+  id: string;
+  label: string;
+  description: string;
+  roles: string[];
+}
+export const getGroups = () => api<{ groups: UserGroupRow[] }>('/api/admin/groups');
+export const makeGroup = (body: { name: string; description?: string | null; members: number[] }) =>
+  api<UserGroupRow>('/api/admin/groups', { method: 'POST', body });
+export const editGroup = (id: number, body: { name: string; description?: string | null; members: number[] }) =>
+  api<UserGroupRow>('/api/admin/groups/' + id, { method: 'PUT', body });
+export const deleteGroup = (id: number) => api<void>('/api/admin/groups/' + id, { method: 'DELETE' });
+export const getAccess = () =>
+  api<{ features: AccessFeature[]; rules: Record<string, AccessRule> }>('/api/admin/access');
+export const putAccess = (rules: Record<string, AccessRule>) =>
+  api<{ features: AccessFeature[]; rules: Record<string, AccessRule> }>('/api/admin/access', {
+    method: 'PUT',
+    body: { rules },
+  });
 
 export interface Me {
   user: User;

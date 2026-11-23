@@ -16,10 +16,10 @@ import math
 import time
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from argus import secrets
-from argus.api.deps import DbDep, SessionDep
+from argus.api.deps import DbDep, SessionDep, require
 from argus.events import parse_bbox
 from argus.models import Event, ServerSetting
 from argus.video import NoKey, Quota
@@ -59,7 +59,7 @@ async def _answer(job):
         return {"status": "error", "items": []}
 
 
-@router.get("/api/video/near")
+@router.get("/api/video/near", dependencies=[Depends(require("video.search"))])
 async def live_near(
     request: Request,
     session: SessionDep,
@@ -87,7 +87,10 @@ async def live_near(
     }
 
 
-@router.get("/api/video/event/{event_id}")
+@router.get(
+    "/api/video/event/{event_id}",
+    dependencies=[Depends(require("video.search"))],
+)
 async def event_video(
     event_id: str, request: Request, session: SessionDep, db: DbDep
 ):

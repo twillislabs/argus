@@ -9,13 +9,12 @@ import time
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from argus import secrets
+from argus import access, secrets
 from argus.ai import config, features
 from argus.ai.providers import AiError, run
 from argus.api.deps import DbDep, SessionDep, SettingsDep, require
 from argus.db import utcnow
 from argus.models import Event, ServerSetting, UserPreferences, UserSession
-from argus.roles import can
 from argus.services import audit
 
 router = APIRouter(tags=["ai"])
@@ -153,7 +152,7 @@ async def ai_status(session: SessionDep, db: DbDep):
     value = await config.load(db)
     return {
         "features": {f: config.feature_on(value, f) for f in config.FEATURES},
-        "can_use": can(session.user.role, "ai.use"),
+        "can_use": await access.may(db, session.user, "ai.use"),
     }
 
 
@@ -185,7 +184,7 @@ async def get_digest(
     row = await db.get(ServerSetting, "ai_digest")
     cached = dict(row.value) if row and row.value else None
     age = time.time() - float((cached or {}).get("at", 0))
-    may = can(session.user.role, "ai.use")
+    may = await access.may(db, session.user, "ai.use")
     if cached and (age < DIGEST_FRESH_S and not refresh or not may):
         return cached | {"status": "ok", "stale": age >= DIGEST_FRESH_S}
     if not may:

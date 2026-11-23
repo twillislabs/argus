@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
+from argus import access
 from argus.api.deps import TOKEN_PREFIX, DbDep, SessionDep
 from argus.models import ApiToken
 from argus.security import new_token, token_digest
@@ -33,16 +34,21 @@ def _out(t: ApiToken) -> dict:
     }
 
 
-def _check(session) -> None:
+async def _check(session, db) -> None:
     if session.id.startswith("token:"):
         raise HTTPException(403, "Sign in to manage API tokens.")
     if session.user.role == "display":
         raise HTTPException(403, "Wall screens can't have API tokens.")
+    if not await access.may(db, session.user, "api.tokens"):
+        raise HTTPException(
+            403,
+            "API tokens are limited to some groups. Ask an administrator.",
+        )
 
 
 @router.get("/api/me/tokens")
 async def list_tokens(session: SessionDep, db: DbDep):
-    _check(session)
+    await _check(session, db)
     rows = await db.scalars(
         select(ApiToken)
         .where(ApiToken.user_id == session.user_id)
@@ -53,7 +59,7 @@ async def list_tokens(session: SessionDep, db: DbDep):
 
 @router.post("/api/me/tokens", status_code=201)
 async def make_token(body: TokenIn, session: SessionDep, db: DbDep):
-    _check(session)
+    await _check(session, db)
     count = await db.scalar(
         select(func.count())
         .select_from(ApiToken)
@@ -77,7 +83,7 @@ async def make_token(body: TokenIn, session: SessionDep, db: DbDep):
 
 @router.delete("/api/me/tokens/{token_id}", status_code=204)
 async def revoke_token(token_id: int, session: SessionDep, db: DbDep):
-    _check(session)
+    await _check(session, db)
     row = await db.get(ApiToken, token_id)
     if row is None or row.user_id != session.user_id:
         raise HTTPException(404, "No such token.")

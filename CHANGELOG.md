@@ -8,6 +8,13 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ### Accounts
 
+- User groups, and limiting features to chosen groups and people
+  (Settings › Users & roles › Groups and Feature access): AI, alerts,
+  API tokens and AI assistants, and live video search can each be
+  open to everyone whose role has it or only to those you choose.
+  Administrators always keep everything; limited API tokens stop
+  working at once.
+
 - Sign-ups (Settings › Users & roles): admins can let people make their
   own accounts from the sign-in page, optionally waiting for an admin to
   approve them (Approve and Decline in the accounts list, a count in the
