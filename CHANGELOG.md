@@ -6,6 +6,12 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-23
+
+A smoother phone layout, and aircraft off in the built-in layers.
+Nothing to change when you upgrade: people who already chose their own
+layers, and any server default an admin set, keep them.
+
 ### Map
 
 - Aircraft start off: military aircraft are no longer on by default
