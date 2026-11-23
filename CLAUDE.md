@@ -761,5 +761,7 @@ parts connect.
   `docker compose -p argus-e2e`) on another port and remove it with
   `down -v`. Don't reset the main stack on :8080; it holds real accounts.
 - Don't print the setup token; point to `make token`.
-- After each chunk passes CI, rebuild the main stack
-  (`docker compose up -d --build`, data kept) so the user can try it.
+- The local stack is only for testing: start it (or a throwaway
+  `argus-e2e` project) while testing, and stop it when the work is
+  finished (`docker compose stop`, data kept). The real install is the
+  server releases are deployed to.
