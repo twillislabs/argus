@@ -6,6 +6,12 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-11-23
+
+Flight routes that match the leg being flown, and phone fixes. Nothing
+to change when you upgrade; to get the new Home Screen icon on an
+iPhone, remove Argus from the Home Screen and add it again.
+
 ### Phones
 
 - Signing in no longer leaves the app zoomed in on iPhones: Safari
