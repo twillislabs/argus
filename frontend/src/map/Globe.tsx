@@ -685,7 +685,12 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     const scene = v.scene;
     // Render on demand: full rate while something moves, a few frames a
     // second otherwise (map/render.ts).
-    const gov = governRendering(v, renderRef.current, () => applyMsaa());
+    const gov = governRendering(
+      v,
+      renderRef.current,
+      () => applyMsaa(),
+      () => camHeld.current?.by === 'pivot',
+    );
     governor.current = gov;
     // ?fps=1 shows a frame-rate counter, for performance reports. (Cesium's
     // own needs its widget stylesheet, which Argus doesn't load.)

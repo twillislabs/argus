@@ -9,7 +9,11 @@ airlifter. Ships: container, tanker, passenger, fishing, warship, boat.
 Space: iss (the International Space Station, flown truss-across and
 modules along its velocity), tiangong, dragon (SpaceX Crew Dragon),
 soyuz (also Progress), shenzhou, cargo (Tianzhou, Cygnus), stage (a
-spent upper stage) and rocket (standing on its pad, +Y up). Visiting
+spent upper stage) and rocket (standing on its pad, +Y up), plus
+rocket-<family> for the launchers Launch Library names most (Falcon 9,
+with Dragon, Falcon Heavy, Starship, New Glenn, Vulcan, Atlas V, Ariane
+62/64, Soyuz, Long March with and without boosters and the crewed 2F,
+Electron, small solid launchers), at their real sizes. Visiting
 vehicles have their docking port at the origin and their body along
 -Z, so map/spaceModels.ts can dock them to a station's ports.
 frontend/src/map/closeModels.ts picks one from the type or category.
@@ -654,6 +658,276 @@ def rocket() -> list[list[Vec]]:
     return turn(faces, "x", -90)
 
 
+TAN: RGB = (0.78, 0.55, 0.3)
+STEEL: RGB = (0.72, 0.74, 0.77)
+CARBON: RGB = (0.17, 0.17, 0.19)
+
+
+def upright(faces):
+    """Built along +Z from a base at the origin; stood up along +Y."""
+    return turn(faces, "x", -90)
+
+
+def cyl(z0: float, z1: float, r: float, color: RGB, segments: int = 20):
+    return paint(frustum(z0, z1, r, r, segments), color)
+
+
+def nose(z0: float, r: float, length: float, color: RGB, segments=20):
+    """An ogive nose (or fairing top) from radius r at z0, `length` long."""
+    faces = []
+    steps = 5
+    for k in range(steps):
+        t0, t1 = k / steps, (k + 1) / steps
+        r0 = r * math.cos(t0 * math.pi / 2) ** 0.6
+        r1 = r * math.cos(t1 * math.pi / 2) ** 0.6 if k < steps - 1 else 0
+        faces += frustum(
+            z0 + length * t0, z0 + length * t1, r0, r1, segments, caps=False
+        )
+    return paint(faces, color)
+
+
+def fairing(
+    z0: float,
+    r_stage: float,
+    r: float,
+    straight: float,
+    top: float,
+    color: RGB = HULL,
+):
+    """A payload fairing on a stage of radius r_stage: an adapter, the
+    straight section and an ogive top."""
+    faces = []
+    if r > r_stage:
+        faces += paint(frustum(z0, z0 + 0.8, r_stage, r), GREY)
+        z0 += 0.8
+    faces += cyl(z0, z0 + straight, r, color)
+    faces += nose(z0 + straight, r, top, color)
+    return faces
+
+
+def engines(r: float, color: RGB = DARK):
+    """The engine section under a stage of radius r."""
+    return paint(frustum(0, -0.9, r * 0.92, r * 0.8), color)
+
+
+def around(faces, count: int, offset: float, start: float = 0):
+    """Copies of faces (built on the axis) set round it at offset."""
+    out = []
+    for k in range(count):
+        out += turn(shift(faces, 0, offset, 0), "z", start + 360 * k / count)
+    return out
+
+
+def booster(height: float, r: float, color: RGB = HULL, cap: float = 2.5):
+    """A strap-on booster with a pointed cap and its nozzle."""
+    return (
+        cyl(0, height, r, color, 14)
+        + nose(height, r, cap, color, 14)
+        + paint(frustum(0, -0.7, r * 0.6, r * 0.75), DARK)
+    )
+
+
+def falcon_core(top_cap: bool = False):
+    """Falcon 9 first stage: white, folded black legs, grid fins and
+    the octaweb; 41 m, 3.66 m across."""
+    faces = cyl(0, 41.2, 1.83, HULL) + engines(1.83)
+    faces += around(paint(box(0, 0, 5, 0.7, 0.3, 10), DARK), 4, 1.95, 45)
+    faces += around(paint(box(0, 0, 40.2, 1.2, 0.8, 0.3), DARK), 4, 2.3)
+    if top_cap:
+        faces += nose(41.2, 1.83, 5.5, HULL)
+    return faces
+
+
+def falcon9() -> list[list[Vec]]:
+    """SpaceX Falcon 9 with a 5.2 m fairing; 70 m."""
+    faces = falcon_core()
+    faces += cyl(41.2, 47.5, 1.83, CARBON)  # interstage
+    faces += cyl(47.5, 57, 1.83, HULL)
+    faces += fairing(57, 1.83, 2.6, 6, 6.5)
+    return upright(faces)
+
+
+def falcon9_dragon() -> list[list[Vec]]:
+    """Falcon 9 carrying Dragon: the trunk (solar cells on one side) and
+    the capsule with its nose cone on top; 65 m."""
+    faces = falcon_core()
+    faces += cyl(41.2, 47.5, 1.83, CARBON)
+    faces += cyl(47.5, 56, 1.83, HULL)
+
+    def trunk(a: float) -> RGB:
+        return SOLAR if math.sin(a) > 0 else HULL
+
+    faces += frustum(56, 59, 1.85, 1.85, 20, color_at=trunk)
+    faces += paint(frustum(59, 59.3, 1.85, 2.0), DARK)  # heat shield
+    faces += paint(frustum(59.3, 62, 2.0, 1.3), HULL)  # capsule
+    faces += paint(dome(62, 1.3, 1.0, 20), HULL)  # nose cone
+    return upright(faces)
+
+
+def falcon_heavy() -> list[list[Vec]]:
+    """Falcon Heavy: a Falcon 9 centre core with two side boosters (their
+    own nose cones), 70 m and 12 m across."""
+    faces = falcon_core()
+    faces += cyl(41.2, 47.5, 1.83, CARBON)
+    faces += cyl(47.5, 57, 1.83, HULL)
+    faces += fairing(57, 1.83, 2.6, 6, 6.5)
+    for side in (-1, 1):
+        faces += shift(falcon_core(top_cap=True), side * 3.9, 0, 0)
+    return upright(faces)
+
+
+def starship() -> list[list[Vec]]:
+    """SpaceX Starship on Super Heavy: stainless steel, 9 m across and
+    121 m tall, grid fins and the hot-staging ring between them, flaps
+    and the black heat shield on the ship's belly."""
+    faces = cyl(0, 71, 4.5, STEEL, 28) + engines(4.5)
+    faces += around(paint(box(0, 0, 67.5, 3, 1.4, 0.5), DARK), 4, 5.0, 45)
+    faces += cyl(71, 73, 4.5, DARK, 28)  # hot-staging ring
+
+    def ship(a: float) -> RGB:
+        return DARK if math.cos(a) > 0.1 else STEEL
+
+    faces += frustum(73, 106, 4.5, 4.5, 28, caps=False, color_at=ship)
+    faces += nose(106, 4.5, 15, STEEL, 28)
+    for z0, z1, w in ((73, 82, 2.4), (106, 113, 1.6)):  # flaps
+        for side in (-1, 1):
+            faces += paint(
+                box(side * (4.5 + w / 2), 0, (z0 + z1) / 2, w, 0.4, z1 - z0),
+                DARK,
+            )
+    return upright(faces)
+
+
+def new_glenn() -> list[list[Vec]]:
+    """Blue Origin New Glenn: 7 m across, 98 m, fins near the top of the
+    first stage and the big 7 m fairing."""
+    faces = cyl(0, 57.5, 3.5, HULL, 24) + engines(3.5)
+    faces += around(
+        paint(
+            fin([(0, 3.5, 50), (0, 5.2, 52), (0, 5.2, 55), (0, 3.5, 57)], 0.3),
+            GREY,
+        ),
+        4,
+        0,
+        45,
+    )
+    faces += cyl(57.5, 59, 3.5, CARBON, 24)
+    faces += cyl(59, 76, 3.5, HULL, 24)
+    faces += fairing(76, 3.5, 3.5, 12, 10)
+    return upright(faces)
+
+
+def vulcan() -> list[list[Vec]]:
+    """ULA Vulcan Centaur: the orange-tan core, four white solid boosters,
+    the Centaur V and a 5.4 m fairing; 62 m."""
+    faces = cyl(0, 33.3, 2.7, TAN, 24) + engines(2.7)
+    faces += around(booster(20, 0.8), 4, 3.6, 45)
+    faces += cyl(33.3, 45, 2.7, HULL, 24)
+    faces += fairing(45, 2.7, 2.7, 8, 8.6)
+    return upright(faces)
+
+
+def atlas_v() -> list[list[Vec]]:
+    """ULA Atlas V: the bronze core, two solid boosters, the slim Centaur
+    and a 5.4 m fairing; 58 m."""
+    faces = cyl(0, 32.5, 1.9, TAN, 20) + engines(1.9)
+    faces += around(booster(17, 0.8), 2, 2.8, 90)
+    faces += cyl(32.5, 34, 1.9, HULL)
+    faces += cyl(34, 43, 1.55, HULL)
+    faces += paint(frustum(43, 44, 1.55, 2.7), GREY)
+    faces += fairing(44, 2.7, 2.7, 7, 7)
+    return upright(faces)
+
+
+def ariane6(boosters: int = 4) -> list[list[Vec]]:
+    """Ariane 6: a 5.4 m core with two (Ariane 62) or four (Ariane 64)
+    P120C boosters; 62 m."""
+    faces = cyl(0, 30, 2.7, HULL, 24) + engines(2.7)
+    faces += around(
+        booster(19, 1.7, HULL, 3), boosters, 4.4, 90 if boosters == 2 else 45
+    )
+    faces += cyl(30, 31, 2.7, CARBON, 24)
+    faces += cyl(31, 40, 2.7, HULL, 24)
+    faces += fairing(40, 2.7, 2.7, 12, 10)
+    return upright(faces)
+
+
+def ariane62() -> list[list[Vec]]:
+    return ariane6(2)
+
+
+def ariane64() -> list[list[Vec]]:
+    return ariane6(4)
+
+
+def soyuz_rocket() -> list[list[Vec]]:
+    """Soyuz-2: the core, four tapering strap-on boosters leaning in at
+    the top, the third stage on its open truss and the fairing; 46 m."""
+    faces = cyl(0, 27.1, 1.475, GREY) + engines(1.475)
+    strap = paint(frustum(0, 19.6, 1.35, 0.35, 14), GREY)
+    strap += paint(frustum(0, -0.8, 1.0, 1.2, 14), DARK)
+    # Lean each booster in so its top meets the core.
+    strap = turn(shift(strap, 0, 2.6, 0), "x", 3.2, (0, 2.6, 0))
+    faces += around(strap, 4, 0, 45)
+    faces += cyl(27.1, 28, 1.2, DARK)  # the open truss
+    faces += cyl(28, 33.9, 1.33, GREY)
+    faces += fairing(33.9, 1.33, 1.65, 6, 6)
+    return upright(faces)
+
+
+def long_march(boosters: bool = True, tower: bool = False):
+    """A Long March: white 3.35 m core and second stage, with four
+    strap-on boosters or none, and for the crewed 2F the launch escape
+    tower and grid fins on the fairing."""
+    faces = cyl(0, 30, 1.675, HULL) + engines(1.675)
+    if boosters:
+        faces += around(booster(16, 1.125, HULL, 3), 4, 2.85, 45)
+    faces += cyl(30, 31, 1.675, CARBON)
+    faces += cyl(31, 40, 1.675, HULL)
+    if tower:
+        faces += fairing(40, 1.675, 1.9, 8, 5)
+        faces += around(paint(box(0, 0, 43, 1.0, 0.6, 0.25), DARK), 4, 2.1)
+        faces += cyl(52, 58, 0.3, DARK, 10)
+        faces += nose(58, 0.3, 1.5, DARK, 10)
+    elif boosters:
+        faces += fairing(40, 1.675, 2.1, 6, 6)
+    else:
+        faces += fairing(40, 1.675, 1.675, 5, 4.5)
+    return upright(faces)
+
+
+def long_march_boosted() -> list[list[Vec]]:
+    return long_march(boosters=True)
+
+
+def long_march_core() -> list[list[Vec]]:
+    return long_march(boosters=False)
+
+
+def long_march_crew() -> list[list[Vec]]:
+    return long_march(boosters=True, tower=True)
+
+
+def electron() -> list[list[Vec]]:
+    """Rocket Lab Electron: carbon-black (a little lighter here, to show
+    on the dark map), 1.2 m across and 18 m."""
+    skin: RGB = (0.3, 0.3, 0.33)
+    faces = cyl(0, 12.1, 0.6, skin, 16) + engines(0.6)
+    faces += cyl(12.1, 13.2, 0.6, DARK, 16)
+    faces += cyl(13.2, 15.2, 0.6, skin, 16)
+    faces += fairing(15.2, 0.6, 0.6, 1.2, 1.6, skin)
+    return upright(faces)
+
+
+def small_solid() -> list[list[Vec]]:
+    """A small solid-fuel launcher (Kuaizhou, Kinetica-1, Ceres-1,
+    Vega): white, 2 m across, 28 m."""
+    faces = cyl(0, 21, 1.0, HULL, 16) + engines(1.0)
+    faces += cyl(21, 22, 1.0, CARBON, 16)
+    faces += fairing(22, 1.0, 1.2, 3, 3)
+    return upright(faces)
+
+
 MODELS = {
     "airliner": airliner,
     "widebody": widebody,
@@ -676,6 +950,21 @@ MODELS = {
     "cargo": cargo,
     "stage": stage,
     "rocket": rocket,
+    "rocket-falcon9": falcon9,
+    "rocket-falcon9-dragon": falcon9_dragon,
+    "rocket-falcon-heavy": falcon_heavy,
+    "rocket-starship": starship,
+    "rocket-new-glenn": new_glenn,
+    "rocket-vulcan": vulcan,
+    "rocket-atlas-v": atlas_v,
+    "rocket-ariane62": ariane62,
+    "rocket-ariane64": ariane64,
+    "rocket-soyuz": soyuz_rocket,
+    "rocket-long-march": long_march_boosted,
+    "rocket-long-march-core": long_march_core,
+    "rocket-long-march-crew": long_march_crew,
+    "rocket-electron": electron,
+    "rocket-small": small_solid,
 }
 
 

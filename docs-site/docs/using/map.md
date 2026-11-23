@@ -149,7 +149,10 @@ Defaults (or the built-in one).
 ## Wall
 
 **Wall** (`/wall`) is a hands-free layout for a screen at the back of the
-room, readable from a few metres away:
+room, readable from a few metres away. It's meant for paired display
+screens, so it isn't in the toolbar: to look at it yourself, choose
+**Open wall view** in the account menu (your initials, top right), which
+opens it in a new tab.
 
 - The map tours your home, then each theatre (most tense first), 25 seconds
   a stop, with a caption showing the theatre's tension and top event. A
@@ -855,9 +858,13 @@ there is one, every launch at that pad, and links: the webcasts and
 mission pages Launch Library lists, the launch's Space Launch Now page,
 and the pad's own page and Wikipedia article.
 Times marked as a month or a day are not yet fixed.
-Zoom in on a pad with a launch coming and a 3D rocket stands on it (the
-same shape for every vehicle: Launch Library names the rocket, not its
-build). Double-click the pad to fly up to the rocket and hold the
+Zoom in on a pad with a launch coming and a 3D model of its rocket
+stands on it, at its real size: Falcon 9 (with Dragon on top for crew
+and cargo flights), Falcon Heavy, Starship, New Glenn, Vulcan, Atlas V,
+Ariane 62 and 64, Soyuz, Long March (with or without boosters, and the
+crewed 2F with its escape tower), Electron, or a small solid launcher
+(Kuaizhou, Kinetica-1, Ceres-1, Vega). Other rockets get a generic
+two-stage one. Double-click the pad to fly up to the rocket and hold the
 camera on it: drag to walk round it, scroll to zoom. Click anything else
 (or press Esc) to let go.
 

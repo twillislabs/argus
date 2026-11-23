@@ -73,7 +73,7 @@ export default function AssistantsSection() {
             aircraft, ships, cameras and news. It can&apos;t change anything, and it can&apos;t read accounts, settings
             or admin pages. Name it for where it&apos;ll be used.
           </p>
-          <div className="pairform">
+          <div className="pairform two">
             <div className="field">
               <label htmlFor="tok-name">Name</label>
               <input

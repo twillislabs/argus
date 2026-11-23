@@ -654,8 +654,10 @@ parts connect.
   batched per colour through `lineBatch`). Cesium's Stripe material on a
   PolygonGeometry didn't render visibly; don't go back to it.
 - Pages: Map (`/`), Brief (`/brief`), Wall (`/wall`, reuses `Globe` with
-  minimal props), Settings. A Brief theatre card hands the map a place to
-  fly to through `sessionStorage[FLY_KEY]` (lib/share.ts).
+  minimal props; not in the toolbar, it's for displays: the account
+  menu's Open wall view opens it in a new tab), Settings. A Brief
+  theatre card hands the map a place to fly to through
+  `sessionStorage[FLY_KEY]` (lib/share.ts).
 - Rendering is on demand (`map/render.ts`, `governRendering`): Cesium
   redraws at full rate on input (for 1.5 s), camera moves, tile loads
   and while a camera rides an aircraft, and otherwise every
@@ -691,8 +693,13 @@ parts connect.
   down to `nearest()`): Cesium sizes zoom steps by height above the
   ground, so in orbit one notch flew through a station. The Space
   stations toggle is `SpaceFilters.iss`. Launch pads with a launch
-  coming stand `rocket.glb` (+Y up) inside 40 km; double-click orbits
-  it (`GlobeHandle.orbitAround`).
+  coming stand a rocket inside 40 km: `rocket-<family>.glb` picked by
+  `rocketModel` (launchLayer.ts: name patterns in `ROCKETS`, Falcon 9
+  with Dragon by mission name, heights for the orbit view), else the
+  generic `rocket.glb` (+Y up); double-click orbits it
+  (`GlobeHandle.orbitAround`). A pivot hold doesn't count as riding
+  for `governRendering` (its `still` callback): the rocket doesn't
+  move, so it renders at the idle rate.
 - Camera holds: the aircraft tracker, satellite follow and
   `orbitAround` all put the camera in a lookAt frame. Globe's
   `camHeld` records the satellite/pivot holder and `freeCamera()` lets

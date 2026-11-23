@@ -1,9 +1,10 @@
 // Rocket launches (Launch Library 2): a marker at each launch's pad,
 // coloured by status, with its rocket's name close in. Upcoming
 // launches in the next 48 hours get a ring. Pickable as "launch:<id>".
-// Up close, a pad with a launch coming stands a 3D rocket on it
-// (rocket.glb from backend/scripts/build_models.py, the same for every
-// vehicle: Launch Library names the rocket, not its shape).
+// Up close, a pad with a launch coming stands a 3D rocket on it: a model
+// of its family where there is one (rocketModel, from the name Launch
+// Library gives), else a generic two-stage rocket (rocket.glb). Models
+// from backend/scripts/build_models.py.
 
 import {
   Cartesian2,
@@ -67,6 +68,37 @@ export interface LaunchLayer {
 }
 
 const LABEL_RANGE = new DistanceDisplayCondition(0, 3.0e6);
+
+// Rocket families with their own model, and each model's height (m).
+const ROCKETS: [RegExp, string, number][] = [
+  [/falcon heavy/i, 'falcon-heavy', 70],
+  [/starship|super heavy/i, 'starship', 121],
+  [/new glenn/i, 'new-glenn', 98],
+  [/vulcan/i, 'vulcan', 62],
+  [/atlas v/i, 'atlas-v', 58],
+  [/ariane 62/i, 'ariane62', 62],
+  [/ariane 6/i, 'ariane64', 62],
+  [/soyuz/i, 'soyuz', 46],
+  [/long march 2f/i, 'long-march-crew', 59],
+  [/long march (2c|2d|4|6c|6$|6 )/i, 'long-march-core', 50],
+  [/long march/i, 'long-march', 52],
+  [/electron/i, 'electron', 18],
+  [/kuaizhou|kinetica|ceres|jielong|lijian|vega|minotaur|pegasus|mir\b|hyperbola|epsilon/i, 'small', 28],
+];
+// Falcon 9 flights carrying Dragon (crew and cargo) by mission name.
+const DRAGON = /dragon|crew-|crs-|ax-\d|axiom|fram2|vast/i;
+
+// The model file (under /models/) for a launch, and its height in metres.
+export function rocketModel(l: Launch): { file: string; height: number } {
+  const name = l.rocket ?? l.name;
+  if (/falcon 9/i.test(name)) {
+    return DRAGON.test(l.name + ' ' + (l.mission ?? ''))
+      ? { file: 'rocket-falcon9-dragon', height: 65 }
+      : { file: 'rocket-falcon9', height: 70 };
+  }
+  for (const [re, file, height] of ROCKETS) if (re.test(name)) return { file: 'rocket-' + file, height };
+  return { file: 'rocket', height: 71 };
+}
 // The 3D rocket shows inside MODEL_RANGE; the flat marker hands over to
 // it inside ICON_FROM.
 const MODEL_RANGE = new DistanceDisplayCondition(0, 40_000);
@@ -117,7 +149,7 @@ export function addLaunchLayer(scene: Scene): LaunchLayer {
   // One standing rocket per pad with a launch coming, kept by launch id.
   const rockets = new Map<string, Model | null>();
   let destroyed = false;
-  function standRocket(id: string, lat: number, lon: number) {
+  function standRocket(id: string, lat: number, lon: number, file: string) {
     if (rockets.has(id)) {
       const m = rockets.get(id);
       if (m) m.show = true;
@@ -125,7 +157,7 @@ export function addLaunchLayer(scene: Scene): LaunchLayer {
     }
     rockets.set(id, null);
     void Model.fromGltfAsync({
-      url: '/models/rocket.glb',
+      url: '/models/' + file + '.glb',
       id: 'launch:' + id,
       modelMatrix: FixedFrameTransforms.eastNorthUpToFixedFrame(Cartesian3.fromDegrees(lon, lat, 0)),
       minimumPixelSize: 28,
@@ -154,7 +186,7 @@ export function addLaunchLayer(scene: Scene): LaunchLayer {
         const coming = Boolean(l.net && Date.parse(l.net) >= now);
         if (coming) {
           standing.add(l.id);
-          standRocket(l.id, l.lat, l.lon);
+          standRocket(l.id, l.lat, l.lon, rocketModel(l).file);
         }
         const position = Cartesian3.fromDegrees(l.lon, l.lat, 2000);
         const color = Color.fromCssColorString(launchColor(l, now));

@@ -15,10 +15,20 @@ features, and patch versions fix things. Upgrade with `./argus update`.
   shield, trunk with solar cells and fins), Soyuz and Progress,
   Shenzhou, cargo ships (Tianzhou, Cygnus), Tiangong and spent upper
   stages, in colour. Vehicles near a station are drawn docked to it.
-- Launch pads with a launch coming show a 3D rocket up close;
-  double-click the pad to orbit round it.
+- Launch pads with a launch coming show a 3D model of the rocket up
+  close: Falcon 9 (with Dragon on crew and cargo flights), Falcon
+  Heavy, Starship, New Glenn, Vulcan, Atlas V, Ariane 62 and 64,
+  Soyuz, Long March (with and without boosters, and the crewed 2F),
+  Electron and small solid launchers, at their real sizes, else a
+  generic rocket. Double-click the pad to orbit round it.
 - Clicking away from a followed station now lets go of the camera; it
   used to stay locked on the station until Home or World.
+
+### Interface
+
+- Wall left the toolbar: it's for display screens. **Open wall view**
+  in the account menu opens it in a new tab.
+- The Make token and backup buttons no longer stretch across the form.
 
 ### Sign-in
 

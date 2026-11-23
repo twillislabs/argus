@@ -67,9 +67,6 @@ export default function AppHeader({ me, onSignedOut, live, search, replay }: Pro
           <Link to="/brief" aria-current={pathname === '/brief' ? 'page' : undefined}>
             Brief
           </Link>
-          <Link to="/wall" aria-current={pathname === '/wall' ? 'page' : undefined}>
-            Wall
-          </Link>
           <Link to="/settings" aria-current={pathname.startsWith('/settings') ? 'page' : undefined}>
             Settings
           </Link>
@@ -118,6 +115,13 @@ export default function AppHeader({ me, onSignedOut, live, search, replay }: Pro
                 </li>
                 <li>
                   <Link to="/settings">Settings</Link>
+                </li>
+                <li>
+                  {/* The wall is for display screens: a preview opens in
+                      its own tab rather than taking over this one. */}
+                  <a href="/wall" target="_blank" rel="noopener">
+                    Open wall view ↗
+                  </a>
                 </li>
                 <li>
                   <a href="/docs/">Documentation</a>

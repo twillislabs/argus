@@ -175,7 +175,7 @@ export default function BackupsSection() {
             plus the secret key that unlocks the stored keys. It holds secrets, so keep it somewhere safe. The same file
             restores here or on another server (or with <span className="mono">make restore</span>).
           </p>
-          <div className="pairform">
+          <div className="pairform two">
             <div className="field">
               <label htmlFor="bk-pw">Your password</label>
               <input
@@ -240,7 +240,7 @@ export default function BackupsSection() {
               <span>Replace all of this server&apos;s data, including every account, with this backup</span>
             </label>
           )}
-          <div className="pairform">
+          <div className="pairform two">
             <div className="field">
               <label htmlFor="rs-pw">Your password</label>
               <input

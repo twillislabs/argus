@@ -13,7 +13,7 @@ import ImageryPanel, { closeUpFor, type ImageryState, newImagery } from '../comp
 import TourPanel from '../components/TourPanel';
 import AskPanel, { type AskItem } from '../components/AskPanel';
 import { askArgus, useAiStatus } from '../lib/ai';
-import { launchColor, padKey } from '../map/launchLayer';
+import { launchColor, padKey, rocketModel } from '../map/launchLayer';
 import { OUTAGE_COLOR, RANSOMWARE_COLOR } from '../map/cyberLayer';
 import { RAID_COLOR } from '../map/raidLayer';
 import { cleanTour, type Tour } from '../lib/tours';
@@ -2054,7 +2054,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       const l = launchItems.find((x) => 'launch:' + x.id === id);
       if (l?.net && Date.parse(l.net) >= Date.now()) {
         select(id);
-        globe.current?.orbitAround(id, l.lat, l.lon, 35, 220);
+        const { height: tall } = rocketModel(l);
+        globe.current?.orbitAround(id, l.lat, l.lon, tall / 2, tall * 3);
         return;
       }
     }

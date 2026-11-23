@@ -28,7 +28,14 @@ export interface RenderGovernor {
   destroy: () => void;
 }
 
-export function governRendering(v: CesiumWidget, mode: RenderMode, onMode?: () => void): RenderGovernor {
+// still: the camera is held on something that doesn't move (a rocket on
+// its pad), so a held camera needn't redraw every frame.
+export function governRendering(
+  v: CesiumWidget,
+  mode: RenderMode,
+  onMode?: () => void,
+  still?: () => boolean,
+): RenderGovernor {
   const scene = v.scene;
   scene.requestRenderMode = true;
   scene.maximumRenderTimeChange = Number.POSITIVE_INFINITY;
@@ -51,7 +58,7 @@ export function governRendering(v: CesiumWidget, mode: RenderMode, onMode?: () =
     raf = window.requestAnimationFrame(loop);
     if (document.hidden || scene.isDestroyed()) return;
     // A camera riding along with an aircraft moves every frame.
-    const riding = !Matrix4.equals(v.camera.transform, Matrix4.IDENTITY);
+    const riding = !Matrix4.equals(v.camera.transform, Matrix4.IDENTITY) && !still?.();
     if (t < awakeUntil || riding || t - last >= IDLE_MS[current]) {
       last = t;
       scene.requestRender();
