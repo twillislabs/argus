@@ -526,8 +526,9 @@ parts connect.
   sits in the Sea group (SeaFilters keys are vessel categories:
   `seaOn` checks them all).
 - Camera picture: the selected traffic camera's still in the scene
-  (camView) only with `cams.picture` (off by default); the camera being
-  looked at is ringed (camLayer `ring`, traffic cameras and webcams).
+  (camView) only with the `cam_picture` preference (Settings › Display,
+  off by default); the camera being looked at is ringed (camLayer
+  `ring`, traffic cameras and webcams).
 - Street photos: `argus/streetphotos.py` (Panoramax `api/search`, no
   key); the image proxy fetches only URLs a search returned (`allowed`),
   never a client's. KartaView's image hosts were down (2026-11); Mapillary
@@ -636,6 +637,12 @@ parts connect.
   `ARGUS_AIR_ENABLED=false` there (it stops the worker's polls and the
   API's per-view civil fetches and hex lookups; compose passes it to
   both containers).
+- Double-click (`focus` in MapPage, Globe's LEFT_DOUBLE_CLICK passes the
+  pick id or null, the marker's own position or the clicked spot, and
+  the camera height): follows ac/ship/sat, flies to events
+  (`FOCUS_HEIGHT`), selects anything else and flies in by id prefix
+  (`ITEM_FOCUS_HEIGHT`, never zooming out); bare map zooms in. New
+  pickable kinds get an entry there.
 - Map markers use `disableDepthTestDistance` = horizon distance (infinite
   in 2D), set in `Globe.tsx`; otherwise the dark map's land and border
   shapes clip them. New primitive collections need the same.

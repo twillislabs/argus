@@ -41,8 +41,7 @@ export interface LayerFilters {
   // Wikipedia current events (map/wikiLayer.ts).
   wiki: boolean;
   // Cameras: government traffic cameras (map/camLayer.ts).
-  // picture: the selected traffic camera's still drawn in the 3D scene.
-  cams: { traffic: boolean; webcams: boolean; picture: boolean };
+  cams: { traffic: boolean; webcams: boolean };
   weather: WeatherFilters;
 }
 
@@ -62,7 +61,7 @@ export const DEFAULT_FILTERS: LayerFilters = {
   infra: DEFAULT_INFRA,
   tension: true,
   wiki: false,
-  cams: { traffic: false, webcams: false, picture: false },
+  cams: { traffic: false, webcams: false },
   weather: DEFAULT_WEATHER,
 };
 
@@ -691,7 +690,7 @@ export default function LayerPanel({
           </label>
         ))}
       </Group>
-      <Group title="Cameras" on={countOn(filters.cams)} total={3} forceOpen={Boolean(q)}>
+      <Group title="Cameras" on={countOn(filters.cams)} total={2} forceOpen={Boolean(q)}>
         <label className="lrow">
           <input
             type="checkbox"
@@ -726,20 +725,6 @@ export default function LayerPanel({
             </small>
           </span>
           <span className="lcount mono">{filters.cams.webcams ? (webcamCount ?? webcamNote ?? '–') : null}</span>
-        </label>
-        <label className="lrow">
-          <input
-            type="checkbox"
-            checked={filters.cams.picture}
-            onChange={(e) => onChange({ ...filters, cams: { ...filters.cams, picture: e.target.checked } })}
-          />
-          <span className="tog" />
-          <span className="sw" style={{ background: CAM_COLOR, opacity: 0.6 }} />
-          <span className="lname">
-            <span>Camera picture on the map</span>
-            <small>The selected traffic camera&apos;s view, in 3D</small>
-          </span>
-          <span className="lcount mono" />
         </label>
       </Group>
       <Group title="Reference" on={countOn(filters.reference)} total={REFERENCE_ROWS.length} forceOpen={Boolean(q)}>

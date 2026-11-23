@@ -140,6 +140,34 @@ const MAX_NEWS_PLAYERS = 4;
 const TRAIL_POINTS = 240;
 // Camera height when double-clicking an event: close enough to see the
 // area, wide enough to keep its surroundings.
+// How close a double-click flies to a map item, by its pick id prefix.
+const ITEM_FOCUS_HEIGHT: Record<string, number> = {
+  'cam:': 1_500,
+  'webcam:': 3_000,
+  'alpr:': 1_500,
+  'radio:': 8_000,
+  'transit:': 2_500,
+  'apt:': 25_000,
+  'port:': 25_000,
+  'pp:': 15_000,
+  'mil:': 15_000,
+  'cable:': 600_000,
+  'launch:': 30_000,
+  'gfw:': 60_000,
+  'fire:': 80_000,
+  'storm:': 1_800_000,
+  'wx:': 400_000,
+  'spc:': 1_200_000,
+  'air:': 250_000,
+  'gps:': 400_000,
+  'raid:': 500_000,
+  'wiki:': 150_000,
+  'rw:': 2_500_000,
+  'outage:': 2_500_000,
+  'adv:': 2_500_000,
+  'tension:': 2_500_000,
+};
+
 const FOCUS_HEIGHT: Record<string, number> = {
   quake: 400_000,
   fire: 120_000,
@@ -1984,7 +2012,14 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }
 
   // Double-click: follow aircraft, ships and satellites; zoom to events.
-  function focus(id: string) {
+  // Double-click: follow aircraft, ships and satellites; fly to an event;
+  // select anything else and fly in to it, at a height that suits it;
+  // on bare map, zoom in to the spot clicked.
+  function focus(id: string | null, lat: number, lon: number, height: number) {
+    if (!id || id.startsWith('draw:') || id.startsWith('group:')) {
+      globe.current?.flyTo(lat, lon, Math.max(1_500, height * 0.35));
+      return;
+    }
     if (id.startsWith('ac:')) {
       selectAircraft(id.slice(3), 'follow');
       return;
@@ -1998,9 +2033,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       return;
     }
     const e = events.find((x) => x.id === id);
-    if (!e) return;
-    select(id);
-    globe.current?.flyTo(e.lat, e.lon, FOCUS_HEIGHT[e.type] ?? 250_000);
+    if (e) {
+      select(id);
+      // Never zoom out to reach it.
+      // A US wildfire flies close enough to see its outline.
+      const near = e.key?.startsWith('nifc:') ? ITEM_FOCUS_HEIGHT['fire:'] : (FOCUS_HEIGHT[e.type] ?? 250_000);
+      globe.current?.flyTo(e.lat, e.lon, Math.min(near, Math.max(1_500, height)));
+      return;
+    }
+    // Hover-only items (transit vehicles) just fly in; the rest select too.
+    if (!id.startsWith('transit:')) select(id);
+    const prefix = id.slice(0, id.indexOf(':') + 1);
+    const close = ITEM_FOCUS_HEIGHT[prefix] ?? 250_000;
+    // Never zoom out to reach it.
+    globe.current?.flyTo(lat, lon, Math.min(close, Math.max(1_500, height)));
   }
 
   function selectAndFly(id: string) {
@@ -2195,7 +2241,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             trafficCams={filters.cams.traffic ? trafficCams : []}
             webcams={filters.cams.webcams ? webcams : []}
             selectedWebcam={selectedWebcam?.id ?? null}
-            camPicture={filters.cams.picture}
+            camPicture={me.preferences.cam_picture === true}
             selectedCam={selectedCam?.id ?? null}
             wxAlerts={wxAlerts}
             wxZoned={wxZoned}

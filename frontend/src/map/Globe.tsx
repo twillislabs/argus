@@ -472,7 +472,10 @@ interface Props {
   events: EventItem[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
-  onFocus?: (id: string) => void;
+  // Double-click: the item's pick id (null on bare map), where it is
+  // (the marker's own position, else the spot clicked) and the camera's
+  // height above the ground in metres.
+  onFocus?: (id: string | null, lat: number, lon: number, height: number) => void;
   // The selected aircraft's planned route: flown part solid, the rest
   // dashed, with the airport codes at the ends.
   route?: { origin: [number, number]; destination: [number, number]; at: [number, number]; labels: [string, string] } | null;
@@ -930,7 +933,15 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     handler.setInputAction((e: { position: Cartesian2 }) => {
       if (draw.current?.doubleClick(e.position)) return;
       const picked = scene.pick(e.position);
-      if (picked && typeof picked.id === 'string') onFocusRef.current?.(picked.id);
+      const id = picked && typeof picked.id === 'string' ? picked.id : null;
+      // A marker's own position when it has one, else where you clicked.
+      const own = picked?.primitive?.position;
+      const at =
+        own instanceof Cartesian3 ? own : v.camera.pickEllipsoid(e.position, scene.globe.ellipsoid);
+      if (!at) return;
+      const c = Cartographic.fromCartesian(at);
+      const height = scene.globe.ellipsoid.cartesianToCartographic(v.camera.positionWC)?.height ?? 1_000_000;
+      onFocusRef.current?.(id, CesiumMath.toDegrees(c.latitude), CesiumMath.toDegrees(c.longitude), height);
     }, ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
     // Pointer moves: hover card, cursor and readout, at most once a frame
     // (picking renders the scene, so not on every mouse event).

@@ -115,7 +115,7 @@ export function applyLayers(f: LayerFilters, on: string[]): LayerFilters {
     },
     tension: has('tension'),
     wiki: has('wiki'),
-    cams: { traffic: has('cams-traffic'), webcams: has('cams-webcams'), picture: f.cams.picture },
+    cams: { traffic: has('cams-traffic'), webcams: has('cams-webcams') },
   };
 }
 

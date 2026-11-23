@@ -107,7 +107,7 @@ const SECTIONS: Section[] = [
     title: 'Display',
     description: 'How Argus looks on this account.',
     group: 'You',
-    keywords: 'units banner video volume muted wall clocks theme frame rate performance power battery heat fps',
+    keywords: 'units banner video volume muted wall clocks theme frame rate performance power battery heat fps camera picture 3d',
   },
   {
     id: 'users',
@@ -912,6 +912,17 @@ function DisplaySection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> 
   const [banner, setBanner] = useState(me.preferences.show_banner === true);
   const [unitPref, setUnitPref] = useState<Units>(me.preferences.units === 'metric' ? 'metric' : 'imperial');
   const [renderPref, setRenderPref] = useState<RenderMode>(me.preferences.render ?? 'balanced');
+  const [camPicture, setCamPicture] = useState(me.preferences.cam_picture === true);
+
+  async function toggleCamPicture(next: boolean) {
+    setCamPicture(next);
+    try {
+      await savePreferences({ cam_picture: next });
+      await onSaved();
+    } catch {
+      setCamPicture(!next);
+    }
+  }
 
   async function chooseRender(next: RenderMode) {
     const before = renderPref;
@@ -983,6 +994,19 @@ function DisplaySection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> 
             ))}
           </div>
         </div>
+        <label className="srow">
+          <span className="srow-label">
+            <b>Traffic camera picture in 3D</b>
+            <small>
+              Draws the selected traffic camera&apos;s picture in the map: at the end of its view cone, or above the
+              camera. Off, the picture shows only in the camera&apos;s panel.
+            </small>
+          </span>
+          <span className="lrow flat">
+            <input type="checkbox" checked={camPicture} onChange={(e) => void toggleCamPicture(e.target.checked)} />
+            <span className="tog" />
+          </span>
+        </label>
         <label className="srow">
           <span className="srow-label">
             <b>Classification line</b>

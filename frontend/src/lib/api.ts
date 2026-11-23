@@ -327,6 +327,8 @@ export interface Preferences {
   home?: Home;
   basemap?: string;
   show_banner?: boolean;
+  // The selected traffic camera's picture drawn in the 3D scene.
+  cam_picture?: boolean;
   left_open?: boolean;
   right_open?: boolean;
   units?: 'imperial' | 'metric';

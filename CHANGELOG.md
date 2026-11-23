@@ -14,6 +14,20 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 - Live channels can be on Dailymotion or Kick as well as YouTube and
   Rumble (Settings › Live channels).
 
+### Map
+
+- Double-click focuses: aircraft, ships and satellites are followed as
+  before, events flown to, and now everything else on the map (cameras,
+  radio stations, fires, storms, airports, launches and so on) is
+  selected and flown in to. Double-clicking bare map zooms in on that
+  spot.
+
+### Cameras
+
+- The traffic camera picture in 3D moved from the layer list to
+  Settings › Display (**Traffic camera picture in 3D**), still off by
+  default.
+
 ## [1.5.0] - 2026-11-23
 
 Wildfire outlines, Global Fishing Watch at sea, sharp imagery close-ups

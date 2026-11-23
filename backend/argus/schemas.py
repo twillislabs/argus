@@ -370,6 +370,8 @@ class Preferences(BaseModel):
     # Shapes and notes drawn on the map (map/drawTools.ts).
     drawings: list[dict[str, Any]] | None = Field(default=None, max_length=200)
     show_banner: bool | None = None
+    # The selected traffic camera's picture drawn in the 3D scene.
+    cam_picture: bool | None = None
     # Director mode: saved map tours (TourPanel).
     tours: list[Tour] | None = Field(default=None, max_length=30)
     brief: BriefPrefs | None = None
