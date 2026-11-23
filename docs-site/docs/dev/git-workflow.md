@@ -85,7 +85,10 @@ Also:
 
 - **Update the docs in the same commit.** User-facing changes update
   `docs-site/docs/`; new modules, conventions or pitfalls update
-  `CLAUDE.md`.
+  `CLAUDE.md`. The [GitHub wiki](https://github.com/twillislabs/argus/wiki)
+  is generated from `docs-site/docs` on every push to main
+  (`.github/workflows/wiki.yml`, `scripts/docs_to_wiki.py`), so never
+  edit the wiki itself: its pages are replaced.
 - **Never commit secrets or local material:** `.env`, `data/` (the street
   map download), `docs/PLAN.md` and `docs/mockup/` are ignored and stay
   that way.

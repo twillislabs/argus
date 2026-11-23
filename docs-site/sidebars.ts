@@ -18,7 +18,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Administration',
-      items: ['admin/security', 'admin/configuration', 'admin/ai'],
+      items: ['admin/security', 'admin/configuration', 'admin/backups', 'admin/ai'],
     },
     {
       type: 'category',

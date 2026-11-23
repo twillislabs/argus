@@ -39,6 +39,11 @@ parts connect.
   vendor files in their own folders (`vite.config.ts`).
 - `docs-site/`: Docusaurus, served at `/docs/`, with local search
   (`@easyops-cn/docusaurus-search-local`, index built with the site).
+  The GitHub wiki is generated from it on push to main
+  (`.github/workflows/wiki.yml` runs `scripts/docs_to_wiki.py`: page
+  names from titles, intro is Home, links rewritten, admonitions to
+  GitHub alerts, `_Sidebar.md` from sidebars.ts); never edit the wiki.
+  A new doc page goes in `sidebars.ts` or it lands last.
 - `streetmap/`: tileserver-gl config and the Argus Dark street style
   (Protomaps v4 schema). Data lives in `data/streetmap/` (gitignored),
   downloaded by `scripts/streetmap.sh` / `make streetmap`.
