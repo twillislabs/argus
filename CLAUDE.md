@@ -609,7 +609,12 @@ parts connect.
   map page shows one panel at a time as a sheet over the map (`sheet`
   state in MapPage, `showLeft`/`showRight`, the `.mobtabs` bar; not
   saved, unlike `left_open`/`right_open`), and `openRight` opens the
-  sheet. Check new pages at 390 px for sideways scrolling.
+  sheet. Check new pages at 390 px for sideways scrolling. Sheets
+  are `components/Sheet.tsx` (MapPage `sheetWrap`: slide-up, handle
+  drag with the distance in a ref, half/full); Settings on phones is
+  `menu-only` at /settings and `section-only` with `.sback` on a
+  section. Tool rows scroll sideways (masked edge), the timeline is a
+  two-row grid.
 - Icons: `frontend/public/favicon.ico` (16/32/48), `apple-touch-icon.png`
   (180, full square: iOS rounds it), `img/icon-192.png`, `icon-512.png`,
   `icon-maskable-512.png` (mark in the 80% safe zone) and
