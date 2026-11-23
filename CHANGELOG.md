@@ -6,6 +6,15 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Map
+
+- Aircraft start off: military aircraft are no longer on by default
+  (civil traffic never was). Turn them on in Layers, or make them
+  everyone's in Settings › Defaults. People who already chose their
+  layers keep them.
+- Settings › Defaults says right by the button when the default layers
+  are saved (the message used to be at the bottom of the page).
+
 ### Phones
 
 - Smoother on phones: the Layers and Situation panels slide up as

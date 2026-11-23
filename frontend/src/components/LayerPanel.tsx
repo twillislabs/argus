@@ -50,10 +50,10 @@ export const DEFAULT_FILTERS: LayerFilters = {
   minSeverity: 1,
   candidates: false,
   hours: 24,
-  // Military aircraft are polled by the worker anyway, so showing them
-  // costs nothing; civil traffic is fetched per view from the shared
-  // ADS-B quota, so it starts off.
-  air: { military: true, civil: false, focus: '' },
+  // Aircraft start off (turn them on in Layers, or make them everyone's
+  // in Settings > Defaults). Civil traffic is fetched per view from the
+  // shared ADS-B quota; military is polled by the worker either way.
+  air: { military: false, civil: false, focus: '' },
   reference: DEFAULT_REFERENCE,
   space: DEFAULT_SPACE,
   sea: { ...DEFAULT_SEA, cargo: false, tanker: false, passenger: false, fishing: false, military: false },

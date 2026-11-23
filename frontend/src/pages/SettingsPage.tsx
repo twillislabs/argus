@@ -777,6 +777,8 @@ function VideoSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> })
 function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
   const [defaults, setDefaults] = useState<ServerDefaults | null>(null);
   const [status, setStatus] = useState('');
+  // Shown beside the layer buttons (the status line is far below).
+  const [layerNote, setLayerNote] = useState('');
   useEffect(() => {
     getDefaults()
       .then(setDefaults)
@@ -790,14 +792,18 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
     ...CHANNELS.filter((c) => !tabs.includes(c.id)),
   ];
 
-  async function save(next: ServerDefaults, message = 'Saved for everyone.') {
+  // True once saved (the caller can say so where the person is looking).
+  async function save(next: ServerDefaults, message = 'Saved for everyone.'): Promise<boolean> {
     setDefaults(next);
     try {
       setDefaults(await putDefaults(next));
       await onSaved();
       setStatus(message);
+      return true;
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Could not save.');
+      setLayerNote(err instanceof Error ? 'Not saved: ' + err.message : 'Not saved.');
+      return false;
     }
   }
   const setTabs = (next: string[]) => void save({ ...defaults, news: { tabs: next } });
@@ -846,16 +852,35 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
               </small>
             </span>
             <span className="actions">
-              <button className="btn small" onClick={() => void save({ ...defaults, layers: mine }, 'Your current map layers are now the default.')}>
+              <button
+                className="btn small"
+                onClick={() =>
+                  void save({ ...defaults, layers: mine }, 'Your current map layers are now the default.').then(
+                    (ok) => ok && setLayerNote('Saved: your current map layers are now everyone\u2019s default.'),
+                  )
+                }
+              >
                 Use my current map layers
               </button>
               {layerCount > 0 && (
-                <button className="btn small" onClick={() => void save({ ...defaults, layers: undefined }, 'Back to the built-in layers.')}>
+                <button
+                  className="btn small"
+                  onClick={() =>
+                    void save({ ...defaults, layers: undefined }, 'Back to the built-in layers.').then(
+                      (ok) => ok && setLayerNote('Saved: everyone starts with the built-in layers again.'),
+                    )
+                  }
+                >
                   Use built-in
                 </button>
               )}
             </span>
           </div>
+          {layerNote && (
+            <p className="savednote small" role="status">
+              ✓ {layerNote}
+            </p>
+          )}
         </div>
       </section>
       <section className="card">
@@ -922,11 +947,11 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
             <button
               className="btn small"
               onClick={() =>
-                void getMe().then((fresh) =>
-                  fresh.preferences.brief
-                    ? save({ ...defaults, brief: fresh.preferences.brief }, 'Your Brief order is now the default.')
-                    : setStatus('Your Brief follows the default already: set it with Customize on the Brief first.'),
-                )
+                void getMe().then((fresh) => {
+                  if (fresh.preferences.brief)
+                    void save({ ...defaults, brief: fresh.preferences.brief }, 'Your Brief order is now the default.');
+                  else setStatus('Your Brief follows the default already: set it with Customize on the Brief first.');
+                })
               }
             >
               Use my current Brief

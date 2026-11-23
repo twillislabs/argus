@@ -1141,3 +1141,4 @@ tr.dimrow td { color: var(--dim); }
 .chips .warn { color: var(--high); }
 .accessrow .seg { justify-self: start; }
 .wallacct { display: block; color: var(--accent); font-size: 11.5px; margin-top: 2px; }
+.savednote { margin: 0; padding: 8px 12px 12px; color: var(--ok); }

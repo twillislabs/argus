@@ -437,6 +437,10 @@ box.
 
 ## Aircraft
 
+Both aircraft layers start off: turn them on in the layer panel's
+**Air** group, or an administrator can make them everyone's starting
+layers in Settings › Defaults.
+
 - **Military aircraft** are shown worldwide, updated every 15 seconds, with
   their callsigns once you zoom in. Each has a role from its type: tanker,
   ISR, airlift, bomber and so on.
