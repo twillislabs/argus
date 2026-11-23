@@ -353,6 +353,11 @@ export interface GlobeHandle {
   drawTool: () => DrawTools | null;
   capture: () => Promise<Blob | null>;
   flyToSatellite: (norad: number) => void;
+  // Fly to a spot and hold the camera on it, so dragging turns round it
+  // and the wheel zooms (a rocket on its pad). Let go by clicking
+  // anything else, flying anywhere, or releaseCamera().
+  orbitAround: (id: string, lat: number, lon: number, height: number, range: number) => void;
+  releaseCamera: () => void;
   // The camera's heading, pitch and roll in degrees (for the HUDs).
   attitude: () => { heading: number; pitch: number; roll: number } | null;
 }
@@ -634,6 +639,17 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const vesselsRef = useRef(vessels);
   vesselsRef.current = vessels;
   const followSatRef = useRef({ on: followSat, norad: selectedNorad, fresh: true });
+  // What holds the camera in a lookAt frame besides the aircraft tracker:
+  // following a satellite, or orbiting a spot (a rocket on its pad), and
+  // that spot's pick id. Cleared by freeCamera().
+  const camHeld = useRef<{ by: 'sat' | 'pivot'; id: string | null } | null>(null);
+  const freeCamera = () => {
+    const v = viewer.current;
+    if (camHeld.current && v && !v.isDestroyed() && !Matrix4.equals(v.camera.transform, Matrix4.IDENTITY)) {
+      v.camera.lookAtTransform(Matrix4.IDENTITY);
+    }
+    camHeld.current = null;
+  };
   followSatRef.current = {
     on: followSat,
     norad: selectedNorad,
@@ -773,6 +789,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         const range = near < 300 ? near * 6 : Math.min(Math.max(height * 1.6, 400_000), 60_000_000);
         v.camera.lookAtTransform(satFrame, new HeadingPitchRange(0, CesiumMath.toRadians(-35), range));
         followSatRef.current.fresh = false;
+        camHeld.current = { by: 'sat', id: 'sat:' + f.norad };
       } else {
         v.camera.lookAtTransform(satFrame, Cartesian3.clone(v.camera.position));
       }
@@ -986,6 +1003,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       if (draw.current?.click(e.position)) return;
       const picked = scene.pick(e.position);
       const id = picked && typeof picked.id === 'string' ? picked.id : null;
+      // Clicking anything else lets go of a spot the camera orbits.
+      if (camHeld.current?.by === 'pivot' && id !== camHeld.current.id) freeCamera();
       // A camera group's badge zooms to its cameras.
       if (id && zoomToGroup(v.camera, id)) return;
       onSelectRef.current(id);
@@ -1471,11 +1490,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     sats.current?.select(selectedNorad);
   }, [selectedNorad]);
   useEffect(() => {
-    if (!followSat && viewer.current && !Matrix4.equals(viewer.current.camera.transform, Matrix4.IDENTITY)) {
-      // Release only what satellite follow held; the aircraft tracker
-      // manages its own camera.
-      if (selectedNorad !== null) viewer.current.camera.lookAtTransform(Matrix4.IDENTITY);
-    }
+    // Following stopped, or the satellite was deselected (clicking the
+    // map clears both at once): let go of what satellite follow held.
+    // The aircraft tracker manages its own camera.
+    if (!(followSat && selectedNorad !== null) && camHeld.current?.by === 'sat') freeCamera();
   }, [followSat, selectedNorad]);
 
   const referenceKey = [
@@ -1552,6 +1570,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         flyHome() {
           remember();
           tracker.current?.release();
+          freeCamera();
           const t = home ? { lon: home.lon, lat: home.lat, height: HOME_HEIGHT_M } : WORLD_VIEW;
           viewer.current?.camera.flyTo({
             destination: Cartesian3.fromDegrees(t.lon, t.lat, t.height),
@@ -1561,6 +1580,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         flyWorld() {
           remember();
           tracker.current?.release();
+          freeCamera();
           // Centre the world view on home's longitude when there is one.
           const lon = home ? home.lon : WORLD_VIEW.lon;
           viewer.current?.camera.flyTo({
@@ -1571,6 +1591,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         flyTo(lat, lon, height = 1_500_000) {
           remember();
           tracker.current?.release();
+          freeCamera();
           viewer.current?.camera.flyTo({
             destination: Cartesian3.fromDegrees(lon, lat, height),
             duration: 1.4,
@@ -1581,6 +1602,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           if (!v) return;
           remember();
           tracker.current?.release();
+          freeCamera();
           // 260 m behind the camera and 120 m up, looking slightly down:
           // the whole view and its picture (300 m out) in frame.
           const back = (bearing + 180) * (Math.PI / 180);
@@ -1607,6 +1629,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           const v = viewer.current;
           if (!v) return;
           tracker.current?.release();
+          freeCamera();
           // Exactly -90 degrees is degenerate for an orbit offset.
           reorient(v, null, -CesiumMath.PI_OVER_TWO + 0.001);
         },
@@ -1614,12 +1637,14 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           const v = viewer.current;
           if (!v) return;
           tracker.current?.release();
+          freeCamera();
           reorient(v, null, CesiumMath.toRadians(-35));
         },
         northUp() {
           const v = viewer.current;
           if (!v) return;
           tracker.current?.release();
+          freeCamera();
           if (v.scene.mode === SceneMode.SCENE3D) reorient(v, 0, null);
           else v.camera.setView({ orientation: { heading: 0, pitch: v.camera.pitch, roll: 0 } });
         },
@@ -1630,6 +1655,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           history.current = history.current.slice(0, -1);
           onHistoryRef.current?.(history.current.length);
           tracker.current?.release();
+          freeCamera();
           v.camera.flyTo({
             destination: Cartesian3.fromDegrees(last.lon, last.lat, last.height),
             orientation: { heading: last.heading, pitch: last.pitch, roll: 0 },
@@ -1729,12 +1755,32 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
             roll: CesiumMath.toDegrees(c.roll),
           };
         },
+        orbitAround(id, lat, lon, height, range) {
+          const v = viewer.current;
+          if (!v) return;
+          remember();
+          tracker.current?.release();
+          freeCamera();
+          const centre = Cartesian3.fromDegrees(lon, lat, height);
+          const offset = new HeadingPitchRange(CesiumMath.toRadians(30), CesiumMath.toRadians(-15), range);
+          const hold = () => {
+            if (v.isDestroyed()) return;
+            v.camera.lookAtTransform(FixedFrameTransforms.eastNorthUpToFixedFrame(centre), offset);
+            camHeld.current = { by: 'pivot', id };
+          };
+          if (reduceMotion) return hold();
+          v.camera.flyToBoundingSphere(new BoundingSphere(centre, 0), { offset, duration: 1.6, complete: hold });
+        },
+        releaseCamera() {
+          freeCamera();
+        },
         flyToSatellite(norad) {
           const v = viewer.current;
           const p = sats.current?.position(norad);
           if (!v || !p) return;
           remember();
           tracker.current?.release();
+          freeCamera();
           const height = Cartesian3.magnitude(p) - 6_371_000;
           v.camera.flyToBoundingSphere(new BoundingSphere(p, 0), {
             offset: new HeadingPitchRange(0, CesiumMath.toRadians(-60), Math.min(Math.max(height * 1.6, 400_000), 60_000_000)),
@@ -1759,6 +1805,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           if (!v || parts.length < 3 || parts.some((n) => !Number.isFinite(n))) return Promise.resolve(false);
           const [lon, lat, height, heading = 0, pitch = -90] = parts;
           tracker.current?.release();
+          freeCamera();
           return new Promise((resolve) => {
             v.camera.flyTo({
               destination: Cartesian3.fromDegrees(lon, lat, Math.min(Math.max(height, 1), 5e7)),

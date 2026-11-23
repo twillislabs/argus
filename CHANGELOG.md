@@ -15,7 +15,10 @@ features, and patch versions fix things. Upgrade with `./argus update`.
   shield, trunk with solar cells and fins), Soyuz and Progress,
   Shenzhou, cargo ships (Tianzhou, Cygnus), Tiangong and spent upper
   stages, in colour. Vehicles near a station are drawn docked to it.
-- Launch pads with a launch coming show a 3D rocket up close.
+- Launch pads with a launch coming show a 3D rocket up close;
+  double-click the pad to orbit round it.
+- Clicking away from a followed station now lets go of the camera; it
+  used to stay locked on the station until Home or World.
 
 ### Sign-in
 

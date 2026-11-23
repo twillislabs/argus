@@ -1386,7 +1386,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         setCamera(CAMERA_MODES[(i + 1) % CAMERA_MODES.length].id);
       } else if (e.key === 'Escape') {
         if (camera !== 'free') setCamera('free');
-        else clearSelection();
+        else {
+          globe.current?.releaseCamera();
+          clearSelection();
+        }
       }
     }
     window.addEventListener('keydown', onKey);
@@ -2045,6 +2048,15 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       const near = e.key?.startsWith('nifc:') ? ITEM_FOCUS_HEIGHT['fire:'] : (FOCUS_HEIGHT[e.type] ?? 250_000);
       globe.current?.flyTo(e.lat, e.lon, Math.min(near, Math.max(1_500, height)));
       return;
+    }
+    // A pad with a launch coming has a 3D rocket: orbit round it.
+    if (id.startsWith('launch:')) {
+      const l = launchItems.find((x) => 'launch:' + x.id === id);
+      if (l?.net && Date.parse(l.net) >= Date.now()) {
+        select(id);
+        globe.current?.orbitAround(id, l.lat, l.lon, 35, 220);
+        return;
+      }
     }
     // Hover-only items (transit vehicles) just fly in; the rest select too.
     if (!id.startsWith('transit:')) select(id);

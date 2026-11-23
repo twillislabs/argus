@@ -691,7 +691,16 @@ parts connect.
   down to `nearest()`): Cesium sizes zoom steps by height above the
   ground, so in orbit one notch flew through a station. The Space
   stations toggle is `SpaceFilters.iss`. Launch pads with a launch
-  coming stand `rocket.glb` (+Y up) inside 40 km.
+  coming stand `rocket.glb` (+Y up) inside 40 km; double-click orbits
+  it (`GlobeHandle.orbitAround`).
+- Camera holds: the aircraft tracker, satellite follow and
+  `orbitAround` all put the camera in a lookAt frame. Globe's
+  `camHeld` records the satellite/pivot holder and `freeCamera()` lets
+  go (handle methods that fly, a click on anything else for a pivot,
+  follow ending or the satellite deselected, `releaseCamera()` on Esc);
+  the tracker's `release()` only drops a frame it set itself
+  (`holding`): its `setTarget(null)` runs on every aircraft update and
+  used to drop everyone's.
 - Hazards (GDACS, EONET, tsunami) and NGA warnings are keyed events
   (`fuse_hazard`, `fuse_navwarn`) whose raw records update in place
   (`UPDATABLE_KINDS`).

@@ -91,10 +91,16 @@ export function createAircraftCamera(
   const enu = new Matrix4();
   const offset = new Cartesian3();
 
+  // Whether these views put the camera in a lookAt frame: only then
+  // release it. Following a satellite or orbiting a rocket holds the
+  // camera the same way, and a deselect here must not drop that.
+  let holding = false;
+
   function release() {
-    if (!Matrix4.equals(v.camera.transform, Matrix4.IDENTITY)) {
+    if (holding && !Matrix4.equals(v.camera.transform, Matrix4.IDENTITY)) {
       v.camera.lookAtTransform(Matrix4.IDENTITY);
     }
+    holding = false;
     layer()?.setHidden(null);
   }
 
@@ -200,11 +206,13 @@ export function createAircraftCamera(
               ? new HeadingPitchRange(track, CHASE_PITCH, 2_500)
               : new HeadingPitchRange(track + Math.PI / 4, ORBIT_PITCH, 12_000);
         camera.lookAtTransform(enu, start);
+        holding = true;
         return;
       }
 
       if (mode === 'chase') {
         camera.lookAtTransform(enu, new HeadingPitchRange(track, CHASE_PITCH, range));
+        holding = true;
         return;
       }
       // Follow and orbit: keep the current offset (so zoom and tilt stick),
@@ -219,6 +227,7 @@ export function createAircraftCamera(
         offset.x = x;
       }
       camera.lookAtTransform(enu, offset);
+      holding = true;
     },
   };
 }

@@ -857,7 +857,9 @@ and the pad's own page and Wikipedia article.
 Times marked as a month or a day are not yet fixed.
 Zoom in on a pad with a launch coming and a 3D rocket stands on it (the
 same shape for every vehicle: Launch Library names the rocket, not its
-build).
+build). Double-click the pad to fly up to the rocket and hold the
+camera on it: drag to walk round it, scroll to zoom. Click anything else
+(or press Esc) to let go.
 
 The data comes from The Space Devs' Launch Library 2 (free, no key), read
 by Argus's server every two hours.
@@ -910,7 +912,8 @@ like `1998-067A`) to see:
   home.
 
 **Follow** (or double-click it) keeps it in view as it moves; scroll,
-or pinch on a phone, to zoom, and drag to look round. The ISS moves at
+or pinch on a phone, to zoom, and drag to look round. Click the map
+anywhere else, or press Esc, to stop following and move freely again. The ISS moves at
 7.7 km/s, so following is the easiest way to watch it.
 
 Stations, the vehicles that visit them and spent rocket stages are 3D
