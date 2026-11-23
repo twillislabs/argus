@@ -9,6 +9,12 @@ import { distance } from '../lib/units';
 import CopyCoords from './CopyCoords';
 
 const POLL_MS = 10_000;
+// Route databases, by the backend's leg "source".
+const ROUTE_SOURCE: Record<string, string> = {
+  adsbdb: 'adsbdb',
+  vrs: 'Virtual Radar Server',
+  hexdb: 'hexdb',
+};
 
 interface Props {
   hex: string;
@@ -166,7 +172,17 @@ function Detail({
         </div>
         {stale && <p className="quiet">Lost contact; showing the last position.</p>}
       </section>
-      {d.route && (
+      {d.route && !plausible && (
+        <section className="isec">
+          <h3>Route</h3>
+          <p>Unknown for this flight.</p>
+          <p className="quiet small">
+            The route databases have {from.code} → {to.code} for {d.route.callsign}, but this aircraft isn&apos;t flying
+            it: airlines reuse flight numbers for different legs, and the databases can lag behind.
+          </p>
+        </section>
+      )}
+      {d.route && plausible && (
         <section className="isec">
           <h3>Route</h3>
           <div className="route">
@@ -202,9 +218,8 @@ function Detail({
             </div>
           )}
           <p className="quiet small">
-            {plausible
-              ? 'Planned route from adsbdb; the aircraft may divert.'
-              : "The route on file doesn't match where this aircraft is, so it's probably out of date for this flight number."}
+            Planned route from {ROUTE_SOURCE[d.route.source ?? ''] ?? 'adsbdb'}, matched to where the aircraft is; it
+            may divert.
           </p>
         </section>
       )}
@@ -253,8 +268,8 @@ function Detail({
       <section className="isec">
         <p className="quiet small">
           Positions from {a.source ?? 'adsb.lol'}
-          {a.source === 'adsb.fi' ? '' : ' (ODbL)'}, routes and types from adsbdb. Aircraft whose owners opted out (PIA,
-          LADD) aren&apos;t shown.
+          {a.source === 'adsb.fi' ? '' : ' (ODbL)'}, routes from adsbdb, Virtual Radar Server (CC0, via adsb.lol) and
+          hexdb, types from adsbdb. Aircraft whose owners opted out (PIA, LADD) aren&apos;t shown.
         </p>
       </section>
     </>

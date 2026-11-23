@@ -243,7 +243,8 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
   Events (CC BY 4.0), Uppsala University, for the tension index's standing level.
 - **Places:** [GeoNames](https://www.geonames.org/) (CC BY 4.0).
 - **Aircraft:** [adsb.lol](https://adsb.lol/) (ODbL 1.0) and [adsb.fi](https://adsb.fi/) (open data, personal non-commercial use) for positions, [adsbdb](https://www.adsbdb.com/)
-  for routes and types, [OurAirports](https://ourairports.com/data/) (public domain) and
+  for routes and types, [Virtual Radar Server's route data](https://github.com/vradarserver/standing-data)
+  (CC0, served by adsb.lol) and [hexdb](https://hexdb.io/) for routes, [OurAirports](https://ourairports.com/data/) (public domain) and
   [OpenFlights](https://openflights.org/data) airlines (ODbL 1.0). Aircraft whose owners opted out
   (PIA, LADD) are hidden unless military, and owner names are never shown.
 - **Traffic cameras:** each agency's public feed, credited by name on every camera: Caltrans,

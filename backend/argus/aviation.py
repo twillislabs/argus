@@ -117,6 +117,10 @@ def aircraft_list(doc: dict) -> list[dict]:
 
 ADSBDB = "https://api.adsbdb.com/v0/"
 HEXDB_ROUTE = "https://hexdb.io/callsign-route"
+# Virtual Radar Server's route data (CC0), served by adsb.lol as one JSON
+# file per callsign and updated hourly: often current where adsbdb and
+# hexdb keep an old leg for a reused flight number.
+VRS_ROUTE = "https://vrs-standing-data.adsb.lol/routes/{0}/{1}.json"
 
 FLAG_MILITARY, FLAG_PIA, FLAG_LADD = 1, 4, 8
 NM_KM = 1.852
@@ -673,10 +677,10 @@ class AirClient:
         ]
 
     async def route_legs(self, callsign: str) -> list[dict]:
-        """Every leg on file for a callsign, from adsbdb and hexdb.
+        """Every leg on file for a callsign, from adsbdb, VRS and hexdb.
 
         Airlines reuse flight numbers across legs and days, and each
-        database keeps a different version, so both are asked; pick_route
+        database keeps a different version, so all are asked; pick_route
         then chooses the leg that fits where the aircraft is.
         """
         callsign = callsign.strip().upper()
@@ -707,14 +711,36 @@ class AirClient:
                     )
         except httpx.HTTPError as exc:
             log.warning("adsbdb route lookup failed: {0}".format(exc))
+        flight = legs[0]["flight"] if legs else None
+        airline = legs[0]["airline"] if legs else None
+        try:
+            response = await self.client.get(
+                VRS_ROUTE.format(callsign[:2], callsign)
+            )
+            stops = []
+            if response.status_code == 200:
+                stops = response.json().get("_airports") or []
+            for a, b in zip(stops, stops[1:], strict=False):
+                o, d = _vrs_airport(a), _vrs_airport(b)
+                if o and d and o["icao"] != d["icao"]:
+                    legs.append(
+                        {
+                            "callsign": callsign,
+                            "flight": flight,
+                            "airline": airline,
+                            "origin": o,
+                            "destination": d,
+                            "source": "vrs",
+                        }
+                    )
+        except (httpx.HTTPError, ValueError) as exc:
+            log.warning("VRS route lookup failed: {0}".format(exc))
         try:
             response = await self.client.get(
                 HEXDB_ROUTE, params={"callsign": callsign}
             )
             text = response.text.strip() if response.status_code == 200 else ""
             codes = [c for c in text.split("-") if len(c) == 4 and c.isalnum()]
-            flight = legs[0]["flight"] if legs else None
-            airline = legs[0]["airline"] if legs else None
             for a, b in zip(codes, codes[1:], strict=False):
                 o, d = airports().get(a.upper()), airports().get(b.upper())
                 if o and d and o.icao != d.icao:
@@ -767,6 +793,19 @@ def _airport(a: dict | None) -> dict | None:
         "city": a.get("municipality"),
         "lat": a.get("latitude"),
         "lon": a.get("longitude"),
+    }
+
+
+def _vrs_airport(a: dict) -> dict | None:
+    if not isinstance(a, dict) or a.get("lat") is None:
+        return None
+    return {
+        "iata": a.get("iata") or None,
+        "icao": a.get("icao"),
+        "name": a.get("name"),
+        "city": a.get("location"),
+        "lat": a.get("lat"),
+        "lon": a.get("lon"),
     }
 
 

@@ -704,6 +704,8 @@ export interface AircraftDetail {
     airline: string | null;
     origin: RouteAirport | null;
     destination: RouteAirport | null;
+    // Which route database it came from: adsbdb, vrs or hexdb.
+    source?: string;
   } | null;
   progress: { total_km: number; remaining_km: number; fraction: number; plausible: boolean } | null;
   // [lon, lat, alt_ft, unix seconds]

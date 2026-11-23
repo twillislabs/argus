@@ -416,6 +416,8 @@ async def test_route_legs_from_both_sources(monkeypatch):
                     }
                 },
             )
+        if "vrs-standing-data" in request.url.host:
+            return httpx.Response(404, text="Not found")
         return httpx.Response(200, text="KMSP-KRSW-KMSP")
 
     client = AirClient("test")
@@ -502,3 +504,79 @@ async def test_gps_sweep_publishes_a_bare_sample():
         ]
     }
     await http.aclose()
+
+
+async def test_route_legs_from_vrs(monkeypatch):
+    """A reused flight number: adsbdb keeps an old leg (BWI to PVD), VRS
+    has today's (BNA to CLE), and pick_route takes the one the aircraft
+    is flying."""
+    monkeypatch.setattr(aviation, "MIN_GAP_S", 0)
+    seen = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        if "adsbdb" in request.url.host:
+            return httpx.Response(
+                200,
+                json={
+                    "response": {
+                        "flightroute": {
+                            "callsign_icao": "SWA532",
+                            "callsign_iata": "WN532",
+                            "airline": {"name": "Southwest Airlines"},
+                            "origin": {
+                                "iata_code": "BWI",
+                                "icao_code": "KBWI",
+                                "latitude": 39.18,
+                                "longitude": -76.67,
+                            },
+                            "destination": {
+                                "iata_code": "PVD",
+                                "icao_code": "KPVD",
+                                "latitude": 41.73,
+                                "longitude": -71.43,
+                            },
+                        }
+                    }
+                },
+            )
+        if "vrs-standing-data" in request.url.host:
+            return httpx.Response(
+                200,
+                json={
+                    "callsign": "SWA532",
+                    "airport_codes": "KBNA-KCLE",
+                    "_airports": [
+                        {
+                            "name": "Nashville International Airport",
+                            "icao": "KBNA",
+                            "iata": "BNA",
+                            "location": "Nashville",
+                            "lat": 36.1245,
+                            "lon": -86.6782,
+                        },
+                        {
+                            "name": "Cleveland Hopkins International Airport",
+                            "icao": "KCLE",
+                            "iata": "CLE",
+                            "location": "Cleveland",
+                            "lat": 41.4117,
+                            "lon": -81.8498,
+                        },
+                    ],
+                },
+            )
+        return httpx.Response(200, text="n/a")
+
+    client = AirClient("test")
+    client.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    legs = await client.route_legs("SWA532")
+    assert [leg["source"] for leg in legs] == ["adsbdb", "vrs"]
+    assert any("/routes/SW/SWA532.json" in u for u in seen)
+    vrs = legs[1]
+    assert vrs["origin"]["iata"] == "BNA"
+    assert vrs["destination"]["city"] == "Cleveland"
+    assert vrs["flight"] == "WN532"
+    # Over Kentucky heading north-east: the Nashville to Cleveland leg.
+    leg, progress = pick_route(legs, 37.6, -85.2, 40.0)
+    assert leg["source"] == "vrs" and progress["plausible"]

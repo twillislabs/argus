@@ -507,8 +507,12 @@ daily limit, the next day) and uses the other. Answers are shared between
 everyone looking at the same area. If both are limiting, the panel says
 *ADS-B feeds are busy* and shows the most recent positions.
 
-The aircraft panel says which network each position came from. Routes and
-types come from adsbdb and are the *planned* route. Aircraft whose owners
+The aircraft panel says which network each position came from. Types
+come from adsbdb. Routes are the *planned* route, looked up in three
+databases (adsbdb, Virtual Radar Server's route data and hexdb): airlines
+reuse a flight number for different legs, so Argus takes the leg that
+fits where the aircraft is and which way it's heading. When none fits,
+the panel says the route is unknown rather than show the wrong one. Aircraft whose owners
 opted out of tracking (the FAA's PIA and LADD programmes) are not shown
 unless they are military, and Argus never shows registered owner names.
 

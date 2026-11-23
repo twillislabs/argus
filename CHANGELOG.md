@@ -6,6 +6,16 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Aircraft
+
+- Flight routes are looked up in Virtual Radar Server's route data
+  (served by adsb.lol) as well as adsbdb and hexdb, so flight numbers
+  airlines reuse across the day show the leg actually being flown (for
+  example Southwest 532, Nashville to Cleveland, not an old Baltimore to
+  Providence leg).
+- When no route on file fits the aircraft, the panel says the route is
+  unknown instead of showing the wrong one.
+
 ## [1.9.1] - 2026-11-23
 
 A fix for the home marker, and a street map for the whole US. Nothing

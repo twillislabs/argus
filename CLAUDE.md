@@ -212,9 +212,14 @@ parts connect.
 - AI status (`useAiStatus`) is shared and re-read after a minute or
   when Settings > AI saves (`forgetAiStatus`): it was cached for the
   page's life, so turning Ask on showed no button until a reload.
-- adsb.lol's routeset endpoint is unusable (202, empty); routes come from
-  adsbdb, which goes stale when flight numbers are reused
-  (`route_progress` flags implausible routes).
+- adsb.lol's routeset endpoint is unusable (201/202, empty; rechecked
+  2026-11-23). Routes: `AirClient.route_legs` asks adsbdb, VRS
+  standing-data (`VRS_ROUTE`, CC0, one JSON per callsign at
+  vrs-standing-data.adsb.lol, hourly; often current where the others
+  keep an old leg of a reused flight number, as for SWA532) and hexdb;
+  `pick_route` keeps the leg that fits position and heading
+  (`route_progress` plausibility). The inspector shows "Unknown for this
+  flight" when none fits, never the mismatched leg as the route.
 - CelesTrak blocks clients that fetch a group more than about once every
   two hours. The worker's `space_loop` waits out six hours from the last
   success (kept in `sources`), even across restarts. For throwaway stacks
