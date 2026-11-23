@@ -5,6 +5,7 @@ import {
   Cartesian3,
   Cartographic,
   Color,
+  Ellipsoid,
   Math as CesiumMath,
   Matrix4,
   BoundingSphere,
@@ -140,6 +141,19 @@ function depthDistance(v: CesiumWidget): number {
   if (v.scene.mode !== SceneMode.SCENE3D) return Number.POSITIVE_INFINITY;
   const h = Math.max(0, v.camera.positionCartographic.height);
   return Math.sqrt(h * h + 2 * EARTH_RADIUS_M * h);
+}
+
+// Near the limb the depth test alone leaks: the globe's tiles are chords
+// inside the ellipsoid, so a label just over the horizon can still draw at
+// the globe's edge. True while a surface point faces the camera (always in
+// 2D and Columbus view).
+const toCamera = new Cartesian3();
+const surfaceNormal = new Cartesian3();
+function facesCamera(v: CesiumWidget, p: Cartesian3): boolean {
+  if (v.scene.mode !== SceneMode.SCENE3D) return true;
+  Cartesian3.subtract(v.camera.positionWC, p, toCamera);
+  Ellipsoid.WGS84.geodeticSurfaceNormal(p, surfaceNormal);
+  return Cartesian3.dot(toCamera, surfaceNormal) > 0;
 }
 
 // Argus Dark shows vector countries above FADE_TOP and street tiles below
@@ -1532,10 +1546,13 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     if (!v) return;
     v.entities.removeById('home');
     if (home) {
+      const at = Cartesian3.fromDegrees(home.lon, home.lat);
+      const show = new CallbackProperty(() => facesCamera(v, at), false);
       v.entities.add({
         id: 'home',
-        position: Cartesian3.fromDegrees(home.lon, home.lat),
+        position: at,
         point: {
+          show,
           pixelSize: 9,
           color: Color.fromCssColorString('#5b9bff'),
           outlineColor: Color.fromCssColorString('#0b0e13'),
@@ -1543,6 +1560,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           disableDepthTestDistance: new CallbackProperty(() => depthDistance(v), false),
         },
         label: {
+          show,
           text: /^home$/i.test(home.name.trim()) ? 'HOME' : 'HOME · ' + home.name.toUpperCase(),
           font: '500 12px "JetBrains Mono", monospace',
           fillColor: Color.fromCssColorString('#8fb8ff'),

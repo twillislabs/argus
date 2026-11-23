@@ -729,7 +729,10 @@ parts connect.
   pickable kinds get an entry there.
 - Map markers use `disableDepthTestDistance` = horizon distance (infinite
   in 2D), set in `Globe.tsx`; otherwise the dark map's land and border
-  shapes clip them. New primitive collections need the same.
+  shapes clip them. New primitive collections need the same. Near the
+  limb the depth test still leaks (tiles are chords inside the
+  ellipsoid), so a lone entity like the home marker also hides via
+  `facesCamera` in 3D.
 - Aircraft camera views live in `map/aircraftCamera.ts`: they keep the
   camera offset in the aircraft's ENU frame (`lookAtTransform`) and
   dead-reckon between reports (`extrapolateTurning`: along an arc at the
