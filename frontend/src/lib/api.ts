@@ -1185,7 +1185,8 @@ export interface RadioStation {
 }
 export const getRadio = () => api<{ status: 'ok' | 'error'; stations: RadioStation[] }>('/api/radio');
 
-// Street-level photos near a spot (Panoramax), images via our proxy.
+// Street view near a spot: a Google Street View link, and Mapillary photos
+// (with a token) through our proxy.
 export interface StreetPhoto {
   id: string;
   lat: number;
