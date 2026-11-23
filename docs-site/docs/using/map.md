@@ -368,6 +368,12 @@ recent values, then **Last 60 minutes**, a few plain sentences on what came
 in over the past hour. **Country tension** (in Events) tints countries from
 moderate up on wide views, deeper the higher the score.
 
+**What is this?** under the world score explains the score in a few
+lines. Hover a tinted country for its score and band, its deaths over the
+last year and how that compares with the year before, what live events
+are adding, and how today compares with its usual level; click it for
+the same in the side panel with the country's recent events.
+
 ## In view
 
 When you zoom in to a region, **In view** in the Situation panel lists the

@@ -21,6 +21,7 @@ import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
 import { distance, skyText, temperature, windSpeed } from '../lib/units';
 import { alertColor } from '../map/wxLayer';
 import VideoList from './VideoList';
+import { tensionHover, TENSION_EXPLAINER } from '../lib/tension';
 
 interface Props {
   summary: Summary | null;
@@ -91,28 +92,38 @@ export function TensionGauge({ tension }: { tension: Tension | null }) {
   if (!tension) return null;
   const w = tension.world;
   return (
-    <div
-      className="gauge"
-      title={
-        'World tension: organised violence in the 40 most affected countries (UCDP to ' +
-        tension.ucdp_through +
-        ') plus live events'
-      }
-    >
-      <div className="big mono">
-        {w.level}
-        <small>/100</small>
-      </div>
-      <div className="gside">
-        <div className="grow">
-          <span className={'cap tband b-' + w.band}>{BAND_LABEL[w.band]}</span>
-          <Delta v={w.change_24h} />
+    <>
+      <div
+        className="gauge"
+        title={
+          'World tension: organised violence in the 40 most affected countries (UCDP to ' +
+          tension.ucdp_through +
+          ') plus live events'
+        }
+      >
+        <div className="big mono">
+          {w.level}
+          <small>/100</small>
         </div>
-        <div className="gbar">
-          <i style={{ left: w.level + '%' }} />
+        <div className="gside">
+          <div className="grow">
+            <span className={'cap tband b-' + w.band}>{BAND_LABEL[w.band]}</span>
+            <Delta v={w.change_24h} />
+          </div>
+          <div className="gbar">
+            <i style={{ left: w.level + '%' }} />
+          </div>
         </div>
       </div>
-    </div>
+      <details className="explain">
+        <summary>What is this?</summary>
+        <p className="small">{TENSION_EXPLAINER}</p>
+        <p className="small quiet">
+          Countries are tinted on the map by their score (Country tension in Layers); hover one for its numbers. UCDP
+          data runs to {tension.ucdp_through}.
+        </p>
+      </details>
+    </>
   );
 }
 
@@ -124,18 +135,7 @@ export function TensionCountries({ tension, limit = 5 }: { tension: Tension | nu
       <h3>Tension by country</h3>
       <ul className="tlist">
         {tension.countries.slice(0, limit).map((c) => (
-          <li
-            key={c.key}
-            title={[
-              c.deaths_12m.toLocaleString() + ' deaths in 12 months (UCDP)',
-              c.vs_normal !== null
-                ? 'Live activity ' + (c.vs_normal >= 0 ? '+' : '') + c.vs_normal + '% vs normal'
-                : '',
-              ...c.top.map((t) => t.title),
-            ]
-              .filter(Boolean)
-              .join('\n')}
-          >
+          <li key={c.key} title={[...tensionHover(c).slice(0, -1), ...c.top.map((t) => t.title)].join('\n')}>
             <span className="tname">{c.name}</span>
             <span className="tmeter">
               <i className={'b-' + c.band} style={{ width: c.level + '%' }} />

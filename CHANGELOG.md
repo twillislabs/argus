@@ -6,6 +6,13 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Situation
+
+- World tension explains itself for newcomers: **What is this?** under
+  the score, and a country's hover card and panel now give its band,
+  deaths over the year and the change on the year before, what live
+  events add, and how today compares with normal.
+
 ### Themes
 
 - Themes: Argus Dark (still the default), Cassette Futurism, Cyberpunk,

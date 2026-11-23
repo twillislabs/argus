@@ -7,6 +7,7 @@ import { BaseInspector, CableInspector, PlantInspector } from '../components/Inf
 import PlaceInspector from '../components/PlaceInspector';
 import { airPatternLine, airPatternTitle, seaPatternLine, seaPatternTitle } from '../lib/patterns';
 import { fishingInfo, fishingLinks, fishingNote } from '../lib/fishing';
+import { tensionHover, tensionNote } from '../lib/tension';
 import ImageryPanel, { closeUpFor, type ImageryState, newImagery } from '../components/ImageryPanel';
 import TourPanel from '../components/TourPanel';
 import AskPanel, { type AskItem } from '../components/AskPanel';
@@ -1904,9 +1905,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       const c = tension?.countries.find((x) => x.name === id.slice(8));
       return c
         ? {
-            title: c.name + ' · ' + c.level,
+            title: c.name + ' · ' + BAND_LABEL[c.band],
             color: '#ff5260',
-            lines: [BAND_LABEL[c.band] + ' · ' + c.deaths_12m.toLocaleString() + ' deaths in 12 months (UCDP)'],
+            lines: tensionHover(c),
           }
         : null;
     }
@@ -2614,7 +2615,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                           ? (advisories.find((x) => 'adv:' + x.country === selectedInfo)?.us?.summary ?? '') +
                             ' (US Department of State and UK FCDO; open the advice for the full text.)'
                           : selectedInfo.startsWith('tension:')
-                      ? 'Tension: organised violence over the last year (UCDP) plus confirmed live events. See World tension in the Situation panel.'
+                      ? tensionNote(tension?.countries.find((x) => 'tension:' + x.name === selectedInfo))
                       : 'A shape you drew. Delete it with the Delete tool.'
                 }
                 links={

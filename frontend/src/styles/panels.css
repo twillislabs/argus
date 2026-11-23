@@ -1108,3 +1108,10 @@ tr.dimrow td { color: var(--dim); }
 .colorrow input:not([type='color']) { flex: 1; min-width: 0; font-family: var(--f-mono); font-size: 12px; }
 .field.inline { display: flex; align-items: center; gap: 8px; }
 .codeedit { width: 100%; box-sizing: border-box; background: var(--bg); color: var(--text); border: 1px solid var(--line-2); border-radius: var(--radius-s); padding: 10px; font-size: 12px; line-height: 1.5; }
+
+/* "What is this?" under a score. */
+.explain { margin: 6px 0 0; }
+.explain summary { cursor: pointer; color: var(--accent); font-size: 12px; list-style: none; }
+.explain summary::-webkit-details-marker { display: none; }
+.explain summary::before { content: '? '; font-weight: 600; }
+.explain p { margin: 6px 0 0; line-height: 1.5; color: var(--muted); }
