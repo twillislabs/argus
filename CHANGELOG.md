@@ -6,6 +6,12 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Street map
+
+- `make streetmap REGION=us` downloads the whole US: the lower 48,
+  Alaska and Hawaii, without the ocean and Canada between them
+  (about 20 GB). `BBOX` takes several boxes separated by `;`.
+
 ## [1.9.0] - 2026-11-23
 
 Zoom in on space stations and capsules, 3D models of real spacecraft

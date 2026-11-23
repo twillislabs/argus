@@ -62,7 +62,9 @@ parts connect.
   A new doc page goes in `sidebars.ts` or it lands last.
 - `streetmap/`: tileserver-gl config and the Argus Dark street style
   (Protomaps v4 schema). Data lives in `data/streetmap/` (gitignored),
-  downloaded by `scripts/streetmap.sh` / `make streetmap`.
+  downloaded by `scripts/streetmap.sh` / `make streetmap` (a region of
+  several boxes, `;`-separated like `us`, goes to pmtiles as a GeoJSON
+  MultiPolygon, `--region`, written to `data/streetmap/region.geojson`).
 - `docker-compose.yml`: db (PostgreSQL 17 + TimescaleDB + PostGIS), nats,
   api, worker, web (nginx with the CSP).
 

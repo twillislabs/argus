@@ -49,15 +49,17 @@ region, Esri is used as before.
 
 ```bash
 make streetmap BBOX=-80.6,40.4,-71.8,45.1   # any W,S,E,N box (here New York State)
-make streetmap REGION=southeast            # or conus, planet
+make streetmap REGION=southeast            # or conus, us, planet
+make streetmap BBOX='-125,24.3,-66.9,49.4;-160.6,18.8,-154.7,22.4'  # several boxes in one map
 scripts/streetmap.sh conus --dry-run       # size only
 ```
 
 | Region | Download |
 |---|---|
 | a US state | a few hundred MB (Tennessee measured 376 MB) |
-| `southeast` | a few GB |
-| `conus` | tens of GB |
+| `southeast` | about 5 GB |
+| `conus` (the lower 48) | about 19 GB |
+| `us` (the lower 48, Alaska and Hawaii) | about 20 GB |
 | `planet` | about 140 GB |
 
 `--dry-run` prints the exact size for any region before downloading.
