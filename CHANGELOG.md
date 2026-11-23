@@ -6,6 +6,12 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Weather
+
+- **Loop the last hour** (Weather layers): radar and clouds play the
+  last hour in 10-minute frames, so you see storms and cloud move, with
+  the frame's time on the map.
+
 ### News
 
 - Brief top stories: click a story to compare outlets. Every outlet's

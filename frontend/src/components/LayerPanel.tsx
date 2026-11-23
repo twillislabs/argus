@@ -103,6 +103,7 @@ const WEATHER_ROWS: { id: keyof WeatherFilters; label: string; source: string; c
   { id: 'sst', label: 'Sea temperature', source: 'NOAA nowCOAST · daily analysis', color: '#ff6b6b' },
   { id: 'wind', label: 'Wind (animated)', source: 'NOAA GFS · 10 m, every 3 hours', color: '#7ee0c2' },
   { id: 'air', label: 'Air quality', source: 'Open-Meteo · CAMS, US AQI, hourly', color: '#4cc96b' },
+  { id: 'loop', label: 'Loop the last hour', source: 'Radar and clouds move · 10-minute frames', color: '#5b9bff' },
 ];
 
 const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color: string }[] = [

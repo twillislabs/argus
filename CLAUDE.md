@@ -505,7 +505,10 @@ parts connect.
   MapContextMenu) reads `/api/weather/forecast` (Open-Meteo, 15 min per
   spot) and, in the US, `/api/weather/alerts?lat=&lon=`'s `local`.
   Wall layers `wx_storms`, `radar`, `lightning`, `vapour`, `sst`,
-  `wind`.
+  `wind`. `WeatherFilters.loop` plays radar and clouds (`LOOPABLE`,
+  `LOOP_MAKE`) as `LOOP_FRAMES` layers 10 minutes apart (nowCOAST WMS
+  `time`, GIBS `Time`), cycled by alpha with a `.wxloop` label in the
+  map cell; looped entries use negative slots.
 - Satellite passes (`satWorker.ts` `passes`): rise/set azimuths and
   `visible` (sunlit by a cylindrical shadow test, `sunEci` low-precision
   Sun, observer's Sun below -6°); SatelliteInspector can use the map

@@ -53,6 +53,9 @@ export interface WeatherFilters {
   // Animated wind (map/windLayer.ts) and air quality (map/airLayer.ts).
   wind: boolean;
   air: boolean;
+  // Loop radar and clouds over the last hour instead of showing the
+  // latest frame.
+  loop: boolean;
 }
 
 export const DEFAULT_WEATHER: WeatherFilters = {
@@ -69,6 +72,7 @@ export const DEFAULT_WEATHER: WeatherFilters = {
   sst: false,
   wind: false,
   air: false,
+  loop: false,
 };
 
 // The weather layers that are imagery, each with its own opacity.
@@ -177,12 +181,25 @@ function gibs(layer: string, time: string): ImageryLayer {
 // minutes. `stamp` changes with each refresh so browsers and nginx don't
 // keep old tiles.
 const NOWCOAST = 'https://nowcoast.noaa.gov/geoserver/ows';
-function nowcoast(layer: string, stamp: number, rectangle?: Rectangle, maximumLevel = 9): ImageryLayer {
+function nowcoast(
+  layer: string,
+  stamp: number,
+  rectangle?: Rectangle,
+  maximumLevel = 9,
+  time?: string,
+): ImageryLayer {
   return new ImageryLayer(
     new WebMapServiceImageryProvider({
       url: NOWCOAST,
       layers: layer,
-      parameters: { transparent: true, format: 'image/png', styles: '', t: String(stamp) },
+      parameters: {
+        transparent: true,
+        format: 'image/png',
+        styles: '',
+        t: String(stamp),
+        // A past frame (the WMS's time dimension, nearest value).
+        ...(time ? { time } : {}),
+      },
       tilingScheme: new GeographicTilingScheme(),
       rectangle: rectangle ?? Rectangle.fromDegrees(-180, -90, 180, 90),
       tileWidth: 512,
@@ -192,6 +209,34 @@ function nowcoast(layer: string, stamp: number, rectangle?: Rectangle, maximumLe
     }),
   );
 }
+
+// Live mode: radar and clouds loop over the last hour, LOOP_FRAMES frames
+// 10 minutes apart, oldest first, each shown for FRAME_MS and the newest
+// held a little longer. nowCOAST keeps about six hours of radar (a frame
+// every ~4 minutes; TIME picks the nearest); GIBS has a cloud scan every
+// 10 minutes, about 40 minutes behind.
+const LOOP_FRAMES = 7;
+const STEP_MS = 600_000;
+const FRAME_MS = 650;
+const HOLD_FRAMES = 3;
+export const LOOPABLE: WxImagery[] = ['radar', 'clouds'];
+
+function loopTimes(newest: number): number[] {
+  return Array.from({ length: LOOP_FRAMES }, (_, i) => newest - (LOOP_FRAMES - 1 - i) * STEP_MS);
+}
+const iso = (ms: number) => new Date(ms).toISOString().slice(0, 17) + '00Z';
+const clock = (ms: number) => new Date(ms).toISOString().slice(11, 16) + 'Z';
+
+const LOOP_MAKE: Record<string, (times: number[], stamp: number) => { layers: ImageryLayer[][]; times: number[] }> = {
+  radar: (times, stamp) => ({
+    times,
+    layers: times.map((t) => [nowcoast('weather_radar:base_reflectivity_mosaic', stamp, undefined, 10, iso(t))]),
+  }),
+  clouds: (times) => ({
+    times,
+    layers: times.map((t) => CLOUD_LAYERS.map((name) => gibs(name, iso(t)))),
+  }),
+};
 
 // Each imagery layer: how to make it and how often to refresh it.
 const IMAGERY: Record<WxImagery, { every: number; make: (stamp: number) => ImageryLayer[] }> = {
@@ -238,7 +283,42 @@ export function addWxLayer(
   scene.primitives.add(points);
   scene.primitives.add(labels);
   // Each shown imagery layer, and the refresh slot it was made for.
-  const shown = new Map<WxImagery, { layers: ImageryLayer[]; slot: number }>();
+  const shown = new Map<WxImagery, { layers: ImageryLayer[]; slot: number; frames?: ImageryLayer[][]; times?: number[] }>();
+  // The loop: which frame shows, a timer, and a label on the map.
+  let frame = 0;
+  let timer = 0;
+  let loopAlpha: Partial<Record<WxImagery, number>> = {};
+  const label = document.createElement('div');
+  label.className = 'wxloop mono';
+  label.hidden = true;
+  scene.canvas.parentElement?.appendChild(label);
+  const showFrame = () => {
+    let text = '';
+    for (const [id, entry] of shown) {
+      if (!entry.frames || !entry.times) continue;
+      const i = Math.min(frame, entry.frames.length - 1);
+      const a = loopAlpha[id] ?? 0.7;
+      entry.frames.forEach((layers, k) => layers.forEach((l) => (l.alpha = k === i ? a : 0)));
+      if (!text || id === 'radar') text = (id === 'radar' ? 'Radar ' : 'Clouds ') + clock(entry.times[i]);
+    }
+    label.textContent = text ? '▶ ' + text + (frame >= LOOP_FRAMES - 1 ? ' · latest' : '') : '';
+    label.hidden = !text;
+    scene.requestRender();
+  };
+  const runLoop = (on: boolean) => {
+    if (on && !timer) {
+      frame = 0;
+      timer = window.setInterval(() => {
+        frame = (frame + 1) % (LOOP_FRAMES + HOLD_FRAMES);
+        showFrame();
+      }, FRAME_MS);
+    } else if (!on && timer) {
+      window.clearInterval(timer);
+      timer = 0;
+      label.hidden = true;
+    }
+    showFrame();
+  };
   let depth = Number.POSITIVE_INFINITY;
 
   const clear = () => {
@@ -374,25 +454,43 @@ export function addWxLayer(
     },
     setImagery(f, opacity) {
       const layers = imagery();
+      let looping = false;
       for (const id of WX_IMAGERY) {
         const spec = IMAGERY[id];
-        const slot = f[id] ? Math.floor(Date.now() / spec.every) : 0;
+        const loop = Boolean(f.loop && f[id] && LOOP_MAKE[id]);
+        // Looped layers rebuild every 10 minutes (a new newest frame);
+        // negative slots keep them apart from the plain ones.
+        const slot = !f[id] ? 0 : loop ? -Math.floor(Date.now() / STEP_MS) : Math.floor(Date.now() / spec.every);
         const have = shown.get(id);
         if ((have?.slot ?? 0) !== slot) {
           for (const l of have?.layers ?? []) layers.remove(l);
           shown.delete(id);
-          if (slot) {
+          if (slot && loop) {
+            const newest = Math.floor((Date.now() - (id === 'clouds' ? 40 * 60_000 : 5 * 60_000)) / STEP_MS) * STEP_MS;
+            const made = LOOP_MAKE[id](loopTimes(newest), -slot);
+            const flat = made.layers.flat();
+            for (const l of flat) {
+              l.alpha = 0;
+              layers.add(l);
+            }
+            shown.set(id, { layers: flat, slot, frames: made.layers, times: made.times });
+          } else if (slot) {
             const made = spec.make(slot);
             for (const l of made) layers.add(l);
             shown.set(id, { layers: made, slot });
           }
         }
         const a = opacityOf(opacity, id);
-        for (const l of shown.get(id)?.layers ?? []) l.alpha = a;
+        if (loop) {
+          loopAlpha[id] = a;
+          looping = true;
+        } else for (const l of shown.get(id)?.layers ?? []) l.alpha = a;
       }
+      runLoop(looping);
     },
     forget() {
       shown.clear();
+      loopAlpha = {};
     },
     setDepthDistance(metres) {
       depth = metres;
@@ -401,6 +499,9 @@ export function addWxLayer(
     },
     destroy() {
       clear();
+      window.clearInterval(timer);
+      timer = 0;
+      label.remove();
       if (scene.isDestroyed()) return;
       for (const c of [lines, points, labels]) if (scene.primitives.contains(c)) scene.primitives.remove(c);
     },

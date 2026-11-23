@@ -276,3 +276,10 @@
 .tltime small { display: block; font-size: 10px; color: var(--dim); }
 .livepill.replay { background: rgba(227, 192, 75, 0.12); color: var(--elev); }
 .fpsbox { position: absolute; top: 96px; left: 12px; z-index: 5; pointer-events: none; padding: 4px 8px; border-radius: var(--radius-s); background: color-mix(in srgb, var(--surface) 85%, transparent); border: 1px solid var(--line-2); color: var(--ok); font-size: 11.5px; }
+
+/* Weather loop: the frame showing (map/wxLayer.ts). */
+.wxloop {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 5; pointer-events: none;
+  padding: 4px 10px; border-radius: var(--radius-s); border: 1px solid var(--line-2);
+  background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--text); font-size: 12px;
+}
