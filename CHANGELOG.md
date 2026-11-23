@@ -6,6 +6,12 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-23
+
+Zoom in on space stations and capsules, 3D models of real spacecraft
+and rockets, and a clearer sign-in globe. Nothing to change when you
+upgrade.
+
 ### Space
 
 - Zoom right in on space stations, capsules and rocket stages, as with
