@@ -41,6 +41,28 @@ the map, search and follow aircraft, and keep its own preferences:
 - **Changing your password** (Settings → Account) signs out your other
   devices.
 
+### Sign-ups
+
+**Sign-ups** at the top of Settings → Users & roles lets people make
+their own accounts. It's off unless you turn it on.
+
+- **Allow sign-ups** adds **Create an account** to the sign-in page
+  (`/signup`): a username, name, optional email and a password (the
+  same rules as any password).
+- **Approve new accounts** (on by default): a new account shows as
+  **Waiting** at the top of the accounts list, with **Approve** and
+  **Decline** (which deletes it). Until it's approved, signing in with
+  the right password says the account is waiting; a wrong password says
+  only that it's wrong. The Settings menu shows how many are waiting.
+  Off, people are signed in as soon as they sign up.
+- **Role for new accounts**: Viewer or Analyst, never Administrator.
+  Change anyone's role afterwards in the list.
+- Each address may sign up 5 times an hour. Sign-ups and approvals are
+  in the audit log.
+
+Anyone who can reach your Argus can sign up while this is on, so keep
+approval on unless the server is only reachable by people you trust.
+
 ## Brute-force protection
 
 - After 5 failed sign-ins an account is locked for 15 minutes.

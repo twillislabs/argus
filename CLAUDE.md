@@ -18,6 +18,12 @@ parts connect.
     `Depends(require("capability"))` from `api/deps.py`, never by
     comparing role names; the frontend checks `can(user, "...")`.
   - `api/users.py`: user management (admins) and your own account.
+    Sign-ups: `server_settings["signup"]` (`SignupSettings`: open,
+    approval, role viewer|analyst), `POST /api/auth/signup` (public,
+    `signup_limiter`), `users.approval_pending` (migration 0011; login
+    refuses it with 403 only after the right password), approve via
+    `/api/admin/users/{id}/approve`, `/api/me` `pending_signups` for
+    admins, `/api/setup/status` `signup` for the sign-in page's link.
     While `must_change_password` is set, `current_session` refuses every
     path except `PASSWORD_CHANGE_PATHS`.
   - `api/admin.py`: server-wide settings (admins) and `/api/map/config`

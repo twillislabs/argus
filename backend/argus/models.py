@@ -43,6 +43,9 @@ class User(Base):
         UTCDateTime, nullable=True
     )
     failed_logins: Mapped[int] = mapped_column(Integer, default=0)
+    # Signed up while sign-ups need approval: can't sign in until an
+    # admin approves (Settings > Users).
+    approval_pending: Mapped[bool] = mapped_column(Boolean, default=False)
     locked_until: Mapped[datetime | None] = mapped_column(
         UTCDateTime, nullable=True
     )

@@ -41,6 +41,21 @@ async def _with_profile(db: DbDep, data: dict) -> dict:
     }
 
 
+async def _pending(db, user: User) -> int:
+    """Sign-ups waiting for approval, for those who can approve them."""
+    from sqlalchemy import func, select
+
+    from argus.roles import can
+
+    if not can(user.role, "users.manage"):
+        return 0
+    return (
+        await db.execute(
+            select(func.count(User.id)).where(User.approval_pending.is_(True))
+        )
+    ).scalar_one()
+
+
 async def _channels(db) -> list[dict]:
     from argus import newsconfig
 
@@ -57,6 +72,7 @@ async def me(session: SessionDep, db: DbDep) -> MeOut:
         defaults=await _defaults(db),
         channels=await _channels(db),
         themes=await custom_themes(db),
+        pending_signups=await _pending(db, user),
     )
 
 
@@ -84,4 +100,5 @@ async def update_preferences(
         defaults=await _defaults(db),
         channels=await _channels(db),
         themes=await custom_themes(db),
+        pending_signups=await _pending(db, user),
     )

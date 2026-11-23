@@ -22,9 +22,13 @@ export default function LoginPage({ onDone }: { onDone: () => Promise<void> }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [secureCookies, setSecureCookies] = useState(false);
+  const [signup, setSignup] = useState(false);
   useEffect(() => {
-    api<{ secure_cookies?: boolean }>('/api/setup/status')
-      .then((s) => setSecureCookies(Boolean(s.secure_cookies)))
+    api<{ secure_cookies?: boolean; signup?: boolean }>('/api/setup/status')
+      .then((s) => {
+        setSecureCookies(Boolean(s.secure_cookies));
+        setSignup(Boolean(s.signup));
+      })
       .catch(() => undefined);
   }, []);
 
@@ -67,7 +71,15 @@ export default function LoginPage({ onDone }: { onDone: () => Promise<void> }) {
       <div>
         <span className="eyebrow">Sign in</span>
         <h1>Sign in to Argus</h1>
-        <p className="quiet small">Use the username and password your administrator gave you.</p>
+        <p className="quiet small">
+          {signup ? (
+            <>
+              New here? <a href="/signup">Create an account</a>.
+            </>
+          ) : (
+            'Use the username and password your administrator gave you.'
+          )}
+        </p>
       </div>
       {secureCookies && insecurePage() && <p className="err small">{COOKIE_HELP}</p>}
       <form className="stack" onSubmit={submit} noValidate>

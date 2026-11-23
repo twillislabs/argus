@@ -1127,3 +1127,4 @@ tr.dimrow td { color: var(--dim); }
 @media (max-width: 860px) {
   .outletlist li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
 }
+.snav a .badge { margin-left: 6px; font-size: 10px; padding: 1px 6px; }

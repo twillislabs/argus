@@ -32,6 +32,7 @@ from argus.schemas import (
     AdminUserOut,
     PasswordChange,
     ProfileUpdate,
+    SignupSettings,
     UserCreate,
     UserOut,
     UserUpdate,
@@ -78,6 +79,58 @@ async def list_roles(session: ManageDep):
             {"id": role, "label": label} for role, label in ROLE_LABELS.items()
         ]
     }
+
+
+@router.get("/api/admin/signup", response_model=SignupSettings)
+async def get_signup(db: DbDep, session: ManageDep):
+    from argus.api.auth import read_signup
+
+    return await read_signup(db)
+
+
+@router.put("/api/admin/signup", response_model=SignupSettings)
+async def put_signup(
+    body: SignupSettings, request: Request, db: DbDep, session: ManageDep
+):
+    from argus.models import ServerSetting
+
+    row = await db.get(ServerSetting, "signup")
+    if row is None:
+        row = ServerSetting(key="signup")
+        db.add(row)
+    row.value = body.model_dump()
+    row.updated_at = utcnow()
+    row.updated_by = session.user_id
+    await audit(
+        db,
+        "settings.signup",
+        session.user_id,
+        client_ip(request),
+        open=body.open,
+        approval=body.approval,
+        role=body.role,
+    )
+    await db.commit()
+    return body
+
+
+@router.post("/api/admin/users/{user_id}/approve", response_model=AdminUserOut)
+async def approve_user(
+    user_id: int, request: Request, db: DbDep, session: ManageDep
+):
+    """Let an account that signed up sign in."""
+    user = await _get(db, user_id)
+    user.approval_pending = False
+    await audit(
+        db,
+        "users.approve",
+        session.user_id,
+        client_ip(request),
+        target=user.id,
+    )
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 @router.get("/api/admin/users", response_model=list[AdminUserOut])

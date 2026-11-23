@@ -182,6 +182,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         settings.login_ip_limit,
         timedelta(minutes=settings.login_ip_window_minutes),
     )
+    # Sign-ups: a few accounts an hour per address.
+    app.state.signup_limiter = RateLimiter(5, timedelta(hours=1))
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):

@@ -6,6 +6,13 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Accounts
+
+- Sign-ups (Settings › Users & roles): admins can let people make their
+  own accounts from the sign-in page, optionally waiting for an admin to
+  approve them (Approve and Decline in the accounts list, a count in the
+  Settings menu), with the role new accounts get. Off by default.
+
 ## [1.6.0] - 2026-11-23
 
 Themes (including Cassette Futurism and Cyberpunk) with custom themes,

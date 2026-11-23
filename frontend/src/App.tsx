@@ -12,6 +12,7 @@ import BriefPage from './pages/BriefPage';
 import PairPage, { PairSignedIn } from './pages/PairPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import MapPage from './pages/MapPage';
 import NewsPage from './pages/NewsPage';
 import WallPage from './pages/WallPage';
@@ -112,6 +113,9 @@ export default function App() {
   if (boot.state === 'signedOut' && path === '/pair') {
     return <PairPage onPaired={refresh} />;
   }
+  if (boot.state === 'signedOut' && path === '/signup') {
+    return <SignupPage onDone={refresh} />;
+  }
   if (boot.state === 'signedOut' && path !== '/login') {
     return <Navigate to="/login" replace />;
   }
@@ -119,7 +123,7 @@ export default function App() {
   if (boot.state === 'signedIn' && boot.me.user.role === 'display' && path !== '/wall') {
     return <Navigate to="/wall" replace />;
   }
-  if (boot.state === 'signedIn' && (path === '/login' || path === '/setup')) {
+  if (boot.state === 'signedIn' && (path === '/login' || path === '/setup' || path === '/signup')) {
     return <Navigate to="/" replace />;
   }
 

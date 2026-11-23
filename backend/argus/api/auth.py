@@ -1,4 +1,10 @@
-"""Sign in and sign out."""
+"""Sign in, sign out, and sign up when an admin allows it.
+
+Sign-ups (Settings > Users > Sign-ups, server_settings["signup"]): off
+unless an admin turns them on; new accounts get the chosen role (never
+admin); with approval on they're created waiting (approval_pending) and
+can't sign in until an admin approves them.
+"""
 
 from datetime import timedelta
 
@@ -14,14 +20,36 @@ from argus.api.deps import (
     set_session_cookies,
 )
 from argus.db import utcnow
-from argus.models import User
-from argus.schemas import LoginRequest, UserOut
-from argus.security import hash_password, needs_rehash, verify_password
+from argus.models import ServerSetting, User
+from argus.schemas import (
+    LoginRequest,
+    SignupRequest,
+    SignupSettings,
+    UserOut,
+)
+from argus.security import (
+    hash_password,
+    needs_rehash,
+    password_problem,
+    verify_password,
+)
 from argus.services import audit, create_session
 
 router = APIRouter(tags=["auth"])
 
 WRONG = "Wrong username or password."
+PENDING = (
+    "Your account is waiting for an administrator to approve it. Try "
+    "again once they have."
+)
+
+
+async def read_signup(db) -> SignupSettings:
+    row = await db.get(ServerSetting, "signup")
+    try:
+        return SignupSettings.model_validate((row.value or {}) if row else {})
+    except ValueError:
+        return SignupSettings()
 
 
 @router.post("/api/auth/login", response_model=UserOut)
@@ -73,6 +101,10 @@ async def login(
         await db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG)
 
+    if user.approval_pending:
+        # Only said once the password is right, so it reveals nothing.
+        await db.commit()
+        raise HTTPException(status.HTTP_403_FORBIDDEN, PENDING)
     if needs_rehash(user.password_hash):
         user.password_hash = hash_password(body.password)
     user.failed_logins = 0
@@ -90,6 +122,72 @@ async def login(
     await db.commit()
     set_session_cookies(response, token, session, settings)
     return user
+
+
+@router.post("/api/auth/signup", status_code=status.HTTP_201_CREATED)
+async def signup(
+    body: SignupRequest,
+    request: Request,
+    response: Response,
+    db: DbDep,
+    settings: SettingsDep,
+):
+    """Make an account, when sign-ups are on. With approval, the account
+    waits (status pending, no session); without, it's signed in."""
+    conf = await read_signup(db)
+    if not conf.open:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "This Argus doesn't take sign-ups. Ask an administrator for an "
+            "account.",
+        )
+    ip = client_ip(request)
+    if not request.app.state.signup_limiter.allow(ip or "unknown"):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many sign-ups from this address. Try again later.",
+        )
+    username = body.username.lower()
+    problem = password_problem(body.password, username)
+    if problem:
+        raise HTTPException(422, problem)
+    taken = await db.execute(select(User.id).where(User.username == username))
+    if taken.scalar_one_or_none() is not None:
+        raise HTTPException(409, "That username is taken.")
+    user = User(
+        username=username,
+        display_name=body.display_name.strip(),
+        email=str(body.email) if body.email else None,
+        password_hash=hash_password(body.password),
+        role=conf.role,
+        approval_pending=conf.approval,
+        password_changed_at=utcnow(),
+    )
+    db.add(user)
+    await db.flush()
+    await audit(
+        db,
+        "auth.signup",
+        user_id=user.id,
+        ip=ip,
+        username=username,
+        pending=conf.approval,
+    )
+    if conf.approval:
+        await db.commit()
+        return {"status": "pending"}
+    user.last_login_at = utcnow()
+    token, session = await create_session(
+        db,
+        user,
+        settings,
+        remember=False,
+        user_agent=request.headers.get("user-agent"),
+        ip=ip,
+    )
+    await db.commit()
+    set_session_cookies(response, token, session, settings)
+    return {"status": "signed_in"}
 
 
 @router.post("/api/auth/logout", status_code=status.HTTP_204_NO_CONTENT)

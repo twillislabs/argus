@@ -6,7 +6,7 @@ import BackupsSection from '../components/BackupsSection';
 import AppHeader from '../components/AppHeader';
 import HomePicker from '../components/HomePicker';
 import ImageryCard from '../components/ImageryCard';
-import UsersCard from '../components/UsersCard';
+import UsersCard, { SignupCard } from '../components/UsersCard';
 import WallEditor from '../components/WallEditor';
 import WallProfiles from '../components/WallProfiles';
 import AiSection from '../components/AiSection';
@@ -116,9 +116,9 @@ const SECTIONS: Section[] = [
     id: 'users',
     label: 'Users & roles',
     title: 'Users and roles',
-    description: 'Who can sign in, and what each person can do.',
+    description: 'Who can sign in, sign-ups and approvals, and what each person can do.',
     group: 'People and screens',
-    keywords: 'roles admin analyst viewer accounts lockout',
+    keywords: 'roles admin analyst viewer accounts lockout sign up signups register approve approval',
     capability: 'users.manage',
   },
   {
@@ -259,7 +259,13 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
         <WallSection me={me} onSaved={onSaved} />
       </>
     );
-  else if (current.id === 'users') body = <UsersCard me={me} />;
+  else if (current.id === 'users')
+    body = (
+      <>
+        <SignupCard />
+        <UsersCard me={me} onSaved={onSaved} />
+      </>
+    );
   else if (current.id === 'imagery') body = <ImageryCard />;
   else if (current.id === 'streetmap') body = <StreetMapSection />;
   else if (current.id === 'sources') body = <SourcesSection />;
@@ -305,6 +311,11 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
                     aria-current={s.id === current.id ? 'page' : undefined}
                   >
                     {s.label}
+                    {s.id === 'users' && (me.pending_signups ?? 0) > 0 && (
+                      <span className="badge warn" title="Sign-ups waiting for approval">
+                        {me.pending_signups}
+                      </span>
+                    )}
                   </Link>
                 ))}
               </div>

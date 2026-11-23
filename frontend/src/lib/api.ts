@@ -414,6 +414,8 @@ export interface Me {
   channels?: Channel[];
   // Custom themes an admin made (Settings › Themes).
   themes?: ThemeDef[];
+  // Sign-ups waiting for approval (for those who manage users).
+  pending_signups?: number;
 }
 
 export const getThemes = () => api<{ items: ThemeDef[]; builtin: string[] }>('/api/admin/themes');
@@ -740,6 +742,8 @@ export const saveImagerySettings = (body: {
 
 export interface AdminUser extends User {
   is_active: boolean;
+  // Signed up and waiting for an admin to approve.
+  approval_pending?: boolean;
   created_at: string;
   last_login_at: string | null;
   locked_until: string | null;
@@ -762,6 +766,15 @@ export const updateUser = (
 export const resetUserPassword = (id: number) =>
   api<{ temporary_password: string }>('/api/admin/users/' + id + '/reset-password', { method: 'POST' });
 export const unlockUser = (id: number) => api<AdminUser>('/api/admin/users/' + id + '/unlock', { method: 'POST' });
+export const approveUser = (id: number) => api<AdminUser>('/api/admin/users/' + id + '/approve', { method: 'POST' });
+// Who may make their own account (Settings › Users › Sign-ups).
+export interface SignupSettings {
+  open: boolean;
+  approval: boolean;
+  role: 'viewer' | 'analyst';
+}
+export const getSignup = () => api<SignupSettings>('/api/admin/signup');
+export const putSignup = (body: SignupSettings) => api<SignupSettings>('/api/admin/signup', { method: 'PUT', body });
 export const deleteUser = (id: number) => api<void>('/api/admin/users/' + id, { method: 'DELETE' });
 export const changePassword = (current_password: string, new_password: string) =>
   api<void>('/api/me/password', { method: 'POST', body: { current_password, new_password } });

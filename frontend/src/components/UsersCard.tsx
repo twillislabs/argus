@@ -2,6 +2,7 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react';
 
 import {
   type AdminUser,
+  approveUser,
   createUser,
   deleteUser,
   listUsers,
@@ -11,13 +12,16 @@ import {
   type Role,
   unlockUser,
   updateUser,
+  getSignup,
+  putSignup,
+  type SignupSettings,
 } from '../lib/api';
 import { ago } from '../lib/format';
 
 const ROLES = Object.keys(ROLE_INFO) as Role[];
 
 // Admins: add people, set roles, reset passwords, deactivate or delete.
-export default function UsersCard({ me }: { me: Me }) {
+export default function UsersCard({ me, onSaved }: { me: Me; onSaved?: () => Promise<void> }) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [error, setError] = useState('');
   const [issued, setIssued] = useState<{ username: string; password: string; reason: string } | null>(null);
@@ -27,7 +31,9 @@ export default function UsersCard({ me }: { me: Me }) {
 
   const load = useCallback(async () => {
     try {
-      setUsers(await listUsers());
+      const list = await listUsers();
+      // Sign-ups waiting for approval first.
+      setUsers([...list.filter((u) => u.approval_pending), ...list.filter((u) => !u.approval_pending)]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load users.');
     }
@@ -70,6 +76,17 @@ export default function UsersCard({ me }: { me: Me }) {
       setIssued({ username: u.username, password: r.temporary_password, reason: 'Password reset.' });
       setCopied(false);
     });
+  }
+
+  async function approve(u: AdminUser) {
+    await run(() => approveUser(u.id));
+    await onSaved?.();
+  }
+
+  async function decline(u: AdminUser) {
+    if (!window.confirm('Decline ' + u.username + '\u2019s sign-up? Their account is deleted.')) return;
+    await run(() => deleteUser(u.id));
+    await onSaved?.();
   }
 
   async function remove(u: AdminUser) {
@@ -152,7 +169,11 @@ export default function UsersCard({ me }: { me: Me }) {
                   </select>
                 </span>
                 <span className="ustatus" role="cell">
-                  {!u.is_active ? (
+                  {u.approval_pending ? (
+                    <span className="badge warn" title="Signed up; can't sign in until approved">
+                      Waiting
+                    </span>
+                  ) : !u.is_active ? (
                     <span className="badge">Deactivated</span>
                   ) : locked(u) ? (
                     <span className="badge warn">Locked</span>
@@ -179,7 +200,17 @@ export default function UsersCard({ me }: { me: Me }) {
                       Unlock
                     </button>
                   )}
-                  {!self && (
+                  {u.approval_pending && (
+                    <>
+                      <button className="btn small primary" onClick={() => void approve(u)}>
+                        Approve
+                      </button>
+                      <button className="btn small danger" onClick={() => void decline(u)}>
+                        Decline
+                      </button>
+                    </>
+                  )}
+                  {!self && !u.approval_pending && (
                     <>
                       <button className="btn small" onClick={() => void reset(u)}>
                         Reset password
@@ -275,6 +306,84 @@ export default function UsersCard({ me }: { me: Me }) {
           ))}
         </dl>
       </div>
+    </section>
+  );
+}
+
+// Sign-ups: whether anyone may make an account, whether an admin must
+// approve it first, and the role it gets.
+export function SignupCard() {
+  const [conf, setConf] = useState<SignupSettings | null>(null);
+  const [status, setStatus] = useState('');
+  useEffect(() => {
+    getSignup()
+      .then(setConf)
+      .catch((err) => setStatus(err instanceof Error ? err.message : 'Could not load the sign-up settings.'));
+  }, []);
+  async function save(next: SignupSettings) {
+    const before = conf;
+    setConf(next);
+    try {
+      setConf(await putSignup(next));
+      setStatus('Saved.');
+    } catch (err) {
+      setConf(before);
+      setStatus(err instanceof Error ? err.message : 'Could not save.');
+    }
+  }
+  if (!conf) return <p className="quiet pad">{status || 'Loading…'}</p>;
+  return (
+    <section className="card">
+      <div className="ph">
+        <h2>Sign-ups</h2>
+      </div>
+      <div className="srows">
+        <label className="srow">
+          <span className="srow-label">
+            <b>Allow sign-ups</b>
+            <small>
+              Anyone who can reach this Argus may make their own account from the sign-in page. Off: only admins add
+              people.
+            </small>
+          </span>
+          <span className="lrow flat">
+            <input type="checkbox" checked={conf.open} onChange={(e) => void save({ ...conf, open: e.target.checked })} />
+            <span className="tog" />
+          </span>
+        </label>
+        <label className="srow">
+          <span className="srow-label">
+            <b>Approve new accounts</b>
+            <small>
+              A new account can&apos;t sign in until an admin approves it below (it shows as Waiting). Off: people are
+              signed in as soon as they sign up.
+            </small>
+          </span>
+          <span className="lrow flat">
+            <input
+              type="checkbox"
+              checked={conf.approval}
+              onChange={(e) => void save({ ...conf, approval: e.target.checked })}
+            />
+            <span className="tog" />
+          </span>
+        </label>
+        <div className="srow">
+          <span className="srow-label">
+            <b>Role for new accounts</b>
+            <small>What people who sign up can do. Change anyone&apos;s role below afterwards.</small>
+          </span>
+          <select
+            aria-label="Role for new accounts"
+            value={conf.role}
+            onChange={(e) => void save({ ...conf, role: e.target.value as SignupSettings['role'] })}
+          >
+            <option value="viewer">{ROLE_INFO.viewer.label}</option>
+            <option value="analyst">{ROLE_INFO.analyst.label}</option>
+          </select>
+        </div>
+      </div>
+      {status && <p className="quiet small pad">{status}</p>}
     </section>
   );
 }

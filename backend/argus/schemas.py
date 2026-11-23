@@ -48,6 +48,26 @@ class SetupRequest(BaseModel):
     home: HomeLocation | None = None
 
 
+class SignupRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(pattern=USERNAME_PATTERN)
+    display_name: str = Field(min_length=1, max_length=80)
+    email: EmailStr | None = None
+    password: str = Field(min_length=1, max_length=256)
+
+
+class SignupSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Anyone who can reach Argus may make an account.
+    open: bool = False
+    # New accounts can't sign in until an admin approves them.
+    approval: bool = True
+    # The role a new account gets (never admin).
+    role: Literal["viewer", "analyst"] = "viewer"
+
+
 class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -75,6 +95,7 @@ class UserOut(BaseModel):
 
 class AdminUserOut(UserOut):
     is_active: bool
+    approval_pending: bool = False
     created_at: datetime
     last_login_at: datetime | None
     locked_until: datetime | None
@@ -390,10 +411,14 @@ class MeOut(BaseModel):
     channels: list[dict[str, Any]] = []
     # Custom themes an admin made (Settings > Themes).
     themes: list[dict[str, Any]] = []
+    # Accounts waiting for approval (only for those who manage users).
+    pending_signups: int = 0
 
 
 class SetupStatus(BaseModel):
     needs_setup: bool
+    # Anyone may make an account (Settings > Users > Sign-ups).
+    signup: bool = False
     # Sign-in cookies are Secure (ARGUS_COOKIE_SECURE): browsers keep them
     # only over HTTPS (or on localhost), so the sign-in page can warn.
     secure_cookies: bool = True

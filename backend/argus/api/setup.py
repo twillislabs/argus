@@ -26,9 +26,12 @@ router = APIRouter(tags=["setup"])
 
 @router.get("/api/setup/status", response_model=SetupStatus)
 async def setup_status(db: DbDep, settings: SettingsDep) -> SetupStatus:
+    from argus.api.auth import read_signup
+
     return SetupStatus(
         needs_setup=await user_count(db) == 0,
         secure_cookies=settings.cookie_secure,
+        signup=(await read_signup(db)).open,
     )
 
 
