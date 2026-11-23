@@ -747,24 +747,74 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     const satLayer = addSatelliteLayer(scene);
     sats.current = satLayer;
     // Following a satellite: keep the camera's offset from it, re-anchored
-    // on its new position each second (zoom and tilt still work).
+    // on its drawn position every frame (models move smoothly), so tilt
+    // and turn still work. Cesium sizes zoom steps by the camera's height
+    // above the ground, which in orbit is hundreds of kilometres: one
+    // wheel notch would fly through a station. While following, the
+    // wheel and pinch scale the distance to the satellite instead, down
+    // to just outside its model.
     const satFrame = new Matrix4();
-    satLayer.onTick(() => {
+    satLayer.setFollowing(() => {
       const f = followSatRef.current;
-      if (!f.on || f.norad === null || v.scene.mode !== SceneMode.SCENE3D) return;
+      return f.on ? f.norad : null;
+    });
+    const followSatFrame = () => {
+      const f = followSatRef.current;
+      if (!f.on || f.norad === null || v.scene.mode !== SceneMode.SCENE3D) return false;
       const p = satLayer.position(f.norad);
-      if (!p) return;
+      if (!p) return false;
       FixedFrameTransforms.eastNorthUpToFixedFrame(p, undefined, satFrame);
       const inFrame = !Matrix4.equals(v.camera.transform, Matrix4.IDENTITY);
       if (f.fresh || !inFrame) {
         const height = Cartesian3.magnitude(p) - 6_371_000;
-        const range = Math.min(Math.max(height * 1.6, 400_000), 60_000_000);
-        v.camera.lookAtTransform(satFrame, new HeadingPitchRange(0, CesiumMath.toRadians(-60), range));
+        const near = satLayer.nearest(f.norad);
+        // Models start close enough to see them; points well out, with
+        // their orbit in view.
+        const range = near < 300 ? near * 6 : Math.min(Math.max(height * 1.6, 400_000), 60_000_000);
+        v.camera.lookAtTransform(satFrame, new HeadingPitchRange(0, CesiumMath.toRadians(-35), range));
         followSatRef.current.fresh = false;
       } else {
         v.camera.lookAtTransform(satFrame, Cartesian3.clone(v.camera.position));
       }
-    });
+      return true;
+    };
+    const satZoom = (factor: number) => {
+      const f = followSatRef.current;
+      if (!f.on || f.norad === null || Matrix4.equals(v.camera.transform, Matrix4.IDENTITY)) return false;
+      const offset = v.camera.position;
+      const range = Cartesian3.magnitude(offset);
+      const next = Math.min(60_000_000, Math.max(satLayer.nearest(f.norad), range * factor));
+      v.camera.lookAtTransform(v.camera.transform, Cartesian3.multiplyByScalar(offset, next / range, new Cartesian3()));
+      return true;
+    };
+    const onSatWheel = (e: WheelEvent) => {
+      if (!followSatRef.current.on || Matrix4.equals(v.camera.transform, Matrix4.IDENTITY)) return;
+      // Lines or pages on some mice: treat as about 40 px a step.
+      const px = e.deltaMode === 0 ? e.deltaY : e.deltaY * 40;
+      if (satZoom(Math.exp(Math.max(-400, Math.min(400, px)) * 0.0022))) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    // Capture, so Cesium's own wheel handler never sees these.
+    scene.canvas.addEventListener('wheel', onSatWheel, { capture: true, passive: false });
+    let pinchFrom: number | null = null;
+    const pinchGap = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const onSatTouch = (e: TouchEvent) => {
+      if (!followSatRef.current.on || e.touches.length !== 2 || Matrix4.equals(v.camera.transform, Matrix4.IDENTITY)) {
+        pinchFrom = null;
+        return;
+      }
+      const gap = pinchGap(e.touches);
+      if (e.type === 'touchmove' && pinchFrom && gap > 0 && satZoom(pinchFrom / gap)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      pinchFrom = gap;
+    };
+    for (const type of ['touchstart', 'touchmove'] as const) {
+      scene.canvas.addEventListener(type, onSatTouch, { capture: true, passive: false });
+    }
     const aircraftCamera = createAircraftCamera(v, () => air.current, (target, position, mode, heading) => {
       // Up close, a 3D model replaces the glyph (not in the cockpit,
       // where the camera sits inside the aircraft).
@@ -786,6 +836,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     let lastViewReport = 0;
     const removeTracking = scene.preRender.addEventListener(() => {
       aircraftCamera.tick();
+      followSatFrame();
       const now = performance.now();
       if (!Matrix4.equals(v.camera.transform, Matrix4.IDENTITY) && now - lastViewReport > 5000) {
         lastViewReport = now;
@@ -1045,6 +1096,15 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['input handler', () => handler.destroy()],
         ['drawings', () => draw.current?.destroy()],
         ['context menu', () => scene.canvas.removeEventListener('contextmenu', noMenu)],
+        [
+          'satellite zoom',
+          () => {
+            scene.canvas.removeEventListener('wheel', onSatWheel, { capture: true });
+            for (const type of ['touchstart', 'touchmove'] as const) {
+              scene.canvas.removeEventListener(type, onSatTouch, { capture: true });
+            }
+          },
+        ],
         ['pointer leave', () => scene.canvas.removeEventListener('pointerleave', onLeave)],
         ['widget', () => v.destroy()],
       ];
@@ -1440,6 +1500,10 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   // Home marker and start view. Keyed on the values, not the object, so
   // reloading preferences doesn't yank the camera back home.
   const homeKey = home ? [home.lat, home.lon, home.name].join('|') : '';
+  const homeTz = home?.tz ?? null;
+  useEffect(() => {
+    wx.current?.setTimeZone(homeTz);
+  }, [homeTz]);
   useEffect(() => {
     const v = viewer.current;
     if (!v) return;

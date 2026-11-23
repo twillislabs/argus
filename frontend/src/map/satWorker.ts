@@ -140,7 +140,7 @@ self.onmessage = (event: MessageEvent<Msg>) => {
       out[i * 3 + 1] = f.y * 1000;
       out[i * 3 + 2] = f.z * 1000;
     }
-    (self as unknown as Worker).postMessage({ type: 'tick', id: msg.id, positions: out }, [out.buffer]);
+    (self as unknown as Worker).postMessage({ type: 'tick', id: msg.id, time: msg.time, positions: out }, [out.buffer]);
     return;
   }
   const s = find(msg.norad);

@@ -1,10 +1,21 @@
 // Rocket launches (Launch Library 2): a marker at each launch's pad,
 // coloured by status, with its rocket's name close in. Upcoming
 // launches in the next 48 hours get a ring. Pickable as "launch:<id>".
+// Up close, a pad with a launch coming stands a 3D rocket on it
+// (rocket.glb from backend/scripts/build_models.py, the same for every
+// vehicle: Launch Library names the rocket, not its shape).
 
-import { Cartesian2, Cartesian3, Color, DistanceDisplayCondition, NearFarScalar } from '@cesium/core';
+import {
+  Cartesian2,
+  Cartesian3,
+  Color,
+  DistanceDisplayCondition,
+  FixedFrameTransforms,
+  NearFarScalar,
+} from '@cesium/core';
 import {
   BillboardCollection,
+  Model,
   HorizontalOrigin,
   LabelCollection,
   LabelStyle,
@@ -56,6 +67,10 @@ export interface LaunchLayer {
 }
 
 const LABEL_RANGE = new DistanceDisplayCondition(0, 3.0e6);
+// The 3D rocket shows inside MODEL_RANGE; the flat marker hands over to
+// it inside ICON_FROM.
+const MODEL_RANGE = new DistanceDisplayCondition(0, 40_000);
+const ICON_FROM = new DistanceDisplayCondition(12_000, Number.MAX_VALUE);
 
 // A small rocket, so launches don't read as event dots. Soon: ringed.
 function rocket(color: string, ring: boolean): HTMLCanvasElement {
@@ -99,16 +114,48 @@ export function addLaunchLayer(scene: Scene): LaunchLayer {
   };
   scene.primitives.add(labels);
   let depth = 0;
+  // One standing rocket per pad with a launch coming, kept by launch id.
+  const rockets = new Map<string, Model | null>();
+  let destroyed = false;
+  function standRocket(id: string, lat: number, lon: number) {
+    if (rockets.has(id)) {
+      const m = rockets.get(id);
+      if (m) m.show = true;
+      return;
+    }
+    rockets.set(id, null);
+    void Model.fromGltfAsync({
+      url: '/models/rocket.glb',
+      id: 'launch:' + id,
+      modelMatrix: FixedFrameTransforms.eastNorthUpToFixedFrame(Cartesian3.fromDegrees(lon, lat, 0)),
+      minimumPixelSize: 28,
+      distanceDisplayCondition: MODEL_RANGE,
+    })
+      .then((m) => {
+        if (destroyed || scene.isDestroyed() || !rockets.has(id)) {
+          m.destroy();
+          return;
+        }
+        rockets.set(id, m);
+        scene.primitives.add(m);
+      })
+      .catch(() => undefined);
+  }
   const dark = Color.fromCssColorString('#05080e');
   const scale = new NearFarScalar(3e5, 1.0, 2e7, 0.7);
   return {
     update(items, visible) {
       points.removeAll();
       labels.removeAll();
-      if (!visible) return;
+      const standing = new Set<string>();
       const now = Date.now();
-      for (const group of byPad(items).values()) {
+      for (const group of visible ? byPad(items).values() : []) {
         const l = padLead(group, now);
+        const coming = Boolean(l.net && Date.parse(l.net) >= now);
+        if (coming) {
+          standing.add(l.id);
+          standRocket(l.id, l.lat, l.lon);
+        }
         const position = Cartesian3.fromDegrees(l.lon, l.lat, 2000);
         const color = Color.fromCssColorString(launchColor(l, now));
         const soon = launchColor(l, now) === LAUNCH_COLOR.soon;
@@ -118,6 +165,7 @@ export function addLaunchLayer(scene: Scene): LaunchLayer {
           image: icon(launchColor(l, now), soon),
           scaleByDistance: scale,
           disableDepthTestDistance: depth,
+          distanceDisplayCondition: coming ? ICON_FROM : undefined,
         });
         labels.add({
           id: 'launch:' + l.id,
@@ -135,6 +183,11 @@ export function addLaunchLayer(scene: Scene): LaunchLayer {
           disableDepthTestDistance: depth,
         });
       }
+      for (const [id, m] of rockets) {
+        if (standing.has(id)) continue;
+        if (m && !scene.isDestroyed()) scene.primitives.remove(m);
+        rockets.delete(id);
+      }
     },
     setDepthDistance(metres) {
       depth = metres;
@@ -142,6 +195,9 @@ export function addLaunchLayer(scene: Scene): LaunchLayer {
       for (let i = 0; i < labels.length; i++) labels.get(i).disableDepthTestDistance = metres;
     },
     destroy() {
+      destroyed = true;
+      for (const m of rockets.values()) if (m && !scene.isDestroyed()) scene.primitives.remove(m);
+      rockets.clear();
       for (const p of [points, labels])
         if (!scene.isDestroyed() && scene.primitives.contains(p)) scene.primitives.remove(p);
     },

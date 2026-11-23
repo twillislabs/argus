@@ -1,23 +1,12 @@
 // The satellite layer: every catalogued object as a point, moved once a
 // second from SGP4 positions computed in satWorker, plus the selected
-// satellite's orbit ring, ground track and label. The ISS also gets a 3D
-// model (backend/scripts/build_models.py), moved every frame from its
-// last two positions and turned along its direction of travel.
+// satellite's orbit ring, ground track and label. Stations, capsules and
+// rocket stages also get 3D models (spaceModels.ts), moved every frame
+// between their last two positions and turned along their direction of
+// travel.
 
+import { Cartesian2, Cartesian3, Color, DistanceDisplayCondition, NearFarScalar } from '@cesium/core';
 import {
-  Cartesian2,
-  Cartesian3,
-  Color,
-  DistanceDisplayCondition,
-  FixedFrameTransforms,
-  HeadingPitchRoll,
-  Math as CesiumMath,
-  Matrix4,
-  NearFarScalar,
-} from '@cesium/core';
-import {
-  ColorBlendMode,
-  Model,
   HorizontalOrigin,
   type Label,
   LabelCollection,
@@ -31,9 +20,20 @@ import {
   VerticalOrigin,
 } from '@cesium/engine';
 
+import {
+  createSpaceModels,
+  ISS_NORAD,
+  MODEL_POINT_HIDE,
+  MODEL_RADIUS,
+  type SpaceEntry,
+  type SpaceModelKind,
+  type SpaceRole,
+  spaceRole,
+} from './spaceModels';
+
 export type OrbitClass = 'leo' | 'meo' | 'geo' | 'heo';
 
-export const ISS_NORAD = 25544;
+export { ISS_NORAD };
 
 export interface SpaceFilters {
   leo: boolean;
@@ -41,7 +41,8 @@ export interface SpaceFilters {
   geo: boolean;
   heo: boolean;
   starlink: boolean;
-  // Crewed stations (the ISS, drawn as a 3D model, and Tiangong).
+  // Crewed stations (the ISS and Tiangong, drawn as 3D models, with the
+  // capsules docked to them).
   iss: boolean;
   // Rocket launches at their pads (map/launchLayer.ts), not satellites.
   launches: boolean;
@@ -112,6 +113,13 @@ export interface SatelliteLayer {
   select: (norad: number | null) => void;
   // Latest Earth-fixed position of a satellite (metres), if known.
   position: (norad: number) => Cartesian3 | null;
+  // How close a follow camera may come (metres): the 3D model's size,
+  // or a few hundred metres for a plain point.
+  nearest: (norad: number) => number;
+  // Which satellite a follow camera rides with (read every frame).
+  setFollowing: (fn: () => number | null) => void;
+  // The station a vehicle is docked to (drawn at its port), if any.
+  dockedTo: (norad: number) => number | null;
   orbit: (norad: number) => Promise<OrbitInfo | null>;
   passes: (norad: number, lat: number, lon: number, hours?: number) => Promise<Pass[]>;
   onTick: (fn: (() => void) | null) => void;
@@ -145,65 +153,64 @@ export function addSatelliteLayer(scene: Scene): SatelliteLayer {
   const scale = new NearFarScalar(1.0e6, 1.6, 5.0e7, 0.7);
   const scratch = new Cartesian3();
 
-  // The ISS model: the last two positions (and when), to extrapolate.
-  let iss: Model | null = null;
-  let issPrev: { p: Cartesian3; t: number } | null = null;
-  let issCur: { p: Cartesian3; t: number } | null = null;
-  void Model.fromGltfAsync({
-    url: '/models/iss.glb',
-    // Readable as a station from far out; true size up close.
-    minimumPixelSize: 44,
-    maximumScale: 200_000,
-    color: Color.WHITE,
-    colorBlendMode: ColorBlendMode.MIX,
-    colorBlendAmount: 0.2,
-    show: false,
-  })
-    .then((m) => {
-      if (destroyed || scene.isDestroyed()) {
-        m.destroy();
-        return;
-      }
-      iss = m;
-      scene.primitives.add(m);
-    })
-    .catch(() => undefined);
-  const issPos = new Cartesian3();
-  const issVel = new Cartesian3();
-  const issEnu = new Matrix4();
-  const issInv = new Matrix4();
-  const issHpr = new HeadingPitchRoll();
-  const removeIss = scene.preRender.addEventListener(() => {
-    const item = byNorad.get(ISS_NORAD);
-    const on = Boolean(iss && item && item.point.show && issCur);
-    if (iss) iss.show = on;
-    if (!on || !iss || !issCur) return;
-    const now = performance.now() / 1000;
-    if (issPrev && issCur.t > issPrev.t) {
-      const dt = issCur.t - issPrev.t;
-      Cartesian3.subtract(issCur.p, issPrev.p, issVel);
-      Cartesian3.divideByScalar(issVel, dt, issVel);
-      const ahead = Math.min(2, now - issCur.t);
-      Cartesian3.add(issCur.p, Cartesian3.multiplyByScalar(issVel, ahead, issPos), issPos);
-    } else {
-      Cartesian3.clone(issCur.p, issPos);
-      Cartesian3.ZERO.clone(issVel);
+  // Stations, capsules and rocket stages are 3D models (spaceModels.ts),
+  // moved every frame. The worker's positions come once a second, so
+  // they're drawn SMOOTH_LAG_MS behind, between the last two samples:
+  // the straight line between two points a second apart is within a
+  // metre of the orbit, so up close nothing jumps.
+  const SMOOTH_LAG_MS = 1100;
+  const models = createSpaceModels(scene);
+  let roles = new Map<number, SpaceRole>();
+  let prevPositions: Float64Array | null = null;
+  let prevTime = 0;
+  let curTime = 0;
+  let drawn = new Map<number, Cartesian3>();
+  let following: () => number | null = () => null;
+
+  // Where satellite i is now (drawn SMOOTH_LAG_MS late), and its velocity.
+  function smooth(i: number, pos: Cartesian3, vel: Cartesian3): boolean {
+    if (!positions) return false;
+    const x1 = positions[i * 3];
+    if (Number.isNaN(x1)) return false;
+    pos.x = x1;
+    pos.y = positions[i * 3 + 1];
+    pos.z = positions[i * 3 + 2];
+    const x0 = prevPositions ? prevPositions[i * 3] : NaN;
+    const span = curTime - prevTime;
+    if (Number.isNaN(x0) || span <= 0 || !prevPositions) {
+      Cartesian3.ZERO.clone(vel);
+      return true;
     }
-    // Heading of travel in the local east-north-up frame.
-    FixedFrameTransforms.eastNorthUpToFixedFrame(issPos, undefined, issEnu);
-    Matrix4.inverseTransformation(issEnu, issInv);
-    const local = Matrix4.multiplyByPointAsVector(issInv, issVel, scratch);
-    const track = Math.atan2(local.x, local.y);
-    // glTF +Z faces east at heading 0 (as in closeModels.ts).
-    issHpr.heading = track - CesiumMath.PI_OVER_TWO;
-    iss.modelMatrix = FixedFrameTransforms.headingPitchRollToFixedFrame(
-      issPos,
-      issHpr,
-      undefined,
-      undefined,
-      iss.modelMatrix,
-    );
-    item!.point.position = issPos;
+    vel.x = (x1 - x0) / (span / 1000);
+    vel.y = (positions[i * 3 + 1] - prevPositions[i * 3 + 1]) / (span / 1000);
+    vel.z = (positions[i * 3 + 2] - prevPositions[i * 3 + 2]) / (span / 1000);
+    const back = Math.max(-0.5 * span, Math.min(3 * span, Date.now() - SMOOTH_LAG_MS - curTime));
+    Cartesian3.add(pos, Cartesian3.multiplyByScalar(vel, back / 1000, scratchVel), pos);
+    return true;
+  }
+
+  const scratchVel = new Cartesian3();
+  const removeFrame = scene.preRender.addEventListener(() => {
+    if (destroyed || !positions) return;
+    const entries: SpaceEntry[] = [];
+    for (const [norad, role] of roles) {
+      const item = byNorad.get(norad);
+      if (!item || item.index < 0 || !item.point.show) continue;
+      const position = new Cartesian3();
+      const velocity = new Cartesian3();
+      if (smooth(item.index, position, velocity)) entries.push({ norad, role, position, velocity });
+    }
+    drawn = models.frame(entries, following());
+    if (selected !== null && !drawn.has(selected)) {
+      const item = byNorad.get(selected);
+      const p = new Cartesian3();
+      if (item && item.index >= 0 && smooth(item.index, p, new Cartesian3())) drawn.set(selected, p);
+    }
+    for (const [norad, p] of drawn) {
+      const item = byNorad.get(norad);
+      if (item) item.point.position = p;
+    }
+    if (label && selected !== null && drawn.has(selected)) label.position = drawn.get(selected)!;
   });
 
   function request<T>(msg: Record<string, unknown>): Promise<T> {
@@ -240,13 +247,22 @@ export function addSatelliteLayer(scene: Scene): SatelliteLayer {
   }
 
   worker.onmessage = (event: MessageEvent) => {
-    const data = event.data as { type: string; id?: number; norads?: Int32Array; positions?: Float64Array };
+    const data = event.data as {
+      type: string;
+      id?: number;
+      time?: number;
+      norads?: Int32Array;
+      positions?: Float64Array;
+    };
     if (data.type === 'loaded' && data.norads) {
       order = Array.from(data.norads);
       tick();
       return;
     }
     if (data.type === 'tick' && data.positions) {
+      prevPositions = positions && positions.length === data.positions.length ? positions : null;
+      prevTime = curTime;
+      curTime = data.time ?? Date.now();
       positions = data.positions;
       for (let i = 0; i < order.length; i++) {
         const item = byNorad.get(order[i]);
@@ -261,10 +277,6 @@ export function addSatelliteLayer(scene: Scene): SatelliteLayer {
         scratch.x = x;
         scratch.y = positions[i * 3 + 1];
         scratch.z = positions[i * 3 + 2];
-        if (order[i] === ISS_NORAD) {
-          issPrev = issCur;
-          issCur = { p: Cartesian3.clone(scratch), t: performance.now() / 1000 };
-        }
         item.point.position = scratch;
       }
       if (label && selected !== null) {
@@ -318,12 +330,18 @@ export function addSatelliteLayer(scene: Scene): SatelliteLayer {
       meta = catalog.meta;
       points.removeAll();
       byNorad = new Map();
+      roles = new Map();
+      positions = prevPositions = null;
       for (const m of meta) {
+        const role = spaceRole(m.norad, m.name);
+        if (role) roles.set(m.norad, role);
         const point = points.add({
           id: 'sat:' + m.norad,
           position: Cartesian3.ZERO,
           ...styleFor(m, false),
           scaleByDistance: scale,
+          // Up close the model stands in for the point.
+          distanceDisplayCondition: role ? MODEL_POINT_HIDE : undefined,
           show: false,
         });
         byNorad.set(m.norad, { meta: m, point, index: -1 });
@@ -369,13 +387,26 @@ export function addSatelliteLayer(scene: Scene): SatelliteLayer {
       tick();
     },
     position(norad) {
-      // The ISS moves smoothly (see the model above); follow that.
-      if (norad === ISS_NORAD && iss?.show) return Cartesian3.clone(issPos);
+      // Where it's drawn this frame (smoothed; docked at its port).
+      const at = drawn.get(norad);
+      if (at) return Cartesian3.clone(at);
       const item = byNorad.get(norad);
       if (!item || !positions || item.index < 0) return null;
       const x = positions[item.index * 3];
       if (Number.isNaN(x)) return null;
       return new Cartesian3(x, positions[item.index * 3 + 1], positions[item.index * 3 + 2]);
+    },
+    nearest(norad) {
+      const role = roles.get(norad);
+      if (!role) return 300;
+      const kind = role.startsWith('part:') ? (role.slice(5) as SpaceModelKind) : (role as SpaceModelKind);
+      return MODEL_RADIUS[kind] * 1.5;
+    },
+    dockedTo(norad) {
+      return models.dockedTo(norad);
+    },
+    setFollowing(fn) {
+      following = fn;
     },
     async orbit(norad) {
       const r = await request<OrbitInfo & { error?: string }>({ type: 'orbit', norad, time: Date.now() });
@@ -401,9 +432,9 @@ export function addSatelliteLayer(scene: Scene): SatelliteLayer {
       window.clearInterval(timer);
       window.clearInterval(orbitTimer);
       worker.terminate();
-      removeIss();
+      removeFrame();
+      models.destroy();
       if (scene.isDestroyed()) return;
-      if (iss && scene.primitives.contains(iss)) scene.primitives.remove(iss);
       for (const p of [lines, points, labels]) {
         if (!p.isDestroyed() && scene.primitives.contains(p)) scene.primitives.remove(p);
       }

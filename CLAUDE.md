@@ -533,7 +533,8 @@ parts connect.
   `wind`. `WeatherFilters.loop` plays radar and clouds (`LOOPABLE`,
   `LOOP_MAKE`) as `LOOP_FRAMES` layers 10 minutes apart (nowCOAST WMS
   `time`, GIBS `Time`), cycled by alpha with a `.wxloop` label in the
-  map cell; looped entries use negative slots.
+  map cell (home time via `setTimeZone`, else UTC); looped entries use
+  negative slots.
 - Satellite passes (`satWorker.ts` `passes`): rise/set azimuths and
   `visible` (sunlit by a cylindrical shadow test, `sunEci` low-precision
   Sun, observer's Sun below -6°); SatelliteInspector can use the map
@@ -670,9 +671,25 @@ parts connect.
   infinite scroll.
 - 3D models: one per kind (`build_models.py`), chosen by
   `aircraftModel`/`shipModel` in `map/closeModels.ts` and loaded on
-  first use. The ISS model (`iss.glb`) lives in `map/satellites.ts`,
-  extrapolated every frame from the last two 1 Hz positions; the
-  Space stations toggle is `SpaceFilters.iss`.
+  first use. Space models carry vertex colours (`paint()`, COLOR_0);
+  the rest are white for tinting. `map/spaceModels.ts`: `spaceRole`
+  by NORAD/name (iss, tiangong, dragon, soyuz, shenzhou, cargo, stage,
+  `part:*` for a station's separately catalogued modules), one Model
+  per object (id `sat:<norad>`, so picks select it), vehicles within
+  `DOCK_M` of a station drawn at its `PORTS` (glTF axes, from the
+  station builders' docstrings; vehicle models have their docking ring
+  at the origin, body along -Z), stations scaled by hand with their
+  docked vehicles (`minScale`, measured from where a follow camera is
+  about to be: models are placed before it moves, so the last camera
+  position is a frame of orbital motion out). `satellites.ts` draws
+  every satellite `SMOOTH_LAG_MS` late, between its last two 1 Hz
+  samples (worker ticks echo their `time`); `position()` is the drawn
+  one. Follow (Globe `followSatFrame`) runs every frame; the wheel and
+  pinch scale the camera's offset while following (capture listeners,
+  down to `nearest()`): Cesium sizes zoom steps by height above the
+  ground, so in orbit one notch flew through a station. The Space
+  stations toggle is `SpaceFilters.iss`. Launch pads with a launch
+  coming stand `rocket.glb` (+Y up) inside 40 km.
 - Hazards (GDACS, EONET, tsunami) and NGA warnings are keyed events
   (`fuse_hazard`, `fuse_navwarn`) whose raw records update in place
   (`UPDATABLE_KINDS`).

@@ -6,6 +6,22 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Space
+
+- Zoom right in on space stations, capsules and rocket stages, as with
+  aircraft: following one now moves the camera every frame, and the
+  wheel (or a pinch) closes in to just outside the model.
+- New 3D models: Crew Dragon (open nose cone, thrusters, windows, heat
+  shield, trunk with solar cells and fins), Soyuz and Progress,
+  Shenzhou, cargo ships (Tianzhou, Cygnus), Tiangong and spent upper
+  stages, in colour. Vehicles near a station are drawn docked to it.
+- Launch pads with a launch coming show a 3D rocket up close.
+
+### Weather
+
+- The weather loop's clock shows your home's time when you've set a
+  home, and UTC otherwise.
+
 ## [1.8.0] - 2026-11-23
 
 A smoother phone layout, and aircraft off in the built-in layers.

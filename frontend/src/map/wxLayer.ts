@@ -181,13 +181,7 @@ function gibs(layer: string, time: string): ImageryLayer {
 // minutes. `stamp` changes with each refresh so browsers and nginx don't
 // keep old tiles.
 const NOWCOAST = 'https://nowcoast.noaa.gov/geoserver/ows';
-function nowcoast(
-  layer: string,
-  stamp: number,
-  rectangle?: Rectangle,
-  maximumLevel = 9,
-  time?: string,
-): ImageryLayer {
+function nowcoast(layer: string, stamp: number, rectangle?: Rectangle, maximumLevel = 9, time?: string): ImageryLayer {
   return new ImageryLayer(
     new WebMapServiceImageryProvider({
       url: NOWCOAST,
@@ -225,7 +219,22 @@ function loopTimes(newest: number): number[] {
   return Array.from({ length: LOOP_FRAMES }, (_, i) => newest - (LOOP_FRAMES - 1 - i) * STEP_MS);
 }
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 17) + '00Z';
-const clock = (ms: number) => new Date(ms).toISOString().slice(11, 16) + 'Z';
+// A loop frame's time: home time when there's a home (as the header's
+// Home clock), else UTC.
+function clock(ms: number, tz: string | null): string {
+  if (tz) {
+    try {
+      return (
+        new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(
+          new Date(ms),
+        ) + ' home'
+      );
+    } catch {
+      // An unknown zone: fall back to UTC.
+    }
+  }
+  return new Date(ms).toISOString().slice(11, 16) + 'Z';
+}
 
 const LOOP_MAKE: Record<string, (times: number[], stamp: number) => { layers: ImageryLayer[][]; times: number[] }> = {
   radar: (times, stamp) => ({
@@ -266,6 +275,8 @@ export interface WxLayer {
   ) => void;
   setImagery: (f: WeatherFilters, opacity?: WxOpacity) => void;
   setDepthDistance: (metres: number) => void;
+  // The home's time zone for the loop's clock (null: UTC).
+  setTimeZone: (tz: string | null) => void;
   // The base map was rebuilt (its imagery layers were all removed).
   forget: () => void;
   destroy: () => void;
@@ -283,11 +294,15 @@ export function addWxLayer(
   scene.primitives.add(points);
   scene.primitives.add(labels);
   // Each shown imagery layer, and the refresh slot it was made for.
-  const shown = new Map<WxImagery, { layers: ImageryLayer[]; slot: number; frames?: ImageryLayer[][]; times?: number[] }>();
+  const shown = new Map<
+    WxImagery,
+    { layers: ImageryLayer[]; slot: number; frames?: ImageryLayer[][]; times?: number[] }
+  >();
   // The loop: which frame shows, a timer, and a label on the map.
   let frame = 0;
   let timer = 0;
   let loopAlpha: Partial<Record<WxImagery, number>> = {};
+  let timeZone: string | null = null;
   const label = document.createElement('div');
   label.className = 'wxloop mono';
   label.hidden = true;
@@ -299,7 +314,7 @@ export function addWxLayer(
       const i = Math.min(frame, entry.frames.length - 1);
       const a = loopAlpha[id] ?? 0.7;
       entry.frames.forEach((layers, k) => layers.forEach((l) => (l.alpha = k === i ? a : 0)));
-      if (!text || id === 'radar') text = (id === 'radar' ? 'Radar ' : 'Clouds ') + clock(entry.times[i]);
+      if (!text || id === 'radar') text = (id === 'radar' ? 'Radar ' : 'Clouds ') + clock(entry.times[i], timeZone);
     }
     label.textContent = text ? '▶ ' + text + (frame >= LOOP_FRAMES - 1 ? ' · latest' : '') : '';
     label.hidden = !text;
@@ -491,6 +506,11 @@ export function addWxLayer(
     forget() {
       shown.clear();
       loopAlpha = {};
+    },
+    setTimeZone(tz) {
+      if (tz === timeZone) return;
+      timeZone = tz;
+      if (timer) showFrame();
     },
     setDepthDistance(metres) {
       depth = metres;

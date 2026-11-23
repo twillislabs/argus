@@ -555,7 +555,7 @@ allowed.
 | **Sea temperature** | The sea surface temperature, a daily analysis (warm water feeds tropical storms) | NOAA nowCOAST |
 | **Wind (animated)** | Wind 10 m above the ground, worldwide, as drifting streaks coloured by speed (the Legend has the scale). From the GFS forecast model's 3-hourly step nearest now, on a 1° grid, so it shows the large-scale flow rather than gusts at one spot. The streaks animate on their own layer, so the globe itself still redraws only when something changes; the **Map frame rate** setting sets their pace (fewer and slower in Power saver). They aren't in Capture images | NOAA GFS, via PacIOOS ERDDAP |
 | **Air quality** | A tint by US AQI category (Good to Hazardous, in the EPA's colours) with the index written on each point, for a regional or national view (zoom in further for a finer grid, down to a quarter of a degree). Modelled, not sensor readings: about 40 km across, updated hourly | Open-Meteo (Copernicus Atmosphere Monitoring Service) |
-| **Loop the last hour** | Live mode for **Radar (US)** and **Clouds**: instead of the latest picture, they play the last hour in seven frames 10 minutes apart, so you see storms and cloud move. A label at the bottom of the map gives the frame's time (UTC) and holds on the latest for a moment before starting again. Clouds run about 40 minutes behind. Loops load seven pictures each, so they take a moment to fill in | NOAA nowCOAST radar, NASA GIBS |
+| **Loop the last hour** | Live mode for **Radar (US)** and **Clouds**: instead of the latest picture, they play the last hour in seven frames 10 minutes apart, so you see storms and cloud move. A label at the bottom of the map gives the frame's time (your home's time when you've set a home, otherwise UTC) and holds on the latest for a moment before starting again. Clouds run about 40 minutes behind. Loops load seven pictures each, so they take a moment to fill in | NOAA nowCOAST radar, NASA GIBS |
 
 Each imagery layer (radar, lightning, clouds, water vapour, precipitation,
 sea temperature) gets an **Opacity** slider under it while it's on. Your
@@ -855,6 +855,9 @@ there is one, every launch at that pad, and links: the webcasts and
 mission pages Launch Library lists, the launch's Space Launch Now page,
 and the pad's own page and Wikipedia article.
 Times marked as a month or a day are not yet fixed.
+Zoom in on a pad with a launch coming and a 3D rocket stands on it (the
+same shape for every vehicle: Launch Library names the rocket, not its
+build).
 
 The data comes from The Space Devs' Launch Library 2 (free, no key), read
 by Argus's server every two hours.
@@ -883,7 +886,7 @@ The **Space** group shows every active satellite CelesTrak tracks, about
 
 | Layer | What's there |
 |---|---|
-| **Space stations** | The crewed stations: the ISS as a 3D model (truss, modules and solar arrays) that moves smoothly and faces its direction of travel, and Tiangong. Visible from far out; true size up close |
+| **Space stations** | The crewed stations, the ISS and Tiangong, as 3D models that move smoothly and face their direction of travel, with the capsules and cargo ships docked to them. Visible from far out; true size up close |
 | **Low Earth orbit** | Under about 2,000 km: space stations, imaging, weather and science |
 | **Medium Earth orbit** | Navigation constellations: GPS, Galileo, GLONASS, BeiDou |
 | **Geosynchronous** | Communications and weather satellites over fixed longitudes |
@@ -906,8 +909,27 @@ like `1998-067A`) to see:
   works the passes out for the spot at the centre of the map instead of
   home.
 
-**Follow** keeps it in view as it moves; scroll to zoom. The ISS moves at
+**Follow** (or double-click it) keeps it in view as it moves; scroll,
+or pinch on a phone, to zoom, and drag to look round. The ISS moves at
 7.7 km/s, so following is the easiest way to watch it.
+
+Stations, the vehicles that visit them and spent rocket stages are 3D
+models, so you can zoom right in, as with an aircraft:
+
+- **ISS** and **Tiangong** (Tianhe core, the Wentian and Mengtian labs and
+  their arrays);
+- **Crew Dragon**: the capsule with its nose cone open, thrusters,
+  windows, the heat shield and the trunk with its solar cells and fins;
+- **Soyuz** and **Progress**, **Shenzhou**, and cargo ships
+  (**Tianzhou**, **Cygnus**);
+- **rocket bodies** (catalogue names ending R/B) as a spent upper stage.
+
+A vehicle within 5 km of a station is shown docked to it. The catalogue
+doesn't say which port it uses, so they're placed at a typical one:
+Dragon and cargo ships on the US side (Harmony), Soyuz and Progress on
+the Russian side, Shenzhou on Tiangong's front and Tianzhou at its back.
+A station's own modules listed separately (such as ISS (NAUKA)) are part
+of its model. Following a docked vehicle shows it on the station.
 
 ## Events
 
