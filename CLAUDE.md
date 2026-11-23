@@ -624,7 +624,12 @@ parts connect.
   drag with the distance in a ref, half/full); Settings on phones is
   `menu-only` at /settings and `section-only` with `.sback` on a
   section. Tool rows scroll sideways (masked edge), the timeline is a
-  two-row grid.
+  two-row grid. Fields are 16 px on phones (mobile.css): iOS Safari zooms
+  into any field under 16 px on focus and stays zoomed (it left the app
+  zoomed after signing in); never fix that with `maximum-scale`, which
+  blocks pinch zoom. Dropdowns anchored to a control that isn't at the
+  screen's right edge go `position: fixed` across the width on phones
+  (the alerts `.belldrop`, top from `--belltop` set by AlertBell).
 - Icons: `frontend/public/favicon.ico` (16/32/48), `apple-touch-icon.png`
   (180, full square: iOS rounds it), `img/icon-192.png`, `icon-512.png`,
   `icon-maskable-512.png` (mark in the 80% safe zone) and

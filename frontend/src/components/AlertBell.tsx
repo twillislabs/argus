@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { type FiredAlert, getAlerts, markRead } from '../lib/alerts';
@@ -16,6 +16,9 @@ export default function AlertBell() {
   const [perm, setPerm] = useState(supportsNotify ? Notification.permission : 'denied');
   const newest = useRef<number | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  // Where the dropdown starts on phones, where it spans the screen below
+  // the bell (styles/mobile.css) instead of hanging off its left side.
+  const [top, setTop] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -75,7 +78,10 @@ export default function AlertBell() {
         className={'bellbtn' + (unread ? ' on' : '')}
         aria-label={unread ? unread + ' unread alerts' : 'Alerts'}
         title="Alerts"
-        onClick={() => setOpen(!open)}
+        onClick={(e) => {
+          setTop(Math.round(e.currentTarget.getBoundingClientRect().bottom) + 8);
+          setOpen(!open);
+        }}
       >
         <svg
           width="16"
@@ -92,7 +98,7 @@ export default function AlertBell() {
         {unread > 0 && <span className="bellcount">{unread > 99 ? '99+' : unread}</span>}
       </button>
       {open && (
-        <div className="belldrop" role="menu">
+        <div className="belldrop" role="menu" style={{ '--belltop': top + 'px' } as CSSProperties}>
           <div className="bellhead">
             <b>Alerts</b>
             <span className="rowbtns">

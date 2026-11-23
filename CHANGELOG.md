@@ -6,6 +6,14 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Phones
+
+- Signing in no longer leaves the app zoomed in on iPhones: Safari
+  zooms into any field set under 16 px when you tap it, so fields are
+  16 px on phones.
+- The alerts dropdown fits the screen: it spans the width under the
+  bell instead of hanging off the left edge.
+
 ### Aircraft
 
 - Flight routes are looked up in Virtual Radar Server's route data
