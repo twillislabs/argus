@@ -1346,6 +1346,14 @@ function SourcesSection() {
           for non-commercial use.
         </p>
       </KeyCard>
+      <KeyCard name="mapillary" title="Mapillary (street photos)" state={keys?.mapillary} onSaved={setKeys}>
+        <p>
+          <b>Street view here</b> (right-click the map) always offers Google Street View. With a Mapillary token it
+          also shows the nearest <b>Mapillary</b> street-level photos inside Argus. Sign in at mapillary.com, open{' '}
+          <b>Developers</b> in your dashboard, register an application, and paste its <b>client token</b> (it starts
+          MLY|) here. Free.
+        </p>
+      </KeyCard>
       <KeyCard name="gfw" title="Global Fishing Watch" state={keys?.gfw} onSaved={setKeys}>
         <p>
           <b>Ships meeting, loitering, going dark</b> (Sea layers) come from <b>Global Fishing Watch</b>. Register at

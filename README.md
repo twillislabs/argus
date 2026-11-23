@@ -254,8 +254,8 @@ TypeScript is strict. Commits follow Conventional Commits with 50/72 messages.
   Licence – City of Calgary.
 - **Radio:** [Radio Browser](https://www.radio-browser.info/) (public domain directory); streams
   play from each broadcaster.
-- **Street photos:** [Panoramax](https://panoramax.fr/) contributors, each photo credited with its
-  author and licence (mostly CC BY-SA 4.0).
+- **Street photos:** [Mapillary](https://www.mapillary.com/) contributors (with a token), each photo
+  credited with its author and licence (CC BY-SA 4.0); Street View opens in Google Maps.
 - **Public transport:** each operator's GTFS-Realtime feed, credited on every vehicle: MBTA
   (MassDOT Developers' License Agreement), RTD, TTC and the City of Toronto, Calgary Transit and
   Edmonton Transit Service (Open Government Licences), BC Transit, HSL and Translink (CC BY 4.0),

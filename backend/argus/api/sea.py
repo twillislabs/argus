@@ -22,6 +22,7 @@ KNOWN_KEYS = {
     "openaip": "Airspace structure (restricted areas, CTRs) from openaip.net",
     "gfw": "Ships meeting, loitering and going dark at sea (Global Fishing "
     "Watch, non-commercial)",
+    "mapillary": "Street-level photos near a spot (Mapillary)",
     "tdot": "Tennessee traffic cameras from the TDOT open-data API",
     "youtube": "Live streams near the view and event video (YouTube Data API)",
     "windy": "Webcams near the view (Windy Webcams API)",
@@ -104,6 +105,7 @@ class KeysIn(BaseModel):
     aisstream: str | None = Field(default=None, max_length=200)
     openaip: str | None = Field(default=None, max_length=200)
     gfw: str | None = Field(default=None, max_length=2000)
+    mapillary: str | None = Field(default=None, max_length=300)
     tdot: str | None = Field(default=None, max_length=200)
     youtube: str | None = Field(default=None, max_length=200)
     windy: str | None = Field(default=None, max_length=200)

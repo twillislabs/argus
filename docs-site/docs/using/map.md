@@ -535,14 +535,15 @@ quality (US AQI and category, the European index, PM2.5, PM10, ozone and
 NO₂). In the US it also lists the NWS warnings, watches and advisories in
 force there.
 
-**Street photos here:** right-click anywhere and choose *Street photos
-here* for the nearest street-level photos within 250 m, from
-[Panoramax](https://panoramax.fr/), the open, volunteer-built catalogue
-(no key). The nearest opens large, with the way it looks, when it was
-taken, its author and licence (mostly CC BY-SA 4.0) and a link to it on
-Panoramax; a pin marks where it was taken. Pick another from the
-thumbnails. Coverage is best in France and parts of Europe. Photos come
-through Argus's server.
+**Street view here:** right-click anywhere and choose *Street view here*.
+**Open Google Street View** opens Google Maps at the nearest Street View
+panorama in a new tab (no key; it covers almost every road in the US).
+With a Mapillary token (Settings › Data sources, free), the panel also
+shows the nearest [Mapillary](https://www.mapillary.com/) street-level
+photos within 250 m: the nearest opens large, with the way it looks,
+when it was taken, its author and licence (CC BY-SA 4.0) and a link to
+it on Mapillary, and a pin marks where it was taken. Pick another from
+the thumbnails. Photos come through Argus's server.
 
 With a home location in the US, **Weather at home** in the Situation panel
 shows the temperature, today's high and low, wind and gusts and the chance

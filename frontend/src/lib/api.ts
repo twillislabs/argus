@@ -1201,7 +1201,7 @@ export interface StreetPhoto {
   link: string;
 }
 export const getStreetPhotos = (lat: number, lon: number) =>
-  api<{ status: 'ok' | 'error'; photos: StreetPhoto[] }>(
+  api<{ status: 'ok' | 'error' | 'nokey' | 'refused'; photos: StreetPhoto[]; street_view: string; source: string }>(
     '/api/streetphotos?lat=' + lat.toFixed(5) + '&lon=' + lon.toFixed(5),
   );
 

@@ -1,4 +1,5 @@
-"""Street-level photos near a spot (argus/streetphotos.py, Panoramax).
+"""Street-level photos near a spot (argus/streetphotos.py: Mapillary with
+an admin's token, and a Google Street View link always).
 
 /api/streetphotos?lat=&lon=     the nearest photos, with credit
 /api/streetphotos/image?u=      a photo or thumbnail a search returned
@@ -7,7 +8,9 @@
 import httpx
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
-from argus.api.deps import SessionDep
+from argus import secrets
+from argus.api.deps import DbDep, SessionDep
+from argus.models import ServerSetting
 
 router = APIRouter(tags=["streetphotos"])
 
@@ -16,10 +19,18 @@ router = APIRouter(tags=["streetphotos"])
 async def near(
     request: Request,
     session: SessionDep,
+    db: DbDep,
     lat: float = Query(..., ge=-90, le=90),
     lon: float = Query(..., ge=-180, le=180),
 ):
-    return await request.app.state.streetphotos.near(lat, lon)
+    row = await db.get(ServerSetting, "keys")
+    stored = (row.value or {}).get("mapillary") if row else None
+    token = (
+        secrets.decrypt(request.app.state.settings.secret_key, stored)
+        if stored
+        else None
+    )
+    return await request.app.state.streetphotos.near(lat, lon, token)
 
 
 @router.get("/api/streetphotos/image")

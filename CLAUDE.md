@@ -542,10 +542,13 @@ parts connect.
   (camView) only with the `cam_picture` preference (Settings › Display,
   off by default); the camera being looked at is ringed (camLayer
   `ring`, traffic cameras and webcams).
-- Street photos: `argus/streetphotos.py` (Panoramax `api/search`, no
-  key); the image proxy fetches only URLs a search returned (`allowed`),
-  never a client's. KartaView's image hosts were down (2026-11); Mapillary
-  needs a key. `components/StreetPhotos.tsx` from MapContextMenu.
+- Street view: `argus/streetphotos.py` (Mapillary graph API with the
+  `mapillary` key, CC BY-SA; always returns `street_view`, a keyless
+  Google Maps Street View URL, the panel's main button: Mapillary isn't
+  universal in the US); the image proxy fetches only URLs a search
+  returned (`allowed`), never a client's. Panoramax was dropped
+  (2026-11: mostly France). `components/StreetPhotos.tsx` from
+  MapContextMenu ("Street view here").
 - Radio: `argus/radio.py` (Radio Browser mirrors de1/de2, daily, HTTPS
   non-HLS streams only), `map/radioLayer.ts` (`radio:<uuid>`, grouped),
   `components/RadioInspector.tsx` (an `<audio>` that stops on leaving).

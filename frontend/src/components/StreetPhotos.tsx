@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react';
 import { getStreetPhotos, type StreetPhoto } from '../lib/api';
 import { latLon } from '../lib/format';
 
-// "Street photos here" (the map's right-click menu): the nearest
-// street-level photos from Panoramax, the open, federated catalogue (no
-// key), each with its author, date, licence and a link to it there.
-// Images come through Argus's server.
+// "Street view here" (the map's right-click menu): Google Street View
+// for the spot (a link out, no key: it opens Google Maps), and with an
+// admin's Mapillary token the nearest Mapillary photos inline, each with
+// its author, date, licence and a link to it there. Images come through
+// Argus's server.
 
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const compass = (deg: number) => COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
@@ -33,6 +34,8 @@ export default function StreetPhotos({
 }) {
   const [photos, setPhotos] = useState<StreetPhoto[] | null>(null);
   const [error, setError] = useState(false);
+  const [status, setStatus] = useState<string>('');
+  const [streetView, setStreetView] = useState('');
   const [open, setOpen] = useState<StreetPhoto | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -42,7 +45,9 @@ export default function StreetPhotos({
     getStreetPhotos(lat, lon)
       .then((r) => {
         if (cancelled) return;
-        if (r.status !== 'ok') setError(true);
+        setStatus(r.status);
+        setStreetView(r.street_view);
+        if (r.status === 'error') setError(true);
         setPhotos(r.photos);
         setOpen(r.photos[0] ?? null);
       })
@@ -65,18 +70,36 @@ export default function StreetPhotos({
         </button>
       </div>
       <section className="isec">
-        <h1 className="etitle">Street photos here</h1>
-        <div className="sub mono">{latLon(lat, lon)} · within 250 m</div>
-        {!photos && !error && <p className="quiet small">Looking…</p>}
-        {error && <p className="err small">Panoramax didn&apos;t answer. Try again in a minute.</p>}
-        {photos && photos.length === 0 && !error && (
+        <h1 className="etitle">Street view here</h1>
+        <div className="sub mono">{latLon(lat, lon)}</div>
+        <div className="actions">
+          <a
+            className="btn primary"
+            href={streetView || 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + lat + ',' + lon}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open Google Street View ↗
+          </a>
+        </div>
+        <p className="quiet small">
+          Google Street View covers almost every road in the US; it opens in Google Maps, at the nearest panorama.
+        </p>
+        {!photos && !error && <p className="quiet small">Looking for photos…</p>}
+        {status === 'nokey' && (
           <p className="quiet small">
-            No photos within 250 m. Panoramax is built by volunteers, so coverage is best in France and parts of Europe.
+            Add a free Mapillary token in Settings › Data sources to see street-level photos from Mapillary here too.
           </p>
         )}
+        {status === 'refused' && <p className="err small">Mapillary refused this server&apos;s token.</p>}
+        {error && <p className="err small">Mapillary didn&apos;t answer. Try again in a minute.</p>}
+        {photos && photos.length === 0 && status === 'ok' && (
+          <p className="quiet small">No Mapillary photos within 250 m.</p>
+        )}
+        {photos && photos.length > 0 && <h3>Mapillary photos within 250 m</h3>}
         {open && (
           <figure className="streetshot">
-            <a href={open.link} target="_blank" rel="noreferrer" title="Open it on Panoramax">
+            <a href={open.link} target="_blank" rel="noreferrer" title="Open it on Mapillary">
               <img src={open.image} alt={'Street photo ' + open.distance_m + ' m away'} />
             </a>
             <figcaption className="small">
@@ -96,7 +119,7 @@ export default function StreetPhotos({
                 )}{' '}
                 ·{' '}
                 <a href={open.link} target="_blank" rel="noreferrer">
-                  Panoramax ↗
+                  Mapillary ↗
                 </a>
               </span>
             </figcaption>

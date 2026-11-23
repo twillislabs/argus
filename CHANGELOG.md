@@ -6,6 +6,14 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Street view
+
+- **Street view here** (right-click the map) replaces Street photos: it
+  always offers Google Street View for the spot (no key; it covers
+  almost every US road), and with a free Mapillary token (Settings ›
+  Data sources) shows Mapillary's street-level photos inline. Panoramax
+  is gone: it covered mostly France.
+
 ### Situation
 
 - World tension explains itself for newcomers: **What is this?** under

@@ -114,6 +114,7 @@ server, and shows how every source is doing.
 |---|---|---|
 | AISStream | Live vessels (the Sea layers) | Sign in at [aisstream.io](https://aisstream.io/) with GitHub and create a key under **API Keys** (free) |
 | openAIP | Airspace structure (restricted areas, CTRs, TMAs) | Make an account at [openaip.net](https://www.openaip.net/) and create an API client key under your profile (free, non-commercial) |
+| Mapillary | Street-level photos in Street view here (right-click the map) | Sign in at [mapillary.com](https://www.mapillary.com/), open Developers in your dashboard, register an application and copy its client token (free) |
 | Global Fishing Watch | Ships meeting, loitering and going dark at sea (a Sea layer) | Register at [globalfishingwatch.org/our-apis](https://globalfishingwatch.org/our-apis/) and request an API access token (free, non-commercial; CC BY-NC 4.0 data) |
 
 With a key saved, the worker holds one stream for the whole world, so all

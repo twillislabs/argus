@@ -85,7 +85,7 @@ export default function MapContextMenu({ lat, lon, x, y, onClose, onCentre, onWe
             onClose();
           }}
         >
-          Street photos here
+          Street view here
           <small>Panoramax, within 250 m</small>
         </button>
       )}
