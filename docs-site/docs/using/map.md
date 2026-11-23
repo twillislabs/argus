@@ -143,7 +143,11 @@ room, readable from a few metres away:
 
 Settings > Display > **Wall** sets how the Wall looks when you open it;
 each paired screen has the same settings of its own under Settings >
-Displays (**Wall settings** next to the screen):
+Displays (**Wall settings** next to the screen). To tell screens apart,
+**Identify** next to a screen shows its name across that screen for
+about 25 seconds (it appears within 10 seconds). Each screen's account
+is listed under it, and in Users & roles a screen's account says which
+screen it is:
 
 - **Tour:** any mix of home, every theatre, one theatre, or places. Add a
   place by searching for it, typing coordinates, or pasting a map link
@@ -163,7 +167,9 @@ Displays (**Wall settings** next to the screen):
 - **Sections:** show or hide the header, clocks, tension panel, figures,
   top events, live news, the weather at home (off by default), the
   caption and the ticker. With every side panel hidden the map fills the
-  screen.
+  screen. With live news off, the side panels take its space and Top
+  events lists more. The weather at home needs the screen's home
+  location (its **Screen home**); without one the panel says so.
 - **Layout:** the map wall, or **Live TV only**: one channel filling
   the screen, or two to four in a grid (**TV channels**). The LIVE pill
   stays in the corner.
@@ -174,7 +180,9 @@ Displays (**Wall settings** next to the screen):
   `--autoplay-policy=no-user-gesture-required`.
 - The news **channel** and up to four extra **clocks**.
 
-Press **Save**; the screen picks it up within about 10 seconds.
+Changes save by themselves a moment after you make them (**Save now**
+saves at once); the screen picks them up within about 10 seconds, or at
+once with **Sync**.
 
 The wall's header has a **LIVE** pill: it turns **OFFLINE** if the
 screen hasn't heard from Argus for over two and a half minutes.

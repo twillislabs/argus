@@ -156,7 +156,13 @@ export const wallLayerOn = (w: WallPrefs | undefined, id: WallLayer): boolean =>
   w?.layers?.[id] ?? WALL_LAYERS.find((l) => l.id === id)?.on ?? false;
 
 // Pushing changes to screens now (Settings > Displays).
-export const getWallSync = () => api<{ boot: string; sync: number; reload: number }>('/api/display/sync');
+export const getWallSync = () =>
+  api<{ boot: string; sync: number; reload: number; identify?: { name: string; seconds: number } }>(
+    '/api/display/sync',
+  );
+// Settings › Displays: the screen shows its name, big, for a little while.
+export const identifyScreen = (id: number) =>
+  api<{ ok: boolean; seconds: number }>('/api/admin/displays/' + id + '/identify', { method: 'POST' });
 export const syncScreens = (reload: boolean, id?: number) =>
   api('/api/admin/displays/' + (id !== undefined ? id + '/' : '') + 'sync', { method: 'POST', body: { reload } });
 

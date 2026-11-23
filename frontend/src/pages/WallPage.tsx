@@ -181,6 +181,8 @@ export default function WallPage({ me }: { me: Me }) {
   const [wiki, setWiki] = useState<WikiItem[]>([]);
   const [stations, setStations] = useState<SatCatalog | null>(null);
   const [weatherNow, setWeatherNow] = useState<WeatherNow | null>(null);
+  // Identify (Settings › Displays): this screen's name, big, until then.
+  const [identify, setIdentify] = useState<{ name: string; until: number } | null>(null);
   // Settings can change while the screen runs (an admin edits it in
   // Settings > Displays): re-read them every minute.
   // /wall?profile=<id> shows that wall profile (to preview it, or for a
@@ -218,6 +220,8 @@ export default function WallPage({ me }: { me: Me }) {
             if (s.sync > seen.sync) refresh();
           }
           seen = s;
+          // Settings › Displays › Identify: show this screen's name.
+          if (s.identify) setIdentify({ name: s.identify.name, until: Date.now() + s.identify.seconds * 1000 });
         })
         .catch(() => undefined);
     void checkSync();
@@ -416,8 +420,11 @@ export default function WallPage({ me }: { me: Me }) {
     () =>
       [...events]
         .sort((a, b) => b.severity - a.severity || Date.parse(b.last_updated) - Date.parse(a.last_updated))
-        .slice(0, 5),
-    [events],
+        // Without live news the side column has room for more.
+        .slice(0, show('news') ? 5 : 14),
+    // show() reads the wall settings; the news switch changes the count.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [events, show('news')],
   );
   const ticker = useMemo(
     () => [...events].sort((a, b) => Date.parse(b.first_seen) - Date.parse(a.first_seen)).slice(0, 20),
@@ -443,6 +450,16 @@ export default function WallPage({ me }: { me: Me }) {
     </span>
   );
 
+  // Identify (Settings › Displays): the screen's name over everything.
+  const idBanner =
+    identify && identify.until > now.getTime() ? (
+      <div className="widentify" role="status">
+        <small>THIS SCREEN IS</small>
+        <b>{identify.name}</b>
+        <span>Shown from Settings › Displays · Identify</span>
+      </div>
+    ) : null;
+
   // Live TV only: one channel full screen, or a grid of up to four (sound
   // from the first). Night dimming and drift still apply.
   if (wall.mode === 'tv') {
@@ -455,6 +472,7 @@ export default function WallPage({ me }: { me: Me }) {
         style={{ transform: 'translate(' + drift.x + 'px,' + drift.y + 'px)' }}
       >
         <div className="tvlive">{livePill}</div>
+        {idBanner}
         {tv.map((c, i) => (
           <div key={c.id + i} className="tvcell">
             <LiveFrame channel={c} audio={i === 0 ? audio : { muted: true, volume: 0 }} />
@@ -470,6 +488,7 @@ export default function WallPage({ me }: { me: Me }) {
       className={'wall' + (night ? ' night' : '') + (side ? '' : ' noside')}
       style={{ transform: 'translate(' + drift.x + 'px,' + drift.y + 'px)' }}
     >
+      {idBanner}
       {(show('header') || show('clocks')) && (
         <header className="whead">
           {show('header') && (
@@ -587,7 +606,7 @@ export default function WallPage({ me }: { me: Me }) {
         )}
       </section>
       {side && (
-        <aside className="wside">
+        <aside className={'wside' + (show('news') ? '' : ' nonews')}>
           {show('tension') && (
             <div className="wpanel">
               <h3>World tension</h3>
@@ -619,6 +638,14 @@ export default function WallPage({ me }: { me: Me }) {
                 <small>GPS jam cells</small>
                 <b className="mono">{gpsCells.filter((c) => c.level !== 'low').length}</b>
               </div>
+            </div>
+          )}
+          {show('weather') && !home && (
+            <div className="wpanel wweather">
+              <h3>Weather at home</h3>
+              <span className="quiet">
+                This screen has no home location. Set one in Settings › Displays (its Home) to show the weather here.
+              </span>
             </div>
           )}
           {show('weather') && home && (

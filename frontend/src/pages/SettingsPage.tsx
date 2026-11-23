@@ -42,6 +42,7 @@ import {
   savePreferences,
   type ServerDefaults,
   type SourceStatus,
+  identifyScreen,
 } from '../lib/api';
 import { ago, zuluTime } from '../lib/format';
 import type { Units } from '../lib/units';
@@ -389,6 +390,8 @@ function HomeSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) 
 interface DisplayRow {
   id: number;
   name: string;
+  // Its account in Users & roles.
+  username: string;
   active: boolean;
   paired_at: string;
   last_seen: string | null;
@@ -611,7 +614,12 @@ function DisplaysSection() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className={r.active ? undefined : 'dimrow'}>
-                  <td>{r.name}</td>
+                  <td>
+                    {r.name}
+                    <small className="quiet mono" style={{ display: 'block' }} title="Its account in Users & roles">
+                      {r.username}
+                    </small>
+                  </td>
                   <td className="mono">{ago(r.paired_at)}</td>
                   <td className="mono">{r.last_seen ? ago(r.last_seen) : '—'}</td>
                   <td>
@@ -619,6 +627,17 @@ function DisplaysSection() {
                       <span className="rowbtns">
                         <button className="btn small" onClick={() => setOpen(open === r.id ? null : r.id)}>
                           {open === r.id ? 'Close' : 'Wall settings'}
+                        </button>
+                        <button
+                          className="btn small"
+                          title="Show this screen's name on it, big, for about 25 seconds (within 10 seconds)"
+                          onClick={() =>
+                            void identifyScreen(r.id)
+                              .then(() => setStatus(r.name + ' shows its name within about 10 seconds.'))
+                              .catch((err) => setStatus(err instanceof Error ? err.message : 'That failed.'))
+                          }
+                        >
+                          Identify
                         </button>
                         <button
                           className="btn small"

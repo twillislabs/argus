@@ -87,11 +87,22 @@ export default function WallEditor({
     try {
       await onSave(wall, home);
       setDirty(false);
-      setStatus('Saved. Screens pick this up within a minute.');
+      setStatus('Saved. Screens pick this up within a minute (Sync makes it now).');
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Could not save.');
     }
   }
+
+  // Save by itself a moment after each change, like the rest of
+  // Settings: a change left unsaved at the bottom of a long form looked
+  // saved but never reached the screen.
+  useEffect(() => {
+    if (!dirty) return;
+    const id = window.setTimeout(() => void save(), 900);
+    return () => window.clearTimeout(id);
+    // save reads the latest wall and home from this render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wall, home, dirty]);
 
   async function find(e: React.FormEvent) {
     e.preventDefault();
@@ -124,7 +135,12 @@ export default function WallEditor({
         <div className="srow col">
           <span className="srow-label">
             <b>Screen home</b>
-            <small>Its home stop, home clock and night dimming (22:00 to 06:00 there)</small>
+            <small>
+              Its home stop, home clock, night dimming (22:00 to 06:00 there) and Weather at home
+              {!home && wallSectionOn(wall, 'weather') ? (
+                <b className="warn"> · Weather at home is on but this screen has no home yet: set one here.</b>
+              ) : null}
+            </small>
           </span>
           <HomePicker
             value={home}
@@ -458,7 +474,7 @@ export default function WallEditor({
       <div className="srow">
         <span className="quiet small">{status}</span>
         <button className="btn primary" disabled={!dirty} onClick={() => void save()}>
-          Save
+          {dirty ? 'Save now' : 'Saved'}
         </button>
       </div>
     </div>

@@ -6,6 +6,21 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Wall
+
+- **Identify** (Settings › Displays) shows a screen's name across that
+  screen for about 25 seconds, to tell screens apart. Displays lists each
+  screen's account, and Users & roles labels display accounts with their
+  screen.
+
+- With live news off, the wall's side panels fill the column and Top
+  events lists up to 14 instead of 5.
+- Wall settings save by themselves (Settings › Displays and Display ›
+  Wall); before, a change left unsaved at the bottom of the form never
+  reached the screen.
+- Weather at home on a screen with no home location says so, on the
+  wall and in its settings, instead of showing nothing.
+
 ### Accounts
 
 - User groups, and limiting features to chosen groups and people

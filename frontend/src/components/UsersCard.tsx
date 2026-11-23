@@ -1,4 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import {
   type AdminUser,
@@ -152,6 +153,12 @@ export default function UsersCard({ me, onSaved }: { me: Me; onSaved?: () => Pro
                     {u.email ? ' · ' + u.email : ''}
                     {self ? ' · you' : ''}
                   </small>
+                  {u.role === 'display' && (
+                    <small className="wallacct">
+                      Wall screen <b>{u.display_name}</b> · <Link to="/settings/displays">Displays</Link> (Identify
+                      shows its name on it)
+                    </small>
+                  )}
                 </span>
                 <span role="cell">
                   <select

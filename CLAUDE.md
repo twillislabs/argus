@@ -482,7 +482,11 @@ parts connect.
   home). `/wall?profile=` previews one. Pushing: walls poll
   `/api/display/sync` every 10 s (counters per screen and for all, plus
   a boot id, in API memory; `push_sync`), bumped by saving a screen or
-  profile and by Sync / Reload in Settings; the same poll renews a
+  profile and by Sync / Reload in Settings; Identify
+  (`/api/admin/displays/{id}/identify`, `app.state.wall_identify`)
+  adds `identify` {name, seconds} to that screen's sync answer and the
+  wall shows `.widentify`; WallEditor saves itself 900 ms after a
+  change; the same poll renews a
   display session (and its cookie) once under 20 days are left.
   `mode: "tv"` makes the wall
   live TV only (`tv_channels`, `muted`, `volume`; LiveFrame's `audio`

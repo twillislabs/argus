@@ -77,6 +77,17 @@ def push_sync(request: Request, user_id: int | None, reload: bool = False):
         sig["reload"] += 1
 
 
+IDENTIFY_S = 25
+
+
+def _identify(request: Request) -> dict:
+    """Screens asked to show their name: user id -> (until, name)."""
+    state = request.app.state
+    if not hasattr(state, "wall_identify"):
+        state.wall_identify = {}
+    return state.wall_identify
+
+
 class SyncIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -373,11 +384,18 @@ async def sync_state(
     sig = _signals(request)
     mine = sig.get(session.user_id) or {}
     every = sig.get("all") or {}
-    return {
+    out = {
         "boot": BOOT_ID,
         "sync": mine.get("sync", 0) + every.get("sync", 0),
         "reload": mine.get("reload", 0) + every.get("reload", 0),
     }
+    asked = _identify(request).get(session.user_id)
+    if asked and asked[0] > time.time():
+        out["identify"] = {
+            "name": asked[1],
+            "seconds": round(asked[0] - time.time()),
+        }
+    return out
 
 
 @router.post("/api/admin/displays/sync")
@@ -413,6 +431,24 @@ async def sync_one(
     )  # fmt: skip
     await db.commit()
     return {"ok": True}
+
+
+@router.post("/api/admin/displays/{user_id}/identify")
+async def identify(
+    user_id: int,
+    request: Request,
+    db: DbDep,
+    session: UserSession = ManageUsers,
+):
+    """The screen shows its name, big, for a little while (it sees this
+    at its next check, within about 10 seconds), so you can tell which
+    screen is which."""
+    user = await _screen(db, user_id)
+    _identify(request)[user.id] = (
+        time.time() + IDENTIFY_S,
+        user.display_name,
+    )
+    return {"ok": True, "seconds": IDENTIFY_S}
 
 
 # --- Wall profiles: named setups screens can follow -----------------------
