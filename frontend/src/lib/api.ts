@@ -487,6 +487,8 @@ export type EventType = 'conflict' | 'unrest' | 'incident' | 'quake' | 'fire' | 
 
 export interface EventItem {
   id: string;
+  // One-to-one sources' stable key ("nifc:<fire id>"), or null.
+  key?: string | null;
   type: EventType;
   severity: number;
   severity_name: string;
@@ -1080,6 +1082,54 @@ export interface Storm {
   updated: string | null;
   report: string;
 }
+// Current US wildfire outlines (NIFC WFIGS perimeters). rings are
+// [lon, lat] rings; event_key is the matching nifc event's key.
+export interface FirePerimeter {
+  id: string;
+  event_key: string;
+  name: string;
+  acres: number;
+  contained: number | null;
+  state: string | null;
+  discovered: string | null;
+  mapped: string | null;
+  lat: number;
+  lon: number;
+  rings: number[][][];
+}
+export const getFirePerimeters = () =>
+  api<{ status: 'ok' | 'error'; fires: FirePerimeter[] }>('/api/fires/perimeters');
+
+// Global Fishing Watch events for a regional view (last 30 days).
+export interface FishingVessel {
+  id: string | null;
+  name: string | null;
+  mmsi: string | null;
+  flag: string | null;
+  type: string | null;
+}
+export interface FishingEvent {
+  id: string;
+  kind: 'encounter' | 'loitering' | 'gap';
+  start: string | null;
+  end: string | null;
+  lat: number;
+  lon: number;
+  vessel: FishingVessel | null;
+  other?: FishingVessel | null;
+  eez: string | null;
+  shore_km: number | null;
+  hours?: number | null;
+  distance_km?: number | null;
+  speed_kn?: number | null;
+  intentional?: boolean | null;
+}
+export type FishingStatus = 'ok' | 'zoom' | 'nokey' | 'refused' | 'error';
+export const getFishing = (bbox: Bbox) =>
+  api<{ status: FishingStatus; events: FishingEvent[]; attribution: string }>(
+    '/api/fishing?bbox=' + bbox.map((x) => x.toFixed(3)).join(','),
+  );
+
 export const getStorms = () => api<{ status: 'ok' | 'error'; storms: Storm[] }>('/api/weather/storms');
 
 // Wind at 10 m worldwide (NOAA GFS), m/s on a regular grid: rows from

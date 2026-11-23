@@ -9,6 +9,7 @@ import {
   Cartesian3,
   Color,
   ColorGeometryInstanceAttribute,
+  DistanceDisplayCondition,
   GeometryInstance,
   PolygonGeometry,
   PolygonHierarchy,
@@ -30,7 +31,9 @@ import {
   WebMapTileServiceImageryProvider,
 } from '@cesium/engine';
 
-import type { OutlookArea, Storm, WxAlert } from '../lib/api';
+import type { FirePerimeter, OutlookArea, Storm, WxAlert } from '../lib/api';
+
+export const FIRE_COLOR = '#ff6a2b';
 
 export interface WeatherFilters {
   alerts: boolean;
@@ -39,6 +42,8 @@ export interface WeatherFilters {
   outlook: boolean;
   // Tropical cyclones worldwide: cone, track and wind swath.
   storms: boolean;
+  // Current US wildfire outlines (NIFC perimeters).
+  fires: boolean;
   clouds: boolean;
   vapour: boolean;
   precip: boolean;
@@ -55,6 +60,7 @@ export const DEFAULT_WEATHER: WeatherFilters = {
   zones: false,
   outlook: false,
   storms: true,
+  fires: true,
   clouds: false,
   vapour: false,
   precip: false,
@@ -205,7 +211,14 @@ const IMAGERY: Record<WxImagery, { every: number; make: (stamp: number) => Image
 };
 
 export interface WxLayer {
-  update: (alerts: WxAlert[], zoned: WxAlert[], outlook: OutlookArea[], storms: Storm[], f: WeatherFilters) => void;
+  update: (
+    alerts: WxAlert[],
+    zoned: WxAlert[],
+    outlook: OutlookArea[],
+    storms: Storm[],
+    fires: FirePerimeter[],
+    f: WeatherFilters,
+  ) => void;
   setImagery: (f: WeatherFilters, opacity?: WxOpacity) => void;
   setDepthDistance: (metres: number) => void;
   // The base map was rebuilt (its imagery layers were all removed).
@@ -237,7 +250,7 @@ export function addWxLayer(
   };
 
   return {
-    update(alerts, zoned, outlook, storms, f) {
+    update(alerts, zoned, outlook, storms, fires, f) {
       clear();
       const instances: GeometryInstance[] = [];
       const shape = (id: string, ring: number[][], color: Color, alpha: number, width: number, edge = 0.9) => {
@@ -279,6 +292,28 @@ export function addWxLayer(
         for (const a of alerts) {
           const c = Color.fromCssColorString(alertColor(a));
           for (const ring of a.polygons) shape('wx:' + a.key, ring, c, 0.2, a.severity >= 3 ? 2 : 1.4);
+        }
+      }
+      if (f.fires) {
+        // Wildfire outlines: hot orange, paler once mostly contained.
+        const c = Color.fromCssColorString(FIRE_COLOR);
+        for (const fire of fires) {
+          const id = 'fire:' + fire.id;
+          const done = (fire.contained ?? 0) >= 90;
+          for (const ring of fire.rings) shape(id, ring, c, done ? 0.12 : 0.3, done ? 1.2 : 2, done ? 0.55 : 0.95);
+          labels.add({
+            id,
+            position: Cartesian3.fromDegrees(fire.lon, fire.lat, 1200),
+            text: fire.name,
+            font: '600 11px Inter, system-ui, sans-serif',
+            fillColor: c,
+            outlineColor: Color.BLACK.withAlpha(0.8),
+            outlineWidth: 3,
+            style: LabelStyle.FILL_AND_OUTLINE,
+            verticalOrigin: VerticalOrigin.CENTER,
+            distanceDisplayCondition: new DistanceDisplayCondition(0, 600_000),
+            disableDepthTestDistance: depth,
+          });
         }
       }
       if (f.storms) {

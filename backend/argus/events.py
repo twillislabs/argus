@@ -24,6 +24,8 @@ SEVERITY_NAMES = {
 def event_dict(e: Event) -> dict[str, Any]:
     return {
         "id": e.id,
+        # One-to-one sources' stable key ("nifc:<fire id>"), or None.
+        "key": e.key,
         "type": e.type,
         "severity": e.severity,
         "severity_name": SEVERITY_NAMES.get(e.severity, "info"),

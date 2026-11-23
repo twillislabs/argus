@@ -29,6 +29,9 @@ export interface InfraFilters {
   // Cyber (map/cyberLayer.ts): internet outages and ransomware victims.
   outages: boolean;
   ransomware: boolean;
+  // Global Fishing Watch events (map/fishingLayer.ts), shown in the Sea
+  // group, fetched for the view.
+  fishing: boolean;
 }
 
 export const DEFAULT_INFRA: InfraFilters = {
@@ -41,6 +44,7 @@ export const DEFAULT_INFRA: InfraFilters = {
   radio: false,
   outages: false,
   ransomware: false,
+  fishing: false,
 };
 
 export const BASE_COLOR = '#ff5d8f';

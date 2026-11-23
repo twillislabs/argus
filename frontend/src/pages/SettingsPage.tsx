@@ -1263,6 +1263,13 @@ function SourcesSection() {
           for non-commercial use.
         </p>
       </KeyCard>
+      <KeyCard name="gfw" title="Global Fishing Watch" state={keys?.gfw} onSaved={setKeys}>
+        <p>
+          <b>Ships meeting, loitering, going dark</b> (Sea layers) come from <b>Global Fishing Watch</b>. Register at
+          globalfishingwatch.org/our-apis, request an API access token (free, for non-commercial use), and paste it
+          here. Argus keeps the token on the server; the data runs a few days behind.
+        </p>
+      </KeyCard>
  <KeyCard name="youtube" title="YouTube Data API (live streams and event video)" state={keys?.youtube} onSaved={setKeys}>
         <p>
           <b>Live near the view</b> (Situation panel) and <b>Video</b> (event panel) search YouTube. Create a project in

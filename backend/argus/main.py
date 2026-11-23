@@ -23,6 +23,8 @@ from argus.api import (
     cams,
     displays,
     events,
+    fires,
+    fishing,
     health,
     imagery,
     mcp,
@@ -45,6 +47,8 @@ from argus.aviation import AirClient, GpsGrid, LiveAir
 from argus.config import DEFAULT_SECRET, Settings, get_settings
 from argus.db import Database
 from argus.faa import FaaStatus
+from argus.fireperims import FirePerimeters
+from argus.fishing import Fishing
 from argus.geocode import Geocoder
 from argus.imagery import Imagery
 from argus.live import Hub, subscribe_forever
@@ -104,6 +108,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.faa = FaaStatus(settings.user_agent)
         app.state.spaceweather = SpaceWeather(settings.user_agent)
         app.state.storms = Storms(settings.user_agent)
+        app.state.fire_perimeters = FirePerimeters(settings.user_agent)
+        app.state.fishing = Fishing(settings.user_agent)
         app.state.wind = Wind(settings.user_agent)
         app.state.transit = Transit(settings.user_agent)
         app.state.streetphotos = StreetPhotos(settings.user_agent)
@@ -148,6 +154,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await app.state.faa.close()
         await app.state.spaceweather.close()
         await app.state.storms.close()
+        await app.state.fire_perimeters.close()
+        await app.state.fishing.close()
         await app.state.wind.close()
         await app.state.transit.close()
         await app.state.streetphotos.close()
@@ -213,6 +221,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         streetphotos.router,
         transit.router,
         weather.router,
+        fires.router,
+        fishing.router,
         imagery.router,
         patterns.router,
         ai.router,

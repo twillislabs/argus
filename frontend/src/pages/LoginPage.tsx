@@ -66,7 +66,8 @@ export default function LoginPage({ onDone }: { onDone: () => Promise<void> }) {
     <AuthShell>
       <div>
         <span className="eyebrow">Sign in</span>
-        <h1>Welcome back</h1>
+        <h1>Sign in to Argus</h1>
+        <p className="quiet small">Use the username and password your administrator gave you.</p>
       </div>
       {secureCookies && insecurePage() && <p className="err small">{COOKIE_HELP}</p>}
       <form className="stack" onSubmit={submit} noValidate>

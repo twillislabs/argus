@@ -64,6 +64,8 @@ import type {
   MapConfig,
   OutlookArea,
   RenderMode,
+  FirePerimeter,
+  FishingEvent,
   Storm,
   TensionCountry,
   Vessel,
@@ -90,6 +92,7 @@ import { addCamView, type CamView } from './camView';
 import { zoomToGroup } from './groups';
 import { governRendering, type RenderGovernor } from './render';
 import { addTransitLayer, type TransitLayer } from './transitLayer';
+import { addFishingLayer, type FishingLayer } from './fishingLayer';
 import { addRadioLayer, type RadioLayer } from './radioLayer';
 import { addWindLayer, type WindLayer } from './windLayer';
 import { addWxLayer, type WeatherFilters, WX_IMAGERY, WX_OVER_LAND, type WxLayer, type WxOpacity } from './wxLayer';
@@ -436,17 +439,25 @@ interface Props {
   transitVehicles?: TransitVehicle[];
   // World radio stations, and the one open in the inspector.
   radioStations?: RadioStation[];
+  // Global Fishing Watch events for the view.
+  fishingEvents?: FishingEvent[];
   selectedRadio?: string | null;
   // Traffic cameras for the view (empty when the layer is off).
   trafficCams?: TrafficCam[];
   selectedCam?: string | null;
   // Windy webcams for the view (empty when the layer is off).
   webcams?: Webcam[];
+  // The webcam being looked at (its marker ringed).
+  selectedWebcam?: string | null;
+  // Draw the selected traffic camera's still in the 3D scene.
+  camPicture?: boolean;
   // Weather (map/wxLayer.ts).
   wxAlerts?: WxAlert[];
   wxZoned?: WxAlert[];
   outlook?: OutlookArea[];
   storms?: Storm[];
+  // Current US wildfire outlines.
+  fires?: FirePerimeter[];
   // The wind grid (animated wind) and air quality points for the view.
   wind?: WindGrid | null;
   airPoints?: AirPoint[];
@@ -516,14 +527,18 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     alprCameras,
     transitVehicles,
     radioStations,
+    fishingEvents,
     selectedRadio,
     trafficCams,
     selectedCam,
+    selectedWebcam,
+    camPicture,
     webcams,
     wxAlerts,
     wxZoned,
     outlook,
     storms,
+    fires,
     wind,
     airPoints,
     airStep = 1,
@@ -581,6 +596,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const alprLayer = useRef<AlprLayer | null>(null);
   const transitLayer = useRef<TransitLayer | null>(null);
   const radioLayer = useRef<RadioLayer | null>(null);
+  const fishingLayer = useRef<FishingLayer | null>(null);
   const camLayer = useRef<CamLayer | null>(null);
   const webcamLayer = useRef<CamLayer | null>(null);
   const windLayer = useRef<WindLayer | null>(null);
@@ -703,6 +719,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     alprLayer.current = addAlprLayer(scene);
     transitLayer.current = addTransitLayer(scene);
     radioLayer.current = addRadioLayer(scene);
+    fishingLayer.current = addFishingLayer(scene);
     camLayer.current = addCamLayer(scene);
     windLayer.current = addWindLayer(v, renderRef.current);
     camView.current = addCamView(scene);
@@ -837,6 +854,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       alprLayer.current?.setDepthDistance(d);
       transitLayer.current?.setDepthDistance(d);
       radioLayer.current?.setDepthDistance(d);
+      fishingLayer.current?.setDepthDistance(d);
       camLayer.current?.setDepthDistance(d);
       webcamLayer.current?.setDepthDistance(d);
       ships.current?.setDepthDistance(d);
@@ -980,6 +998,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         ['alpr', () => alprLayer.current?.destroy()],
         ['transit', () => transitLayer.current?.destroy()],
         ['radio', () => radioLayer.current?.destroy()],
+        ['fishing', () => fishingLayer.current?.destroy()],
         ['traffic cameras', () => camLayer.current?.destroy()],
         ['webcams', () => webcamLayer.current?.destroy()],
         ['wind', () => windLayer.current?.destroy()],
@@ -1018,6 +1037,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       alprLayer.current = null;
       transitLayer.current = null;
       radioLayer.current = null;
+      fishingLayer.current = null;
       camLayer.current = null;
       webcamLayer.current = null;
       windLayer.current = null;
@@ -1230,12 +1250,15 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   useEffect(() => {
     radioLayer.current?.update(radioStations ?? [], infra.radio, selectedRadio ?? null);
   }, [radioStations, infra.radio, selectedRadio]);
+  useEffect(() => {
+    fishingLayer.current?.update(fishingEvents ?? [], infra.fishing);
+  }, [fishingEvents, infra.fishing]);
 
   useEffect(() => {
     const list = trafficCams ?? [];
     camLayer.current?.update(list, list.length > 0, selectedCam ?? null);
-    camView.current?.show(list.find((c) => c.id === selectedCam) ?? null);
-  }, [trafficCams, selectedCam]);
+    camView.current?.show(camPicture ? (list.find((c) => c.id === selectedCam) ?? null) : null);
+  }, [trafficCams, selectedCam, camPicture]);
 
   useEffect(() => {
     windLayer.current?.update(wind ?? null, Boolean(weather?.wind));
@@ -1247,8 +1270,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
 
   useEffect(() => {
     const list = webcams ?? [];
-    webcamLayer.current?.update(list, list.length > 0, null);
-  }, [webcams]);
+    webcamLayer.current?.update(list, list.length > 0, selectedWebcam ?? null);
+  }, [webcams, selectedWebcam]);
 
   useEffect(() => {
     advisoryLayer.current?.update(advisories ?? [], reference.advisories);
@@ -1264,8 +1287,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const opacityKey = WX_IMAGERY.map((k) => weatherOpacity?.[k] ?? '').join(',');
   useEffect(() => {
     if (!weather) return;
-    wx.current?.update(wxAlerts ?? [], wxZoned ?? [], outlook ?? [], storms ?? [], weather);
-  }, [wxAlerts, wxZoned, outlook, storms, weatherKey]);
+    wx.current?.update(wxAlerts ?? [], wxZoned ?? [], outlook ?? [], storms ?? [], fires ?? [], weather);
+  }, [wxAlerts, wxZoned, outlook, storms, fires, weatherKey]);
   useEffect(() => {
     if (!weather) return;
     wx.current?.setImagery(weather, opacityRef.current);

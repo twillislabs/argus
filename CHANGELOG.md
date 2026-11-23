@@ -6,6 +6,32 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Hazards
+
+- Wildfire outlines (US): the mapped edge of every current wildfire of
+  100 acres or more, from NIFC (public domain, no key), paler once
+  mostly contained; click one for its event.
+
+### Sea
+
+- Ships meeting at sea, loitering and AIS gaps (ships going dark) from
+  Global Fishing Watch, for a regional view over the last 30 days. Needs
+  a free Global Fishing Watch token (non-commercial) in Settings › Data
+  sources.
+
+### Cameras
+
+- The camera you're looking at is ringed on the map.
+- The camera's picture in the 3D scene is now a layer toggle, **Camera
+  picture on the map**, off by default.
+
+### Interface
+
+- The sign-in page says "Sign in to Argus" rather than "Welcome back",
+  for people signing in for the first time.
+- Layer descriptions mention keys only when one is missing, and the
+  traffic cameras row no longer names only Caltrans and TDOT.
+
 ### Imagery
 
 - Recent imagery close-ups everywhere: past street level, Esri World

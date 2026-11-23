@@ -290,7 +290,7 @@ is overdue (hover for the error), grey when it isn't collecting.
 
 | Layer | Shows | Source |
 |---|---|---|
-| **Traffic cameras** | Government road and weather cameras, with a wedge for the way each looks where the agency says. Click one and its live video starts (muted) where the agency streams it (most Caltrans, TDOT and DelDOT cameras, and some in Norway), or its latest clip (London's JamCams); video plays straight from the agency's server. Otherwise you get its latest still, refreshed every 30 seconds, fetched by Argus's server; **Back to the still** switches over. The selected camera's still also appears on the map: at the end of a 3D view cone where the agency gives the way it faces (press **View along it** to fly to just behind the camera, where the picture faces you), or floating above the camera where it doesn't. Loads for a regional view (zoom in to about a state). Zoomed out, cameras close together merge into a badge with their count; click it to zoom in to them. Off by default | Caltrans (California), TxDOT (Texas), WSDOT (Washington), DelDOT (Delaware, live video only), City of Austin, King County (WA), City of Toronto (Open Government Licence – Toronto), City of Calgary (Open Government Licence – City of Calgary), DriveBC (British Columbia), TfL JamCams (London, Powered by TfL Open Data), Fintraffic Digitraffic weather cameras (Finland, CC BY 4.0), Statens vegvesen (Norway, NLOD; some live video), Vegagerðin (Iceland, CC BY 4.0), Hong Kong Transport Department (DATA.GOV.HK), no keys needed; TDOT SmartWay (Tennessee) with a TDOT key in Settings › Data sources |
+| **Traffic cameras** | Government road and weather cameras, with a wedge for the way each looks where the agency says. Click one and its live video starts (muted) where the agency streams it (most Caltrans, TDOT and DelDOT cameras, and some in Norway), or its latest clip (London's JamCams); video plays straight from the agency's server. Otherwise you get its latest still, refreshed every 30 seconds, fetched by Argus's server; **Back to the still** switches over. The camera you're looking at is ringed on the map. With **Camera picture on the map** on (off by default), its still also appears in the scene: at the end of a 3D view cone where the agency gives the way it faces (press **View along it** to fly to just behind the camera, where the picture faces you), or floating above the camera where it doesn't. Loads for a regional view (zoom in to about a state). Zoomed out, cameras close together merge into a badge with their count; click it to zoom in to them. Off by default | Caltrans (California), TxDOT (Texas), WSDOT (Washington), DelDOT (Delaware, live video only), City of Austin, King County (WA), City of Toronto (Open Government Licence – Toronto), City of Calgary (Open Government Licence – City of Calgary), DriveBC (British Columbia), TfL JamCams (London, Powered by TfL Open Data), Fintraffic Digitraffic weather cameras (Finland, CC BY 4.0), Statens vegvesen (Norway, NLOD; some live video), Vegagerðin (Iceland, CC BY 4.0), Hong Kong Transport Department (DATA.GOV.HK), no keys needed; TDOT SmartWay (Tennessee) with a TDOT key in Settings › Data sources |
 | **Traffic camera viewsheds** | Where an agency gives a camera's direction (Caltrans, DriveBC, and TxDOT and WSDOT for some), its estimated view is shaded on the ground: a 60° wedge about 300 m deep, brighter for the selected camera. Agencies don't publish zoom or tilt, so it's indicative | with Traffic cameras |
 | **Webcams** | Public webcams (towns, beaches, ski slopes, harbours, city skylines) from windy.com, for a regional view. Click one and its daylight timelapse plays in the panel; the still preview, linked to its Windy page, is a click back. Windy's API doesn't share live streams, so **Live on Windy ↗** opens the stream on windy.com where the webcam has one. Off by default | windy.com, with a Windy key in Settings › Data sources |
 
@@ -496,6 +496,7 @@ allowed.
 | **Storm warnings** | NWS warnings that come with their own area (tornado, severe thunderstorm, flash flood, special marine and similar), in the NWS's colours. Hover or click for the text | NWS (US) |
 | **Watches and advisories** | NWS watches, warnings and advisories issued for whole forecast zones or counties (winter storms, heat, wind, flood watches, red flag warnings), drawn on those zones' outlines. Zone shapes are fetched from the NWS as alerts need them, so a fresh install fills in over the first few minutes | NWS (US) |
 | **Severe weather outlook** | Today's Storm Prediction Center risk areas on its 1–5 scale (Marginal, Slight, Enhanced, Moderate, High), in SPC's colours | SPC (US) |
+| **Wildfire outlines (US)** | The mapped edge of each current US wildfire of 100 acres or more (on by default), brighter while it's still burning, paler once 90% contained, with its name. Hover for its size and containment; click to open the fire's event (or its details). An outline is only as new as its last mapping flight, so a fast fire can be past it. Refreshed every half hour | NIFC (WFIGS Interagency Perimeters, public domain) |
 | **Tropical storms** | Every hurricane, typhoon and cyclone in any ocean (on by default): its track so far (solid) and forecast (dashed), coloured by strength, the forecast cone where the centre may go, and the winds it has brought so far (60, 90 and 120 km/h). Hover or click for its category and the GDACS report. Refreshed every half hour | GDACS (UN and EU JRC), from the warning centres' advisories |
 | **Radar (US)** | Rain and snow from the national radar network: the continental US, Alaska, Hawaii, Puerto Rico and Guam, a few minutes old, refreshed every 5 minutes | NOAA nowCOAST (MRMS) |
 | **Lightning** | Where lightning has struck recently (strike density) | NOAA nowCOAST |
@@ -585,6 +586,22 @@ broadcast, by category: military and law enforcement, tankers, cargo,
 passenger, fishing and other. It needs an AISStream key, which an
 administrator adds in **Settings → Data sources**; until then the group
 says so.
+
+**Ships meeting, loitering, going dark** (off by default; needs a
+Global Fishing Watch key) adds Global Fishing Watch's events for a
+regional view over the last 30 days, a dot each:
+
+- **Ships meeting at sea** (pink): two vessels side by side for a while,
+  often a fishing boat handing its catch to a carrier (transshipment).
+- **Loitering** (yellow): a vessel, often a carrier, moving slowly in
+  one area far from port.
+- **AIS gap** (red): a vessel's transponder went quiet; GFW marks a gap
+  as likely switched off when the ship was in good receiver coverage.
+
+Hover for the vessels, dates and how long; click for what it means and
+links to each vessel on Global Fishing Watch. The events run a few days
+behind and are indicators, not proof. Data from Global Fishing Watch
+(CC BY-NC 4.0, non-commercial), fetched by the server and never stored.
 
 Vessels load for the area in view, most interesting first (military,
 tankers, passenger, cargo), up to 4,000 at a time. Moving ships are hulls

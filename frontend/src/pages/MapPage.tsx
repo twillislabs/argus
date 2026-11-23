@@ -6,6 +6,7 @@ import AppHeader from '../components/AppHeader';
 import { BaseInspector, CableInspector, PlantInspector } from '../components/InfraInspector';
 import PlaceInspector from '../components/PlaceInspector';
 import { airPatternLine, airPatternTitle, seaPatternLine, seaPatternTitle } from '../lib/patterns';
+import { fishingInfo, fishingLinks, fishingNote } from '../lib/fishing';
 import ImageryPanel, { closeUpFor, type ImageryState, newImagery } from '../components/ImageryPanel';
 import TourPanel from '../components/TourPanel';
 import AskPanel, { type AskItem } from '../components/AskPanel';
@@ -68,6 +69,11 @@ import {
   type GpsCell,
   getOutlook,
   getStorms,
+  getFirePerimeters,
+  getFishing,
+  type FishingEvent,
+  type FishingStatus,
+  type FirePerimeter,
   getWind,
   getTransit,
   getRadio,
@@ -121,7 +127,7 @@ import { CAM_COLOR, WEBCAM_COLOR } from '../map/camLayer';
 import { type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { aircraftColor } from '../map/aircraftLayer';
 import { BASE_KINDS, FUEL_COLOR } from '../map/infraLayer';
-import { alertColor, stormColor, type WxOpacity } from '../map/wxLayer';
+import { alertColor, FIRE_COLOR, stormColor, type WxOpacity } from '../map/wxLayer';
 import { ago, SEVERITY_COLOR, TYPE_INFO } from '../lib/format';
 import { setHover } from '../lib/hover';
 import type { AirspaceFilters } from '../map/airspaceLayer';
@@ -313,6 +319,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [outlook, setOutlook] = useState<OutlookArea[]>([]);
   const [weatherNow, setWeatherNow] = useState<WeatherNow | null>(null);
   const [storms, setStorms] = useState<Storm[]>([]);
+  const [fires, setFires] = useState<FirePerimeter[]>([]);
+  const [fishingEvents, setFishingEvents] = useState<FishingEvent[]>([]);
+  const [fishingStatus, setFishingStatus] = useState<FishingStatus>('zoom');
   const [wind, setWind] = useState<WindGrid | null>(null);
   const [air, setAir] = useState<{ points: AirPoint[]; step: number; status: string }>({
     points: [],
@@ -404,6 +413,24 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       if (r.status === 'ok') setStructureItems(r.items);
     } catch {
       setStructureStatus('error');
+    }
+  }, []);
+
+  // Global Fishing Watch events for the view (regional views only).
+  const loadFishing = useCallback(async () => {
+    const bbox = viewRef.current;
+    if (!filtersRef.current.infra.fishing) return;
+    if (!bbox) {
+      setFishingStatus('zoom');
+      setFishingEvents([]);
+      return;
+    }
+    try {
+      const r = await getFishing(bbox);
+      setFishingStatus(r.status);
+      setFishingEvents(r.events);
+    } catch {
+      setFishingStatus('error');
     }
   }, []);
 
@@ -733,13 +760,18 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         void loadWebcams();
         void loadAir();
         void loadTransit();
+        void loadFishing();
       }, 400);
     },
-    [loadCivil, loadVessels, loadStructure, loadAlpr, loadCams, loadWebcams, loadAir, loadTransit],
+    [loadCivil, loadVessels, loadStructure, loadAlpr, loadCams, loadWebcams, loadAir, loadTransit, loadFishing],
   );
   useEffect(() => {
     if (filters.airspace.structure) void loadStructure();
   }, [filters.airspace.structure, loadStructure]);
+  useEffect(() => {
+    if (filters.infra.fishing) void loadFishing();
+    else setFishingEvents([]);
+  }, [filters.infra.fishing, loadFishing]);
   useEffect(() => {
     if (filters.cams.traffic) void loadCams();
     else setTrafficCams([]);
@@ -948,6 +980,21 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       window.clearInterval(id);
     };
   }, [filters.weather.storms]);
+  // Wildfire outlines (NIFC, cached half an hour by the API).
+  useEffect(() => {
+    if (!filters.weather.fires) return;
+    let cancelled = false;
+    const load = () =>
+      getFirePerimeters()
+        .then((r) => !cancelled && setFires(r.fires))
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 1_800_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [filters.weather.fires]);
   // Animated wind (NOAA GFS, a new grid every 3 hours on the API).
   useEffect(() => {
     if (!filters.weather.wind) return;
@@ -1531,6 +1578,17 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       openRight();
       return;
     }
+    // A wildfire outline opens its NIFC event when it's on the map, else
+    // an info panel.
+    if (id && id.startsWith('fire:')) {
+      const f = fires.find((x) => 'fire:' + x.id === id);
+      const ev = f ? events.find((e) => e.key === f.event_key) : undefined;
+      clearSelection();
+      if (ev) setSelected(ev.id);
+      else setSelectedInfo(id);
+      openRight();
+      return;
+    }
     // Map items that aren't events: a small info panel, never the event
     // lookup (it would only say there's no such event).
     if (
@@ -1545,6 +1603,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         id.startsWith('rw:') ||
         id.startsWith('draw:') ||
         id.startsWith('wx:') ||
+        id.startsWith('gfw:') ||
         id.startsWith('storm:') ||
         id.startsWith('spc:'))
     ) {
@@ -1868,6 +1927,23 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
           }
         : null;
     }
+    if (id.startsWith('gfw:')) {
+      const e = fishingEvents.find((x) => 'gfw:' + x.id === id);
+      return e ? fishingInfo(e) : null;
+    }
+    if (id.startsWith('fire:')) {
+      const f = fires.find((x) => x.id === id.slice(5));
+      return f
+        ? {
+            title: f.name + (f.state ? ' (' + f.state + ')' : ''),
+            color: FIRE_COLOR,
+            lines: [
+              f.acres.toLocaleString() + ' acres · ' + (f.contained !== null ? f.contained + '% contained' : 'containment not reported'),
+              f.mapped ? 'Outline mapped ' + new Date(f.mapped).toLocaleDateString() : '',
+            ],
+          }
+        : null;
+    }
     if (id.startsWith('storm:')) {
       const st = storms.find((x) => x.id === id.slice(6));
       return st
@@ -2060,6 +2136,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
             zoneCount={filters.weather.zones ? wxZoned.length : undefined}
             stormCount={filters.weather.storms ? storms.length : undefined}
+            fishingStatus={fishingStatus}
+            fishingCount={filters.infra.fishing && fishingStatus === 'ok' ? fishingEvents.length : undefined}
+            fireCount={filters.weather.fires ? fires.length : undefined}
             airCount={
               filters.weather.air ? (air.status === 'zoom' ? 'zoom in' : String(air.points.length)) : undefined
             }
@@ -2115,6 +2194,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             selectedRadio={selectedRadio}
             trafficCams={filters.cams.traffic ? trafficCams : []}
             webcams={filters.cams.webcams ? webcams : []}
+            selectedWebcam={selectedWebcam?.id ?? null}
+            camPicture={filters.cams.picture}
             selectedCam={selectedCam?.id ?? null}
             wxAlerts={wxAlerts}
             wxZoned={wxZoned}
@@ -2130,6 +2211,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             onHover={onHover}
             onContext={(lat, lon, x, y) => setCtxMenu({ lat, lon, x, y })}
             storms={filters.weather.storms ? storms : []}
+            fires={filters.weather.fires ? fires : []}
+            fishingEvents={fishingEvents}
             wind={filters.weather.wind ? wind : null}
             airPoints={filters.weather.air ? air.points : []}
             airStep={air.step}
@@ -2463,6 +2546,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                     : selectedInfo.startsWith('wx:')
                       ? ([...wxAlerts, ...wxZoned].find((x) => 'wx:' + x.key === selectedInfo)?.description ?? '') +
                         ' (National Weather Service; open the alert for its full text and instructions.)'
+                      : selectedInfo.startsWith('gfw:')
+                        ? fishingNote(fishingEvents.find((x) => 'gfw:' + x.id === selectedInfo))
+                      : selectedInfo.startsWith('fire:')
+                        ? 'Wildfire outline from NIFC (US National Interagency Fire Center): the area mapped as burned or burning on the date shown, which can lag behind a fast-moving fire. For evacuations follow local officials.'
                       : selectedInfo.startsWith('storm:')
                         ? 'Tropical cyclone from GDACS (UN and EU JRC), from the warning centres\u2019 advisories: the solid line is its track so far, the dashed line the forecast track (coloured by strength), the pale area the forecast cone (where the centre may go) and the tinted areas the winds it has brought so far (60, 90 and 120 km/h). Updated every few hours; for decisions use your national weather service.'
                       : selectedInfo.startsWith('spc:')
@@ -2485,7 +2572,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
                       : 'A shape you drew. Delete it with the Delete tool.'
                 }
                 links={
-                  selectedInfo.startsWith('storm:')
+                  selectedInfo.startsWith('gfw:')
+                    ? fishingLinks(fishingEvents.find((x) => 'gfw:' + x.id === selectedInfo))
+                    : selectedInfo.startsWith('fire:')
+                    ? [{ label: 'InciWeb', url: 'https://inciweb.wildfire.gov/' }]
+                    : selectedInfo.startsWith('storm:')
                     ? [{ label: 'GDACS report', url: storms.find((x) => 'storm:' + x.id === selectedInfo)?.report ?? 'https://www.gdacs.org/' }]
                     : selectedInfo.startsWith('raid:ua')
                     ? [{ label: 'Ukraine air-raid map (alerts.in.ua)', url: 'https://alerts.in.ua/en' }]

@@ -61,6 +61,31 @@ function icon(wedge: boolean, color = CAM_COLOR): HTMLCanvasElement {
   return c;
 }
 
+// The camera you're looking at: a bright ring around its marker, so it
+// stands out among its neighbours.
+function ring(color: string): HTMLCanvasElement {
+  const px = 64;
+  const c = document.createElement('canvas');
+  c.width = c.height = px;
+  const ctx = c.getContext('2d');
+  if (!ctx) return c;
+  const m = px / 2;
+  ctx.beginPath();
+  ctx.arc(m, m, m - 5, 0, 2 * Math.PI);
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+  ctx.stroke();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = color;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(m, m, m - 11, 0, 2 * Math.PI);
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.stroke();
+  return c;
+}
+
 const VIEW_FOV = 60;
 export const VIEW_RANGE_M = 300;
 const EARTH_M = 6_371_000;
@@ -93,6 +118,7 @@ export function addCamLayer(scene: Scene, color = CAM_COLOR, prefix = 'cam:'): C
   scene.primitives.add(billboards);
   const withWedge = icon(true, color);
   const plain = icon(false, color);
+  const halo = ring(color);
   const scale = new NearFarScalar(2e3, 0.9, 2e5, 0.4);
   let depth = 0;
   let views: Primitive | null = null;
@@ -154,6 +180,16 @@ export function addCamLayer(scene: Scene, color = CAM_COLOR, prefix = 'cam:'): C
     }
     for (const c of alone) {
       const facing = c.direction !== null && c.direction !== undefined;
+      if (c.id === picked) {
+        billboards.add({
+          id: prefix + c.id,
+          position: Cartesian3.fromDegrees(c.lon, c.lat, 40),
+          image: halo,
+          scale: 1.1,
+          scaleByDistance: scale,
+          disableDepthTestDistance: depth,
+        });
+      }
       billboards.add({
         id: prefix + c.id,
         position: Cartesian3.fromDegrees(c.lon, c.lat, 40),

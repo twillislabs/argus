@@ -1,7 +1,7 @@
 import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
 import { OUTAGE_COLOR, RANSOMWARE_COLOR } from '../map/cyberLayer';
 
-import type { CivilStatus, EventType, SeaStatus, SourceStatus } from '../lib/api';
+import type { CivilStatus, EventType, FishingStatus, SeaStatus, SourceStatus } from '../lib/api';
 import { EVENT_TYPES, SEVERITY_NAME, TYPE_INFO } from '../lib/format';
 import { AIR_COLOR } from '../map/aircraftLayer';
 import { AIRSPACE_COLOR, type AirspaceFilters, DEFAULT_AIRSPACE } from '../map/airspaceLayer';
@@ -17,6 +17,7 @@ import { CAM_COLOR, WEBCAM_COLOR } from '../map/camLayer';
 import { DEFAULT_WEATHER, opacityOf, type WeatherFilters, WX_IMAGERY, type WxImagery, type WxOpacity } from '../map/wxLayer';
 import { distance } from '../lib/units';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
+import { FISHING_COLOR } from '../map/fishingLayer';
 
 export interface AirFilters {
   military: boolean;
@@ -40,7 +41,8 @@ export interface LayerFilters {
   // Wikipedia current events (map/wikiLayer.ts).
   wiki: boolean;
   // Cameras: government traffic cameras (map/camLayer.ts).
-  cams: { traffic: boolean; webcams: boolean };
+  // picture: the selected traffic camera's still drawn in the 3D scene.
+  cams: { traffic: boolean; webcams: boolean; picture: boolean };
   weather: WeatherFilters;
 }
 
@@ -60,7 +62,7 @@ export const DEFAULT_FILTERS: LayerFilters = {
   infra: DEFAULT_INFRA,
   tension: true,
   wiki: false,
-  cams: { traffic: false, webcams: false },
+  cams: { traffic: false, webcams: false, picture: false },
   weather: DEFAULT_WEATHER,
 };
 
@@ -93,6 +95,7 @@ const WEATHER_ROWS: { id: keyof WeatherFilters; label: string; source: string; c
   { id: 'zones', label: 'Watches and advisories', source: 'NWS · by forecast zone and county', color: '#e3c04b' },
   { id: 'outlook', label: 'Severe weather outlook', source: 'SPC · today, level 1–5', color: '#66a366' },
   { id: 'storms', label: 'Tropical storms', source: 'GDACS · track, forecast cone, wind swath', color: '#ff9447' },
+  { id: 'fires', label: 'Wildfire outlines (US)', source: 'NIFC · mapped fire perimeters', color: '#ff6a2b' },
   { id: 'radar', label: 'Radar (US)', source: 'NOAA nowCOAST · MRMS mosaic, 5 min', color: '#36d1a0' },
   { id: 'lightning', label: 'Lightning', source: 'NOAA nowCOAST · strike density', color: '#ffe066' },
   { id: 'clouds', label: 'Clouds (infrared)', source: 'NASA GIBS · GOES, Himawari', color: '#9aa7ba' },
@@ -110,7 +113,7 @@ const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color
   { id: 'bases', label: 'Military bases', source: 'OpenStreetMap', color: BASE_COLOR },
   { id: 'alpr', label: 'Plate reader cameras', source: 'Flock and other ALPR · OpenStreetMap', color: ALPR_COLOR },
   { id: 'transit', label: 'Public transport (live)', source: 'Operators’ GTFS-Realtime · 9 cities', color: TRANSIT_COLOR },
-  { id: 'radio', label: 'Radio stations', source: 'Radio Browser · 1,500 most played', color: RADIO_COLOR },
+  { id: 'radio', label: 'Radio stations', source: 'Radio Browser · most played stations', color: RADIO_COLOR },
   { id: 'outages', label: 'Internet outages', source: 'IODA · countries, last 24 hours', color: OUTAGE_COLOR },
   { id: 'ransomware', label: 'Ransomware victims', source: 'ransomware.live · latest 100 claims, per country', color: RANSOMWARE_COLOR },
 ];
@@ -193,6 +196,10 @@ interface Props {
   weatherCount?: number;
   zoneCount?: number;
   stormCount?: number;
+  // Global Fishing Watch (a Sea row, stored in infra.fishing).
+  fishingStatus?: FishingStatus;
+  fishingCount?: number;
+  fireCount?: number;
   airCount?: string;
   // Weather imagery opacity, by layer.
   weatherOpacity?: WxOpacity;
@@ -333,6 +340,9 @@ export default function LayerPanel({
   weatherCount,
   zoneCount,
   stormCount,
+  fishingStatus = 'zoom',
+  fishingCount,
+  fireCount,
   airCount,
   weatherOpacity,
   onWeatherOpacity,
@@ -526,7 +536,12 @@ export default function LayerPanel({
           </label>
         ))}
       </Group>
-      <Group title="Sea" on={countOn(filters.sea)} total={SEA_ROWS.length} forceOpen={Boolean(q)}>
+      <Group
+        title="Sea"
+        on={countOn({ ...filters.sea, gfw: filters.infra.fishing })}
+        total={SEA_ROWS.length + 1}
+        forceOpen={Boolean(q)}
+      >
         {seaOn && <p className={'ghint' + (seaStatus === 'ok' ? '' : ' warn')}>{SEA_HINT[seaStatus]}</p>}
         {SEA_ROWS.map((r) => (
           <label key={r.id} className="lrow">
@@ -546,6 +561,34 @@ export default function LayerPanel({
             </span>
           </label>
         ))}
+        <label className="lrow">
+          <input
+            type="checkbox"
+            checked={filters.infra.fishing}
+            onChange={(e) => onChange({ ...filters, infra: { ...filters.infra, fishing: e.target.checked } })}
+          />
+          <span className="tog" />
+          <span className="sw" style={{ background: FISHING_COLOR.encounter }} />
+          <span className="lname">
+            <span>Ships meeting, loitering, going dark</span>
+            <small
+              className={
+                filters.infra.fishing && fishingStatus !== 'ok' && fishingStatus !== 'zoom' ? 'warn' : undefined
+              }
+            >
+              {filters.infra.fishing
+                ? {
+                    ok: 'Global Fishing Watch · last 30 days',
+                    zoom: 'Global Fishing Watch · zoom in to load',
+                    nokey: 'Needs a Global Fishing Watch key (Settings)',
+                    refused: 'Global Fishing Watch refused the key',
+                    error: 'Global Fishing Watch unavailable',
+                  }[fishingStatus]
+                : 'Global Fishing Watch · last 30 days'}
+            </small>
+          </span>
+          <span className="lcount mono">{fishingCount ?? '–'}</span>
+        </label>
       </Group>
       <Group title="Space" on={countOn(filters.space)} total={SPACE_ROWS.length} forceOpen={Boolean(q)}>
         {SPACE_ROWS.map((r) => (
@@ -592,6 +635,8 @@ export default function LayerPanel({
                       ? (zoneCount ?? '–')
                       : r.id === 'storms'
                         ? (stormCount ?? '–')
+                        : r.id === 'fires'
+                        ? (fireCount ?? '–')
                         : r.id === 'air'
                           ? (airCount ?? '')
                           : ''}
@@ -617,7 +662,7 @@ export default function LayerPanel({
           );
         })}
       </Group>
-      <Group title="Infrastructure" on={countOn(filters.infra)} total={INFRA_ROWS.length} forceOpen={Boolean(q)}>
+      <Group title="Infrastructure" on={countOn({ ...filters.infra, fishing: false })} total={INFRA_ROWS.length} forceOpen={Boolean(q)}>
         {INFRA_ROWS.map((r) => (
           <label key={r.id} className="lrow">
             <input
@@ -646,7 +691,7 @@ export default function LayerPanel({
           </label>
         ))}
       </Group>
-      <Group title="Cameras" on={countOn(filters.cams)} total={2} forceOpen={Boolean(q)}>
+      <Group title="Cameras" on={countOn(filters.cams)} total={3} forceOpen={Boolean(q)}>
         <label className="lrow">
           <input
             type="checkbox"
@@ -657,7 +702,7 @@ export default function LayerPanel({
           <span className="sw" style={{ background: CAM_COLOR }} />
           <span className="lname">
             <span>Traffic cameras</span>
-            <small>Caltrans · TDOT with a key</small>
+            <small>Government traffic cameras · US, Canada, Europe, Hong Kong</small>
           </span>
           <span className="lcount mono">
             {filters.cams.traffic ? (camCount ?? 'zoom in') : null}
@@ -674,9 +719,27 @@ export default function LayerPanel({
           <span className="sw" style={{ background: WEBCAM_COLOR }} />
           <span className="lname">
             <span>Webcams</span>
-            <small>windy.com · needs a Windy key</small>
+            <small className={filters.cams.webcams && webcamNote === 'no key' ? 'warn' : undefined}>
+              {filters.cams.webcams && webcamNote === 'no key'
+                ? 'Needs a Windy key (Settings)'
+                : 'Windy · webcams near the view'}
+            </small>
           </span>
           <span className="lcount mono">{filters.cams.webcams ? (webcamCount ?? webcamNote ?? '–') : null}</span>
+        </label>
+        <label className="lrow">
+          <input
+            type="checkbox"
+            checked={filters.cams.picture}
+            onChange={(e) => onChange({ ...filters, cams: { ...filters.cams, picture: e.target.checked } })}
+          />
+          <span className="tog" />
+          <span className="sw" style={{ background: CAM_COLOR, opacity: 0.6 }} />
+          <span className="lname">
+            <span>Camera picture on the map</span>
+            <small>The selected traffic camera&apos;s view, in 3D</small>
+          </span>
+          <span className="lcount mono" />
         </label>
       </Group>
       <Group title="Reference" on={countOn(filters.reference)} total={REFERENCE_ROWS.length} forceOpen={Boolean(q)}>

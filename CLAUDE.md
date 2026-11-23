@@ -495,6 +495,24 @@ parts connect.
   most every `MIN_AGE_S`; `map/transitLayer.ts` (`transit:<op>:<id>`,
   hover card only, no selection). Add a feed only with a keyless URL
   and an open licence, credited in README.
+- Wildfire outlines: `argus/fireperims.py` (NIFC WFIGS Interagency
+  Perimeters Current, keyless, simplified server-side and with
+  `geo.simplify`, cached 30 min in API memory), `/api/fires/perimeters`,
+  drawn by wxLayer (`WeatherFilters.fires`, `fire:<id>`); a click opens
+  the event whose `key` is the perimeter's `event_key` (`nifc:<id>`;
+  `event_dict` now returns `key`), else an info panel.
+- Global Fishing Watch: `argus/fishing.py` (key `gfw` in Data sources,
+  Events API POST per `TILE_DEG` tile, encounters/loitering/gaps, last
+  `DAYS`, cached `TTL_S` in API memory: CC BY-NC and the token must stay
+  server-side, so never persist it or send it to browsers; datasets a
+  token can't read go in `refused`), `/api/fishing?bbox=`,
+  `map/fishingLayer.ts` (`gfw:<id>`, info panel), wording in
+  `lib/fishing.ts`. Its toggle is `InfraFilters.fishing` but the row
+  sits in the Sea group (SeaFilters keys are vessel categories:
+  `seaOn` checks them all).
+- Camera picture: the selected traffic camera's still in the scene
+  (camView) only with `cams.picture` (off by default); the camera being
+  looked at is ringed (camLayer `ring`, traffic cameras and webcams).
 - Street photos: `argus/streetphotos.py` (Panoramax `api/search`, no
   key); the image proxy fetches only URLs a search returned (`allowed`),
   never a client's. KartaView's image hosts were down (2026-11); Mapillary

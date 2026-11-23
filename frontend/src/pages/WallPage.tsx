@@ -522,6 +522,7 @@ export default function WallPage({ me }: { me: Me }) {
             zones: on('wx_zones'),
             outlook: on('wx_outlook'),
             storms: on('wx_storms'),
+            fires: false,
             radar: on('radar'),
             lightning: on('lightning'),
             clouds: on('clouds'),
