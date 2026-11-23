@@ -68,10 +68,23 @@ async def live_near(
     lon: float = Query(..., ge=-180, le=180),
     radius_km: int = Query(100, ge=5, le=1000),
 ):
+    """Live streams in the area: YouTube (with the key) by location,
+    and Dailymotion (no key) by the names of the area's biggest places.
+    status is YouTube's (nokey, quota...) when Dailymotion found nothing
+    either; sources says how each did."""
+    video = request.app.state.video
     key = await _key(request, db, "youtube")
-    return await _answer(
-        request.app.state.video.live_near(key, lat, lon, radius_km)
-    )
+    yt = await _answer(video.live_near(key, lat, lon, radius_km))
+    dm = await _answer(video.dailymotion_near(lat, lon, radius_km))
+    for v in yt["items"]:
+        v.setdefault("platform", "youtube")
+    items = yt["items"] + dm["items"]
+    status = "ok" if items or yt["status"] == "ok" else yt["status"]
+    return {
+        "status": status,
+        "items": items,
+        "sources": {"youtube": yt["status"], "dailymotion": dm["status"]},
+    }
 
 
 @router.get("/api/video/event/{event_id}")

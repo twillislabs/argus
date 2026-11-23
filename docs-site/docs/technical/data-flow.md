@@ -162,7 +162,7 @@ answer cached and shared by everyone:
 | adsb.lol / adsb.fi | 15 s | Civil aircraft in the view |
 | Overpass | a week | Plate reader cameras |
 | openAIP | a day | Restricted areas and control zones |
-| YouTube, Rumble | 5–10 min | Live news stream IDs |
+| YouTube, Rumble, Dailymotion | 5–10 min | Live news stream IDs (Kick channels embed by name) |
 | AI provider (if set up) | digest an hour | Digest, summaries, Ask Argus |
 
 The API also runs the **alert checker** every minute, against what it

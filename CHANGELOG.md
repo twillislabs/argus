@@ -6,6 +6,14 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Video
+
+- Live near the view searches Dailymotion too, without a key: live
+  streams naming the area's biggest places, then the live channels based
+  in that country. It now finds something even without a YouTube key.
+- Live channels can be on Dailymotion or Kick as well as YouTube and
+  Rumble (Settings › Live channels).
+
 ## [1.5.0] - 2026-11-23
 
 Wildfire outlines, Global Fishing Watch at sea, sharp imagery close-ups

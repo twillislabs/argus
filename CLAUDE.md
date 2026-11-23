@@ -293,7 +293,15 @@ parts connect.
   checks the video's own `videoDetails` for `isUpcoming` and reports
   `upcoming` with `starts_at` instead. Channels not on
   YouTube use Rumble (`platform: 'rumble'`, resolved from the channel's
-  livestreams JSON plus oEmbed); new embed hosts go in the CSP frame-src.
+  livestreams JSON plus oEmbed), Dailymotion (its public API, no key,
+  `live_onair`) or Kick (`player.kick.com/<slug>`, never checked: Kick's
+  API needs a user token; `unverified: true`); `youtube.PLATFORMS`,
+  `PLATFORM_PATTERN` and the frontend's `Platform`/`PLATFORM_NAME`
+  (config/newsChannels.ts) list them. New embed hosts go in the CSP
+  frame-src. Live near the view also searches Dailymotion without a key
+  (`Video.dailymotion_near`: the area's biggest places by name via
+  `places.largest_near`, then live channels by country; items carry
+  `platform` and `where`).
 - Tension index: `argus/tension.py`. Standing level from UCDP deaths
   (`data/conflict.tsv.gz`, rebuilt by `scripts/build_conflict.py` from
   the GED + Candidate Events downloads; CC BY 4.0) plus up to 20 live

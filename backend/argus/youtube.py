@@ -22,6 +22,14 @@ import httpx
 
 CHANNEL_RE = re.compile(r"^UC[A-Za-z0-9_-]{22}$")
 RUMBLE_RE = re.compile(r"^[A-Za-z0-9_-]{2,60}$")
+# Dailymotion user names and Kick channel slugs.
+DM_RE = re.compile(r"^[A-Za-z0-9_-]{2,60}$")
+KICK_RE = re.compile(r"^[A-Za-z0-9_-]{2,40}$")
+DM_LIVE = "https://api.dailymotion.com/user/{0}/videos"
+DM_USER = "https://api.dailymotion.com/user/{0}"
+DM_VIDEO = re.compile(r"^x[a-z0-9]{3,12}$")
+PLATFORMS = ("youtube", "rumble", "dailymotion", "kick")
+PLATFORM_PATTERN = "^(youtube|rumble|dailymotion|kick)$"
 LIVE_PAGE = "https://www.youtube.com/channel/{0}/live"
 RUMBLE_LIVE = "https://rumble.com/c/{0}/livestreams"
 RUMBLE_OEMBED = "https://rumble.com/api/Media/oembed.json"
@@ -94,6 +102,10 @@ def valid_channel(platform: str, channel: str) -> bool:
         return bool(CHANNEL_RE.match(channel))
     if platform == "rumble":
         return bool(RUMBLE_RE.match(channel))
+    if platform == "dailymotion":
+        return bool(DM_RE.match(channel))
+    if platform == "kick":
+        return bool(KICK_RE.match(channel))
     return False
 
 
@@ -124,7 +136,11 @@ class LiveIds:
             hit = self._cache.get(key)
             if hit and hit[0] > time.monotonic():
                 return hit[1]
-            fetch = self._fetch if platform == "youtube" else self._rumble
+            fetch = {
+                "rumble": self._rumble,
+                "dailymotion": self._dailymotion,
+                "kick": self._kick,
+            }.get(platform, self._fetch)
             async with self._gate:
                 result, ttl = await fetch(channel)
             result["platform"] = platform
@@ -146,6 +162,34 @@ class LiveIds:
         if not m:
             return {"status": "error", "video_id": None}, ERROR_TTL_S
         return {"status": "live", "video_id": m.group(1)}, LIVE_TTL_S
+
+    async def _dailymotion(self, channel: str) -> tuple[dict, int]:
+        """Dailymotion's public API (no key): the user's video on air."""
+        try:
+            r = await self._client.get(
+                DM_LIVE.format(channel),
+                params={"live_onair": "1", "fields": "id", "limit": "1"},
+            )
+            if r.status_code == 404:
+                return {"status": "error", "video_id": None}, ERROR_TTL_S
+            r.raise_for_status()
+            found = r.json().get("list") or []
+        except (httpx.HTTPError, ValueError):
+            return {"status": "error", "video_id": None}, ERROR_TTL_S
+        vid = found[0].get("id") if found else None
+        if not vid or not DM_VIDEO.match(str(vid)):
+            return {"status": "offline", "video_id": None}, OFFLINE_TTL_S
+        return {"status": "live", "video_id": vid}, LIVE_TTL_S
+
+    async def _kick(self, channel: str) -> tuple[dict, int]:
+        """Kick's player embeds a channel by its slug and shows its own
+        offline screen; its API needs a signed-in user, so Argus doesn't
+        ask whether the channel is live."""
+        return {
+            "status": "live",
+            "video_id": channel,
+            "unverified": True,
+        }, LIVE_TTL_S
 
     async def _fetch(self, channel: str) -> tuple[dict, int]:
         try:
@@ -173,6 +217,8 @@ HANDLE_RE = re.compile(r"^@?([A-Za-z0-9._-]{3,30})$")
 CHANNEL_IN_URL = re.compile(r"youtube\.com/channel/(UC[A-Za-z0-9_-]{22})")
 HANDLE_IN_URL = re.compile(r"youtube\.com/@([A-Za-z0-9._-]{3,30})")
 RUMBLE_IN_URL = re.compile(r"rumble\.com/(?:c/|user/)?([A-Za-z0-9_-]{2,60})")
+DM_IN_URL = re.compile(r"dailymotion\.com/(?!video/)([A-Za-z0-9_-]{2,60})")
+KICK_IN_URL = re.compile(r"kick\.com/([A-Za-z0-9_-]{2,40})")
 PAGE_CHANNEL_ID = re.compile(
     r'(?:"externalId"|"channelId"|"browseId"):"(UC[A-Za-z0-9_-]{22})"'
 )
@@ -196,6 +242,12 @@ def parse_channel_input(text: str) -> tuple[str, str] | None:
     if "rumble.com" in t:
         m = RUMBLE_IN_URL.search(t)
         return ("rumble", m.group(1)) if m else None
+    if "dailymotion.com" in t:
+        m = DM_IN_URL.search(t)
+        return ("dailymotion", m.group(1)) if m else None
+    if "kick.com" in t:
+        m = KICK_IN_URL.search(t)
+        return ("kick", m.group(1).lower()) if m else None
     if t.startswith("@"):
         m = HANDLE_RE.match(t)
         return ("handle", m.group(1)) if m else None
@@ -206,14 +258,18 @@ async def lookup_channel(ids: LiveIds, text: str, platform: str) -> dict:
     """The channel ID, name and live status for something an admin
     typed (a channel ID, a channel or @handle link, or a Rumble channel).
     Raises ValueError with a message for people."""
-    if platform == "rumble" and RUMBLE_RE.match(text.strip()):
-        kind, value = "rumble", text.strip()
+    if platform in ("rumble", "dailymotion", "kick") and valid_channel(
+        platform, text.strip()
+    ):
+        kind, value = platform, text.strip()
+        if kind == "kick":
+            value = value.lower()
     else:
         found = parse_channel_input(text)
         if found is None:
             raise ValueError(
                 "Paste a YouTube channel link, an @handle, a channel ID "
-                "(UC...) or a Rumble channel link."
+                "(UC...), or a Rumble, Dailymotion or Kick channel link."
             )
         kind, value = found
     client = ids._client
@@ -240,6 +296,16 @@ async def lookup_channel(ids: LiveIds, text: str, platform: str) -> dict:
             raise ValueError("YouTube has no channel {0}.".format(value))
         m = FEED_TITLE.search(feed.text)
         name = m.group(1).strip() if m else None
+    if kind == "dailymotion":
+        try:
+            r = await client.get(
+                DM_USER.format(value), params={"fields": "screenname"}
+            )
+        except httpx.HTTPError as exc:
+            raise ValueError("Dailymotion didn't answer.") from exc
+        if r.status_code != 200:
+            raise ValueError("Dailymotion has no channel {0}.".format(value))
+        name = (r.json().get("screenname") or "").strip() or None
     live = await ids.resolve(value, kind)
     if kind == "rumble" and live.get("status") == "error":
         raise ValueError("Rumble has no channel {0}.".format(value))

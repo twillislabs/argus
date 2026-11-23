@@ -190,3 +190,30 @@ def nearest(lat: float, lon: float, max_km: float = 75) -> Place | None:
                 if d < best_d:
                     best, best_d = p, d
     return best
+
+
+def largest_near(
+    lat: float, lon: float, radius_km: float, limit: int = 3
+) -> list[Place]:
+    """The most populous listed places within radius_km, biggest first."""
+    reach = int(radius_km / 111) + 1
+    gi, gj = int(lat // 1), int(lon // 1)
+    grid = _grid()
+    found = []
+    for di in range(-reach, reach + 1):
+        for dj in range(-reach, reach + 1):
+            cell = (gi + di, (gj + dj + 180) % 360 - 180)
+            for p in grid.get(cell, ()):
+                if distance_km(lat, lon, p.lat, p.lon) <= radius_km:
+                    found.append(p)
+    found.sort(key=lambda p: -p.population)
+    out, seen = [], set()
+    for p in found:
+        # "Paris 15 Vaugirard" adds nothing to "Paris".
+        if any(p.key == k or p.key.startswith(k + " ") for k in seen):
+            continue
+        seen.add(p.key)
+        out.append(p)
+        if len(out) >= limit:
+            break
+    return out

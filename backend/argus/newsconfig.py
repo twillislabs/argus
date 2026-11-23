@@ -152,7 +152,9 @@ def clean_channel(c: dict) -> dict:
         "short": " ".join(str(c.get("short") or name).split())[:24],
         "group": " ".join(str(c.get("group") or "Other").split())[:40]
         or "Other",
-        "platform": "rumble" if c.get("platform") == "rumble" else "youtube",
+        "platform": c.get("platform")
+        if c.get("platform") in ("rumble", "dailymotion", "kick")
+        else "youtube",
         "enabled": c.get("enabled", True) is not False,
     }
 

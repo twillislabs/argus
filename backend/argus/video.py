@@ -1,4 +1,9 @@
-"""Video near a place, with an admin's keys (Settings > Data sources):
+"""Video near a place, with an admin's keys (Settings > Data sources)
+and without:
+
+- Dailymotion's public API (no key): live streams whose titles name the
+  biggest places in the area (Dailymotion has no location search), so
+  "Live near the view" works even without a YouTube key.
 
 - YouTube Data API v3 search.list (key "youtube"): live streams within a
   radius of a point (type=video, eventType=live, location,
@@ -24,9 +29,15 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from argus import places
+
 log = logging.getLogger("argus.video")
 
 YT_SEARCH = "https://www.googleapis.com/youtube/v3/search"
+DM_SEARCH = "https://api.dailymotion.com/videos"
+DM_ID = re.compile(r"^x[a-z0-9]{3,12}$")
+DM_PLACES = 3
+DM_COUNTRY = 8
 WINDY = "https://api.windy.com/webcams/api/v3/webcams"
 NEAR_TTL_S = 1800  # YouTube live near a place
 EVENT_TTL_S = 3600  # YouTube videos about an event
@@ -65,6 +76,36 @@ def parse_youtube(doc: dict, live: bool) -> list[dict]:
                     vid
                 ),
                 "url": "https://www.youtube.com/watch?v={0}".format(vid),
+            }
+        )
+    return out
+
+
+def parse_dailymotion(doc: dict, words: list[str] | None) -> list[dict]:
+    """Live Dailymotion videos whose title names one of the places (any
+    live video when words is None)."""
+    out = []
+    for item in doc.get("list") or []:
+        vid = str(item.get("id") or "")
+        title = _clean(item.get("title"), 200)
+        if not DM_ID.match(vid) or not item.get("onair"):
+            continue
+        folded = places.fold(title)
+        if words is not None and not any(
+            re.search(r"\b{0}\b".format(re.escape(w)), folded) for w in words
+        ):
+            continue
+        thumb = item.get("thumbnail_360_url") or ""
+        out.append(
+            {
+                "id": vid,
+                "platform": "dailymotion",
+                "title": title,
+                "channel": _clean(item.get("owner.screenname"), 120),
+                "published": None,
+                "live": True,
+                "thumb": thumb if thumb.startswith("https://") else "",
+                "url": "https://www.dailymotion.com/video/{0}".format(vid),
             }
         )
     return out
@@ -178,6 +219,48 @@ class Video:
             raise Quota()
         r.raise_for_status()
         return parse_youtube(r.json(), live)
+
+    async def dailymotion_near(
+        self, lat: float, lon: float, radius_km: int
+    ) -> list[dict]:
+        """Live Dailymotion streams naming the area's biggest places."""
+        radius = max(5, min(MAX_RADIUS_KM, int(radius_km)))
+        ck = "dm:{0:.1f},{1:.1f},{2}".format(lat, lon, radius)
+        hit = self._hit(ck, NEAR_TTL_S)
+        if hit is not None:
+            return hit
+        found: dict[str, dict] = {}
+        biggest = places.largest_near(lat, lon, radius, DM_PLACES)
+        fields = "id,title,owner.screenname,onair,thumbnail_360_url"
+        for p in biggest:
+            r = await self.client.get(
+                DM_SEARCH,
+                params={
+                    "live_onair": "1",
+                    "search": p.name,
+                    "fields": fields,
+                    "limit": "20",
+                },
+            )
+            r.raise_for_status()
+            for v in parse_dailymotion(r.json(), [p.key]):
+                found.setdefault(v["id"], v)
+        # Then the live channels based in that country (broadcasters).
+        if biggest and len(biggest[0].cc) == 2:
+            r = await self.client.get(
+                DM_SEARCH,
+                params={
+                    "live_onair": "1",
+                    "country": biggest[0].cc,
+                    "fields": fields,
+                    "limit": str(DM_COUNTRY),
+                },
+            )
+            r.raise_for_status()
+            for v in parse_dailymotion(r.json(), None):
+                v["where"] = biggest[0].country
+                found.setdefault(v["id"], v)
+        return self._put(ck, list(found.values()))
 
     async def live_near(
         self, key: str | None, lat: float, lon: float, radius_km: int

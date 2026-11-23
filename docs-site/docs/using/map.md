@@ -296,12 +296,19 @@ is overdue (hover for the error), grey when it isn't collecting.
 
 ## Live video near the view and about events
 
-With a YouTube Data API key (Settings › Data sources):
-
 - **Live near the view** in the Situation panel (when zoomed in to a
-  region): **Find live streams here** lists YouTube live streams tagged
-  with a place inside the view, most watched first. Click one to play it
-  in the panel.
+  region): **Find live streams here** lists live streams for the area,
+  and a click plays one in the panel:
+  - **YouTube** (with a YouTube Data API key in Settings › Data
+    sources): live streams tagged with a place inside the view, most
+    watched first.
+  - **Dailymotion** (no key): live streams whose titles name the area's
+    biggest places, then the live channels based in that country (news
+    and radio broadcasters), marked with the country. Dailymotion has
+    no location search, so this is by name.
+
+With a YouTube Data API key:
+
 - **Video** in an event's panel: **Find video about this event** lists
   recent videos (since a few hours before the event began) for its place
   and kind of event, near it where uploads say where they were filmed.
@@ -575,9 +582,10 @@ left out.
 
 Each tab plays the channel's current live stream: Argus looks up the
 live video from the channel's page (checked every few minutes, once for
-everyone) and plays it through YouTube's embed, or Rumble's for Alex
-Jones Live, which isn't on YouTube. If a channel isn't live, the player
-says so.
+everyone) and plays it through YouTube's embed, or Rumble's,
+Dailymotion's or Kick's for channels there. If a channel isn't live, the
+player says so; Kick's own player shows its offline screen instead, since
+Kick's API needs a signed-in user to say whether a channel is live.
 
 ## Ships
 

@@ -51,7 +51,7 @@ flowchart TB
 | `api/deps.py` | FastAPI dependencies: DB session per request, current session with CSRF check, cookie helpers, the in-memory IP rate limiter. |
 | `aviation.py` | Bundled airports and airlines; `LiveAir`, the in-memory military picture (latest positions and a 30-minute trail per aircraft); `AirClient` for adsb.lol area queries and adsbdb routes and types, with caches. |
 | `tension.py` | Tension index: per-country standing level from bundled UCDP deaths (12 months) plus live points from confirmed conflict, unrest and maritime events (12-hour half-life); world and theatre roll-ups; "vs normal" from hourly samples in `tension_daily`. |
-| `youtube.py` | Live video IDs for the news player (YouTube `/live` pages, Rumble livestreams), cached per channel. |
+| `youtube.py` | Live video IDs for the news player (YouTube `/live` pages, Rumble livestreams, Dailymotion's public API; Kick embeds by channel name), cached per channel. |
 | `search.py` | Universal search. `decode()` reads a query into every plausible meaning (coordinates, flight, hex, registration, squawk, airport, filter word); `resolve()` turns those into results using live aircraft, adsb.lol, places and events. |
 | `api/*.py` | One router per area. Handlers stay thin and call into services. |
 

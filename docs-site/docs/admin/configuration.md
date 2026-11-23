@@ -173,7 +173,8 @@ channels later releases add).
   **Rename** on its header (renaming to an existing section merges them).
 - **Live channels:** the channels the news player, the News page and the
   Wall offer, in order. Paste a YouTube channel link, a `@handle`, a
-  channel ID or a Rumble channel link and **Look up**: Argus finds the
+  channel ID, or a Rumble, Dailymotion or Kick channel link (or pick the
+  platform and type the channel's name) and **Look up**: Argus finds the
   channel's ID and name and says whether it's live now. Set its tab label
   and group, then **Add channel**. **Check live**, **Edit**, the arrows
   and **Remove** work on each one. Only add channels with a true live

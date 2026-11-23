@@ -104,13 +104,34 @@ async def test_event_video_falls_back_to_words():
     await v.close()
 
 
-async def test_api_without_keys(app, admin_client):
+async def test_api_without_keys(app, admin_client, monkeypatch):
+    async def none_on_dailymotion(lat, lon, radius_km):
+        return []
+
+    monkeypatch.setattr(
+        app.state.video, "dailymotion_near", none_on_dailymotion
+    )
     r = (
         await admin_client.get(
             "/api/video/near", params={"lat": 36.1, "lon": -86.8}
         )
     ).json()
-    assert r == {"status": "nokey", "items": []}
+    assert r["status"] == "nokey" and r["items"] == []
+    assert r["sources"] == {"youtube": "nokey", "dailymotion": "ok"}
+
+    async def one_on_dailymotion(lat, lon, radius_km):
+        return [{"id": "x8abc12", "platform": "dailymotion", "title": "t"}]
+
+    monkeypatch.setattr(
+        app.state.video, "dailymotion_near", one_on_dailymotion
+    )
+    r = (
+        await admin_client.get(
+            "/api/video/near", params={"lat": 36.1, "lon": -86.8}
+        )
+    ).json()
+    # Dailymotion found one without any key: that's an answer.
+    assert r["status"] == "ok" and r["items"][0]["id"] == "x8abc12"
     r = (
         await admin_client.get(
             "/api/webcams", params={"bbox": "-87,36,-86.5,36.4"}

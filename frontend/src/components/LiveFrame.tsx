@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { type Channel, embedUrl } from '../config/newsChannels';
+import { type Channel, embedUrl, PLATFORM_NAME } from '../config/newsChannels';
 import { getLiveVideo, type LiveVideo } from '../lib/api';
 import { videoPrefs } from '../lib/video';
 
@@ -67,7 +67,7 @@ export default function LiveFrame({
     <div className="np-video">
       {ready?.video_id ? (
         <iframe
-          key={ready.video_id + (platform === 'rumble' ? String(prefs.muted) : '')}
+          key={ready.video_id + (platform !== 'youtube' ? String(prefs.muted) : '')}
           ref={frame}
           src={embedUrl(platform, ready.video_id, prefs.muted)}
           onLoad={onLoad}
@@ -94,7 +94,7 @@ export default function LiveFrame({
                 '. Try another channel.'
               : ready.status === 'offline'
                 ? channel.name + " isn't live right now. Try another channel."
-                : "Couldn't reach " + (platform === 'rumble' ? 'Rumble' : 'YouTube') + '. Try again in a minute.'}
+                : "Couldn't reach " + PLATFORM_NAME[platform ?? 'youtube'] + '. Try again in a minute.'}
         </div>
       )}
     </div>

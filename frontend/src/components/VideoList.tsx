@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import type { VideoAnswer, VideoItem } from '../lib/api';
 import { ago } from '../lib/format';
 
-// Videos from a YouTube search (live near the view, or about an event),
-// fetched only when asked (the key's daily quota is small), with
-// thumbnails and an inline player. Plays through youtube-nocookie.
+// Videos from a search (live near the view: YouTube with a key and
+// Dailymotion without; or YouTube video about an event), fetched only
+// when asked (YouTube's daily quota is small), with thumbnails and an
+// inline player. YouTube plays through youtube-nocookie.
 // Argus pages send no referrer to other sites (nginx), but YouTube's
 // player refuses to start without one (error 153), so the frame asks for
 // the origin only. Any video can pop out into its own window (/news?v=).
@@ -16,7 +17,7 @@ export function popOutVideo(v: { id: string; title: string }) {
 }
 
 const STATUS: Record<string, string> = {
-  nokey: 'Add a YouTube Data API key in Settings › Data sources to search for video.',
+  nokey: 'Nothing found. Add a YouTube Data API key in Settings › Data sources to search YouTube too.',
   quota: "YouTube's daily search quota for this server's key is used up; it resets at midnight Pacific time.",
   error: "YouTube didn't answer. Try again in a minute.",
 };
@@ -57,7 +58,13 @@ export default function VideoList({
       {playing && (
         <div className="vidplayer">
           <iframe
-            src={'https://www.youtube-nocookie.com/embed/' + playing.id + '?autoplay=1&mute=1&playsinline=1'}
+            src={
+              playing.platform === 'dailymotion'
+                ? 'https://geo.dailymotion.com/player.html?video=' +
+                  encodeURIComponent(playing.id) +
+                  '&autoplay=1&mute=true'
+                : 'https://www.youtube-nocookie.com/embed/' + playing.id + '?autoplay=1&mute=1&playsinline=1'
+            }
             title={playing.title}
             allow="autoplay; encrypted-media; picture-in-picture"
             referrerPolicy="strict-origin-when-cross-origin"
@@ -65,16 +72,18 @@ export default function VideoList({
           />
           <div className="vidplaying">
             <span>{playing.title}</span>
-            <button
-              className="btn small"
-              title="Open in its own window"
-              onClick={() => {
-                popOutVideo(playing);
-                setPlaying(null);
-              }}
-            >
-              Pop out ⧉
-            </button>
+            {playing.platform !== 'dailymotion' && (
+              <button
+                className="btn small"
+                title="Open in its own window"
+                onClick={() => {
+                  popOutVideo(playing);
+                  setPlaying(null);
+                }}
+              >
+                Pop out ⧉
+              </button>
+            )}
             <button className="btn small" onClick={() => setPlaying(null)}>
               Close
             </button>
@@ -99,25 +108,29 @@ export default function VideoList({
                   <b>{v.title}</b>
                   <small>
                     {v.live ? <i className="livetag">LIVE</i> : null} {v.channel}
+                    {v.platform === 'dailymotion' ? ' · Dailymotion' : ''}
+                    {v.where ? ' · ' + v.where : ''}
                     {v.published && !v.live ? ' · ' + ago(v.published) : ''}
                   </small>
                 </span>
               </button>
-              <button
-                className="vidpop"
-                title="Open in its own window"
-                aria-label={'Pop out ' + v.title}
-                onClick={() => popOutVideo(v)}
-              >
-                ⧉
-              </button>
+              {v.platform !== 'dailymotion' && (
+                <button
+                  className="vidpop"
+                  title="Open in its own window"
+                  aria-label={'Pop out ' + v.title}
+                  onClick={() => popOutVideo(v)}
+                >
+                  ⧉
+                </button>
+              )}
             </li>
           ))}
         </ul>
       )}
       {answer && (
         <p className="quiet small">
-          From YouTube.{' '}
+          {answer.sources ? 'From YouTube and Dailymotion.' : 'From YouTube.'}{' '}
           <button className="linkbtn" onClick={() => void load()} disabled={busy}>
             Search again
           </button>

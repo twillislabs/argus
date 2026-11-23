@@ -64,7 +64,7 @@ class ChannelIn(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     short: str = Field(default="", max_length=24)
     group: str = Field(default="Other", max_length=40)
-    platform: str = Field(default="youtube", pattern="^(youtube|rumble)$")
+    platform: str = Field(default="youtube", pattern=youtube.PLATFORM_PATTERN)
     enabled: bool = True
 
 
@@ -89,7 +89,7 @@ class LookupIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     input: str = Field(min_length=2, max_length=300)
-    platform: str = Field(default="youtube", pattern="^(youtube|rumble)$")
+    platform: str = Field(default="youtube", pattern=youtube.PLATFORM_PATTERN)
 
 
 async def _save(

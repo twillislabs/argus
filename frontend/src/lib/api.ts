@@ -1,4 +1,4 @@
-import type { Channel } from '../config/newsChannels';
+import type { Channel, Platform } from '../config/newsChannels';
 
 // Thin fetch wrapper: JSON in and out, CSRF header, readable errors.
 
@@ -857,6 +857,10 @@ export interface AirspaceItem {
 // YouTube search results (/api/video/...), with an admin's key.
 export interface VideoItem {
   id: string;
+  // Where it plays (YouTube when missing).
+  platform?: 'youtube' | 'dailymotion';
+  // Dailymotion broadcasters found by country rather than by place.
+  where?: string;
   title: string;
   channel: string;
   published: string | null;
@@ -867,6 +871,8 @@ export interface VideoItem {
 export interface VideoAnswer {
   status: 'ok' | 'nokey' | 'quota' | 'error' | 'zoom';
   items: VideoItem[];
+  // Live near the view: how each source did.
+  sources?: Partial<Record<'youtube' | 'dailymotion', string>>;
 }
 export const getLiveNear = (lat: number, lon: number, radiusKm: number) =>
   api<VideoAnswer>(
@@ -1305,8 +1311,8 @@ export const getChannels = () => api<ChannelsState>('/api/admin/news/channels');
 export const putChannels = (items: ChannelsState['items'], groups: string[]) =>
   api<ChannelsState>('/api/admin/news/channels', { method: 'PUT', body: { items, groups } });
 export const resetChannels = () => api<ChannelsState>('/api/admin/news/channels', { method: 'DELETE' });
-export const lookupChannel = (input: string, platform: 'youtube' | 'rumble') =>
-  api<{ id: string; platform: 'youtube' | 'rumble'; name: string; status: string; starts_at?: number | null }>(
+export const lookupChannel = (input: string, platform: Platform) =>
+  api<{ id: string; platform: Platform; name: string; status: string; starts_at?: number | null }>(
     '/api/admin/news/channels/lookup',
     { method: 'POST', body: { input, platform } },
   );

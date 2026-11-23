@@ -159,7 +159,7 @@ async def live_video(
     channel: str,
     session: SessionDep,
     request: Request,
-    platform: str = Query("youtube", pattern="^(youtube|rumble)$"),
+    platform: str = Query("youtube", pattern=youtube.PLATFORM_PATTERN),
 ):
     """A channel's current live video, for the news player."""
     if not youtube.valid_channel(platform, channel):

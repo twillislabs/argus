@@ -6,6 +6,15 @@
 // (/api/news/live/<channel>) and the player embeds that video; YouTube
 // no longer plays embed/live_stream?channel=...
 
+// Where a channel streams. YouTube is the default.
+export type Platform = 'youtube' | 'rumble' | 'dailymotion' | 'kick';
+export const PLATFORM_NAME: Record<Platform, string> = {
+  youtube: 'YouTube',
+  rumble: 'Rumble',
+  dailymotion: 'Dailymotion',
+  kick: 'Kick',
+};
+
 export interface Channel {
   // A YouTube channel ID, or the Rumble channel name for Rumble.
   id: string;
@@ -13,7 +22,7 @@ export interface Channel {
   short: string;
   // US, International, Business, Weather... or an admin's own group.
   group: string;
-  platform?: 'youtube' | 'rumble';
+  platform?: Platform;
 }
 
 export const CHANNELS: Channel[] = [
@@ -61,6 +70,20 @@ export const DEFAULT_TABS = [
 ];
 
 export function embedUrl(platform: Channel['platform'], videoId: string, muted = true): string {
+  if (platform === 'dailymotion') {
+    return (
+      'https://geo.dailymotion.com/player.html?video=' +
+      encodeURIComponent(videoId) +
+      '&autoplay=1&mute=' +
+      (muted ? 'true' : 'false')
+    );
+  }
+  if (platform === 'kick') {
+    // Kick's player takes the channel and shows its own offline screen.
+    return (
+      'https://player.kick.com/' + encodeURIComponent(videoId) + '?autoplay=true&muted=' + (muted ? 'true' : 'false')
+    );
+  }
   if (platform === 'rumble') {
     // autoplay=2 starts muted (browsers allow that); 1 starts with sound.
     return 'https://rumble.com/embed/' + encodeURIComponent(videoId) + '/?autoplay=' + (muted ? '2' : '1');

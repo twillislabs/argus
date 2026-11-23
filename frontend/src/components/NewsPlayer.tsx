@@ -1,6 +1,6 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 
-import { CHANNELS, channelGroups, DEFAULT_TABS } from '../config/newsChannels';
+import { CHANNELS, channelGroups, DEFAULT_TABS, PLATFORM_NAME } from '../config/newsChannels';
 import LiveFrame from './LiveFrame';
 
 interface Props {
@@ -155,7 +155,7 @@ export default function NewsPlayer({ index, channel, tabs, onChannel, onTabs, on
       ) : (
         <LiveFrame channel={current} />
       )}
-      <div className="np-foot">Streams are the channels&apos; own, played through {current.platform === 'rumble' ? 'Rumble' : 'YouTube'}.</div>
+      <div className="np-foot">Streams are the channels&apos; own, played through {PLATFORM_NAME[current.platform ?? 'youtube']}.</div>
     </div>
   );
 }

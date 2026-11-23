@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 
 import { type ChannelsState, getChannels, lookupChannel, putChannels, resetChannels } from '../lib/api';
+import { type Platform, PLATFORM_NAME } from '../config/newsChannels';
 import ChoiceInput from './ChoiceInput';
 import NameHeader from './NameHeader';
 
-// Settings > Live channels (admins): the YouTube and Rumble channels the
+// Settings > Live channels (admins): the YouTube, Rumble, Dailymotion and Kick channels the
 // news player, the News page and the Wall offer, in this order. A
 // channel is added from a link, @handle or channel ID: the server looks
 // it up for its ID, name and whether it's live now. Each change is saved
@@ -24,7 +25,7 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
   const [state, setState] = useState<ChannelsState | null>(null);
   const [status, setStatus] = useState('');
   const [input, setInput] = useState('');
-  const [platform, setPlatform] = useState<'youtube' | 'rumble'>('youtube');
+  const [platform, setPlatform] = useState<Platform>('youtube');
   const [found, setFound] = useState<Found | null>(null);
   const [draft, setDraft] = useState<{ name: string; short: string; group: string }>({
     name: '',
@@ -143,15 +144,19 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
               </label>
               <label className="field">
                 <span>Platform</span>
-                <select value={platform} onChange={(e) => setPlatform(e.target.value as 'youtube' | 'rumble')}>
+                <select value={platform} onChange={(e) => setPlatform(e.target.value as Platform)}>
                   <option value="youtube">YouTube</option>
                   <option value="rumble">Rumble</option>
+                  <option value="dailymotion">Dailymotion</option>
+                  <option value="kick">Kick</option>
                 </select>
               </label>
             </div>
             <p className="quiet small">
               Only add channels with a true live stream (around the clock, or a live TV simulcast): the player shows a
-              channel&apos;s current live video, and nothing when it isn&apos;t live.
+              channel&apos;s current live video, and nothing when it isn&apos;t live. Kick channels play in Kick&apos;s own
+              player, which shows its offline screen when the channel isn&apos;t live (Argus can&apos;t check without a Kick
+              sign-in).
             </p>
             <span className="actions">
               <button
@@ -209,7 +214,7 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
             {found && (
               <div className="feedtest">
                 <p className={found.status === 'live' ? 'ok small' : 'quiet small'}>
-                  Found <b>{found.name}</b> ({found.platform === 'rumble' ? 'Rumble' : 'YouTube'}{' '}
+                  Found <b>{found.name}</b> ({PLATFORM_NAME[found.platform]}{' '}
                   <span className="mono">{found.id}</span>): {STATUS[found.status] ?? found.status}.
                 </p>
                 <div className="aigrid">
@@ -318,7 +323,7 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
                   <span className="cname">
                     <b>
                       {c.name}
-                      {c.platform === 'rumble' && <span className="badge">Rumble</span>}
+                      {c.platform && c.platform !== 'youtube' && <span className="badge">{PLATFORM_NAME[c.platform]}</span>}
                     </b>
                     <small>
                       Tab <b>{c.short}</b> · <span className="mono">{c.id}</span>

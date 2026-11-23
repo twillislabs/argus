@@ -15,7 +15,7 @@ import AlertsSection from '../components/AlertsSection';
 import LiveChannelsSection from '../components/LiveChannelsSection';
 import NewsFeedsSection from '../components/NewsFeedsSection';
 import BriefSectionsEditor from '../components/BriefSectionsEditor';
-import { CHANNELS, DEFAULT_TABS } from '../config/newsChannels';
+import { CHANNELS, DEFAULT_TABS, PLATFORM_NAME } from '../config/newsChannels';
 import {
   api,
   can,
@@ -811,7 +811,7 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
                   <b>{c.name}</b>
                   <small>
                     {c.group}
-                    {c.platform === 'rumble' ? ' · Rumble' : ''}
+                    {c.platform && c.platform !== 'youtube' ? ' · ' + PLATFORM_NAME[c.platform] : ''}
                   </small>
                 </span>
                 {on && (
