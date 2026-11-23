@@ -6,6 +6,16 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-11-23
+
+A fix for the home marker, and a street map for the whole US. Nothing
+to change when you upgrade.
+
+### Map
+
+- The HOME marker and its label hide when your home is on the far side
+  of the globe; they used to show through it.
+
 ### Street map
 
 - `make streetmap REGION=us` downloads the whole US: the lower 48,
