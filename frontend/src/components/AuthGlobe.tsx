@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { feature, mesh } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 
+import { currentTheme, type Theme } from '../lib/themes';
+
 // The sign-in page's globe: Natural Earth countries (bundled, 110m) on a
 // slowly turning orthographic globe, with a graticule, an atmosphere, a
 // starfield, the real day and night (the Sun's position now), a few lit
@@ -84,6 +86,48 @@ const STARS = Array.from({ length: 170 }, (_, i) => {
 
 type Ring = number[][];
 
+// A CSS colour as r, g, b (the browser parses it), cached.
+const parsed = new Map<string, [number, number, number]>();
+const probe = document.createElement('canvas').getContext('2d');
+function rgbOf(css: string): [number, number, number] {
+  const hit = parsed.get(css);
+  if (hit) return hit;
+  let out: [number, number, number] = [128, 160, 200];
+  if (probe) {
+    probe.fillStyle = '#000';
+    probe.fillStyle = css;
+    const v = String(probe.fillStyle);
+    const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(v);
+    const fn = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(v);
+    if (hex) out = [parseInt(hex[1], 16), parseInt(hex[2], 16), parseInt(hex[3], 16)];
+    else if (fn) out = [Number(fn[1]), Number(fn[2]), Number(fn[3])];
+  }
+  parsed.set(css, out);
+  return out;
+}
+const withAlpha = (css: string) => {
+  const [r, g, b] = rgbOf(css);
+  return (a: number) => 'rgba(' + r + ', ' + g + ', ' + b + ', ' + Math.max(0, Math.min(1, a)).toFixed(3) + ')';
+};
+
+// The theme's colours for the globe (lib/themes.ts).
+function palette(t: Theme) {
+  const [r, g, b] = rgbOf(t.map.ocean);
+  const lift = (v: number) => Math.min(255, Math.round(v + 22));
+  return {
+    accent: withAlpha(t.colors.accent),
+    crit: withAlpha(t.colors.crit),
+    high: withAlpha(t.colors.high),
+    elev: withAlpha(t.colors.elev),
+    ok: withAlpha(t.colors.ok),
+    ocean: t.map.ocean,
+    oceanLit: 'rgb(' + lift(r) + ', ' + lift(g) + ', ' + lift(b) + ')',
+    land: t.map.land,
+    border: t.map.coast,
+    graticule: t.map.graticule,
+  };
+}
+
 export default function AuthGlobe() {
   const canvas = useRef<HTMLCanvasElement>(null);
 
@@ -164,6 +208,7 @@ export default function AuthGlobe() {
       };
 
       const t = (now - start) / 1000;
+      const C = palette(currentTheme());
 
       // Stars behind everything.
       for (const st of STARS) {
@@ -174,15 +219,15 @@ export default function AuthGlobe() {
 
       // Atmosphere and ocean.
       const glow = ctx.createRadialGradient(cx, cy, r * 0.96, cx, cy, r * 1.22);
-      glow.addColorStop(0, 'rgba(91, 155, 255, 0.28)');
-      glow.addColorStop(1, 'rgba(91, 155, 255, 0)');
+      glow.addColorStop(0, C.accent(0.28));
+      glow.addColorStop(1, C.accent(0));
       ctx.fillStyle = glow;
       ctx.beginPath();
       ctx.arc(cx, cy, r * 1.22, 0, 2 * Math.PI);
       ctx.fill();
       const sea = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.1, cx, cy, r);
-      sea.addColorStop(0, '#132033');
-      sea.addColorStop(1, '#070b11');
+      sea.addColorStop(0, C.oceanLit);
+      sea.addColorStop(1, C.ocean);
       ctx.fillStyle = sea;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, 2 * Math.PI);
@@ -194,7 +239,7 @@ export default function AuthGlobe() {
       ctx.clip();
 
       // Graticule every 15 degrees, near side only.
-      ctx.strokeStyle = 'rgba(120, 150, 190, 0.12)';
+      ctx.strokeStyle = C.graticule;
       ctx.lineWidth = 0.8;
       const line = (pts: [number, number][]) => {
         let down = false;
@@ -224,7 +269,7 @@ export default function AuthGlobe() {
       }
 
       // Land: only polygons with some part on the near side.
-      ctx.fillStyle = '#1a2230';
+      ctx.fillStyle = C.land;
       for (const poly of land) {
         let near = false;
         ctx.beginPath();
@@ -240,7 +285,7 @@ export default function AuthGlobe() {
         }
         if (near) ctx.fill('evenodd');
       }
-      ctx.strokeStyle = 'rgba(140, 170, 210, 0.35)';
+      ctx.strokeStyle = C.border;
       ctx.lineWidth = 0.7;
       for (const b of borders) line(b as [number, number][]);
 
@@ -308,7 +353,7 @@ export default function AuthGlobe() {
             const sy = cy - y * lift * r;
             if (prev && visible) {
               const alpha = (i / steps) * 0.85 * Math.min(1, (1.15 - phase) * 4);
-              ctx.strokeStyle = 'rgba(255, 196, 92, ' + alpha.toFixed(3) + ')';
+              ctx.strokeStyle = C.high(alpha);
               ctx.lineWidth = 1.3;
               ctx.beginPath();
               ctx.moveTo(prev[0], prev[1]);
@@ -317,7 +362,7 @@ export default function AuthGlobe() {
             }
             prev = visible ? [sx, sy] : null;
             if (i === steps && visible && phase <= 1) {
-              ctx.fillStyle = 'rgba(255, 220, 150, 0.95)';
+              ctx.fillStyle = C.elev(0.95);
               ctx.beginPath();
               ctx.arc(sx, sy, 1.8, 0, 2 * Math.PI);
               ctx.fill();
@@ -327,26 +372,26 @@ export default function AuthGlobe() {
       }
 
       // Lit cities and a few alerts, pulsing.
-      const dot = (lon: number, lat: number, color: string, size: number, pulse: number) => {
+      const dot = (lon: number, lat: number, color: (a: number) => string, size: number, pulse: number) => {
         const [x, y, z] = project(lon, lat);
         if (z < 0.05) return;
         const [sx, sy] = toScreen(x, y, z);
         const fade = Math.min(1, z * 3);
         if (pulse) {
           const k = (t * 0.6 + pulse) % 1;
-          ctx.strokeStyle = color.replace('A', String((1 - k) * 0.7 * fade));
+          ctx.strokeStyle = color((1 - k) * 0.7 * fade);
           ctx.lineWidth = 1.2;
           ctx.beginPath();
           ctx.arc(sx, sy, size + k * 14, 0, 2 * Math.PI);
           ctx.stroke();
         }
-        ctx.fillStyle = color.replace('A', String(0.95 * fade));
+        ctx.fillStyle = color(0.95 * fade);
         ctx.beginPath();
         ctx.arc(sx, sy, size, 0, 2 * Math.PI);
         ctx.fill();
       };
-      for (const [lon, lat] of CITIES) dot(lon, lat, 'rgba(140, 200, 255, A)', 1.8, 0);
-      ALERTS.forEach(([lon, lat], i) => dot(lon, lat, 'rgba(255, 82, 96, A)', 2.6, still ? 0 : i * 0.25 + 0.1));
+      for (const [lon, lat] of CITIES) dot(lon, lat, C.accent, 1.8, 0);
+      ALERTS.forEach(([lon, lat], i) => dot(lon, lat, C.crit, 2.6, still ? 0 : i * 0.25 + 0.1));
 
       // Light from the upper left.
       const shade = ctx.createRadialGradient(cx - r * 0.45, cy - r * 0.5, r * 0.2, cx, cy, r * 1.05);
@@ -356,7 +401,7 @@ export default function AuthGlobe() {
       ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
       ctx.restore();
 
-      ctx.strokeStyle = 'rgba(91, 155, 255, 0.35)';
+      ctx.strokeStyle = C.accent(0.35);
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, 2 * Math.PI);
@@ -375,7 +420,7 @@ export default function AuthGlobe() {
           return [sx, sy, !hidden];
         };
         ctx.lineWidth = 0.8;
-        ctx.strokeStyle = 'rgba(126, 224, 194, 0.16)';
+        ctx.strokeStyle = C.ok(0.16);
         ctx.setLineDash([3, 5]);
         ctx.beginPath();
         let down = false;
@@ -395,7 +440,7 @@ export default function AuthGlobe() {
         for (let i = 8; i >= 0; i--) {
           const [sx, sy, vis] = pos(u - i * 0.025);
           if (!vis) continue;
-          ctx.fillStyle = 'rgba(126, 224, 194, ' + (i === 0 ? 1 : (1 - i / 9) * 0.45).toFixed(3) + ')';
+          ctx.fillStyle = C.ok(i === 0 ? 1 : (1 - i / 9) * 0.45);
           ctx.beginPath();
           ctx.arc(sx, sy, i === 0 ? 2.4 : 1.4, 0, 2 * Math.PI);
           ctx.fill();
@@ -407,10 +452,10 @@ export default function AuthGlobe() {
         const angle = (t * 0.5) % (2 * Math.PI);
         const sweep = ctx.createConicGradient(angle - 0.09 * 2 * Math.PI, cx, cy);
         // Faint behind, brightest at the leading edge.
-        sweep.addColorStop(0, 'rgba(91, 155, 255, 0)');
-        sweep.addColorStop(0.09, 'rgba(91, 155, 255, 0.11)');
-        sweep.addColorStop(0.0905, 'rgba(91, 155, 255, 0)');
-        sweep.addColorStop(1, 'rgba(91, 155, 255, 0)');
+        sweep.addColorStop(0, C.accent(0));
+        sweep.addColorStop(0.09, C.accent(0.11));
+        sweep.addColorStop(0.0905, C.accent(0));
+        sweep.addColorStop(1, C.accent(0));
         ctx.save();
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, 2 * Math.PI);

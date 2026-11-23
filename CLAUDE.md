@@ -466,6 +466,19 @@ parts connect.
   `mode: "tv"` makes the wall
   live TV only (`tv_channels`, `muted`, `volume`; LiveFrame's `audio`
   prop applies sound changes through the YouTube player API).
+- Themes: `lib/themes.ts` (built-ins in `BUILTIN_THEMES`, `resolveTheme`
+  from a base, `chooseTheme` mine > server > dark, `applyTheme` sets CSS
+  variables and `data-corners/overlay/stripe/theme` on <html>,
+  `onThemeChange`), `styles/themes.css` (effects by data attribute),
+  `backend/argus/themes.py` (`BUILTIN`, `clean`: every custom value from
+  a list or a strict pattern), `api/themes.py` (`/api/theme` public for
+  signed-out pages, `/api/admin/themes`), preference `theme`,
+  `defaults.theme`, `/api/me` `themes`. Stylesheets use `--radius`,
+  `--radius-s`, `--glow`, `--map-*`, `--hdr-*`, `--accent-text` and
+  `color-mix(var(--surface) N%)` for see-through panels, never fixed
+  values. The globe repaints via `darkMap.setPalette`; `lightMap` swaps
+  to Esri light grey. Fonts are self-hosted `@fontsource` (CSP). Docs:
+  using/themes.md (format), technical/themes.md (adding one).
 - Page titles are set per route in `App.tsx` (`pageTitle`); only
   NewsPage sets its own.
 - Settings menu: `SECTIONS` in SettingsPage, grouped by `GROUPS` (You,

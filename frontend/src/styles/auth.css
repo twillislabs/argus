@@ -1,22 +1,22 @@
 /* Sign-in and first-run setup pages. */
 .auth {
   flex: 1; min-height: 0; overflow: auto; position: relative; display: flex; align-items: center;
-  border: 1px solid var(--line); border-radius: 6px; background: #070a0e;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--map-background);
 }
 /* The globe fills the page behind the form, dimmed towards the form. */
 .auth-art { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .auth-globe-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0.75; }
 .auth-art::after {
   content: ''; position: absolute; inset: 0;
-  background: linear-gradient(90deg, rgba(7, 10, 14, 0) 0%, rgba(7, 10, 14, 0.25) 45%, rgba(7, 10, 14, 0.7) 75%, rgba(7, 10, 14, 0.85) 100%);
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--map-background) 25%, transparent) 45%, color-mix(in srgb, var(--map-background) 70%, transparent) 75%, color-mix(in srgb, var(--map-background) 85%, transparent) 100%);
 }
 .auth-art .claim { position: absolute; left: 28px; right: 28px; bottom: 28px; display: grid; gap: 4px; z-index: 1; max-width: 520px; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9); }
 .auth-art .claim b {
   display: block; font: 600 34px/1.05 var(--f-head); letter-spacing: 0.14em;
-  background: linear-gradient(90deg, #e9f1ff, var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent;
+  background: linear-gradient(90deg, var(--text), var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .auth-art .watching { font: 500 14px/1.4 var(--f-mono); color: var(--muted); letter-spacing: 0.02em; }
-.auth-art .watching em { font-style: normal; color: #ffc45c; }
+.auth-art .watching em { font-style: normal; color: var(--elev); }
 .auth-art .tick { display: inline-block; animation: auth-tick 2.6s ease both; }
 .auth-art .tagline { font-size: 13px; color: var(--dim); }
 @keyframes auth-tick {
@@ -25,20 +25,20 @@
   100% { opacity: 0; transform: translateY(-4px); }
 }
 /* HUD corner brackets and a live UTC readout over the globe. */
-.auth-art .bracket { position: absolute; width: 22px; height: 22px; border: 0 solid rgba(91, 155, 255, 0.45); z-index: 1; }
+.auth-art .bracket { position: absolute; width: 22px; height: 22px; border: 0 solid color-mix(in srgb, var(--accent) 45%, transparent); z-index: 1; }
 .auth-art .bracket.tl { top: 14px; left: 14px; border-top-width: 2px; border-left-width: 2px; }
 .auth-art .bracket.tr { top: 14px; right: 14px; border-top-width: 2px; border-right-width: 2px; }
 .auth-art .bracket.bl { bottom: 14px; left: 14px; border-bottom-width: 2px; border-left-width: 2px; }
 .auth-art .bracket.br { bottom: 14px; right: 14px; border-bottom-width: 2px; border-right-width: 2px; }
 .auth-readout { position: absolute; top: 22px; left: 46px; display: flex; gap: 12px; font-size: 11px; letter-spacing: 0.08em; color: var(--muted); z-index: 1; }
-.auth-readout .live { color: #ff5260; animation: auth-blink 2s ease-in-out infinite; }
+.auth-readout .live { color: var(--crit); animation: auth-blink 2s ease-in-out infinite; }
 @keyframes auth-blink { 50% { opacity: 0.35; } }
 /* The form: a card over the globe, frosted so the globe stays behind it. */
 .auth-form {
   position: relative; z-index: 2; display: grid; gap: 16px; align-content: center;
   width: min(500px, calc(100% - 32px)); margin: 24px clamp(24px, 9vw, 140px) 24px auto; box-sizing: border-box;
-  padding: 32px clamp(20px, 3vw, 36px); border: 1px solid var(--line-2); border-radius: 10px;
-  background: rgba(13, 17, 23, 0.78); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding: 32px clamp(20px, 3vw, 36px); border: 1px solid var(--line-2); border-radius: calc(var(--radius) + 4px);
+  background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -53,7 +53,7 @@
   /* Phones: the globe sits behind, near the top; the card below it. */
   .auth { flex-direction: column; align-items: stretch; }
   .auth-globe-canvas { opacity: 0.6; }
-  .auth-art::after { background: linear-gradient(180deg, rgba(7, 10, 14, 0) 0%, rgba(7, 10, 14, 0.2) 35%, rgba(7, 10, 14, 0.75) 70%, rgba(7, 10, 14, 0.9) 100%); }
+  .auth-art::after { background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--map-background) 20%, transparent) 35%, color-mix(in srgb, var(--map-background) 75%, transparent) 70%, color-mix(in srgb, var(--map-background) 90%, transparent) 100%); }
   .auth-art .claim { left: 18px; right: 18px; top: 46px; bottom: auto; }
   .auth-art .claim b { font-size: 24px; }
   .auth-art .watching { font-size: 12px; }
@@ -85,3 +85,15 @@
 .pairpage p { margin: 0; max-width: 46ch; color: var(--muted); font-size: clamp(14px, 1.2vw, 20px); }
 .pairpage .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .paircode { font-size: clamp(56px, 9vw, 140px); letter-spacing: 0.12em; padding: 18px 32px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface); }
+
+/* Pairing a wall screen inside the sign-in layout: a wider card and a
+   code big enough to read from across a room. */
+.auth-form.wide { width: min(720px, calc(100% - 32px)); }
+.pairbody { display: grid; gap: 14px; justify-items: start; }
+.pairbody h1 { margin: 0; font: 600 clamp(28px, 3vw, 44px)/1.1 var(--f-head); letter-spacing: 0.04em; text-shadow: var(--glow); }
+.pairbody p { margin: 0; color: var(--muted); font-size: clamp(14px, 1.1vw, 18px); max-width: 52ch; }
+.pairbody .paircode {
+  font-size: clamp(48px, 7vw, 110px); padding: 14px 26px; justify-self: stretch; text-align: center;
+  border-radius: var(--radius); background: var(--bg); color: var(--text); text-shadow: var(--glow);
+}
+.pairbody .actions { display: flex; gap: 10px; flex-wrap: wrap; }

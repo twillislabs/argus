@@ -21,3 +21,22 @@
   --f-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
   color-scheme: dark;
 }
+
+/* Theme values with Argus Dark's defaults (lib/themes.ts sets them all
+   on <html>; these keep the page right before that runs). */
+:root {
+  --accent-text: #07101f;
+  --hdr-bg: transparent;
+  --hdr-text: var(--text);
+  --hdr-muted: var(--muted);
+  --radius: 6px;
+  --radius-s: 4px;
+  --glow: none;
+  --glow-crit: none;
+  --map-ocean: #0a0f16;
+  --map-land: #171c23;
+  --map-border: rgba(120, 135, 155, 0.38);
+  --map-coast: rgba(120, 140, 170, 0.32);
+  --map-graticule: rgba(120, 140, 170, 0.13);
+  --map-background: #070a0e;
+}

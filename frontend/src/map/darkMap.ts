@@ -51,6 +51,8 @@ function hierarchy(rings: Ring[]): PolygonHierarchy {
 export interface DarkMap {
   setFade: (landAlpha: number) => void;
   setVisible: (visible: boolean) => void;
+  // The theme's map colours (lib/themes.ts MapKey values).
+  setPalette: (p: Partial<typeof DARK>) => void;
   destroy: () => void;
 }
 
@@ -96,8 +98,10 @@ export async function addDarkMap(scene: Scene): Promise<DarkMap> {
   scene.primitives.add(land);
 
   const lines = new PolylineCollection();
-  const addLines = (geo: GeoJSON.MultiLineString, css: string, width: number) => {
-    const color = Color.fromCssColorString(css);
+  // Which palette colour each line takes, for setPalette.
+  const kinds: ('border' | 'coast' | 'graticule')[] = [];
+  const addLines = (geo: GeoJSON.MultiLineString, kind: 'border' | 'coast' | 'graticule', width: number) => {
+    const color = Color.fromCssColorString(DARK[kind]);
     for (const line of geo.coordinates) {
       if (line.length < 2) continue;
       // One material per line: the collection destroys each line's
@@ -107,18 +111,11 @@ export async function addDarkMap(scene: Scene): Promise<DarkMap> {
         width,
         material: Material.fromType('Color', { color }),
       });
+      kinds.push(kind);
     }
   };
-  addLines(
-    mesh(topo, countries, (a, b) => a !== b) as unknown as GeoJSON.MultiLineString,
-    DARK.border,
-    1,
-  );
-  addLines(
-    mesh(topo, countries, (a, b) => a === b) as unknown as GeoJSON.MultiLineString,
-    DARK.coast,
-    1,
-  );
+  addLines(mesh(topo, countries, (a, b) => a !== b) as unknown as GeoJSON.MultiLineString, 'border', 1);
+  addLines(mesh(topo, countries, (a, b) => a === b) as unknown as GeoJSON.MultiLineString, 'coast', 1);
   // Graticule every 30 degrees.
   const grid: Position[][] = [];
   for (let lon = -180; lon < 180; lon += 30) {
@@ -131,10 +128,10 @@ export async function addDarkMap(scene: Scene): Promise<DarkMap> {
     for (let lon = -180; lon <= 180; lon += 5) parallel.push([lon, lat]);
     grid.push(parallel);
   }
-  addLines({ type: 'MultiLineString', coordinates: grid }, DARK.graticule, 1);
+  addLines({ type: 'MultiLineString', coordinates: grid }, 'graticule', 1);
   scene.primitives.add(lines);
 
-  const landColor = Color.fromCssColorString(DARK.land);
+  let landColor = Color.fromCssColorString(DARK.land);
   let visible = true;
   let alpha = 1;
   // The 110m coastline and borders are coarse: right from orbit, but they
@@ -152,6 +149,20 @@ export async function addDarkMap(scene: Scene): Promise<DarkMap> {
     setVisible(next) {
       visible = next;
       apply();
+    },
+    setPalette(p) {
+      Object.assign(DARK, p);
+      landColor = Color.fromCssColorString(DARK.land);
+      landMaterial.uniforms.color = landColor.withAlpha(alpha);
+      const colors = {
+        border: Color.fromCssColorString(DARK.border),
+        coast: Color.fromCssColorString(DARK.coast),
+        graticule: Color.fromCssColorString(DARK.graticule),
+      };
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines.get(i);
+        l.material.uniforms.color = colors[kinds[i]];
+      }
     },
     destroy() {
       // The scene may already be torn down (it destroys its primitives

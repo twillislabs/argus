@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { setChannels } from './config/newsChannels';
 import { ApiError, getMe, getSetupStatus, type Me } from './lib/api';
+import { applyServerTheme, applyTheme, chooseTheme } from './lib/themes';
 import { stashShareLink } from './lib/share';
 
 // Keep a share link through the sign-in redirect.
@@ -57,15 +58,19 @@ export default function App() {
     try {
       const status = await getSetupStatus();
       if (status.needs_setup) {
+        void applyServerTheme();
         setBoot({ state: 'setup' });
         return;
       }
       const me = await getMe();
       // The server's live channels, before any page draws a player.
       setChannels(me.channels);
+      applyTheme(chooseTheme(me.themes ?? [], me.preferences.theme, me.defaults?.theme));
       setBoot({ state: 'signedIn', me });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
+        // Signed-out pages (sign-in, pairing) wear the server's theme.
+        void applyServerTheme();
         setBoot({ state: 'signedOut' });
       } else {
         setBoot({

@@ -1,4 +1,5 @@
 import type { Channel, Platform } from '../config/newsChannels';
+import type { ThemeDef } from './themes';
 
 // Thin fetch wrapper: JSON in and out, CSRF header, readable errors.
 
@@ -329,6 +330,8 @@ export interface Preferences {
   show_banner?: boolean;
   // The selected traffic camera's picture drawn in the 3D scene.
   cam_picture?: boolean;
+  // A theme id (lib/themes.ts); unset: the server default.
+  theme?: string | null;
   left_open?: boolean;
   right_open?: boolean;
   units?: 'imperial' | 'metric';
@@ -399,6 +402,8 @@ export interface ServerDefaults {
   news?: { tabs: string[] };
   video?: { muted: boolean; volume: number };
   brief?: BriefPrefs;
+  // The theme everyone starts with (a built-in or custom id).
+  theme?: string | null;
 }
 
 export interface Me {
@@ -407,7 +412,13 @@ export interface Me {
   defaults?: ServerDefaults;
   // The live channels the news player offers (Settings > Live channels).
   channels?: Channel[];
+  // Custom themes an admin made (Settings › Themes).
+  themes?: ThemeDef[];
 }
+
+export const getThemes = () => api<{ items: ThemeDef[]; builtin: string[] }>('/api/admin/themes');
+export const putThemes = (items: ThemeDef[]) =>
+  api<{ items: ThemeDef[]; builtin: string[] }>('/api/admin/themes', { method: 'PUT', body: { items } });
 
 export const getDefaults = () => api<ServerDefaults>('/api/admin/defaults');
 export const putDefaults = (body: ServerDefaults) => api<ServerDefaults>('/api/admin/defaults', { method: 'PUT', body });

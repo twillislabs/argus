@@ -13,7 +13,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Using Argus',
       collapsed: false,
-      items: ['using/map', 'using/assistants'],
+      items: ['using/map', 'using/themes', 'using/assistants'],
     },
     {
       type: 'category',
@@ -33,6 +33,7 @@ const sidebars: SidebarsConfig = {
         'technical/auth',
         'technical/backend',
         'technical/frontend',
+        'technical/themes',
         'technical/database',
         'technical/data-flow',
         'technical/deployment',

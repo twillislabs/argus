@@ -6,6 +6,21 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Themes
+
+- Themes: Argus Dark (still the default), Cassette Futurism, Cyberpunk,
+  Hologram, Vector, Night Ops and Daylight. Each changes the whole look
+  (colours, fonts, corners, glow, a screen overlay, the header and the
+  dark map), not just colours. Pick yours in Settings › Display; admins
+  set everyone's default in Settings › Defaults, which the sign-in and
+  pairing pages use too.
+- Custom themes: admins make their own in Settings › Themes from a
+  built-in one (colours, fonts, corners, glow, overlay, stripe), with a
+  live preview and JSON to copy or paste. The format is documented in
+  Using Argus › Themes.
+- The pairing page has the sign-in page's look, with the globe behind
+  the code.
+
 ### Video
 
 - Live near the view searches Dailymotion too, without a key: live

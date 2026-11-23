@@ -166,6 +166,10 @@ class DefaultsIn(BaseModel):
     news: NewsDefaults | None = None
     video: VideoDefaults | None = None
     brief: BriefPrefs | None = None
+    # The theme everyone starts with (a built-in or custom id).
+    theme: str | None = Field(
+        default=None, pattern=r"^[a-z0-9][a-z0-9-]{0,39}$"
+    )
 
 
 async def read_defaults(db) -> dict:

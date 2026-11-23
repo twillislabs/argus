@@ -1,0 +1,111 @@
+/* Theme effects (lib/themes.ts sets the variables and these data
+   attributes on <html>): the header bar and its stripe, glow, cut
+   corners and a screen overlay. Colours, fonts and corner radius come
+   through the variables everywhere else. */
+
+/* The header bar: its own colours, full width. */
+.app > .cmdbar {
+  position: relative;
+  background: var(--hdr-bg);
+  margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  padding-inline: max(16px, env(safe-area-inset-left, 0px));
+}
+.cmdbar .brand b { color: var(--hdr-text); text-shadow: var(--glow); }
+.cmdbar .nav a { color: var(--hdr-muted); }
+.cmdbar .nav a:hover, .cmdbar .nav a[aria-current='page'] { color: var(--hdr-text); }
+.cmdbar .clock, .cmdbar .clock * { color: var(--hdr-text); }
+
+/* The stripe under the header. */
+html[data-stripe='cassette'] .app > .cmdbar::after,
+html[data-stripe='neon'] .app > .cmdbar::after,
+html[data-stripe='line'] .app > .cmdbar::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none;
+}
+html[data-stripe='cassette'] .app > .cmdbar { margin-bottom: 8px; }
+html[data-stripe='cassette'] .app > .cmdbar::after {
+  bottom: -9px; height: 9px;
+  background: linear-gradient(180deg, #e2472a 0 33%, #f08a24 33% 66%, #f2c230 66%);
+}
+html[data-stripe='neon'] .app > .cmdbar::after {
+  height: 2px; background: linear-gradient(90deg, #ff2fd0, var(--accent));
+  box-shadow: 0 0 10px #ff2fd0;
+}
+html[data-stripe='line'] .app > .cmdbar::after { height: 1px; background: var(--accent); box-shadow: var(--glow); }
+
+/* Glow: headings, titles, big numbers and the selected tab. */
+.ph h2, .etitle, .tile .mono, .tile b, .srow-label b, .card h2, h1 { text-shadow: var(--glow); }
+.livetag, .err { text-shadow: var(--glow-crit); }
+.nav a[aria-current='page'] { text-shadow: var(--glow); }
+
+/* Cut corners: panels, cards, buttons and fields lose two corners. */
+html[data-corners='cut'] .ws,
+html[data-corners='cut'] .settings,
+html[data-corners='cut'] .card,
+html[data-corners='cut'] .auth,
+html[data-corners='cut'] .auth-form,
+html[data-corners='cut'] .wallpage {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+html[data-corners='cut'] .btn,
+html[data-corners='cut'] .seg,
+html[data-corners='cut'] .nav a,
+html[data-corners='cut'] .badge {
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+html[data-corners='cut'] .ws, html[data-corners='cut'] .card, html[data-corners='cut'] .settings {
+  border-color: color-mix(in srgb, var(--line-2) 70%, var(--accent));
+}
+
+/* Screen overlays, over everything and never in the way of the mouse. */
+html[data-overlay='scanlines'] body::after,
+html[data-overlay='crt'] body::after,
+html[data-overlay='sheen'] body::after,
+html[data-overlay='grid'] body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 10000;
+}
+html[data-overlay='scanlines'] body::after {
+  background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 5%, transparent) 0 1px, transparent 1px 4px);
+}
+html[data-overlay='crt'] body::after {
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.2) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.4) 100%);
+}
+html[data-overlay='sheen'] body::after {
+  background:
+    linear-gradient(115deg, transparent 40%, color-mix(in srgb, var(--accent) 5%, transparent) 50%, transparent 60%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 2.5%, transparent) 0 1px, transparent 1px 3px);
+}
+html[data-overlay='grid'] body::after {
+  background:
+    linear-gradient(color-mix(in srgb, var(--accent) 5%, transparent) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 5%, transparent) 1px, transparent 1px) 0 0 / 40px 40px;
+}
+@media print {
+  body::after { display: none; }
+}
+
+/* Hologram: frosted glass panels. */
+html[data-theme='holo'] .ws, html[data-theme='holo'] .card, html[data-theme='holo'] .settings {
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: inset 0 0 30px color-mix(in srgb, var(--accent) 8%, transparent), 0 0 24px color-mix(in srgb, var(--accent) 6%, transparent);
+}
+html[data-theme='holo'] body {
+  background: radial-gradient(ellipse at 50% 20%, #082a44 0%, #02101d 55%, #00050b 100%) fixed;
+}
+
+/* Cassette: the body text is a pixel font at a size that reads. */
+html[data-theme='cassette'] body { font-size: 13.5px; }
+html[data-theme='cassette'] .ph h2, html[data-theme='cassette'] .nav a { font-size: 17px; letter-spacing: 0.08em; }
+html[data-theme='cassette'] .brand b { font-size: 26px; }
+
+/* Cassette's selected tab: a dark inset in the tan header. */
+html[data-theme='cassette'] .cmdbar .nav a[aria-current='page'] { background: #1d170f; color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* Phones: the app's side padding is 8px, so the header bleeds by that. */
+@media (max-width: 860px) {
+  .app > .cmdbar {
+    margin-inline: calc(-1 * max(8px, env(safe-area-inset-left, 0px)));
+    padding-inline: max(8px, env(safe-area-inset-left, 0px));
+  }
+}

@@ -17,7 +17,8 @@ const WATCHES = [
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-export default function AuthShell({ children }: { children: ReactNode }) {
+// wide: a bigger card (the pairing code, read from across a room).
+export default function AuthShell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   const [now, setNow] = useState(() => new Date());
   const [watch, setWatch] = useState(0);
   useEffect(() => {
@@ -58,7 +59,7 @@ export default function AuthShell({ children }: { children: ReactNode }) {
             <span className="tagline">Self-hosted situational awareness. Your data stays on your server.</span>
           </div>
         </section>
-        <section className="auth-form">{children}</section>
+        <section className={'auth-form' + (wide ? ' wide' : '')}>{children}</section>
       </main>
     </div>
   );

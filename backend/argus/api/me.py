@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from argus.api.deps import DbDep, SessionDep
+from argus.api.themes import custom_themes
 from argus.models import ServerSetting, User, UserPreferences
 from argus.schemas import MeOut, Preferences, UserOut
 
@@ -55,6 +56,7 @@ async def me(session: SessionDep, db: DbDep) -> MeOut:
         preferences=await _with_profile(db, prefs.data or {}),
         defaults=await _defaults(db),
         channels=await _channels(db),
+        themes=await custom_themes(db),
     )
 
 
@@ -81,4 +83,5 @@ async def update_preferences(
         preferences=merged,
         defaults=await _defaults(db),
         channels=await _channels(db),
+        themes=await custom_themes(db),
     )

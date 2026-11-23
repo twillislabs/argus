@@ -40,7 +40,7 @@ import {
   Material,
   PolylineCollection,
 } from '@cesium/engine';
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import type {
   Aircraft,
@@ -99,7 +99,8 @@ import { addWxLayer, type WeatherFilters, WX_IMAGERY, WX_OVER_LAND, type WxLayer
 import { addSentinelLayer, type SentinelLayer, type SentinelView } from './sentinelLayer';
 import { addInfraLayer, type Base, type InfraFilters, type InfraLayer, type Plant } from './infraLayer';
 import { addCloseModels, aircraftModel, type CloseModels, shipModel } from './closeModels';
-import { addDarkMap, DARK, type DarkMap } from './darkMap';
+import { addDarkMap, type DarkMap } from './darkMap';
+import { currentTheme, onThemeChange, type Theme } from '../lib/themes';
 import { setCursor } from '../lib/cursor';
 import { densify } from '../lib/geo';
 import {
@@ -249,9 +250,16 @@ function googleLayers(id: Basemap, key: string): ImageryLayer[] {
 
 // Hosted Esri tiles for street detail and imagery (no key needed for light
 // use), or Google's for Satellite and Hybrid when an admin set a key.
-function basemapLayers(id: Basemap, imagery: Imagery | null): ImageryLayer[] {
+function basemapLayers(id: Basemap, imagery: Imagery | null, light = false): ImageryLayer[] {
   if (id !== 'dark' && imagery?.provider === 'google' && imagery.google_key) {
     return googleLayers(id, imagery.google_key);
+  }
+  if (id === 'dark' && light) {
+    // A light theme (Daylight): Esri's light grey canvas.
+    return [
+      new ImageryLayer(esri('Canvas/World_Light_Gray_Base', 16, 'Esri, HERE, Garmin, © OpenStreetMap')),
+      labelLayer(new ImageryLayer(esri('Canvas/World_Light_Gray_Reference', 16))),
+    ];
   }
   if (id === 'dark') {
     // Esri's dark grey is lighter and flatter than Argus Dark; darken it
@@ -604,6 +612,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   const webcamLayer = useRef<CamLayer | null>(null);
   const windLayer = useRef<WindLayer | null>(null);
   const camView = useRef<CamView | null>(null);
+  // A light theme (Daylight) wants the light grey street tiles.
+  const [lightMap, setLightMap] = useState(false);
   const airLayer = useRef<AirLayer | null>(null);
   const wx = useRef<WxLayer | null>(null);
   const weatherRef = useRef(weather);
@@ -695,9 +705,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         scene.requestRenderMode = wasRequest;
       };
     }
-    scene.backgroundColor = Color.fromCssColorString(DARK.background);
-    scene.globe.baseColor = Color.fromCssColorString(DARK.ocean);
-    if (scene.skyBox) scene.skyBox.show = false;
+        if (scene.skyBox) scene.skyBox.show = false;
     if (scene.sun) scene.sun.show = false;
     if (scene.moon) scene.moon.show = false;
 
@@ -792,8 +800,20 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         return;
       }
       dark.current = m;
+      m.setPalette(currentTheme().map);
       applyFade();
     });
+    // The theme's map colours, now and whenever it changes.
+    const paint = (t: Theme) => {
+      if (scene.isDestroyed()) return;
+      scene.backgroundColor = Color.fromCssColorString(t.map.background);
+      scene.globe.baseColor = Color.fromCssColorString(t.map.ocean);
+      dark.current?.setPalette(t.map);
+      setLightMap(Boolean(t.lightMap));
+      scene.requestRender();
+    };
+    paint(currentTheme());
+    const stopTheme = onThemeChange(paint);
     void addOverlays(scene).then((o) => {
       if (disposed) {
         o.destroy();
@@ -988,6 +1008,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       disposed = true;
       // Each step guarded: a failure here must not break navigation.
       const steps: [string, () => void][] = [
+        ['theme listener', stopTheme],
         ['camera listener', removeCamera],
         ['move listener', removeMoveEnd],
         ['morph listener', removeMorph],
@@ -1070,7 +1091,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     if (!v) return;
     let stale = false;
     v.scene.imageryLayers.removeAll();
-    tiles.current = basemapLayers(basemap, imagery);
+    tiles.current = basemapLayers(basemap, imagery, lightMap);
     // Photorealistic 3D replaces the globe surface with Google's tiles.
     if (photo3d.current) {
       if (!v.isDestroyed() && v.scene.primitives.contains(photo3d.current)) {
@@ -1133,7 +1154,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       stale = true;
     };
     // imageryKey stands for imagery's contents.
-  }, [basemap, imageryKey]);
+  }, [basemap, imageryKey, lightMap]);
 
   // The selected event's shape: a warning's area or a storm's track.
   useEffect(() => {

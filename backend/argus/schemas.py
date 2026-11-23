@@ -372,6 +372,10 @@ class Preferences(BaseModel):
     show_banner: bool | None = None
     # The selected traffic camera's picture drawn in the 3D scene.
     cam_picture: bool | None = None
+    # A built-in or custom theme id (null: the server default).
+    theme: str | None = Field(
+        default=None, pattern=r"^[a-z0-9][a-z0-9-]{0,39}$"
+    )
     # Director mode: saved map tours (TourPanel).
     tours: list[Tour] | None = Field(default=None, max_length=30)
     brief: BriefPrefs | None = None
@@ -384,6 +388,8 @@ class MeOut(BaseModel):
     defaults: dict[str, Any] = {}
     # The live channels the news player offers (Settings > Live channels).
     channels: list[dict[str, Any]] = []
+    # Custom themes an admin made (Settings > Themes).
+    themes: list[dict[str, Any]] = []
 
 
 class SetupStatus(BaseModel):

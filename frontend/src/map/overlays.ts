@@ -17,6 +17,7 @@ import {
 import { feature, mesh } from 'topojson-client';
 import { type LineBatch, lineBatch } from './lineBatch';
 import type { GeometryCollection, Topology } from 'topojson-specification';
+import { currentTheme, onThemeChange } from '../lib/themes';
 
 export interface ReferenceLayers {
   borders: boolean;
@@ -55,7 +56,18 @@ const STYLE = {
     city: '#ffffff',
     country: '#e8edf3',
   },
+  // A light theme's map (Daylight): dark names on a white halo.
+  light: {
+    border: 'rgba(80,95,115,0.45)',
+    state: 'rgba(80,95,115,0.25)',
+    city: '#1d2633',
+    country: '#5a6576',
+  },
 };
+// The halo round names: dark, or white on a light theme's map.
+const halo = (s: (typeof STYLE)[keyof typeof STYLE]) =>
+  Color.fromCssColorString(s === STYLE.light ? '#ffffff' : '#05080e');
+const darkStyle = () => (currentTheme().lightMap ? STYLE.light : STYLE.dark);
 
 const LINE_HEIGHT = 800;
 // Country borders from 50m data look right below this height; above it
@@ -233,7 +245,28 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   const portLabels = new LabelCollection({ scene });
   for (const p of [airportDots, portDots, labels, airportLabels, portLabels]) scene.primitives.add(p);
 
-  let style = STYLE.dark;
+  let style = darkStyle();
+  // Names and borders in the style for the base map and theme; again
+  // when either changes.
+  const restyle = () => {
+    const next = mode === 'dark' ? darkStyle() : STYLE.imagery;
+    if (next === style) return;
+    style = next;
+    borders?.setColor(style.border);
+    states?.setColor(style.state);
+    const city = Color.fromCssColorString(style.city);
+    const country = Color.fromCssColorString(style.country);
+    const edge = halo(style);
+    for (const { label } of cityLabels) {
+      label.fillColor = city;
+      label.outlineColor = edge;
+    }
+    for (const { label } of countryLabels) {
+      label.fillColor = country;
+      label.outlineColor = edge;
+    }
+    scene.requestRender();
+  };
   // Borders are batched into one primitive each (see lineBatch.ts).
   let borders: LineBatch | null = null;
   let states: LineBatch | null = null;
@@ -269,7 +302,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
           text: name.toUpperCase(),
           font: '600 11px "Barlow Semi Condensed", "Arial Narrow", sans-serif',
           fillColor: Color.fromCssColorString(style.country),
-          outlineColor: Color.fromCssColorString('#05080e'),
+          outlineColor: halo(style),
           outlineWidth: 3,
           style: LabelStyle.FILL_AND_OUTLINE,
           horizontalOrigin: HorizontalOrigin.CENTER,
@@ -298,7 +331,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
           text: name,
           font: (pop >= 1_000_000 ? '600 12px' : '500 11px') + ' Inter, system-ui, sans-serif',
           fillColor: Color.fromCssColorString(style.city),
-          outlineColor: Color.fromCssColorString('#05080e'),
+          outlineColor: halo(style),
           outlineWidth: 3,
           style: LabelStyle.FILL_AND_OUTLINE,
           horizontalOrigin: HorizontalOrigin.CENTER,
@@ -416,6 +449,8 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
   }
   apply();
 
+  // Registered last: restyle reads state declared above.
+  const stopTheme = onThemeChange(() => restyle());
   return {
     airport: (index) => (layers.airports && airports?.[index]) || null,
     port: (index) => (layers.ports && ports?.[index]) || null,
@@ -438,15 +473,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
     setImagery(nextMode) {
       mode = nextMode;
       placeLabels();
-      const next = mode === 'dark' ? STYLE.dark : STYLE.imagery;
-      if (next === style) return;
-      style = next;
-      borders?.setColor(style.border);
-      states?.setColor(style.state);
-      const city = Color.fromCssColorString(style.city);
-      const country = Color.fromCssColorString(style.country);
-      for (const { label } of cityLabels) label.fillColor = city;
-      for (const { label } of countryLabels) label.fillColor = country;
+      restyle();
     },
     setDepthDistance(metres) {
       for (const c of [labels, airportLabels, portLabels]) {
@@ -459,6 +486,7 @@ export async function addOverlays(scene: Scene): Promise<Overlays> {
       }
     },
     destroy() {
+      stopTheme();
       if (scene.isDestroyed()) return;
       const batches = [borders?.primitive, states?.primitive].filter((p): p is NonNullable<typeof p> => Boolean(p));
       for (const p of [...batches, airportDots, portDots, labels, airportLabels, portLabels]) {

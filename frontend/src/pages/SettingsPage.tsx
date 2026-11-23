@@ -44,6 +44,9 @@ import {
 } from '../lib/api';
 import { ago, zuluTime } from '../lib/format';
 import type { Units } from '../lib/units';
+import ThemePicker from '../components/ThemePicker';
+import ThemesSection from '../components/ThemesSection';
+import { applyTheme, chooseTheme } from '../lib/themes';
 
 interface Props {
   me: Me;
@@ -128,11 +131,20 @@ const SECTIONS: Section[] = [
     capability: 'users.manage',
   },
   {
+    id: 'themes',
+    label: 'Themes',
+    title: 'Themes',
+    description: 'Custom themes for everyone to pick: colours, fonts, corners, glow and effects, from a built-in theme.',
+    group: 'Map and data',
+    keywords: 'theme colours colors fonts custom look style cyberpunk cassette',
+    capability: 'settings.manage',
+  },
+  {
     id: 'defaults',
     label: 'Defaults',
     title: 'Defaults for everyone',
     description:
-      'What everyone starts with: map layers and filters, news tabs and their order, how video starts, and the Brief\'s sections. Each user can still change their own.',
+      'What everyone starts with: the theme, map layers and filters, news tabs and their order, how video starts, and the Brief\'s sections. Each user can still change their own.',
     group: 'Map and data',
     keywords: 'layers news tabs brief sections video everyone',
     capability: 'settings.manage',
@@ -254,6 +266,7 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   else if (current.id === 'audit') body = <AuditSection />;
   else if (current.id === 'feeds') body = <NewsFeedsSection />;
   else if (current.id === 'channels') body = <LiveChannelsSection onSaved={onSaved} />;
+  else if (current.id === 'themes') body = <ThemesSection onSaved={onSaved} />;
 
   const q = find.trim().toLowerCase();
   const matches = (s: Section) =>
@@ -760,6 +773,22 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
     <>
       <section className="card">
         <div className="ph">
+          <h2>Theme</h2>
+        </div>
+        <div className="cbody">
+          <p className="quiet small">
+            Everyone starts with this theme, and the sign-in and pairing pages use it. Each person can pick their own in
+            Settings › Display. Make your own in Settings › Themes.
+          </p>
+          <ThemePicker
+            custom={me.themes ?? []}
+            value={defaults.theme ?? 'dark'}
+            onPick={(id) => void save({ ...defaults, theme: id ?? 'dark' }, 'Theme saved as everyone\'s default.')}
+          />
+        </div>
+      </section>
+      <section className="card">
+        <div className="ph">
           <h2>Layers and filters</h2>
         </div>
         <div className="srows">
@@ -913,6 +942,21 @@ function DisplaySection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> 
   const [unitPref, setUnitPref] = useState<Units>(me.preferences.units === 'metric' ? 'metric' : 'imperial');
   const [renderPref, setRenderPref] = useState<RenderMode>(me.preferences.render ?? 'balanced');
   const [camPicture, setCamPicture] = useState(me.preferences.cam_picture === true);
+  const [themePref, setThemePref] = useState<string | null>(me.preferences.theme ?? null);
+
+  async function chooseThemePref(id: string | null) {
+    const before = themePref;
+    setThemePref(id);
+    // Show it at once; the saved preference follows.
+    applyTheme(chooseTheme(me.themes ?? [], id, me.defaults?.theme));
+    try {
+      await savePreferences({ theme: id });
+      await onSaved();
+    } catch {
+      setThemePref(before);
+      applyTheme(chooseTheme(me.themes ?? [], before, me.defaults?.theme));
+    }
+  }
 
   async function toggleCamPicture(next: boolean) {
     setCamPicture(next);
@@ -957,77 +1001,92 @@ function DisplaySection({ me, onSaved }: { me: Me; onSaved: () => Promise<void> 
   }
 
   return (
-    <section className="card">
-      <div className="ph">
-        <h2>Interface</h2>
-      </div>
-      <div className="srows">
-        <div className="srow">
-          <span className="srow-label">
-            <b>Units</b>
-            <small>Distances, lengths and heights. Aircraft stay in feet and knots, ships in knots.</small>
-          </span>
-          <div className="seg" role="group" aria-label="Units">
-            {(['imperial', 'metric'] as const).map((u) => (
-              <button key={u} aria-pressed={unitPref === u} onClick={() => void chooseUnits(u)}>
-                {u === 'imperial' ? 'Imperial (mi, ft)' : 'Metric (km, m)'}
-              </button>
-            ))}
+    <>
+      <section className="card">
+        <div className="ph">
+          <h2>Theme</h2>
+        </div>
+        <div className="cbody">
+          <ThemePicker
+            custom={me.themes ?? []}
+            value={themePref}
+            serverDefault={me.defaults?.theme ?? 'dark'}
+            onPick={(id) => void chooseThemePref(id)}
+          />
+        </div>
+      </section>
+      <section className="card">
+        <div className="ph">
+          <h2>Interface</h2>
+        </div>
+        <div className="srows">
+          <div className="srow">
+            <span className="srow-label">
+              <b>Units</b>
+              <small>Distances, lengths and heights. Aircraft stay in feet and knots, ships in knots.</small>
+            </span>
+            <div className="seg" role="group" aria-label="Units">
+              {(['imperial', 'metric'] as const).map((u) => (
+                <button key={u} aria-pressed={unitPref === u} onClick={() => void chooseUnits(u)}>
+                  {u === 'imperial' ? 'Imperial (mi, ft)' : 'Metric (km, m)'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="srow">
+            <span className="srow-label">
+              <b>Map frame rate</b>
+              <small>
+                {renderPref === 'smooth'
+                  ? 'Redraws the map every frame, as smooth as your screen allows. Uses the most power.'
+                  : renderPref === 'saver'
+                    ? 'Redraws about twice a second while nothing moves, without edge smoothing. Coolest and quietest; moving aircraft step.'
+                    : 'Full speed while you move the map, about ten frames a second otherwise. Keeps the computer cooler.'}
+              </small>
+            </span>
+            <div className="seg" role="group" aria-label="Map frame rate">
+              {(['smooth', 'balanced', 'saver'] as const).map((m) => (
+                <button key={m} aria-pressed={renderPref === m} onClick={() => void chooseRender(m)}>
+                  {m === 'smooth' ? 'Smooth' : m === 'balanced' ? 'Balanced' : 'Power saver'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="srow">
+            <span className="srow-label">
+              <b>Traffic camera picture in 3D</b>
+              <small>
+                Draws the selected traffic camera&apos;s picture in the map: at the end of its view cone, or above the
+                camera. Off, the picture shows only in the camera&apos;s panel.
+              </small>
+            </span>
+            <span className="lrow flat">
+              <input type="checkbox" checked={camPicture} onChange={(e) => void toggleCamPicture(e.target.checked)} />
+              <span className="tog" />
+            </span>
+          </label>
+          <label className="srow">
+            <span className="srow-label">
+              <b>Classification line</b>
+              <small>Shows “UNCLASSIFIED // OPEN SOURCE” in a thin strip above the header</small>
+            </span>
+            <span className="lrow flat">
+              <input type="checkbox" checked={banner} onChange={(e) => void toggleBanner(e.target.checked)} />
+              <span className="tog" />
+            </span>
+          </label>
+          <div className="srow">
+            <span className="srow-label">
+              <b>Layers, base map and panels</b>
+              <small>Saved automatically as you change them on the map</small>
+            </span>
+            <Link className="btn small" to="/">
+              Open the map
+            </Link>
           </div>
         </div>
-        <div className="srow">
-          <span className="srow-label">
-            <b>Map frame rate</b>
-            <small>
-              {renderPref === 'smooth'
-                ? 'Redraws the map every frame, as smooth as your screen allows. Uses the most power.'
-                : renderPref === 'saver'
-                  ? 'Redraws about twice a second while nothing moves, without edge smoothing. Coolest and quietest; moving aircraft step.'
-                  : 'Full speed while you move the map, about ten frames a second otherwise. Keeps the computer cooler.'}
-            </small>
-          </span>
-          <div className="seg" role="group" aria-label="Map frame rate">
-            {(['smooth', 'balanced', 'saver'] as const).map((m) => (
-              <button key={m} aria-pressed={renderPref === m} onClick={() => void chooseRender(m)}>
-                {m === 'smooth' ? 'Smooth' : m === 'balanced' ? 'Balanced' : 'Power saver'}
-              </button>
-            ))}
-          </div>
-        </div>
-        <label className="srow">
-          <span className="srow-label">
-            <b>Traffic camera picture in 3D</b>
-            <small>
-              Draws the selected traffic camera&apos;s picture in the map: at the end of its view cone, or above the
-              camera. Off, the picture shows only in the camera&apos;s panel.
-            </small>
-          </span>
-          <span className="lrow flat">
-            <input type="checkbox" checked={camPicture} onChange={(e) => void toggleCamPicture(e.target.checked)} />
-            <span className="tog" />
-          </span>
-        </label>
-        <label className="srow">
-          <span className="srow-label">
-            <b>Classification line</b>
-            <small>Shows “UNCLASSIFIED // OPEN SOURCE” in a thin strip above the header</small>
-          </span>
-          <span className="lrow flat">
-            <input type="checkbox" checked={banner} onChange={(e) => void toggleBanner(e.target.checked)} />
-            <span className="tog" />
-          </span>
-        </label>
-        <div className="srow">
-          <span className="srow-label">
-            <b>Layers, base map and panels</b>
-            <small>Saved automatically as you change them on the map</small>
-          </span>
-          <Link className="btn small" to="/">
-            Open the map
-          </Link>
-        </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
 

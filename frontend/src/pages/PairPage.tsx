@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import Brand from '../components/Brand';
+import AuthShell from '../components/AuthShell';
 import { api, ApiError, logout } from '../lib/api';
 
 // A wall screen pairs here without anyone typing a password on it: it
@@ -51,18 +51,20 @@ export default function PairPage({ onPaired }: { onPaired: () => Promise<void> }
   }, [token, onPaired]);
 
   return (
-    <div className="pairpage">
-      <Brand />
-      <h1>Pair this screen</h1>
-      <p>
-        In Argus on another device, open <b>Settings › Displays</b> and enter this code. This screen then shows the
-        wall.
-      </p>
-      <div className="paircode mono" aria-live="polite">
-        {code ? code.slice(0, 3) + ' ' + code.slice(3) : '······'}
+    <AuthShell wide>
+      <div className="pairbody">
+        <span className="eyebrow">Wall display</span>
+        <h1>Pair this screen</h1>
+        <p>
+          In Argus on another device, open <b>Settings › Displays</b> and enter this code. This screen then shows the
+          wall.
+        </p>
+        <div className="paircode mono" aria-live="polite">
+          {code ? code.slice(0, 3) + ' ' + code.slice(3) : '······'}
+        </div>
+        {error ? <p className="err">{error}</p> : <p className="quiet">The code changes every ten minutes.</p>}
       </div>
-      {error ? <p className="err">{error}</p> : <p className="quiet">The code changes every ten minutes.</p>}
-    </div>
+    </AuthShell>
   );
 }
 
@@ -71,30 +73,32 @@ export default function PairPage({ onPaired }: { onPaired: () => Promise<void> }
 export function PairSignedIn({ name, onSignedOut }: { name: string; onSignedOut: () => void }) {
   const [busy, setBusy] = useState(false);
   return (
-    <div className="pairpage">
-      <Brand />
-      <h1>Pair a screen</h1>
-      <p>
-        This browser is signed in as <b>{name}</b>. To make it a wall screen, sign out here (or open{' '}
-        <span className="mono">/pair</span> in a private window, or on the screen itself) and it shows a pairing code.
-      </p>
-      <p>To approve a code shown on another screen, open Settings › Displays.</p>
-      <div className="actions">
-        <button
-          className="btn primary"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            await logout().catch(() => undefined);
-            onSignedOut();
-          }}
-        >
-          Sign out and pair this browser
-        </button>
-        <a className="btn" href="/settings/displays">
-          Settings › Displays
-        </a>
+    <AuthShell wide>
+      <div className="pairbody">
+        <span className="eyebrow">Wall display</span>
+        <h1>Pair a screen</h1>
+        <p>
+          This browser is signed in as <b>{name}</b>. To make it a wall screen, sign out here (or open{' '}
+          <span className="mono">/pair</span> in a private window, or on the screen itself) and it shows a pairing code.
+        </p>
+        <p>To approve a code shown on another screen, open Settings › Displays.</p>
+        <div className="actions">
+          <button
+            className="btn primary"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              await logout().catch(() => undefined);
+              onSignedOut();
+            }}
+          >
+            Sign out and pair this browser
+          </button>
+          <a className="btn" href="/settings/displays">
+            Settings › Displays
+          </a>
+        </div>
       </div>
-    </div>
+    </AuthShell>
   );
 }
