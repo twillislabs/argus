@@ -29,3 +29,6 @@ docs/mockup/
 
 # Street map data downloaded by make streetmap
 /data/
+
+# TypeScript build cache
+*.tsbuildinfo

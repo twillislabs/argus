@@ -7,6 +7,7 @@
     "paths": { "satellite-core/*": ["./node_modules/satellite.js/dist/*"] },
     "jsx": "react-jsx",
     "strict": true,
+    "noEmit": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
