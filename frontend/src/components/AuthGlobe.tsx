@@ -110,19 +110,33 @@ const withAlpha = (css: string) => {
   return (a: number) => 'rgba(' + r + ', ' + g + ', ' + b + ', ' + Math.max(0, Math.min(1, a)).toFixed(3) + ')';
 };
 
-// The theme's colours for the globe (lib/themes.ts).
+// Blend two colours: k of b into a.
+function mix(a: string, b: string, k: number): string {
+  const x = rgbOf(a);
+  const y = rgbOf(b);
+  const c = (i: number) => Math.round(x[i] + (y[i] - x[i]) * k);
+  return 'rgb(' + c(0) + ', ' + c(1) + ', ' + c(2) + ')';
+}
+
+// The theme's colours for the globe (lib/themes.ts). The map's own land
+// and sea are close (or, in some themes, the same), which behind a dimmed
+// sign-in page reads as one grey ball: the sea takes on the accent, the
+// land is lifted towards white and coastlines are drawn in the accent.
 function palette(t: Theme) {
-  const [r, g, b] = rgbOf(t.map.ocean);
+  const sea = mix(t.map.ocean, t.colors.accent, 0.16);
+  const [r, g, b] = rgbOf(sea);
   const lift = (v: number) => Math.min(255, Math.round(v + 22));
+  const light = rgbOf(t.map.ocean).reduce((a, v) => a + v, 0) > 3 * 128;
   return {
     accent: withAlpha(t.colors.accent),
     crit: withAlpha(t.colors.crit),
     high: withAlpha(t.colors.high),
     elev: withAlpha(t.colors.elev),
     ok: withAlpha(t.colors.ok),
-    ocean: t.map.ocean,
+    ocean: sea,
     oceanLit: 'rgb(' + lift(r) + ', ' + lift(g) + ', ' + lift(b) + ')',
-    land: t.map.land,
+    land: light ? mix(t.map.land, '#ffffff', 0.5) : mix(mix(t.map.land, '#ffffff', 0.14), t.colors.accent, 0.08),
+    coast: withAlpha(t.colors.accent)(light ? 0.6 : 0.5),
     border: t.map.coast,
     graticule: t.map.graticule,
   };
@@ -270,6 +284,8 @@ export default function AuthGlobe() {
 
       // Land: only polygons with some part on the near side.
       ctx.fillStyle = C.land;
+      ctx.strokeStyle = C.coast;
+      ctx.lineWidth = 0.9;
       for (const poly of land) {
         let near = false;
         ctx.beginPath();
@@ -283,7 +299,10 @@ export default function AuthGlobe() {
           });
           ctx.closePath();
         }
-        if (near) ctx.fill('evenodd');
+        if (near) {
+          ctx.fill('evenodd');
+          ctx.stroke();
+        }
       }
       ctx.strokeStyle = C.border;
       ctx.lineWidth = 0.7;

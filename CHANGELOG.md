@@ -17,6 +17,11 @@ features, and patch versions fix things. Upgrade with `./argus update`.
   stages, in colour. Vehicles near a station are drawn docked to it.
 - Launch pads with a launch coming show a 3D rocket up close.
 
+### Sign-in
+
+- The sign-in globe has more contrast: the sea takes the theme's
+  accent, land is lighter and coastlines are outlined.
+
 ### Weather
 
 - The weather loop's clock shows your home's time when you've set a

@@ -554,6 +554,8 @@ parts connect.
 - Sign-in pages: `components/AuthShell.tsx` (HUD brackets `.bracket`,
   not `.hud`: that class is the cockpit HUD's; UTC readout, `WATCHES`
   ticker), `AuthGlobe.tsx` (canvas: stars, night from `subsolar`,
+  its own palette from the theme's: sea tinted to the accent, land
+  lifted, accent coastlines, since map land and sea can match;
   `ROUTES` flights, `ORBITS`, conic sweep; all still under reduced
   motion). The globe fills the page behind a frosted form card (left of
   centre on wide pages, near the top on tall ones: `tall`), dimmed
