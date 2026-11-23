@@ -21,7 +21,11 @@ html[data-stripe='neon'] .app > .cmdbar::after,
 html[data-stripe='line'] .app > .cmdbar::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none;
 }
-html[data-stripe='cassette'] .app > .cmdbar { margin-bottom: 8px; }
+/* Themes with a header of their own colour: a gap before the page, so
+   the header and the panels don't run together. Cassette's stripe
+   hangs 9px below its header, so it needs the gap plus the stripe. */
+html:not([data-theme='dark']) .app > .cmdbar { margin-bottom: 10px; }
+html[data-stripe='cassette'] .app > .cmdbar { margin-bottom: 19px; }
 html[data-stripe='cassette'] .app > .cmdbar::after {
   bottom: -9px; height: 9px;
   background: linear-gradient(180deg, #e2472a 0 33%, #f08a24 33% 66%, #f2c230 66%);
