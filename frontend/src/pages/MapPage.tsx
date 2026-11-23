@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import AircraftInspector from '../components/AircraftInspector';
 import AirspaceInspector from '../components/AirspaceInspector';
@@ -8,6 +8,7 @@ import PlaceInspector from '../components/PlaceInspector';
 import { airPatternLine, airPatternTitle, seaPatternLine, seaPatternTitle } from '../lib/patterns';
 import { fishingInfo, fishingLinks, fishingNote } from '../lib/fishing';
 import { tensionHover, tensionNote } from '../lib/tension';
+import Sheet from '../components/Sheet';
 import ImageryPanel, { closeUpFor, type ImageryState, newImagery } from '../components/ImageryPanel';
 import TourPanel from '../components/TourPanel';
 import AskPanel, { type AskItem } from '../components/AskPanel';
@@ -699,6 +700,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const [sheet, setSheet] = useState<'L' | 'R' | null>(null);
   const showLeft = phone ? sheet === 'L' : leftOpen;
   const showRight = phone ? sheet === 'R' : rightOpen;
+  // On a phone a panel is a sheet (components/Sheet.tsx) that slides up
+  // and drags closed; on a desktop it's the panel itself.
+  const sheetWrap = (node: ReactNode) => (phone ? <Sheet onClose={() => setSheet(null)}>{node}</Sheet> : node);
   const [ctxMenu, setCtxMenu] = useState<{ lat: number; lon: number; x: number; y: number } | null>(null);
 
   // Drawing, measuring and area selection (map/drawTools.ts), with the
@@ -2156,7 +2160,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         search={<SearchBox onPick={onSearch} />}
       />
       <main className={'ws' + (leftOpen ? '' : ' noL') + (rightOpen ? '' : ' noR')}>
-        {showLeft && (
+        {showLeft &&
+          sheetWrap(
           <LayerPanel
             filters={filters}
             counts={counts}
@@ -2547,7 +2552,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             </button>
           </nav>
         )}
-        {showRight && (
+        {showRight &&
+          sheetWrap(
           <aside className="side right" aria-label="Inspector">
             {photosAt ? (
               <StreetPhotos

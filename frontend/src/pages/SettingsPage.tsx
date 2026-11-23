@@ -49,6 +49,7 @@ import type { Units } from '../lib/units';
 import ThemePicker from '../components/ThemePicker';
 import ThemesSection from '../components/ThemesSection';
 import { applyTheme, chooseTheme } from '../lib/themes';
+import { PHONE_QUERY, useMedia } from '../lib/useMedia';
 
 interface Props {
   me: Me;
@@ -238,7 +239,12 @@ function pairCode(text: string): string {
 }
 
 export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
-  const { section = 'account' } = useParams();
+  const { section: asked } = useParams();
+  const section = asked ?? 'account';
+  // Phones: /settings is the menu alone; a section is its page alone,
+  // with a link back to the menu.
+  const phone = useMedia(PHONE_QUERY);
+  const menuOnly = phone && !asked;
   const navigate = useNavigate();
   const [find, setFind] = useState('');
   const visible = SECTIONS.filter((s) => !s.capability || can(me.user, s.capability));
@@ -284,7 +290,7 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
   return (
     <div className="app">
       <AppHeader me={me} onSignedOut={onSignedOut} />
-      <main className="settings">
+      <main className={'settings' + (phone ? (menuOnly ? ' menu-only' : ' section-only') : '')}>
         <nav className="snav" aria-label="Settings">
           <input
             className="sfind"
@@ -329,6 +335,11 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
         </nav>
         <div className="settings-body">
           <header className="shead">
+            {phone && (
+              <Link className="sback" to="/settings">
+                ‹ All settings
+              </Link>
+            )}
             <span className="eyebrow">{current.group === 'You' ? 'Your account' : current.group + ' · all users'}</span>
             <h1>{current.title}</h1>
             <p>{current.description}</p>

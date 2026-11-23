@@ -6,6 +6,16 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Phones
+
+- Smoother on phones: the Layers and Situation panels slide up as
+  sheets with a handle (drag up or tap for full height, down to close),
+  the header fits on one line, each row of map tools is a strip you
+  swipe sideways instead of running off the screen, the timeline's
+  chart gets the full width, and Settings shows its menu and each
+  section as pages of their own. Taps respond at once, without the grey
+  flash, and panels scroll without moving the page.
+
 ## [1.7.0] - 2026-11-23
 
 Sign-ups with optional approval, user groups and feature access, and

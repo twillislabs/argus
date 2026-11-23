@@ -64,6 +64,25 @@ Along the bottom of the map, the **readout** shows the MGRS grid reference
 and latitude/longitude under the cursor and the camera's eye altitude, with
 a **scale bar** on the right.
 
+## On a phone
+
+On a phone (or any window narrower than about 860 px) Argus rearranges
+itself:
+
+- **Header:** the logo, the pages, the alert bell and your menu on one
+  line, with search under them on the map page. The time is under the
+  map.
+- **Map tools:** each row of tools is one strip; swipe it sideways for
+  the rest.
+- **Panels:** **Layers** and **Situation** (**Details** when something
+  is selected) at the bottom open as a sheet over the map. Drag its
+  handle up, or tap it, to fill the screen; drag it down to go back to
+  half, and down again to close it. **Map** closes it too.
+- **Timeline:** play, speed and Live on one line with the time, and the
+  chart under them, full width.
+- **Settings:** the menu is its own page; pick a section to open it,
+  and **‹ All settings** goes back.
+
 ## Timeline
 
 Under the map, the timeline charts events across the time window (from

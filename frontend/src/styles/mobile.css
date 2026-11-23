@@ -76,6 +76,84 @@
   .whead { gap: 10px; }
 }
 
+/* Phones: smoother, roomier. */
+@media (max-width: 860px) {
+  /* Taps: no grey flash, no 300 ms wait, no accidental text selection
+     on controls. */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, label, summary, select { touch-action: manipulation; }
+  button, .btn, .mobtabs button, .nav a { -webkit-user-select: none; user-select: none; }
+  /* Scroll areas scroll on their own, without bouncing the page. */
+  .side, .settings-body, .snav, .sheet { overscroll-behavior: contain; }
+
+  /* Header: one line, the logo, the pages, the bell and your menu. The
+     clocks go: the time is under the map, and on the Brief. */
+  .cmdbar { flex-wrap: wrap; row-gap: 6px; padding-block: 6px 4px; }
+  .brand b { display: none; }
+  .nav { order: 2; flex-basis: auto; flex: 1; min-width: 0; }
+  .nav a { padding: 9px 9px; }
+  .clocks { order: 3; margin-left: 0; }
+  .clocks .clock { display: none; }
+  .cmdbar .search { order: 4; }
+  .livepill { font-size: 0; gap: 0; padding: 6px; }
+  .livepill i { margin: 0; }
+
+  /* Map tools: each row one strip you swipe sideways, never off the edge. */
+  .mc.tl, .mc.tl2 { right: 52px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+  .mc.tl2::-webkit-scrollbar { display: none; }
+  .maptoolbar { flex-wrap: nowrap; }
+  .mc.tl > *, .mc.tl2 > *, .maptoolbar > * { flex: none; }
+  .mc.tr { gap: 6px; }
+  .mc.tr .btn, .mc.tr button { min-width: 38px; min-height: 38px; }
+
+  /* Timeline: the controls and time on one line, the chart under them,
+     full width, so neither squeezes the other. */
+  .tlrow { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'ctl time' 'plot plot'; row-gap: 2px; }
+  .tlctl { grid-area: ctl; }
+  .tlplot { grid-area: plot; height: 38px; }
+  .tltime { grid-area: time; justify-self: end; font-size: 11px; }
+  .tltime small { display: none; }
+
+  /* Panels as sheets (components/Sheet.tsx): they slide up, a handle
+     drags them, half or full height. */
+  .sheet {
+    grid-column: 1; grid-row: 1; align-self: end; z-index: 20; display: flex; flex-direction: column;
+    height: 62%; min-height: 0; background: var(--surface);
+    border-top: 1px solid var(--line-2); border-radius: 14px 14px 0 0; box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.55);
+    animation: sheet-up 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: height 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.2s ease-out;
+    will-change: transform;
+  }
+  .sheet.full { height: calc(100% - 6px); }
+  .sheet.dragging { transition: none; }
+  .sheet > .side.left, .sheet > .side.right {
+    position: static; flex: 1; min-height: 0; height: auto; max-height: none; align-self: stretch;
+    border: 0; border-radius: 0; box-shadow: none; background: transparent; z-index: auto;
+  }
+  .sheetgrab {
+    flex: none; display: grid; place-items: center; height: 22px; border: 0; padding: 0; background: none; cursor: grab;
+    touch-action: none;
+  }
+  .sheetgrab i { width: 44px; height: 5px; border-radius: 3px; background: var(--line-2); }
+  .sheetgrab:active i { background: var(--accent); }
+  @keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+  .mobtabs button { padding: 13px 6px; transition: background 0.15s, color 0.15s; }
+
+  /* Settings: the menu is its own page; a section is its own page with a
+     link back. */
+  .settings.menu-only .settings-body { display: none; }
+  .settings.menu-only .snav { border-bottom: 0; }
+  .settings.menu-only .snav a { padding: 12px 12px; font-size: 15px; }
+  .settings.section-only .snav { display: none; }
+  .sback { display: block; width: max-content; margin-bottom: 10px; padding: 8px 0; font-size: 14px; color: var(--accent); text-decoration: none; }
+  .spanels, .spanels .card, .spanels .card:not(.wide) { min-width: 0; max-width: 100%; }
+  .themepick { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet { animation: none; transition: none; }
+}
+
 @media (max-width: 420px) {
   .brand b { letter-spacing: 0.16em; }
   .clocks { gap: 8px; }
