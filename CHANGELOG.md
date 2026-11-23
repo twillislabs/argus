@@ -6,6 +6,13 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-23
+
+Sign-ups with optional approval, user groups and feature access, and
+wall improvements (Identify, autosave, the side column filling in).
+Migrations 0011 and 0012 run on start. Sign-ups stay off until an admin
+turns them on, and nothing is limited until an admin sets it.
+
 ### Wall
 
 - **Identify** (Settings › Displays) shows a screen's name across that
