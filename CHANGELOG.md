@@ -6,6 +6,14 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-23
+
+Themes (including Cassette Futurism and Cyberpunk) with custom themes,
+Dailymotion and Kick live video, double-click to focus anything, Google
+Street View, a weather loop, and comparing a story across outlets.
+Nothing to change when you upgrade. Optional new keys in Settings ›
+Data sources: Mapillary (street photos inside Argus).
+
 ### Weather
 
 - **Loop the last hour** (Weather layers): radar and clouds play the
