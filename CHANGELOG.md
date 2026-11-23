@@ -11,8 +11,12 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 - Signing in no longer leaves the app zoomed in on iPhones: Safari
   zooms into any field set under 16 px when you tap it, so fields are
   16 px on phones.
-- The alerts dropdown fits the screen: it spans the width under the
-  bell instead of hanging off the left edge.
+- The alerts dropdown fits the screen: under the bell with a margin
+  either side, instead of hanging off the left edge.
+- The Home Screen icon fills its tile. The web app manifest listed the
+  see-through SVG icon, which iOS drew small on white; it now lists only
+  the full-square PNGs. If you added Argus before, remove it from the
+  Home Screen and add it again: iOS keeps the old icon.
 
 ### Aircraft
 

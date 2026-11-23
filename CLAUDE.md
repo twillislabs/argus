@@ -634,6 +634,10 @@ parts connect.
   (180, full square: iOS rounds it), `img/icon-192.png`, `icon-512.png`,
   `icon-maskable-512.png` (mark in the 80% safe zone) and
   `manifest.webmanifest` (nginx gives it `application/manifest+json`).
+  The manifest lists PNGs only: iOS's Add to Home Screen reads it, and
+  the SVG (a rounded square on a see-through background) came out small
+  on white. nginx serves `/apple-touch-icon-precomposed.png` from
+  `apple-touch-icon.png` (it used to fall through to index.html).
   They're renders of `img/favicon.svg`'s mark: re-render all of them
   if the mark changes. The status bar is see-through when installed, so
   `.app` pads by `safe-area-inset-top`.

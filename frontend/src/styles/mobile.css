@@ -94,11 +94,13 @@
   /* Alerts: across the screen under the bell (AlertBell sets --belltop),
      not hanging off the bell's left edge past the screen. */
   .belldrop {
-    position: fixed; left: 8px; right: 8px; width: auto; top: var(--belltop, 56px);
-    max-height: calc(100dvh - var(--belltop, 56px) - 12px);
+    position: fixed; left: 20px; right: 20px; width: auto; top: var(--belltop, 56px);
+    max-height: min(60dvh, calc(100dvh - var(--belltop, 56px) - 24px));
+    border-radius: 12px; font-size: 13px;
   }
-  .belldrop li button { font-size: 14px; padding: 11px 12px; }
-  .bellhead { flex-wrap: wrap; gap: 6px; }
+  .belldrop li button { font-size: 13px; padding: 9px 12px; }
+  .bellhead { flex-wrap: wrap; gap: 6px; padding: 8px 12px; }
+  .bellperm { font-size: 12.5px; }
 
   /* Header: one line, the logo, the pages, the bell and your menu. The
      clocks go: the time is under the map, and on the Brief. */
