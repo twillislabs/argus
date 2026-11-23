@@ -602,8 +602,10 @@ function EventsCard({
 }
 
 // The day's biggest stories, by how many of the news feeds' outlets run
-// them; each links to its most typical headline.
+// them. Click one to compare how each outlet tells it: every outlet's
+// headline, each linking to that outlet's article.
 function StoriesCard({ title, stories }: { title: string; stories: Story[] | null }) {
+  const [open, setOpen] = useState<string | null>(null);
   return (
     <section className="card">
       <div className="ph">
@@ -617,17 +619,41 @@ function StoriesCard({ title, stories }: { title: string; stories: Story[] | nul
           <p className="quiet small">No story has been run by two or more outlets in the last day.</p>
         ) : (
           <ol className="storylist">
-            {stories.map((st) => (
-              <li key={st.url}>
-                <a href={st.url} target="_blank" rel="noreferrer noopener">
-                  {st.title}
-                </a>
-                <small>
-                  <b className="mono">{st.outlet_count}</b> outlets · {st.outlets.slice(0, 4).join(', ')}
-                  {st.outlet_count > 4 ? ' and more' : ''} · {ago(st.latest)}
-                </small>
-              </li>
-            ))}
+            {stories.map((st) => {
+              const isOpen = open === st.url;
+              return (
+                <li key={st.url} className={isOpen ? 'open' : undefined}>
+                  <button
+                    className="storyhead"
+                    aria-expanded={isOpen}
+                    title="Compare how each outlet tells it"
+                    onClick={() => setOpen(isOpen ? null : st.url)}
+                  >
+                    {st.title}
+                  </button>
+                  <small>
+                    <b className="mono">{st.outlet_count}</b> outlets · {st.outlets.slice(0, 4).join(', ')}
+                    {st.outlet_count > 4 ? ' and more' : ''} · {ago(st.latest)}
+                  </small>
+                  {isOpen && (
+                    <ul className="outletlist">
+                      {st.articles.map((a) => (
+                        <li key={a.url}>
+                          <b>{a.outlet}</b>
+                          <a href={a.url} target="_blank" rel="noreferrer noopener">
+                            {a.title} ↗
+                          </a>
+                          <small className="mono">{ago(a.published_at)}</small>
+                        </li>
+                      ))}
+                      <li className="quiet small">
+                        Pick an outlet to read its version; Argus keeps only the headlines.
+                      </li>
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ol>
         )}
       </div>

@@ -6,6 +6,12 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### News
+
+- Brief top stories: click a story to compare outlets. Every outlet's
+  headline for it is listed, each linking to that outlet's article, so
+  you choose which version to read.
+
 ### Street view
 
 - **Street view here** (right-click the map) replaces Street photos: it

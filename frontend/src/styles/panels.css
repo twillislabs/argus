@@ -1115,3 +1115,15 @@ tr.dimrow td { color: var(--dim); }
 .explain summary::-webkit-details-marker { display: none; }
 .explain summary::before { content: '? '; font-weight: 600; }
 .explain p { margin: 6px 0 0; line-height: 1.5; color: var(--muted); }
+/* A story's outlets, to compare how each tells it (Brief). */
+.storylist .storyhead { background: none; border: 0; padding: 0; text-align: left; font: inherit; color: var(--text); cursor: pointer; }
+.storylist .storyhead:hover { text-decoration: underline; }
+.storylist li.open .storyhead { color: var(--accent); }
+.outletlist { list-style: none; margin: 8px 0 4px; padding: 8px 10px; display: grid; gap: 8px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-s); }
+.outletlist li { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; font-size: 12.5px; }
+.outletlist li b { color: var(--muted); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.outletlist li small { color: var(--dim); }
+.outletlist li.quiet { display: block; }
+@media (max-width: 860px) {
+  .outletlist li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}

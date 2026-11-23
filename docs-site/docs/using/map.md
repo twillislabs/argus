@@ -102,8 +102,10 @@ off edge smoothing.
 By default it opens with the US, then the world:
 
 - **US top stories** and **World top stories**: the day's biggest stories
-  in your news feeds, ranked by how many outlets run them, each linked to
-  its most typical headline. A story counts as US when most of its
+  in your news feeds, ranked by how many outlets run them. Click a story
+  to compare how each outlet tells it: every outlet's headline (its
+  newest), each linking to that outlet's article, so you can pick which
+  source to read. A story counts as US when most of its
   headlines name a US place, agency or politics and few name another
   country (or, naming no country, mostly American outlets run it).
 - **US events · 24h** and **World events · 24h**, by severity.

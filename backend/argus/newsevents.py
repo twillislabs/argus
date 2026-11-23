@@ -491,6 +491,8 @@ async def top_stories(
                 "outlets": outlets[:12],
                 "outlet_count": len(outlets),
                 "latest": max(a.published_at for a in items).isoformat(),
+                # One headline per outlet (its newest), to compare
+                # how each tells the story.
                 "articles": [
                     {
                         "outlet": a.outlet,
@@ -499,8 +501,15 @@ async def top_stories(
                         "published_at": a.published_at.isoformat(),
                     }
                     for a in sorted(
-                        items, key=lambda a: a.published_at, reverse=True
-                    )[:8]
+                        {
+                            a.outlet: a
+                            for a in sorted(
+                                items, key=lambda a: a.published_at
+                            )
+                        }.values(),
+                        key=lambda a: a.published_at,
+                        reverse=True,
+                    )[:12]
                 ],
             }
         )
