@@ -728,7 +728,15 @@ parts connect.
   follow ending or the satellite deselected, `releaseCamera()` on Esc);
   the tracker's `release()` only drops a frame it set itself
   (`holding`): its `setTarget(null)` runs on every aircraft update and
-  used to drop everyone's.
+  used to drop everyone's. Markers and labels skip the depth test out
+  to the horizon (`depthDistance`); within `HELD_DEPTH_RANGE_M` of a
+  held station or rocket, `heldDepth` (camHeld's `radius`) cuts that to
+  the model's near side, so it hides labels behind it.
+- Hover: the pointer handler picks once a frame on mouse moves, and
+  while a card shows a postRender recheck picks again every
+  `HOVER_RECHECK_MS` at the last pointer position, closing or swapping
+  the card when what's under it changed (camera riding along, a moving
+  aircraft).
 - Hazards (GDACS, EONET, tsunami) and NGA warnings are keyed events
   (`fuse_hazard`, `fuse_navwarn`) whose raw records update in place
   (`UPDATABLE_KINDS`).

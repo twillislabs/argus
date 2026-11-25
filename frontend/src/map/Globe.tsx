@@ -137,6 +137,13 @@ const EARTH_RADIUS_M = 6_378_137;
 // especially in 2D and near the horizon. Turn depth testing off out to the
 // horizon distance: everything nearer is on the visible side of the
 // globe, and everything on the far side stays hidden by it.
+// How often a showing hover card checks it's still over its thing.
+const HOVER_RECHECK_MS = 300;
+
+// Within this distance of a held station or rocket, things behind it are
+// depth-tested against it (heldDepth in Globe).
+const HELD_DEPTH_RANGE_M = 50_000;
+
 function depthDistance(v: CesiumWidget): number {
   if (v.scene.mode !== SceneMode.SCENE3D) return Number.POSITIVE_INFINITY;
   const h = Math.max(0, v.camera.positionCartographic.height);
@@ -656,13 +663,15 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
   // What holds the camera in a lookAt frame besides the aircraft tracker:
   // following a satellite, or orbiting a spot (a rocket on its pad), and
   // that spot's pick id. Cleared by freeCamera().
-  const camHeld = useRef<{ by: 'sat' | 'pivot'; id: string | null } | null>(null);
+  // radius: the held thing's size in metres, for the depth test below.
+  const camHeld = useRef<{ by: 'sat' | 'pivot'; id: string | null; radius: number } | null>(null);
   const freeCamera = () => {
     const v = viewer.current;
     if (camHeld.current && v && !v.isDestroyed() && !Matrix4.equals(v.camera.transform, Matrix4.IDENTITY)) {
       v.camera.lookAtTransform(Matrix4.IDENTITY);
     }
     camHeld.current = null;
+    (v as unknown as { applyDepth?: () => void } | null)?.applyDepth?.();
   };
   followSatRef.current = {
     on: followSat,
@@ -808,7 +817,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         const range = near < 300 ? near * 6 : Math.min(Math.max(height * 1.6, 400_000), 60_000_000);
         v.camera.lookAtTransform(satFrame, new HeadingPitchRange(0, CesiumMath.toRadians(-35), range));
         followSatRef.current.fresh = false;
-        camHeld.current = { by: 'sat', id: 'sat:' + f.norad };
+        camHeld.current = { by: 'sat', id: 'sat:' + f.norad, radius: satLayer.nearest(f.norad) / 1.5 };
+        depthNow = -1;
       } else {
         v.camera.lookAtTransform(satFrame, Cartesian3.clone(v.camera.position));
       }
@@ -949,8 +959,23 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       }
     }
     let depthNow = -1;
+    // Markers and labels skip the depth test out to the horizon, so the
+    // dark map's raised land never hides them, but that let city names
+    // draw over a station or rocket the camera is held on. Close to one,
+    // anything farther than the model's near side is depth-tested (labels
+    // sit 1-2 km up, over the land) and the model hides what's behind it.
+    // The held camera's frame is centred on the model, so its offset is
+    // the distance.
+    function heldDepth(): number | null {
+      const held = camHeld.current;
+      if (!held || v.scene.mode !== SceneMode.SCENE3D) return null;
+      if (Matrix4.equals(v.camera.transform, Matrix4.IDENTITY)) return null;
+      const dist = Cartesian3.magnitude(v.camera.position);
+      if (dist > HELD_DEPTH_RANGE_M) return null;
+      return Math.max(1, dist - held.radius);
+    }
     function applyDepth() {
-      const d = depthDistance(v);
+      const d = heldDepth() ?? depthDistance(v);
       if (Math.abs(d - depthNow) < Math.max(1, depthNow * 0.01)) return;
       depthNow = d;
       for (const c of [collection, ringCollection]) {
@@ -1056,7 +1081,9 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     // (picking renders the scene, so not on every mouse event).
     let pendingMove: Cartesian2 | null = null;
     let hovered: string | null = null;
+    let lastHoverPos: Cartesian2 | null = null;
     handler.setInputAction((e: { endPosition: Cartesian2 }) => {
+      lastHoverPos = Cartesian2.clone(e.endPosition);
       if (!pendingMove) {
         window.requestAnimationFrame(() => {
           const pos = pendingMove;
@@ -1076,8 +1103,33 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       }
       pendingMove = Cartesian2.clone(e.endPosition);
     }, ScreenSpaceEventType.MOUSE_MOVE);
+    // The card is checked again while it shows, even with the pointer
+    // still: the camera may be riding along with something, or the thing
+    // under the pointer moving away. Otherwise the card stayed up for
+    // whatever the pointer last moved over.
+    let lastRecheck = 0;
+    let recheckQueued = false;
+    const removeRecheck = scene.postRender.addEventListener(() => {
+      if (!hovered || !lastHoverPos || recheckQueued) return;
+      const now = performance.now();
+      if (now - lastRecheck < HOVER_RECHECK_MS) return;
+      lastRecheck = now;
+      recheckQueued = true;
+      window.requestAnimationFrame(() => {
+        recheckQueued = false;
+        const pos = lastHoverPos;
+        if (!pos || !hovered || v.isDestroyed()) return;
+        const picked = scene.pick(pos);
+        const id = picked && typeof picked.id === 'string' ? picked.id : null;
+        if (id === hovered) return;
+        hovered = id;
+        if (draw.current?.tool() === 'none') scene.canvas.style.cursor = id ? 'pointer' : '';
+        onHoverRef.current?.(id, pos.x, pos.y);
+      });
+    });
     const onLeave = () => {
       hovered = null;
+      lastHoverPos = null;
       onHoverRef.current?.(null, 0, 0);
     };
     scene.canvas.addEventListener('pointerleave', onLeave);
@@ -1144,6 +1196,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           },
         ],
         ['pointer leave', () => scene.canvas.removeEventListener('pointerleave', onLeave)],
+        ['hover recheck', removeRecheck],
         ['widget', () => v.destroy()],
       ];
       for (const [name, step] of steps) {
@@ -1789,7 +1842,8 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
           const hold = () => {
             if (v.isDestroyed()) return;
             v.camera.lookAtTransform(FixedFrameTransforms.eastNorthUpToFixedFrame(centre), offset);
-            camHeld.current = { by: 'pivot', id };
+            camHeld.current = { by: 'pivot', id, radius: height };
+            (v as unknown as { applyDepth?: () => void }).applyDepth?.();
           };
           if (reduceMotion) return hold();
           v.camera.flyToBoundingSphere(new BoundingSphere(centre, 0), { offset, duration: 1.6, complete: hold });

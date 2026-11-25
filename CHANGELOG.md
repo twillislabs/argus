@@ -6,6 +6,16 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Map
+
+- The hover card closes when the thing under the pointer moves away,
+  even if the mouse doesn't (following a station, flying elsewhere, an
+  aircraft flying on). It used to stay up for whatever the pointer
+  last moved over.
+- City names and markers no longer draw over a station or rocket the
+  camera is following or orbiting up close: the model now hides what's
+  behind it.
+
 ### Interface
 
 - Source health (each collector's last pull and status) is for
