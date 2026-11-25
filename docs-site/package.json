@@ -2,7 +2,7 @@
   "name": "argus-docs",
   "private": true,
   "license": "Apache-2.0",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "scripts": {
     "start": "docusaurus start",
     "build": "docusaurus build",
