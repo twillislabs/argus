@@ -6,6 +6,12 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+## [1.9.3] - 2026-11-25
+
+Source health for administrators only, and map fixes: hover cards that
+close when their thing moves away, and stations and rockets that hide
+the labels behind them. Nothing to change when you upgrade.
+
 ### Map
 
 - The hover card closes when the thing under the pointer moves away,
