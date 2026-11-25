@@ -631,6 +631,8 @@ export default function LayerPanel({
       <Group title="Weather" on={countOn(filters.weather)} total={WEATHER_ROWS.length} forceOpen={Boolean(q)}>
         {WEATHER_ROWS.map((r) => {
           const img = (WX_IMAGERY as string[]).includes(r.id) ? (r.id as WxImagery) : null;
+          // The loop plays only radar and clouds: on its own it does nothing.
+          const idleLoop = r.id === 'loop' && filters.weather.loop && !filters.weather.radar && !filters.weather.clouds;
           return (
             <Fragment key={r.id}>
               <label className="lrow">
@@ -643,7 +645,11 @@ export default function LayerPanel({
                 <span className={'sw' + (img ? '' : ' area')} style={{ background: r.color, borderColor: r.color }} />
                 <span className="lname">
                   <span>{r.label}</span>
-                  <small>{r.source}</small>
+                  {idleLoop ? (
+                    <small className="warn">Turn on Radar (US) or Clouds to loop them</small>
+                  ) : (
+                    <small>{r.source}</small>
+                  )}
                 </span>
                 <span className="lcount mono">
                   {r.id === 'alerts'
