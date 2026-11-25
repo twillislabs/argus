@@ -133,7 +133,9 @@ By default it opens with the US, then the world:
   activity and the top event or most affected countries. Click one to
   open the map there.
 - **Changes since yesterday** in plain sentences, **Source health** for
-  every collector and **Tension by country**.
+  every collector (administrators only, like the status dots on the
+  layers; nobody else sees it or can turn it on) and **Tension by
+  country**.
 - **Wikipedia current events** for the latest day, grouped as Wikipedia
   groups them (armed conflicts and attacks, politics, disasters...), with
   each entry's story thread and news sources. Click an entry to open the

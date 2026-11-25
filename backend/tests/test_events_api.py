@@ -5,8 +5,9 @@ from starlette.testclient import TestClient
 from argus.collectors.base import RawIn
 from argus.db import utcnow
 from argus.fusion import fuse, store_raw
-from tests.conftest import setup_body
+from tests.conftest import csrf, setup_body
 from tests.test_fusion import quake
+from tests.test_users import create, sign_in
 
 
 async def seed(app):
@@ -185,3 +186,34 @@ def test_gdelt_source_checks():
     assert other == {"place": "not_named", "same_kind": False}
     unknown = gdelt_check("https://example.com/news/436610", "", event)
     assert unknown["place"] == "unknown"
+
+
+async def test_source_health_is_for_admins(admin_client, app):
+    await seed(app)
+    # Admins see collector health in the summary and on its own.
+    assert (await admin_client.get("/api/sources")).status_code == 200
+    assert "sources" in (await admin_client.get("/api/summary")).json()
+    await create(
+        admin_client, username="ana", display_name="Ana", role="analyst"
+    )
+    users = (await admin_client.get("/api/admin/users")).json()
+    ana = next(u for u in users if u["username"] == "ana")
+    temp = (
+        await admin_client.post(
+            "/api/admin/users/{0}/reset-password".format(ana["id"]),
+            headers=csrf(admin_client),
+        )
+    ).json()["temporary_password"]
+    c, _ = await sign_in(app, "ana", temp)
+    await c.post(
+        "/api/me/password",
+        json={
+            "current_password": temp,
+            "new_password": "a long new passphrase",
+        },
+        headers=csrf(c),
+    )
+    assert (await c.get("/api/sources")).status_code == 403
+    summary = (await c.get("/api/summary")).json()
+    assert summary["total"] == 2
+    assert summary["sources"] == []

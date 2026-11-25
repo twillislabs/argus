@@ -381,17 +381,20 @@ export interface BriefPrefs {
 
 // The user's saved order (else the server default's, else the built-in
 // one), with sections added since put in their default place, and the
-// hidden ones taken out.
+// hidden ones taken out. Sections in `without` (ones this person isn't
+// shown at all, like Source health for non-admins) are left out of
+// every list, so they aren't offered in Customize either.
 export function briefLayout(
   mine: BriefPrefs | undefined,
   server?: BriefPrefs,
+  without: BriefSection[] = [],
 ): {
   order: BriefSection[];
   shown: BriefSection[];
   hidden: BriefSection[];
 } {
   const p = mine ?? server;
-  const all = BRIEF_SECTIONS.map((s) => s.id) as BriefSection[];
+  const all = (BRIEF_SECTIONS.map((s) => s.id) as BriefSection[]).filter((s) => !without.includes(s));
   const order = (p?.order ?? []).filter((s) => all.includes(s));
   for (const s of all) if (!order.includes(s)) order.splice(Math.min(all.indexOf(s), order.length), 0, s);
   const hidden = (p?.hidden ?? []).filter((s) => all.includes(s));

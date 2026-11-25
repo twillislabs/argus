@@ -6,6 +6,13 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Interface
+
+- Source health (each collector's last pull and status) is for
+  administrators only: other people no longer see the Brief's Source
+  health section, can't turn it on in Customize, and don't get the
+  status dots on the layer rows.
+
 ## [1.9.2] - 2026-11-23
 
 Flight routes that match the leg being flown, and phone fixes. Nothing

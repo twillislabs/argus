@@ -12,6 +12,7 @@ import {
   type BriefPrefs,
   type BriefSection,
   briefLayout,
+  can,
   type EventItem,
   getEvents,
   getCyber,
@@ -252,7 +253,9 @@ export default function BriefPage({
   // server's default (Settings > Defaults), else the built-in order.
   const [brief, setBrief] = useState<BriefPrefs | undefined>(me.preferences.brief ?? undefined);
   const [customizing, setCustomizing] = useState(false);
-  const layout = briefLayout(brief, me.defaults?.brief);
+  // Source health is for administrators: it isn't shown or offered in
+  // Customize to anyone else (and the summary leaves it out for them).
+  const layout = briefLayout(brief, me.defaults?.brief, can(me.user, 'settings.manage') ? [] : ['sources']);
   // Saved, then the app's copy of your account re-read, so coming back
   // to the Brief shows the new order.
   function saveBrief(next: BriefPrefs | null) {

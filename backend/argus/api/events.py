@@ -6,6 +6,7 @@ from urllib.parse import urlsplit
 
 from fastapi import (
     APIRouter,
+    Depends,
     HTTPException,
     Query,
     Request,
@@ -14,9 +15,15 @@ from fastapi import (
 )
 from sqlalchemy import or_, select
 
+from argus import access, places, tension, youtube
 from argus import events as ev
-from argus import places, tension, youtube
-from argus.api.deps import SESSION_COOKIE, DbDep, SessionDep, SettingsDep
+from argus.api.deps import (
+    SESSION_COOKIE,
+    DbDep,
+    SessionDep,
+    SettingsDep,
+    require,
+)
 from argus.db import utcnow
 from argus.models import Article, Event
 from argus.services import load_session
@@ -80,7 +87,11 @@ async def get_event(event_id: str, session: SessionDep, db: DbDep):
 async def get_summary(
     session: SessionDep, db: DbDep, hours: int = Query(24, ge=1, le=168)
 ):
-    return await ev.summary(db, hours)
+    body = await ev.summary(db, hours)
+    # Collector health is for administrators (it's what they fix).
+    if not await access.may(db, session.user, "settings.manage"):
+        body["sources"] = []
+    return body
 
 
 TENSION_CACHE_S = 60
@@ -132,7 +143,7 @@ async def get_stories(
     return body
 
 
-@router.get("/api/sources")
+@router.get("/api/sources", dependencies=[Depends(require("settings.manage"))])
 async def get_sources(session: SessionDep, db: DbDep):
     return {"sources": await ev.source_status(db)}
 

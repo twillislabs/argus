@@ -203,9 +203,14 @@ parts connect.
   built-in order, US first); the `brief` preference holds `order` and
   `hidden` (null clears it), edited by the page's Customize panel, over
   the server default `defaults.brief` (Settings > Defaults), both with
-  `BriefSectionsEditor`; `briefLayout(mine, server)` adds sections
-  added since in their default place. BriefPage calls `onSaved` (App's
-  refresh) after saving, or returning to it showed the stale order. `/api/stories`
+  `BriefSectionsEditor`; `briefLayout(mine, server, without)` adds
+  sections added since in their default place and drops `without`
+  (BriefPage passes `['sources']` to non-admins, so it isn't offered in
+  Customize). Collector health is admins' (`settings.manage`):
+  `/api/sources` requires it and `/api/summary` sends `sources: []` to
+  everyone else (so the layer rows' status dots vanish too). BriefPage
+  calls `onSaved` (App's refresh) after saving, or returning to it
+  showed the stale order. `/api/stories`
   (`newsevents.top_stories`, cached 5 min) groups the day's headlines
   by story, ranked by outlets, split by `us_or_world`. `story.clusters`
   indexes terms, so a day of headlines groups in under a second.
