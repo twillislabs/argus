@@ -645,7 +645,8 @@ parts connect.
   generator's tags. To change them, regenerate the set and replace the
   files; don't edit them by hand. nginx serves
   `/apple-touch-icon-precomposed.png` from `apple-touch-icon.png` (it
-  used to fall through to index.html). Checkers fetching from data
+  used to fall through to index.html), uncached like the other root
+  icons (`expires -1`): Cloudflare kept the old one for a week. Checkers fetching from data
   centres can be blocked by the server's Cloudflare, not by Argus.
   The status bar is see-through when installed, so
   `.app` pads by `safe-area-inset-top`.
