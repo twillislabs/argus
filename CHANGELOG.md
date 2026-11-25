@@ -6,6 +6,14 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Icons
+
+- New icons with rounded corners, generated as a complete set
+  (RealFaviconGenerator): browser tabs, the iPhone Home Screen and
+  installed apps. To see the new Home Screen icon on an iPhone, delete
+  Argus from the Home Screen, remove the site under Settings › Apps ›
+  Safari › Advanced › Website Data, and add it again.
+
 ## [1.9.3] - 2026-11-25
 
 Source health for administrators only, and map fixes: hover cards that

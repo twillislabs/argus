@@ -635,16 +635,19 @@ parts connect.
   blocks pinch zoom. Dropdowns anchored to a control that isn't at the
   screen's right edge go `position: fixed` across the width on phones
   (the alerts `.belldrop`, top from `--belltop` set by AlertBell).
-- Icons: `frontend/public/favicon.ico` (16/32/48), `apple-touch-icon.png`
-  (180, full square: iOS rounds it), `img/icon-192.png`, `icon-512.png`,
-  `icon-maskable-512.png` (mark in the 80% safe zone) and
-  `manifest.webmanifest` (nginx gives it `application/manifest+json`).
-  The manifest lists PNGs only: iOS's Add to Home Screen reads it, and
-  the SVG (a rounded square on a see-through background) came out small
-  on white. nginx serves `/apple-touch-icon-precomposed.png` from
-  `apple-touch-icon.png` (it used to fall through to index.html).
-  They're renders of `img/favicon.svg`'s mark: re-render all of them
-  if the mark changes. The status bar is see-through when installed, so
+- Icons: the RealFaviconGenerator set (realfavicongenerator.net, made
+  from the mark in `favicon.svg`), used exactly as generated at the
+  root of `frontend/public/`: `favicon.ico` (16/32/48), `favicon.svg`
+  (also `docs-site/static/img/` for the docs), `favicon-96x96.png`,
+  `apple-touch-icon.png` (180), `web-app-manifest-192x192.png`,
+  `web-app-manifest-512x512.png` and `site.webmanifest` (nginx gives it
+  `application/manifest+json`), linked from index.html with the
+  generator's tags. To change them, regenerate the set and replace the
+  files; don't edit them by hand. nginx serves
+  `/apple-touch-icon-precomposed.png` from `apple-touch-icon.png` (it
+  used to fall through to index.html). Checkers fetching from data
+  centres can be blocked by the server's Cloudflare, not by Argus.
+  The status bar is see-through when installed, so
   `.app` pads by `safe-area-inset-top`.
 - YouTube embeds need `referrerPolicy="strict-origin-when-cross-origin"`
   on the iframe: nginx sends `Referrer-Policy: same-origin`, and without
