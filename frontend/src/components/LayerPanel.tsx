@@ -14,7 +14,14 @@ import { ALPR_COLOR } from '../map/alprLayer';
 import { TRANSIT_COLOR } from '../map/transitLayer';
 import { RADIO_COLOR } from '../map/radioLayer';
 import { CAM_COLOR, WEBCAM_COLOR } from '../map/camLayer';
-import { DEFAULT_WEATHER, opacityOf, type WeatherFilters, WX_IMAGERY, type WxImagery, type WxOpacity } from '../map/wxLayer';
+import {
+  DEFAULT_WEATHER,
+  opacityOf,
+  type WeatherFilters,
+  WX_IMAGERY,
+  type WxImagery,
+  type WxOpacity,
+} from '../map/wxLayer';
 import { distance } from '../lib/units';
 import { DEFAULT_SEA, type SeaFilters, VESSEL_COLOR } from '../map/vesselLayer';
 import { FISHING_COLOR } from '../map/fishingLayer';
@@ -112,10 +119,20 @@ const INFRA_ROWS: { id: keyof InfraFilters; label: string; source: string; color
   { id: 'cables', label: 'Submarine cables', source: 'TeleGeography', color: '#7fd1c7' },
   { id: 'bases', label: 'Military bases', source: 'OpenStreetMap', color: BASE_COLOR },
   { id: 'alpr', label: 'Plate reader cameras', source: 'Flock and other ALPR · OpenStreetMap', color: ALPR_COLOR },
-  { id: 'transit', label: 'Public transport (live)', source: 'Operators’ GTFS-Realtime · 9 cities', color: TRANSIT_COLOR },
+  {
+    id: 'transit',
+    label: 'Public transport (live)',
+    source: 'Operators’ GTFS-Realtime · 9 cities',
+    color: TRANSIT_COLOR,
+  },
   { id: 'radio', label: 'Radio stations', source: 'Radio Browser · most played stations', color: RADIO_COLOR },
   { id: 'outages', label: 'Internet outages', source: 'IODA · countries, last 24 hours', color: OUTAGE_COLOR },
-  { id: 'ransomware', label: 'Ransomware victims', source: 'ransomware.live · latest 100 claims, per country', color: RANSOMWARE_COLOR },
+  {
+    id: 'ransomware',
+    label: 'Ransomware victims',
+    source: 'ransomware.live · latest 100 claims, per country',
+    color: RANSOMWARE_COLOR,
+  },
 ];
 
 const AIRSPACE_ROWS: { id: keyof AirspaceFilters; label: string; source: string }[] = [
@@ -144,7 +161,12 @@ const SEA_HINT: Record<SeaStatus, string> = {
 
 const SPACE_ROWS: { id: keyof SpaceFilters; label: string; source: string; color: string }[] = [
   { id: 'iss', label: 'Space stations', source: 'ISS (3D model) and Tiangong', color: SAT_COLOR.station },
-  { id: 'launches', label: 'Rocket launches', source: 'Launch Library 2 · last 3 days, next 2 weeks', color: '#ffd166' },
+  {
+    id: 'launches',
+    label: 'Rocket launches',
+    source: 'Launch Library 2 · last 3 days, next 2 weeks',
+    color: '#ffd166',
+  },
   { id: 'leo', label: 'Low Earth orbit', source: 'Under 2,000 km · stations, imaging', color: SAT_COLOR.leo },
   { id: 'meo', label: 'Medium Earth orbit', source: 'GPS, Galileo, GLONASS, BeiDou', color: SAT_COLOR.meo },
   { id: 'geo', label: 'Geosynchronous', source: 'Communications, weather', color: SAT_COLOR.geo },
@@ -382,11 +404,7 @@ export default function LayerPanel({
     <aside ref={panel} className="side left" aria-label="Layers">
       <div className="ph">
         <h2>Layers</h2>
-        <button
-          className="btn small"
-          disabled={isDefault}
-          onClick={() => onChange(resetTo)}
-        >
+        <button className="btn small" disabled={isDefault} onClick={() => onChange(resetTo)}>
           Reset filters
         </button>
       </div>
@@ -410,9 +428,7 @@ export default function LayerPanel({
             <input
               type="checkbox"
               checked={filters.types[t]}
-              onChange={(e) =>
-                onChange({ ...filters, types: { ...filters.types, [t]: e.target.checked } })
-              }
+              onChange={(e) => onChange({ ...filters, types: { ...filters.types, [t]: e.target.checked } })}
             />
             <span className="tog" />
             <span className="sw" style={{ background: TYPE_INFO[t].color }} />
@@ -441,7 +457,11 @@ export default function LayerPanel({
           <span className="lcount mono">{tensionCount ?? '–'}</span>
         </label>
         <label className="lrow">
-          <input type="checkbox" checked={filters.wiki} onChange={(e) => onChange({ ...filters, wiki: e.target.checked })} />
+          <input
+            type="checkbox"
+            checked={filters.wiki}
+            onChange={(e) => onChange({ ...filters, wiki: e.target.checked })}
+          />
           <span className="tog" />
           <span className="sw" style={{ background: WIKI_COLOR }} />
           <span className="lname">
@@ -456,11 +476,7 @@ export default function LayerPanel({
       </Group>
       <Group title="Air" on={countOn({ m: air.military, c: air.civil })} total={2} forceOpen={Boolean(q)}>
         <label className="lrow">
-          <input
-            type="checkbox"
-            checked={air.military}
-            onChange={(e) => setAir({ military: e.target.checked })}
-          />
+          <input type="checkbox" checked={air.military} onChange={(e) => setAir({ military: e.target.checked })} />
           <span className="tog" />
           <span className="sw plane" style={{ background: AIR_COLOR.military }} />
           <span className="lname">
@@ -473,11 +489,7 @@ export default function LayerPanel({
           </span>
         </label>
         <label className="lrow">
-          <input
-            type="checkbox"
-            checked={air.civil}
-            onChange={(e) => setAir({ civil: e.target.checked })}
-          />
+          <input type="checkbox" checked={air.civil} onChange={(e) => setAir({ civil: e.target.checked })} />
           <span className="tog" />
           <span className="sw plane" style={{ background: AIR_COLOR.civil }} />
           <span className="lname">
@@ -486,7 +498,9 @@ export default function LayerPanel({
               {CIVIL_HINT[air.civil ? civilStatus : 'off']}
             </small>
           </span>
-          <span className="lcount mono">{air.civil && (civilStatus === 'ok' || civilStatus === 'limited') ? airCounts.civil : '–'}</span>
+          <span className="lcount mono">
+            {air.civil && (civilStatus === 'ok' || civilStatus === 'limited') ? airCounts.civil : '–'}
+          </span>
         </label>
         <div className="field pad">
           <label htmlFor="f-air">Show</label>
@@ -513,7 +527,10 @@ export default function LayerPanel({
               <span>{r.label}</span>
               <small
                 className={
-                  r.id === 'structure' && filters.airspace.structure && structureStatus !== 'ok' && structureStatus !== 'zoom'
+                  r.id === 'structure' &&
+                  filters.airspace.structure &&
+                  structureStatus !== 'ok' &&
+                  structureStatus !== 'zoom'
                     ? 'warn'
                     : undefined
                 }
@@ -636,10 +653,10 @@ export default function LayerPanel({
                       : r.id === 'storms'
                         ? (stormCount ?? '–')
                         : r.id === 'fires'
-                        ? (fireCount ?? '–')
-                        : r.id === 'air'
-                          ? (airCount ?? '')
-                          : ''}
+                          ? (fireCount ?? '–')
+                          : r.id === 'air'
+                            ? (airCount ?? '')
+                            : ''}
                   <Dot sources={sources} id={'wx-' + r.id} />
                 </span>
               </label>
@@ -662,7 +679,12 @@ export default function LayerPanel({
           );
         })}
       </Group>
-      <Group title="Infrastructure" on={countOn({ ...filters.infra, fishing: false })} total={INFRA_ROWS.length} forceOpen={Boolean(q)}>
+      <Group
+        title="Infrastructure"
+        on={countOn({ ...filters.infra, fishing: false })}
+        total={INFRA_ROWS.length}
+        forceOpen={Boolean(q)}
+      >
         {INFRA_ROWS.map((r) => (
           <label key={r.id} className="lrow">
             <input
@@ -679,7 +701,9 @@ export default function LayerPanel({
             <span className="lcount mono">
               {r.id === 'alpr' && filters.infra.alpr
                 ? alprLoading
-                  ? (alprCount ? alprCount + '…' : 'loading…')
+                  ? alprCount
+                    ? alprCount + '…'
+                    : 'loading…'
                   : (alprCount ?? 'zoom in')
                 : r.id === 'transit' && filters.infra.transit
                   ? (transitCount ?? '–')
@@ -734,9 +758,7 @@ export default function LayerPanel({
             <input
               type="checkbox"
               checked={filters.reference[r.id]}
-              onChange={(e) =>
-                onChange({ ...filters, reference: { ...filters.reference, [r.id]: e.target.checked } })
-              }
+              onChange={(e) => onChange({ ...filters, reference: { ...filters.reference, [r.id]: e.target.checked } })}
             />
             <span className="tog" />
             <span className={'sw ref ' + r.id} />

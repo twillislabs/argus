@@ -115,8 +115,8 @@ export default function LoginPage({ onDone }: { onDone: () => Promise<void> }) {
         </button>
       </form>
       <p className="pairlink quiet small">
-        A TV or wall screen? <a href="/pair">Pair it as a wall display</a>: it shows a code for an admin to approve,
-        and no one signs in on it.
+        A TV or wall screen? <a href="/pair">Pair it as a wall display</a>: it shows a code for an admin to approve, and
+        no one signs in on it.
       </p>
     </AuthShell>
   );

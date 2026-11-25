@@ -41,10 +41,7 @@ export function toUtm(lat: number, lon: number): { zone: number; easting: number
       ((15 * E2 ** 2) / 256 + (45 * E2 ** 3) / 1024) * Math.sin(4 * phi) -
       ((35 * E2 ** 3) / 3072) * Math.sin(6 * phi));
   const easting =
-    K0 *
-      n *
-      (a + ((1 - t + c) * a ** 3) / 6 + ((5 - 18 * t + t ** 2 + 72 * c - 58 * EP2) * a ** 5) / 120) +
-    500000;
+    K0 * n * (a + ((1 - t + c) * a ** 3) / 6 + ((5 - 18 * t + t ** 2 + 72 * c - 58 * EP2) * a ** 5) / 120) + 500000;
   let northing =
     K0 *
     (m +

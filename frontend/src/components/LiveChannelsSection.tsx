@@ -154,9 +154,9 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
             </div>
             <p className="quiet small">
               Only add channels with a true live stream (around the clock, or a live TV simulcast): the player shows a
-              channel&apos;s current live video, and nothing when it isn&apos;t live. Kick channels play in Kick&apos;s own
-              player, which shows its offline screen when the channel isn&apos;t live (Argus can&apos;t check without a Kick
-              sign-in).
+              channel&apos;s current live video, and nothing when it isn&apos;t live. Kick channels play in Kick&apos;s
+              own player, which shows its offline screen when the channel isn&apos;t live (Argus can&apos;t check
+              without a Kick sign-in).
             </p>
             <span className="actions">
               <button
@@ -214,8 +214,8 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
             {found && (
               <div className="feedtest">
                 <p className={found.status === 'live' ? 'ok small' : 'quiet small'}>
-                  Found <b>{found.name}</b> ({PLATFORM_NAME[found.platform]}{' '}
-                  <span className="mono">{found.id}</span>): {STATUS[found.status] ?? found.status}.
+                  Found <b>{found.name}</b> ({PLATFORM_NAME[found.platform]} <span className="mono">{found.id}</span>):{' '}
+                  {STATUS[found.status] ?? found.status}.
                 </p>
                 <div className="aigrid">
                   <label className="field">
@@ -323,7 +323,9 @@ export default function LiveChannelsSection({ onSaved }: { onSaved: () => Promis
                   <span className="cname">
                     <b>
                       {c.name}
-                      {c.platform && c.platform !== 'youtube' && <span className="badge">{PLATFORM_NAME[c.platform]}</span>}
+                      {c.platform && c.platform !== 'youtube' && (
+                        <span className="badge">{PLATFORM_NAME[c.platform]}</span>
+                      )}
                     </b>
                     <small>
                       Tab <b>{c.short}</b> · <span className="mono">{c.id}</span>

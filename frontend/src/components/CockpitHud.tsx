@@ -36,8 +36,7 @@ function distanceNm(lat1: number, lon1: number, lat2: number, lon2: number): num
   const p1 = lat1 * DEG;
   const p2 = lat2 * DEG;
   const a =
-    Math.sin(((lat2 - lat1) * DEG) / 2) ** 2 +
-    Math.cos(p1) * Math.cos(p2) * Math.sin(((lon2 - lon1) * DEG) / 2) ** 2;
+    Math.sin(((lat2 - lat1) * DEG) / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(((lon2 - lon1) * DEG) / 2) ** 2;
   return (2 * EARTH_M * Math.asin(Math.sqrt(a))) / 1852;
 }
 
@@ -47,7 +46,17 @@ export function pad(n: number, width: number): string {
 
 // A compass tape, 140 degrees wide, centred on hdg, with an optional bug
 // (destination bearing, or course over ground) and the value boxed.
-export function HeadingTape({ hdg, width, bug, top }: { hdg: number; width: number; bug: number | null; top?: number }) {
+export function HeadingTape({
+  hdg,
+  width,
+  bug,
+  top,
+}: {
+  hdg: number;
+  width: number;
+  bug: number | null;
+  top?: number;
+}) {
   const ticks = [];
   for (let d = Math.floor(hdg - 70); d <= hdg + 70; d++) {
     if (d % 5) continue;

@@ -42,8 +42,8 @@ export function PlantInspector({ plant, onBack, onFly }: { plant: Plant; onBack:
           </div>
         </dl>
         <p className="quiet small">
-          WRI Global Power Plant Database (CC BY 4.0), last updated 2021: newer plants are missing and some have
-          closed. {country} is the ISO country code.
+          WRI Global Power Plant Database (CC BY 4.0), last updated 2021: newer plants are missing and some have closed.{' '}
+          {country} is the ISO country code.
         </p>
       </section>
     </div>
@@ -77,7 +77,9 @@ export function CableInspector({ cable, onBack }: { cable: { id: string; name: s
         </div>
       </section>
       <section className="isec">
-        <p className="quiet small">Route from TeleGeography&apos;s submarine cable map (CC BY-NC-SA 4.0). Routes are indicative.</p>
+        <p className="quiet small">
+          Route from TeleGeography&apos;s submarine cable map (CC BY-NC-SA 4.0). Routes are indicative.
+        </p>
       </section>
     </div>
   );

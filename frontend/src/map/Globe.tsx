@@ -167,9 +167,7 @@ function facesCamera(v: CesiumWidget, p: Cartesian3): boolean {
 // FADE_BOTTOM, cross-fading in between.
 const FADE_TOP = 3_200_000;
 const FADE_BOTTOM = 1_200_000;
-const reduceMotion =
-  typeof window !== 'undefined' &&
-  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 export type Basemap = 'dark' | 'satellite' | 'hybrid' | 'photo3d';
 export type Imagery = MapConfig['imagery'];
@@ -182,9 +180,7 @@ export const BASEMAPS: { id: Basemap; label: string }[] = [
 
 function blueMarble() {
   return new WebMapTileServiceImageryProvider({
-    url:
-      GIBS +
-      'BlueMarble_ShadedRelief_Bathymetry/default/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.jpeg',
+    url: GIBS + 'BlueMarble_ShadedRelief_Bathymetry/default/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.jpeg',
     layer: 'BlueMarble_ShadedRelief_Bathymetry',
     style: 'default',
     format: 'image/jpeg',
@@ -224,9 +220,7 @@ function tintLayer(): ImageryLayer {
     ctx.fillStyle = '#13233a';
     ctx.fillRect(0, 0, 1, 1);
   }
-  const layer = new ImageryLayer(
-    new SingleTileImageryProvider({ url: c.toDataURL(), tileWidth: 1, tileHeight: 1 }),
-  );
+  const layer = new ImageryLayer(new SingleTileImageryProvider({ url: c.toDataURL(), tileWidth: 1, tileHeight: 1 }));
   (layer as ImageryLayer & { argusAlpha?: number }).argusAlpha = TINT_ALPHA;
   return layer;
 }
@@ -263,10 +257,7 @@ function googleLayers(id: Basemap, key: string): ImageryLayer[] {
     ImageryLayer.fromProviderAsync(google2d({ key, mapType: 'satellite' })),
   ];
   if (id !== 'hybrid') return base;
-  return [
-    ...base,
-    labelLayer(ImageryLayer.fromProviderAsync(google2d({ key, overlayLayerType: 'layerRoadmap' }))),
-  ];
+  return [...base, labelLayer(ImageryLayer.fromProviderAsync(google2d({ key, overlayLayerType: 'layerRoadmap' })))];
 }
 
 // Hosted Esri tiles for street detail and imagery (no key needed for light
@@ -295,9 +286,7 @@ function basemapLayers(id: Basemap, imagery: Imagery | null, light = false): Ima
       labelLayer(new ImageryLayer(esri('Canvas/World_Dark_Gray_Reference', 16), { brightness: 1.15 })),
     ];
   }
-  const esriImagery = new ImageryLayer(
-    esri('World_Imagery', 19, 'Esri, Maxar, Earthstar Geographics'),
-  );
+  const esriImagery = new ImageryLayer(esri('World_Imagery', 19, 'Esri, Maxar, Earthstar Geographics'));
   const base = [new ImageryLayer(blueMarble()), esriImagery];
   if (id === 'satellite') return base;
   return [
@@ -415,11 +404,7 @@ function reorient(v: CesiumWidget, heading: number | null, pitch: number | null)
   if (!target) return;
   const range = Cartesian3.distance(v.camera.positionWC, target);
   v.camera.flyToBoundingSphere(new BoundingSphere(target, 0), {
-    offset: new HeadingPitchRange(
-      heading ?? v.camera.heading,
-      pitch ?? v.camera.pitch,
-      range,
-    ),
+    offset: new HeadingPitchRange(heading ?? v.camera.heading, pitch ?? v.camera.pitch, range),
     duration: reduceMotion ? 0 : 0.8,
   });
 }
@@ -512,7 +497,12 @@ interface Props {
   onFocus?: (id: string | null, lat: number, lon: number, height: number) => void;
   // The selected aircraft's planned route: flown part solid, the rest
   // dashed, with the airport codes at the ends.
-  route?: { origin: [number, number]; destination: [number, number]; at: [number, number]; labels: [string, string] } | null;
+  route?: {
+    origin: [number, number];
+    destination: [number, number];
+    at: [number, number];
+    labels: [string, string];
+  } | null;
   // Right-click on the map: the spot and where on screen.
   onContext?: (lat: number, lon: number, x: number, y: number) => void;
   // Drawing and selection tools (map/drawTools.ts).
@@ -733,7 +723,12 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         frames++;
         if (t - since >= 500) {
           box.textContent =
-            Math.round((frames * 1000) / (t - since)) + ' FPS · ' + ((t - since) / frames).toFixed(1) + ' ms · worst ' + Math.round(worst) + ' ms';
+            Math.round((frames * 1000) / (t - since)) +
+            ' FPS · ' +
+            ((t - since) / frames).toFixed(1) +
+            ' ms · worst ' +
+            Math.round(worst) +
+            ' ms';
           frames = 0;
           worst = 0;
           since = t;
@@ -749,7 +744,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
         scene.requestRenderMode = wasRequest;
       };
     }
-        if (scene.skyBox) scene.skyBox.show = false;
+    if (scene.skyBox) scene.skyBox.show = false;
     if (scene.sun) scene.sun.show = false;
     if (scene.moon) scene.moon.show = false;
 
@@ -861,21 +856,24 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     for (const type of ['touchstart', 'touchmove'] as const) {
       scene.canvas.addEventListener(type, onSatTouch, { capture: true, passive: false });
     }
-    const aircraftCamera = createAircraftCamera(v, () => air.current, (target, position, mode, heading) => {
-      // Up close, a 3D model replaces the glyph (not in the cockpit,
-      // where the camera sits inside the aircraft).
-      const isShip = target.hex.startsWith('ship');
-      const mmsi = isShip ? Number(target.hex.slice(4)) : null;
-      const vessel = isShip ? vesselsRef.current.find((x) => x.mmsi === mmsi) : undefined;
-      const css = isShip ? VESSEL_COLOR[vessel?.category ?? 'other'] : aircraftColor(target);
-      const shown =
-        mode !== 'cockpit' &&
-        (models.current?.place(isShip ? shipModel(vessel) : aircraftModel(target), position, heading, css) ??
-          false);
-      if (mode === 'cockpit') models.current?.hide();
-      if (isShip) ships.current?.setHidden(shown ? mmsi : null);
-      else if (mode !== 'cockpit') air.current?.setHidden(shown ? target.hex : null);
-    });
+    const aircraftCamera = createAircraftCamera(
+      v,
+      () => air.current,
+      (target, position, mode, heading) => {
+        // Up close, a 3D model replaces the glyph (not in the cockpit,
+        // where the camera sits inside the aircraft).
+        const isShip = target.hex.startsWith('ship');
+        const mmsi = isShip ? Number(target.hex.slice(4)) : null;
+        const vessel = isShip ? vesselsRef.current.find((x) => x.mmsi === mmsi) : undefined;
+        const css = isShip ? VESSEL_COLOR[vessel?.category ?? 'other'] : aircraftColor(target);
+        const shown =
+          mode !== 'cockpit' &&
+          (models.current?.place(isShip ? shipModel(vessel) : aircraftModel(target), position, heading, css) ?? false);
+        if (mode === 'cockpit') models.current?.hide();
+        if (isShip) ships.current?.setHidden(shown ? mmsi : null);
+        else if (mode !== 'cockpit') air.current?.setHidden(shown ? target.hex : null);
+      },
+    );
     tracker.current = aircraftCamera;
     // While the camera rides along, report the view every few seconds so
     // civil traffic keeps loading around the aircraft.
@@ -1060,7 +1058,12 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       const at = v.camera.pickEllipsoid(e.position, scene.globe.ellipsoid);
       if (!at) return;
       const c = Cartographic.fromCartesian(at);
-      onContextRef.current?.(CesiumMath.toDegrees(c.latitude), CesiumMath.toDegrees(c.longitude), e.position.x, e.position.y);
+      onContextRef.current?.(
+        CesiumMath.toDegrees(c.latitude),
+        CesiumMath.toDegrees(c.longitude),
+        e.position.x,
+        e.position.y,
+      );
     }, ScreenSpaceEventType.RIGHT_CLICK);
     const noMenu = (e: Event) => e.preventDefault();
     scene.canvas.addEventListener('contextmenu', noMenu);
@@ -1070,8 +1073,7 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
       const id = picked && typeof picked.id === 'string' ? picked.id : null;
       // A marker's own position when it has one, else where you clicked.
       const own = picked?.primitive?.position;
-      const at =
-        own instanceof Cartesian3 ? own : v.camera.pickEllipsoid(e.position, scene.globe.ellipsoid);
+      const at = own instanceof Cartesian3 ? own : v.camera.pickEllipsoid(e.position, scene.globe.ellipsoid);
       if (!at) return;
       const c = Cartographic.fromCartesian(at);
       const height = scene.globe.ellipsoid.cartesianToCartographic(v.camera.positionWC)?.height ?? 1_000_000;
@@ -1632,291 +1634,291 @@ const Globe = forwardRef<GlobeHandle, Props>(function Globe(
     });
   }, [homeKey]);
 
-  useImperativeHandle(
-    ref,
-    () => {
-      // Remember where the camera was, for Back.
-      function remember() {
+  useImperativeHandle(ref, () => {
+    // Remember where the camera was, for Back.
+    function remember() {
+      const v = viewer.current;
+      if (!v) return;
+      history.current = [...history.current, saveCamera(v)].slice(-10);
+      onHistoryRef.current?.(history.current.length);
+    }
+    return {
+      flyHome() {
+        remember();
+        tracker.current?.release();
+        freeCamera();
+        const t = home ? { lon: home.lon, lat: home.lat, height: HOME_HEIGHT_M } : WORLD_VIEW;
+        viewer.current?.camera.flyTo({
+          destination: Cartesian3.fromDegrees(t.lon, t.lat, t.height),
+          duration: 1.6,
+        });
+      },
+      flyWorld() {
+        remember();
+        tracker.current?.release();
+        freeCamera();
+        // Centre the world view on home's longitude when there is one.
+        const lon = home ? home.lon : WORLD_VIEW.lon;
+        viewer.current?.camera.flyTo({
+          destination: Cartesian3.fromDegrees(lon, 20, WORLD_VIEW.height),
+          duration: 1.6,
+        });
+      },
+      flyTo(lat, lon, height = 1_500_000) {
+        remember();
+        tracker.current?.release();
+        freeCamera();
+        viewer.current?.camera.flyTo({
+          destination: Cartesian3.fromDegrees(lon, lat, height),
+          duration: 1.4,
+        });
+      },
+      lookAlong(lat, lon, bearing) {
         const v = viewer.current;
         if (!v) return;
-        history.current = [...history.current, saveCamera(v)].slice(-10);
+        remember();
+        tracker.current?.release();
+        freeCamera();
+        // 260 m behind the camera and 120 m up, looking slightly down:
+        // the whole view and its picture (300 m out) in frame.
+        const back = (bearing + 180) * (Math.PI / 180);
+        const dLat = (260 * Math.cos(back)) / 6_371_000 / (Math.PI / 180);
+        const dLon = (260 * Math.sin(back)) / (6_371_000 * Math.cos((lat * Math.PI) / 180)) / (Math.PI / 180);
+        v.camera.flyTo({
+          destination: Cartesian3.fromDegrees(lon + dLon, lat + dLat, 120),
+          orientation: { heading: CesiumMath.toRadians(bearing), pitch: CesiumMath.toRadians(-6), roll: 0 },
+          duration: 1.6,
+        });
+      },
+      view() {
+        const v = viewer.current;
+        if (!v) return null;
+        return { bbox: viewBbox(v), height: v.camera.positionCartographic.height };
+      },
+      setMode(mode) {
+        const v = viewer.current;
+        if (!v) return;
+        if (mode === '2d' && v.scene.mode !== SceneMode.SCENE2D) v.scene.morphTo2D(1.2);
+        if (mode === '3d' && v.scene.mode !== SceneMode.SCENE3D) v.scene.morphTo3D(1.2);
+      },
+      topDown() {
+        const v = viewer.current;
+        if (!v) return;
+        tracker.current?.release();
+        freeCamera();
+        // Exactly -90 degrees is degenerate for an orbit offset.
+        reorient(v, null, -CesiumMath.PI_OVER_TWO + 0.001);
+      },
+      oblique() {
+        const v = viewer.current;
+        if (!v) return;
+        tracker.current?.release();
+        freeCamera();
+        reorient(v, null, CesiumMath.toRadians(-35));
+      },
+      northUp() {
+        const v = viewer.current;
+        if (!v) return;
+        tracker.current?.release();
+        freeCamera();
+        if (v.scene.mode === SceneMode.SCENE3D) reorient(v, 0, null);
+        else v.camera.setView({ orientation: { heading: 0, pitch: v.camera.pitch, roll: 0 } });
+      },
+      back() {
+        const v = viewer.current;
+        const last = history.current[history.current.length - 1];
+        if (!v || !last) return false;
+        history.current = history.current.slice(0, -1);
         onHistoryRef.current?.(history.current.length);
-      }
-      return {
-        flyHome() {
-          remember();
-          tracker.current?.release();
-          freeCamera();
-          const t = home ? { lon: home.lon, lat: home.lat, height: HOME_HEIGHT_M } : WORLD_VIEW;
-          viewer.current?.camera.flyTo({
-            destination: Cartesian3.fromDegrees(t.lon, t.lat, t.height),
-            duration: 1.6,
-          });
-        },
-        flyWorld() {
-          remember();
-          tracker.current?.release();
-          freeCamera();
-          // Centre the world view on home's longitude when there is one.
-          const lon = home ? home.lon : WORLD_VIEW.lon;
-          viewer.current?.camera.flyTo({
-            destination: Cartesian3.fromDegrees(lon, 20, WORLD_VIEW.height),
-            duration: 1.6,
-          });
-        },
-        flyTo(lat, lon, height = 1_500_000) {
-          remember();
-          tracker.current?.release();
-          freeCamera();
-          viewer.current?.camera.flyTo({
-            destination: Cartesian3.fromDegrees(lon, lat, height),
-            duration: 1.4,
-          });
-        },
-        lookAlong(lat, lon, bearing) {
-          const v = viewer.current;
-          if (!v) return;
-          remember();
-          tracker.current?.release();
-          freeCamera();
-          // 260 m behind the camera and 120 m up, looking slightly down:
-          // the whole view and its picture (300 m out) in frame.
-          const back = (bearing + 180) * (Math.PI / 180);
-          const dLat = (260 * Math.cos(back)) / 6_371_000 / (Math.PI / 180);
-          const dLon = (260 * Math.sin(back)) / (6_371_000 * Math.cos((lat * Math.PI) / 180)) / (Math.PI / 180);
-          v.camera.flyTo({
-            destination: Cartesian3.fromDegrees(lon + dLon, lat + dLat, 120),
-            orientation: { heading: CesiumMath.toRadians(bearing), pitch: CesiumMath.toRadians(-6), roll: 0 },
-            duration: 1.6,
-          });
-        },
-        view() {
-          const v = viewer.current;
-          if (!v) return null;
-          return { bbox: viewBbox(v), height: v.camera.positionCartographic.height };
-        },
-        setMode(mode) {
-          const v = viewer.current;
-          if (!v) return;
-          if (mode === '2d' && v.scene.mode !== SceneMode.SCENE2D) v.scene.morphTo2D(1.2);
-          if (mode === '3d' && v.scene.mode !== SceneMode.SCENE3D) v.scene.morphTo3D(1.2);
-        },
-        topDown() {
-          const v = viewer.current;
-          if (!v) return;
-          tracker.current?.release();
-          freeCamera();
-          // Exactly -90 degrees is degenerate for an orbit offset.
-          reorient(v, null, -CesiumMath.PI_OVER_TWO + 0.001);
-        },
-        oblique() {
-          const v = viewer.current;
-          if (!v) return;
-          tracker.current?.release();
-          freeCamera();
-          reorient(v, null, CesiumMath.toRadians(-35));
-        },
-        northUp() {
-          const v = viewer.current;
-          if (!v) return;
-          tracker.current?.release();
-          freeCamera();
-          if (v.scene.mode === SceneMode.SCENE3D) reorient(v, 0, null);
-          else v.camera.setView({ orientation: { heading: 0, pitch: v.camera.pitch, roll: 0 } });
-        },
-        back() {
-          const v = viewer.current;
-          const last = history.current[history.current.length - 1];
-          if (!v || !last) return false;
-          history.current = history.current.slice(0, -1);
-          onHistoryRef.current?.(history.current.length);
-          tracker.current?.release();
-          freeCamera();
-          v.camera.flyTo({
-            destination: Cartesian3.fromDegrees(last.lon, last.lat, last.height),
-            orientation: { heading: last.heading, pitch: last.pitch, roll: 0 },
-            duration: reduceMotion ? 0 : 1.4,
-          });
-          return true;
-        },
-        plant(index) {
-          return infraLayer.current?.plants()[index] ?? null;
-        },
-        airport(index) {
-          return overlays.current?.airport(index) ?? null;
-        },
-        port(index) {
-          return overlays.current?.port(index) ?? null;
-        },
-        showPin(pin) {
-          const v = viewer.current;
-          if (!v) return;
-          if (!pinLayer.current) {
-            pinLayer.current = new LabelCollection({ scene: v.scene });
-            v.scene.primitives.add(pinLayer.current);
-          }
-          pinLayer.current.removeAll();
-          if (!pin) return;
-          pinLayer.current.add({
-            position: Cartesian3.fromDegrees(pin.lon, pin.lat, 10),
-            text: '📍 ' + pin.label.slice(0, 60),
-            font: '600 13px Inter, system-ui, sans-serif',
-            fillColor: Color.fromCssColorString('#7fd1c7'),
-            outlineColor: Color.fromCssColorString('#05080e'),
-            outlineWidth: 4,
-            style: LabelStyle.FILL_AND_OUTLINE,
-            verticalOrigin: VerticalOrigin.BOTTOM,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
-          });
-        },
-        showSentinel(view) {
-          sentinel.current?.show(view);
-          applyFadeRef.current?.();
-        },
-        setAirportRings(colors) {
-          airportRings.current = colors;
-          overlays.current?.setAirportRings(colors);
-        },
-        cable(id) {
-          return infraLayer.current?.cable(id) ?? null;
-        },
-        base(index) {
-          return infraLayer.current?.bases()[index] ?? null;
-        },
-        satOrbit(norad) {
-          return sats.current?.orbit(norad) ?? Promise.resolve(null);
-        },
-        satPasses(norad, lat, lon) {
-          return sats.current?.passes(norad, lat, lon) ?? Promise.resolve([]);
-        },
-        drawTool() {
-          return draw.current;
-        },
-        async capture() {
-          const v = viewer.current;
-          if (!v) return null;
-          // Rendered at twice the screen's pixels (the map normally draws at
-          // CSS pixels, soft on high-DPI screens), after the sharper tiles
-          // that needs have loaded (up to 8 s), then put back.
-          const before = { scale: v.resolutionScale, recommended: v.useBrowserRecommendedResolution };
-          v.useBrowserRecommendedResolution = false;
-          v.resolutionScale = Math.min(2 * (window.devicePixelRatio || 1), 3);
-          try {
-            const until = Date.now() + 8000;
-            for (;;) {
-              v.resize();
-              v.scene.requestRender();
-              v.render();
-              if (v.scene.globe.tilesLoaded || Date.now() > until) break;
-              await new Promise((r) => setTimeout(r, 150));
-            }
-            // The drawing buffer is only readable straight after a render.
-            v.scene.requestRender();
-            v.render();
-            return await new Promise<Blob | null>((resolve) => v.scene.canvas.toBlob((b) => resolve(b), 'image/png'));
-          } finally {
-            v.useBrowserRecommendedResolution = before.recommended;
-            v.resolutionScale = before.scale;
+        tracker.current?.release();
+        freeCamera();
+        v.camera.flyTo({
+          destination: Cartesian3.fromDegrees(last.lon, last.lat, last.height),
+          orientation: { heading: last.heading, pitch: last.pitch, roll: 0 },
+          duration: reduceMotion ? 0 : 1.4,
+        });
+        return true;
+      },
+      plant(index) {
+        return infraLayer.current?.plants()[index] ?? null;
+      },
+      airport(index) {
+        return overlays.current?.airport(index) ?? null;
+      },
+      port(index) {
+        return overlays.current?.port(index) ?? null;
+      },
+      showPin(pin) {
+        const v = viewer.current;
+        if (!v) return;
+        if (!pinLayer.current) {
+          pinLayer.current = new LabelCollection({ scene: v.scene });
+          v.scene.primitives.add(pinLayer.current);
+        }
+        pinLayer.current.removeAll();
+        if (!pin) return;
+        pinLayer.current.add({
+          position: Cartesian3.fromDegrees(pin.lon, pin.lat, 10),
+          text: '📍 ' + pin.label.slice(0, 60),
+          font: '600 13px Inter, system-ui, sans-serif',
+          fillColor: Color.fromCssColorString('#7fd1c7'),
+          outlineColor: Color.fromCssColorString('#05080e'),
+          outlineWidth: 4,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        });
+      },
+      showSentinel(view) {
+        sentinel.current?.show(view);
+        applyFadeRef.current?.();
+      },
+      setAirportRings(colors) {
+        airportRings.current = colors;
+        overlays.current?.setAirportRings(colors);
+      },
+      cable(id) {
+        return infraLayer.current?.cable(id) ?? null;
+      },
+      base(index) {
+        return infraLayer.current?.bases()[index] ?? null;
+      },
+      satOrbit(norad) {
+        return sats.current?.orbit(norad) ?? Promise.resolve(null);
+      },
+      satPasses(norad, lat, lon) {
+        return sats.current?.passes(norad, lat, lon) ?? Promise.resolve([]);
+      },
+      drawTool() {
+        return draw.current;
+      },
+      async capture() {
+        const v = viewer.current;
+        if (!v) return null;
+        // Rendered at twice the screen's pixels (the map normally draws at
+        // CSS pixels, soft on high-DPI screens), after the sharper tiles
+        // that needs have loaded (up to 8 s), then put back.
+        const before = { scale: v.resolutionScale, recommended: v.useBrowserRecommendedResolution };
+        v.useBrowserRecommendedResolution = false;
+        v.resolutionScale = Math.min(2 * (window.devicePixelRatio || 1), 3);
+        try {
+          const until = Date.now() + 8000;
+          for (;;) {
             v.resize();
             v.scene.requestRender();
+            v.render();
+            if (v.scene.globe.tilesLoaded || Date.now() > until) break;
+            await new Promise((r) => setTimeout(r, 150));
           }
-        },
-        attitude() {
-          const v = viewer.current;
-          if (!v) return null;
-          const c = v.camera;
-          return {
-            heading: CesiumMath.toDegrees(c.heading),
-            pitch: CesiumMath.toDegrees(c.pitch),
-            roll: CesiumMath.toDegrees(c.roll),
-          };
-        },
-        orbitAround(id, lat, lon, height, range) {
-          const v = viewer.current;
-          if (!v) return;
-          remember();
-          tracker.current?.release();
-          freeCamera();
-          const centre = Cartesian3.fromDegrees(lon, lat, height);
-          const offset = new HeadingPitchRange(CesiumMath.toRadians(30), CesiumMath.toRadians(-15), range);
-          const hold = () => {
-            if (v.isDestroyed()) return;
-            v.camera.lookAtTransform(FixedFrameTransforms.eastNorthUpToFixedFrame(centre), offset);
-            camHeld.current = { by: 'pivot', id, radius: height };
-            (v as unknown as { applyDepth?: () => void }).applyDepth?.();
-          };
-          if (reduceMotion) return hold();
-          v.camera.flyToBoundingSphere(new BoundingSphere(centre, 0), { offset, duration: 1.6, complete: hold });
-        },
-        releaseCamera() {
-          freeCamera();
-        },
-        flyToSatellite(norad) {
-          const v = viewer.current;
-          const p = sats.current?.position(norad);
-          if (!v || !p) return;
-          remember();
-          tracker.current?.release();
-          freeCamera();
-          const height = Cartesian3.magnitude(p) - 6_371_000;
-          v.camera.flyToBoundingSphere(new BoundingSphere(p, 0), {
-            offset: new HeadingPitchRange(0, CesiumMath.toRadians(-60), Math.min(Math.max(height * 1.6, 400_000), 60_000_000)),
-            duration: reduceMotion ? 0 : 1.6,
-          });
-        },
-        cameraString() {
-          const v = viewer.current;
-          if (!v) return null;
-          const c = saveCamera(v);
-          return [
-            c.lon.toFixed(5),
-            c.lat.toFixed(5),
-            Math.round(c.height),
-            CesiumMath.toDegrees(c.heading).toFixed(1),
-            CesiumMath.toDegrees(c.pitch).toFixed(1),
-          ].join(',');
-        },
-        flyCamera(text, seconds) {
-          const v = viewer.current;
-          const parts = text.split(',').map(Number);
-          if (!v || parts.length < 3 || parts.some((n) => !Number.isFinite(n))) return Promise.resolve(false);
-          const [lon, lat, height, heading = 0, pitch = -90] = parts;
-          tracker.current?.release();
-          freeCamera();
-          return new Promise((resolve) => {
-            v.camera.flyTo({
-              destination: Cartesian3.fromDegrees(lon, lat, Math.min(Math.max(height, 1), 5e7)),
-              orientation: {
-                heading: CesiumMath.toRadians(heading),
-                pitch: CesiumMath.toRadians(Math.max(-90, Math.min(0, pitch))),
-                roll: 0,
-              },
-              duration: reduceMotion ? 0 : seconds,
-              complete: () => resolve(true),
-              cancel: () => resolve(false),
-            });
-          });
-        },
-        applyCamera(text) {
-          const v = viewer.current;
-          const parts = text.split(',').map(Number);
-          if (!v || parts.length < 3 || parts.some((n) => !Number.isFinite(n))) return false;
-          const [lon, lat, height, heading = 0, pitch = -90] = parts;
-          if (Math.abs(lat) > 90 || Math.abs(lon) > 180 || height < 1 || height > 5e7) return false;
-          v.camera.setView({
-            destination: Cartesian3.fromDegrees(lon, lat, height),
+          // The drawing buffer is only readable straight after a render.
+          v.scene.requestRender();
+          v.render();
+          return await new Promise<Blob | null>((resolve) => v.scene.canvas.toBlob((b) => resolve(b), 'image/png'));
+        } finally {
+          v.useBrowserRecommendedResolution = before.recommended;
+          v.resolutionScale = before.scale;
+          v.resize();
+          v.scene.requestRender();
+        }
+      },
+      attitude() {
+        const v = viewer.current;
+        if (!v) return null;
+        const c = v.camera;
+        return {
+          heading: CesiumMath.toDegrees(c.heading),
+          pitch: CesiumMath.toDegrees(c.pitch),
+          roll: CesiumMath.toDegrees(c.roll),
+        };
+      },
+      orbitAround(id, lat, lon, height, range) {
+        const v = viewer.current;
+        if (!v) return;
+        remember();
+        tracker.current?.release();
+        freeCamera();
+        const centre = Cartesian3.fromDegrees(lon, lat, height);
+        const offset = new HeadingPitchRange(CesiumMath.toRadians(30), CesiumMath.toRadians(-15), range);
+        const hold = () => {
+          if (v.isDestroyed()) return;
+          v.camera.lookAtTransform(FixedFrameTransforms.eastNorthUpToFixedFrame(centre), offset);
+          camHeld.current = { by: 'pivot', id, radius: height };
+          (v as unknown as { applyDepth?: () => void }).applyDepth?.();
+        };
+        if (reduceMotion) return hold();
+        v.camera.flyToBoundingSphere(new BoundingSphere(centre, 0), { offset, duration: 1.6, complete: hold });
+      },
+      releaseCamera() {
+        freeCamera();
+      },
+      flyToSatellite(norad) {
+        const v = viewer.current;
+        const p = sats.current?.position(norad);
+        if (!v || !p) return;
+        remember();
+        tracker.current?.release();
+        freeCamera();
+        const height = Cartesian3.magnitude(p) - 6_371_000;
+        v.camera.flyToBoundingSphere(new BoundingSphere(p, 0), {
+          offset: new HeadingPitchRange(
+            0,
+            CesiumMath.toRadians(-60),
+            Math.min(Math.max(height * 1.6, 400_000), 60_000_000),
+          ),
+          duration: reduceMotion ? 0 : 1.6,
+        });
+      },
+      cameraString() {
+        const v = viewer.current;
+        if (!v) return null;
+        const c = saveCamera(v);
+        return [
+          c.lon.toFixed(5),
+          c.lat.toFixed(5),
+          Math.round(c.height),
+          CesiumMath.toDegrees(c.heading).toFixed(1),
+          CesiumMath.toDegrees(c.pitch).toFixed(1),
+        ].join(',');
+      },
+      flyCamera(text, seconds) {
+        const v = viewer.current;
+        const parts = text.split(',').map(Number);
+        if (!v || parts.length < 3 || parts.some((n) => !Number.isFinite(n))) return Promise.resolve(false);
+        const [lon, lat, height, heading = 0, pitch = -90] = parts;
+        tracker.current?.release();
+        freeCamera();
+        return new Promise((resolve) => {
+          v.camera.flyTo({
+            destination: Cartesian3.fromDegrees(lon, lat, Math.min(Math.max(height, 1), 5e7)),
             orientation: {
               heading: CesiumMath.toRadians(heading),
               pitch: CesiumMath.toRadians(Math.max(-90, Math.min(0, pitch))),
               roll: 0,
             },
+            duration: reduceMotion ? 0 : seconds,
+            complete: () => resolve(true),
+            cancel: () => resolve(false),
           });
-          return true;
-        },
-      };
-    },
-    [home],
-  );
+        });
+      },
+      applyCamera(text) {
+        const v = viewer.current;
+        const parts = text.split(',').map(Number);
+        if (!v || parts.length < 3 || parts.some((n) => !Number.isFinite(n))) return false;
+        const [lon, lat, height, heading = 0, pitch = -90] = parts;
+        if (Math.abs(lat) > 90 || Math.abs(lon) > 180 || height < 1 || height > 5e7) return false;
+        v.camera.setView({
+          destination: Cartesian3.fromDegrees(lon, lat, height),
+          orientation: {
+            heading: CesiumMath.toRadians(heading),
+            pitch: CesiumMath.toRadians(Math.max(-90, Math.min(0, pitch))),
+            roll: 0,
+          },
+        });
+        return true;
+      },
+    };
+  }, [home]);
 
   return <div ref={container} className="globe" aria-label="Globe" />;
 });

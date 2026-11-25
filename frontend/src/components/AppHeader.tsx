@@ -55,9 +55,7 @@ export default function AppHeader({ me, onSignedOut, live, search, replay }: Pro
 
   return (
     <>
-      {me.preferences.show_banner === true && (
-        <div className="banner">UNCLASSIFIED // OPEN SOURCE</div>
-      )}
+      {me.preferences.show_banner === true && <div className="banner">UNCLASSIFIED // OPEN SOURCE</div>}
       <header className="cmdbar">
         <Brand />
         <nav className="nav" aria-label="Pages">

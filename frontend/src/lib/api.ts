@@ -302,8 +302,7 @@ export interface Launch {
   probability: number | null;
   webcast_live: boolean;
 }
-export const getLaunches = () =>
-  api<{ fetched: string | null; items: Launch[]; attribution: string }>('/api/launches');
+export const getLaunches = () => api<{ fetched: string | null; items: Launch[]; attribution: string }>('/api/launches');
 
 // Wikipedia's Current events (/api/wikipedia), newest first.
 export interface WikiItem {
@@ -471,7 +470,8 @@ export const putThemes = (items: ThemeDef[]) =>
   api<{ items: ThemeDef[]; builtin: string[] }>('/api/admin/themes', { method: 'PUT', body: { items } });
 
 export const getDefaults = () => api<ServerDefaults>('/api/admin/defaults');
-export const putDefaults = (body: ServerDefaults) => api<ServerDefaults>('/api/admin/defaults', { method: 'PUT', body });
+export const putDefaults = (body: ServerDefaults) =>
+  api<ServerDefaults>('/api/admin/defaults', { method: 'PUT', body });
 
 export class ApiError extends Error {
   constructor(
@@ -483,9 +483,7 @@ export class ApiError extends Error {
 }
 
 export function csrfToken(): string {
-  const hit = document.cookie
-    .split('; ')
-    .find((c) => c.startsWith('argus_csrf='));
+  const hit = document.cookie.split('; ').find((c) => c.startsWith('argus_csrf='));
   return hit ? decodeURIComponent(hit.slice('argus_csrf='.length)) : '';
 }
 
@@ -503,10 +501,7 @@ function messageFrom(body: unknown, status: number): string {
   return 'Request failed (' + status + ').';
 }
 
-export async function api<T>(
-  path: string,
-  options: { method?: string; body?: unknown } = {},
-): Promise<T> {
+export async function api<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
   const method = options.method ?? 'GET';
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
@@ -539,8 +534,7 @@ export interface LiveVideo {
 export const getLiveVideo = (channel: string, platform = 'youtube') =>
   api<LiveVideo>('/api/news/live/' + encodeURIComponent(channel) + '?platform=' + platform);
 
-export const getSetupStatus = () =>
-  api<{ needs_setup: boolean }>('/api/setup/status');
+export const getSetupStatus = () => api<{ needs_setup: boolean }>('/api/setup/status');
 export const getMe = () => api<Me>('/api/me');
 export const logout = () => api<void>('/api/auth/logout', { method: 'POST' });
 
@@ -644,15 +638,11 @@ export function getEvents(q: EventQuery = {}) {
   return api<{ events: EventItem[] }>('/api/events?' + params.toString());
 }
 
-export const getEvent = (id: string) =>
-  api<EventDetail>('/api/events/' + encodeURIComponent(id));
+export const getEvent = (id: string) => api<EventDetail>('/api/events/' + encodeURIComponent(id));
 export const getSummary = () => api<Summary>('/api/summary');
-export const searchPlaces = (q: string) =>
-  api<{ places: Place[] }>('/api/places?q=' + encodeURIComponent(q));
+export const searchPlaces = (q: string) => api<{ places: Place[] }>('/api/places?q=' + encodeURIComponent(q));
 export const nearestPlace = (lat: number, lon: number) =>
-  api<{ place: { name: string; label: string; tz: string } | null }>(
-    '/api/places/nearest?lat=' + lat + '&lon=' + lon,
-  );
+  api<{ place: { name: string; label: string; tz: string } | null }>('/api/places/nearest?lat=' + lat + '&lon=' + lon);
 export const savePreferences = (prefs: Partial<Preferences> & Record<string, unknown>) =>
   api<Me>('/api/me/preferences', { method: 'PATCH', body: prefs });
 
@@ -727,8 +717,7 @@ export function getAircraft(bbox: Bbox | null, civil: boolean) {
   );
 }
 
-export const getAircraftDetail = (hex: string) =>
-  api<AircraftDetail>('/api/aircraft/' + encodeURIComponent(hex));
+export const getAircraftDetail = (hex: string) => api<AircraftDetail>('/api/aircraft/' + encodeURIComponent(hex));
 
 export interface SearchResult {
   kind:
@@ -782,11 +771,8 @@ export interface ImagerySettings {
 
 export const getMapConfig = () => api<MapConfig>('/api/map/config');
 export const getImagerySettings = () => api<ImagerySettings>('/api/admin/imagery');
-export const saveImagerySettings = (body: {
-  provider: 'esri' | 'google';
-  google_key?: string;
-  google_3d: boolean;
-}) => api<ImagerySettings>('/api/admin/imagery', { method: 'PUT', body });
+export const saveImagerySettings = (body: { provider: 'esri' | 'google'; google_key?: string; google_3d: boolean }) =>
+  api<ImagerySettings>('/api/admin/imagery', { method: 'PUT', body });
 
 // --- Users and accounts ------------------------------------------------------
 
@@ -875,7 +861,14 @@ export interface Vessel {
   // Serious OpenSanctions flags (sanction, mare.shadow, poi), in lists.
   sanctions?: string[];
   // Every listing, on the single-vessel answer.
-  sanctions_listings?: { name: string; risks: string[]; labels: string[]; datasets: string[]; flag: string; url: string | null }[];
+  sanctions_listings?: {
+    name: string;
+    risks: string[];
+    labels: string[];
+    datasets: string[];
+    flag: string;
+    url: string | null;
+  }[];
   sanctions_attribution?: string;
   destination: string | null;
   eta: string | null;
@@ -1179,8 +1172,7 @@ export interface FirePerimeter {
   lon: number;
   rings: number[][][];
 }
-export const getFirePerimeters = () =>
-  api<{ status: 'ok' | 'error'; fires: FirePerimeter[] }>('/api/fires/perimeters');
+export const getFirePerimeters = () => api<{ status: 'ok' | 'error'; fires: FirePerimeter[] }>('/api/fires/perimeters');
 
 // Global Fishing Watch events for a regional view (last 30 days).
 export interface FishingVessel {

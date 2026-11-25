@@ -98,9 +98,7 @@ export default function SetupPage({ onDone }: { onDone: () => Promise<void> }) {
     if (step === 1) {
       if (!displayName.trim()) return setError('Enter a display name.');
       if (!/^[A-Za-z0-9._-]{3,32}$/.test(username)) {
-        return setError(
-          'Usernames are 3–32 characters: letters, numbers, dots, dashes and underscores.',
-        );
+        return setError('Usernames are 3–32 characters: letters, numbers, dots, dashes and underscores.');
       }
       if (password.length < 12) return setError('Use a password of at least 12 characters.');
       if (password !== confirm) return setError('The passwords don’t match.');
@@ -155,8 +153,8 @@ export default function SetupPage({ onDone }: { onDone: () => Promise<void> }) {
             <div>
               <h1>Set up Argus</h1>
               <p>
-                No accounts exist yet. To stop anyone else on your network claiming this
-                server first, enter the one-time setup token from the API log.
+                No accounts exist yet. To stop anyone else on your network claiming this server first, enter the
+                one-time setup token from the API log.
               </p>
             </div>
             <div className="field">

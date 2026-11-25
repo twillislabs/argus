@@ -68,26 +68,26 @@ export default function AccountCard({ me, onSaved }: { me: Me; onSaved: () => Pr
           </span>
         </div>
         <div className="cbody">
-            <div className="row2">
-              <div className="field">
-                <label htmlFor="ac-name">Display name</label>
-                <input id="ac-name" value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="field">
-                <label htmlFor="ac-email">Email (optional)</label>
-                <input id="ac-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-              </div>
+          <div className="row2">
+            <div className="field">
+              <label htmlFor="ac-name">Display name</label>
+              <input id="ac-name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
-            <div className="actions">
-              <button className="btn" disabled={busy || !name.trim()} onClick={() => void saveProfile()}>
-                Save profile
-              </button>
+            <div className="field">
+              <label htmlFor="ac-email">Email (optional)</label>
+              <input id="ac-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
-            {profileMsg && (
-              <div className={profileMsg.ok ? 'okmsg' : 'err'} role="status">
-                {profileMsg.text}
-              </div>
-            )}
+          </div>
+          <div className="actions">
+            <button className="btn" disabled={busy || !name.trim()} onClick={() => void saveProfile()}>
+              Save profile
+            </button>
+          </div>
+          {profileMsg && (
+            <div className={profileMsg.ok ? 'okmsg' : 'err'} role="status">
+              {profileMsg.text}
+            </div>
+          )}
         </div>
       </section>
       <section className="card">
@@ -96,52 +96,52 @@ export default function AccountCard({ me, onSaved }: { me: Me; onSaved: () => Pr
           <span className="mono">Signs out your other devices</span>
         </div>
         <div className="cbody">
-            <form className="stack" onSubmit={savePassword} noValidate>
-              <input type="text" autoComplete="username" value={me.user.username} readOnly hidden />
-              <div className="row2">
-                <div className="field">
-                  <label htmlFor="ac-cur">Current password</label>
-                  <input
-                    id="ac-cur"
-                    type="password"
-                    autoComplete="current-password"
-                    value={current}
-                    onChange={(e) => setCurrent(e.target.value)}
-                  />
-                </div>
-                <div />
-                <div className="field">
-                  <label htmlFor="ac-new">New password</label>
-                  <input
-                    id="ac-new"
-                    type="password"
-                    autoComplete="new-password"
-                    value={next}
-                    onChange={(e) => setNext(e.target.value)}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="ac-again">New password again</label>
-                  <input
-                    id="ac-again"
-                    type="password"
-                    autoComplete="new-password"
-                    value={again}
-                    onChange={(e) => setAgain(e.target.value)}
-                  />
-                </div>
+          <form className="stack" onSubmit={savePassword} noValidate>
+            <input type="text" autoComplete="username" value={me.user.username} readOnly hidden />
+            <div className="row2">
+              <div className="field">
+                <label htmlFor="ac-cur">Current password</label>
+                <input
+                  id="ac-cur"
+                  type="password"
+                  autoComplete="current-password"
+                  value={current}
+                  onChange={(e) => setCurrent(e.target.value)}
+                />
               </div>
-              <div className="actions">
-                <button type="submit" className="btn" disabled={busy || !current || !next}>
-                  Change password
-                </button>
+              <div />
+              <div className="field">
+                <label htmlFor="ac-new">New password</label>
+                <input
+                  id="ac-new"
+                  type="password"
+                  autoComplete="new-password"
+                  value={next}
+                  onChange={(e) => setNext(e.target.value)}
+                />
               </div>
-              {pwMsg && (
-                <div className={pwMsg.ok ? 'okmsg' : 'err'} role="status">
-                  {pwMsg.text}
-                </div>
-              )}
-            </form>
+              <div className="field">
+                <label htmlFor="ac-again">New password again</label>
+                <input
+                  id="ac-again"
+                  type="password"
+                  autoComplete="new-password"
+                  value={again}
+                  onChange={(e) => setAgain(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="actions">
+              <button type="submit" className="btn" disabled={busy || !current || !next}>
+                Change password
+              </button>
+            </div>
+            {pwMsg && (
+              <div className={pwMsg.ok ? 'okmsg' : 'err'} role="status">
+                {pwMsg.text}
+              </div>
+            )}
+          </form>
         </div>
       </section>
     </>

@@ -10,13 +10,7 @@ import {
   PolygonGeometry,
   PolygonHierarchy,
 } from '@cesium/core';
-import {
-  Material,
-  PerInstanceColorAppearance,
-  PolylineCollection,
-  Primitive,
-  type Scene,
-} from '@cesium/engine';
+import { Material, PerInstanceColorAppearance, PolylineCollection, Primitive, type Scene } from '@cesium/engine';
 import { feature } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 

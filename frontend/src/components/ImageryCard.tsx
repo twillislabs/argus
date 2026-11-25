@@ -57,9 +57,9 @@ export default function ImageryCard() {
       </div>
       <div className="cbody">
         <p>
-          Satellite and Hybrid use Esri by default, with no key. With a Google Maps Platform key
-          they use Google&apos;s imagery instead, and you can turn on Google&apos;s photorealistic
-          3D cities. The Dark map and the self-hosted street map are unchanged.
+          Satellite and Hybrid use Esri by default, with no key. With a Google Maps Platform key they use Google&apos;s
+          imagery instead, and you can turn on Google&apos;s photorealistic 3D cities. The Dark map and the self-hosted
+          street map are unchanged.
         </p>
         <div className="seg" role="group" aria-label="Imagery provider">
           {(['esri', 'google'] as const).map((p) => (
@@ -88,8 +88,7 @@ export default function ImageryCard() {
             </div>
             {current?.google_key_unreadable && (
               <p className="err">
-                The saved key can&apos;t be read, probably because ARGUS_SECRET_KEY changed. Enter
-                it again.
+                The saved key can&apos;t be read, probably because ARGUS_SECRET_KEY changed. Enter it again.
               </p>
             )}
             <label className="lrow flat">
@@ -103,13 +102,12 @@ export default function ImageryCard() {
             </label>
             <ul className="notes">
               <li>
-                Enable the <b>Map Tiles API</b> for the key&apos;s project. Google bills that account
-                for tile use beyond its free monthly allowance.
+                Enable the <b>Map Tiles API</b> for the key&apos;s project. Google bills that account for tile use
+                beyond its free monthly allowance.
               </li>
               <li>
-                The key is stored encrypted, but signed-in browsers receive it to load Google tiles.
-                In the Google Cloud console, restrict it to the Map Tiles API and to this
-                site&apos;s address.
+                The key is stored encrypted, but signed-in browsers receive it to load Google tiles. In the Google Cloud
+                console, restrict it to the Map Tiles API and to this site&apos;s address.
               </li>
               <li>Using Google tiles means following Google&apos;s Map Tiles API terms.</li>
             </ul>

@@ -6,13 +6,7 @@
 // nose along glTF +Z, tinted here to the target's colour. One is picked
 // per target (airliner, helicopter, tanker ...) and loaded on first use.
 
-import {
-  Cartesian3,
-  Color,
-  FixedFrameTransforms,
-  HeadingPitchRoll,
-  Math as CesiumMath,
-} from '@cesium/core';
+import { Cartesian3, Color, FixedFrameTransforms, HeadingPitchRoll, Math as CesiumMath } from '@cesium/core';
 import { ColorBlendMode, Model, type Scene } from '@cesium/engine';
 
 import type { Aircraft, Vessel } from '../lib/api';
@@ -25,7 +19,8 @@ const SHIPS = new Set<ModelKind>(['container', 'tanker', 'passenger', 'fishing',
 
 // ICAO type designators of widebodies and light aircraft, for aircraft
 // that don't report an emitter category.
-const WIDEBODY = /^(B74|B76|B77|B78|A30|A31|A33|A34|A35|A38|MD11|DC10|IL96|K35|KC46|E3TF|E3CF|E6B|C5M|B52|A400|A124|AN12|AN2[2-5])/;
+const WIDEBODY =
+  /^(B74|B76|B77|B78|A30|A31|A33|A34|A35|A38|MD11|DC10|IL96|K35|KC46|E3TF|E3CF|E6B|C5M|B52|A400|A124|AN12|AN2[2-5])/;
 const LIGHT = /^(C1[5-9]\d|C2\d\d|PA\d|P28|SR2|BE[0-9]|DA4|M20|C42|DR40|AA5|PC12)/;
 
 export function aircraftModel(a: Aircraft): AircraftModel {

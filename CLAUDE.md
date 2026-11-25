@@ -776,9 +776,12 @@ parts connect.
   gotcha, update CLAUDE.md in the same commit.
 - Python: PEP 8 at 79 columns (ruff). Strings use `str.format()` only: no
   f-strings, `%` or `+` concatenation.
-- Format frontend code with `npx prettier --write <files>` (frontend/.prettierrc:
-  single quotes, 120 columns). Don't run prettier on whole files you
-  only touched lightly if that rewraps unrelated code.
+- Frontend TypeScript is prettier-formatted (frontend/.prettierrc: single
+  quotes, 120 columns; prettier pinned in devDependencies): run
+  `npm run format` in frontend/ before committing; CI runs
+  `npm run format:check`. Stylesheets aren't run through prettier: they
+  keep compact one-line rules by hand. The one-off reformat is listed in
+  `.git-blame-ignore-revs`.
 - TypeScript is strict. Use `@cesium/engine` and `@cesium/core`, never the
   full `cesium` package in code: its widgets need `eval`, which the CSP
   blocks. `cesium` is only a source of static assets for `/vendor/cesium`.

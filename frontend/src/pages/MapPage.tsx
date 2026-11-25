@@ -41,11 +41,7 @@ import NewsPlayer from '../components/NewsPlayer';
 import { DEFAULT_TABS } from '../config/newsChannels';
 import SatelliteInspector from '../components/SatelliteInspector';
 import VesselInspector from '../components/VesselInspector';
-import LayerPanel, {
-  type AirFilters,
-  serverFilters,
-  type LayerFilters,
-} from '../components/LayerPanel';
+import LayerPanel, { type AirFilters, serverFilters, type LayerFilters } from '../components/LayerPanel';
 import SearchBox from '../components/SearchBox';
 import SituationPanel, { BAND_LABEL } from '../components/SituationPanel';
 import {
@@ -217,7 +213,12 @@ function launchWhen(l: Launch, now = Date.now()): string {
     minute: '2-digit',
   });
   const mins = Math.round(Math.abs(t - now) / 60_000);
-  const span = mins < 60 ? mins + ' min' : mins < 2880 ? Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min' : Math.round(mins / 1440) + ' days';
+  const span =
+    mins < 60
+      ? mins + ' min'
+      : mins < 2880
+        ? Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min'
+        : Math.round(mins / 1440) + ' days';
   const vague = l.precision && !/^(second|minute)/i.test(l.precision) ? ' (' + l.precision.toLowerCase() + ')' : '';
   return (t >= now ? 'T−' + span : (l.status_name ?? 'Launched') + ', ' + span + ' ago') + ' · ' + when + vague;
 }
@@ -289,9 +290,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   const globe = useRef<GlobeHandle>(null);
   const [mode, setMode] = useState<'3d' | '2d'>('3d');
   const [basemap, setBasemap] = useState<Basemap>(() =>
-    [...BASEMAPS, PHOTO_3D].some((b) => b.id === me.preferences.basemap)
-      ? (me.preferences.basemap as Basemap)
-      : 'dark',
+    [...BASEMAPS, PHOTO_3D].some((b) => b.id === me.preferences.basemap) ? (me.preferences.basemap as Basemap) : 'dark',
   );
   const [imagery, setImagery] = useState<Imagery | null>(null);
   useEffect(() => {
@@ -854,8 +853,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             const byId = new Map(current.map((e) => [e.id, e]));
             for (const e of changed) {
               const visible =
-                e.severity >= f.minSeverity &&
-                (e.status === 'active' || (f.candidates && e.status === 'candidate'));
+                e.severity >= f.minSeverity && (e.status === 'active' || (f.candidates && e.status === 'candidate'));
               if (visible) byId.set(e.id, e);
               else byId.delete(e.id);
             }
@@ -926,8 +924,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   // one (with its freshest position).
   const shownVessels = useMemo(() => {
     const out = vessels.filter((v) => filters.sea[v.category] && v.mmsi !== selectedMmsi);
-    const sel =
-      trackedVessel?.mmsi === selectedMmsi ? trackedVessel : vessels.find((v) => v.mmsi === selectedMmsi);
+    const sel = trackedVessel?.mmsi === selectedMmsi ? trackedVessel : vessels.find((v) => v.mmsi === selectedMmsi);
     if (sel) out.push(sel);
     return out;
   }, [vessels, filters.sea, selectedMmsi, trackedVessel]);
@@ -1262,11 +1259,15 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   }, [airspaceItems, gpsCells, structureItems, structureStatus]);
   const allAirspace = useMemo(() => [...airspaceItems, ...structureItems], [airspaceItems, structureItems]);
   const selectedAirspaceItem = allAirspace.find((i) => i.key === selectedAirspace) ?? null;
-  const selectedPlant =
-    selectedInfra?.startsWith('pp:') ? (globe.current?.plant(Number(selectedInfra.slice(3))) ?? null) : null;
-  const selectedCable = selectedInfra?.startsWith('cable:') ? (globe.current?.cable(selectedInfra.slice(6)) ?? null) : null;
-  const selectedBase =
-    selectedInfra?.startsWith('mil:') ? (globe.current?.base(Number(selectedInfra.slice(4))) ?? null) : null;
+  const selectedPlant = selectedInfra?.startsWith('pp:')
+    ? (globe.current?.plant(Number(selectedInfra.slice(3))) ?? null)
+    : null;
+  const selectedCable = selectedInfra?.startsWith('cable:')
+    ? (globe.current?.cable(selectedInfra.slice(6)) ?? null)
+    : null;
+  const selectedBase = selectedInfra?.startsWith('mil:')
+    ? (globe.current?.base(Number(selectedInfra.slice(4))) ?? null)
+    : null;
   const selectedAirport = selectedInfra?.startsWith('apt:')
     ? (globe.current?.airport(Number(selectedInfra.slice(4))) ?? null)
     : null;
@@ -1274,10 +1275,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     ? (globe.current?.port(Number(selectedInfra.slice(5))) ?? null)
     : null;
 
-  const airCounts = useMemo(
-    () => ({ military: military.length, civil: civil.length }),
-    [military, civil],
-  );
+  const airCounts = useMemo(() => ({ military: military.length, civil: civil.length }), [military, civil]);
 
   // Opacity sliders save once they settle.
   const opacityTimer = useRef(0);
@@ -1303,9 +1301,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       wiki: next.wiki,
       cams: next.cams,
       weather: next.weather,
-    }).catch(
-      () => undefined,
-    );
+    }).catch(() => undefined);
   }
 
   const togglePanel = useCallback(
@@ -1453,8 +1449,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
   // Director mode: saved tours (preferences), a tour opened from a link,
   // and playback (one tour at a time; a newer play or Stop ends it).
   const [toursOpen, setToursOpen] = useState(false);
-  const [tours, setTours] = useState<Tour[]>(
-    () => ((me.preferences.tours as unknown[] | undefined) ?? []).map(cleanTour).filter((t): t is Tour => t !== null),
+  const [tours, setTours] = useState<Tour[]>(() =>
+    ((me.preferences.tours as unknown[] | undefined) ?? []).map(cleanTour).filter((t): t is Tour => t !== null),
   );
   const [sharedTour, setSharedTour] = useState<Tour | null>(null);
   const [activeTour, setActiveTour] = useState<string | null>(null);
@@ -1465,10 +1461,7 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     setTours(next);
     // Typing a caption saves once it pauses.
     window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(
-      () => void savePreferences({ tours: next }).catch(() => undefined),
-      800,
-    );
+    saveTimer.current = window.setTimeout(() => void savePreferences({ tours: next }).catch(() => undefined), 800);
   };
   const stopTour = () => {
     playToken.current++;
@@ -1757,7 +1750,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       const item = [...airspaceItems, ...structureItems].find((x) => x.key === id.slice(4));
       if (!item) return null;
       const limits =
-        item.base_ft !== null || item.top_ft !== null ? (item.base_ft ?? 'SFC') + ' – ' + (item.top_ft ?? 'UNL') + ' ft' : '';
+        item.base_ft !== null || item.top_ft !== null
+          ? (item.base_ft ?? 'SFC') + ' – ' + (item.top_ft ?? 'UNL') + ' ft'
+          : '';
       return { title: item.title || item.id, lines: [[item.hazard, item.area].filter(Boolean).join(' · '), limits] };
     }
     if (id.startsWith('gps:')) {
@@ -1827,12 +1822,17 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       const a = raidAlerts.find((x) => 'raid:' + x.id === id);
       if (!a) return null;
       const when = (iso?: string | null) =>
-        iso ? new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+        iso
+          ? new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+          : '';
       return {
         title: a.threat_label ? a.threat_label + ' · ' + a.name : 'Air-raid alert · ' + a.name,
         color: RAID_COLOR,
         lines: a.threat_label
-          ? [(a.active ? 'Sounding now' : 'Sounded ') + (a.active ? '' : when(a.time) + ' (' + ago(a.time ?? null) + ')')]
+          ? [
+              (a.active ? 'Sounding now' : 'Sounded ') +
+                (a.active ? '' : when(a.time) + ' (' + ago(a.time ?? null) + ')'),
+            ]
           : [
               a.long_running
                 ? 'Continuous alert since ' + when(a.since) + ' (occupied area)'
@@ -1843,12 +1843,19 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (id.startsWith('outage:')) {
       const o = cyber?.outages.find((x) => 'outage:' + x.cc === id);
       if (!o) return null;
-      const from = new Date(o.start).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      const from = new Date(o.start).toLocaleString([], {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
       return {
         title: (o.country ?? o.cc) + ' · internet outage',
         color: OUTAGE_COLOR,
         lines: [
-          (o.ongoing ? 'Ongoing since ' : 'From ') + from + (o.ongoing ? '' : ' to ' + new Date(o.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })),
+          (o.ongoing ? 'Ongoing since ' : 'From ') +
+            from +
+            (o.ongoing ? '' : ' to ' + new Date(o.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })),
           'Seen in ' + o.source + ' · IODA score ' + o.score.toLocaleString(),
         ],
       };
@@ -1863,7 +1870,15 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
           r.count +
           ' ransomware victim' +
           (r.count === 1 ? '' : 's') +
-          (r.since ? ' since ' + new Date(r.since).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''),
+          (r.since
+            ? ' since ' +
+              new Date(r.since).toLocaleString([], {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : ''),
         color: RANSOMWARE_COLOR,
         lines: [
           r.sectors.length ? 'Sectors: ' + r.sectors.join(', ') : '',
@@ -1959,7 +1974,10 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
         ? {
             title: a.event,
             color: alertColor(a),
-            lines: [a.area.slice(0, 120), (a.sender ?? '') + (a.expires ? ' · until ' + new Date(a.expires).toLocaleString() : '')],
+            lines: [
+              a.area.slice(0, 120),
+              (a.sender ?? '') + (a.expires ? ' · until ' + new Date(a.expires).toLocaleString() : ''),
+            ],
           }
         : null;
     }
@@ -1974,7 +1992,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             title: f.name + (f.state ? ' (' + f.state + ')' : ''),
             color: FIRE_COLOR,
             lines: [
-              f.acres.toLocaleString() + ' acres · ' + (f.contained !== null ? f.contained + '% contained' : 'containment not reported'),
+              f.acres.toLocaleString() +
+                ' acres · ' +
+                (f.contained !== null ? f.contained + '% contained' : 'containment not reported'),
               f.mapped ? 'Outline mapped ' + new Date(f.mapped).toLocaleDateString() : '',
             ],
           }
@@ -2000,8 +2020,20 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
     if (id.startsWith('draw:')) {
       const d = drawings.find((x) => x.id === id.slice(5));
       if (!d) return null;
-      const kind = { point: 'Point', line: 'Line', polygon: 'Area', rectangle: 'Rectangle', circle: 'Circle', text: 'Note', measure: 'Measurement' }[d.kind];
-      return { title: d.label || kind, color: '#5b9bff', lines: [kind + (describeShape(d) ? ' · ' + describeShape(d) : '')] };
+      const kind = {
+        point: 'Point',
+        line: 'Line',
+        polygon: 'Area',
+        rectangle: 'Rectangle',
+        circle: 'Circle',
+        text: 'Note',
+        measure: 'Measurement',
+      }[d.kind];
+      return {
+        title: d.label || kind,
+        color: '#5b9bff',
+        lines: [kind + (describeShape(d) ? ' · ' + describeShape(d) : '')],
+      };
     }
     if (id.startsWith('cable:')) {
       const c = globe.current?.cable(id.slice(6));
@@ -2175,55 +2207,59 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
       <main className={'ws' + (leftOpen ? '' : ' noL') + (rightOpen ? '' : ' noR')}>
         {showLeft &&
           sheetWrap(
-          <LayerPanel
-            filters={filters}
-            counts={counts}
-            tensionCount={tension ? tension.countries.filter((c) => c.level >= TINT_FROM).length : undefined}
-            advisoryCount={advisoriesOn ? advisories.filter((a) => a.level >= 2).length : undefined}
-            wikiCount={wikiOn ? wikiItems.length : undefined}
-            alprCount={filters.infra.alpr && alprStatus !== 'zoom' ? alprCameras.length : undefined}
-            alprLoading={filters.infra.alpr && alprStatus === 'partial'}
-            radioCount={filters.infra.radio ? radioStations.length : undefined}
-            transitCount={
-              filters.infra.transit ? (transit.status === 'zoom' ? 'zoom in' : String(transit.vehicles.length)) : undefined
-            }
-            camCount={filters.cams.traffic && camStatus !== 'zoom' ? trafficCams.length : undefined}
-            webcamCount={webcamStatus === 'ok' ? webcams.length : undefined}
-            webcamNote={
-              webcamStatus === 'zoom'
-                ? 'zoom in'
-                : webcamStatus === 'nokey'
-                  ? 'no key'
-                  : webcamStatus === 'error'
-                    ? 'error'
-                    : undefined
-            }
-            weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
-            zoneCount={filters.weather.zones ? wxZoned.length : undefined}
-            stormCount={filters.weather.storms ? storms.length : undefined}
-            fishingStatus={fishingStatus}
-            fishingCount={filters.infra.fishing && fishingStatus === 'ok' ? fishingEvents.length : undefined}
-            fireCount={filters.weather.fires ? fires.length : undefined}
-            airCount={
-              filters.weather.air ? (air.status === 'zoom' ? 'zoom in' : String(air.points.length)) : undefined
-            }
-            weatherOpacity={weatherOpacity}
-            onWeatherOpacity={(o) => {
-              setWeatherOpacity(o);
-              saveOpacity(o);
-            }}
-            airCounts={airCounts}
-            civilStatus={civilStatus}
-            satCounts={satCounts}
-            seaCounts={seaCounts}
-            seaStatus={seaStatus}
-            airspaceCounts={airspaceCounts}
-            structureStatus={structureStatus}
-            sources={summary?.sources ?? []}
-            resetTo={serverFilters(me.defaults?.layers)}
-            onChange={changeFilters}
-          />
-        )}
+            <LayerPanel
+              filters={filters}
+              counts={counts}
+              tensionCount={tension ? tension.countries.filter((c) => c.level >= TINT_FROM).length : undefined}
+              advisoryCount={advisoriesOn ? advisories.filter((a) => a.level >= 2).length : undefined}
+              wikiCount={wikiOn ? wikiItems.length : undefined}
+              alprCount={filters.infra.alpr && alprStatus !== 'zoom' ? alprCameras.length : undefined}
+              alprLoading={filters.infra.alpr && alprStatus === 'partial'}
+              radioCount={filters.infra.radio ? radioStations.length : undefined}
+              transitCount={
+                filters.infra.transit
+                  ? transit.status === 'zoom'
+                    ? 'zoom in'
+                    : String(transit.vehicles.length)
+                  : undefined
+              }
+              camCount={filters.cams.traffic && camStatus !== 'zoom' ? trafficCams.length : undefined}
+              webcamCount={webcamStatus === 'ok' ? webcams.length : undefined}
+              webcamNote={
+                webcamStatus === 'zoom'
+                  ? 'zoom in'
+                  : webcamStatus === 'nokey'
+                    ? 'no key'
+                    : webcamStatus === 'error'
+                      ? 'error'
+                      : undefined
+              }
+              weatherCount={filters.weather.alerts ? wxAlerts.length : undefined}
+              zoneCount={filters.weather.zones ? wxZoned.length : undefined}
+              stormCount={filters.weather.storms ? storms.length : undefined}
+              fishingStatus={fishingStatus}
+              fishingCount={filters.infra.fishing && fishingStatus === 'ok' ? fishingEvents.length : undefined}
+              fireCount={filters.weather.fires ? fires.length : undefined}
+              airCount={
+                filters.weather.air ? (air.status === 'zoom' ? 'zoom in' : String(air.points.length)) : undefined
+              }
+              weatherOpacity={weatherOpacity}
+              onWeatherOpacity={(o) => {
+                setWeatherOpacity(o);
+                saveOpacity(o);
+              }}
+              airCounts={airCounts}
+              civilStatus={civilStatus}
+              satCounts={satCounts}
+              seaCounts={seaCounts}
+              seaStatus={seaStatus}
+              airspaceCounts={airspaceCounts}
+              structureStatus={structureStatus}
+              sources={summary?.sources ?? []}
+              resetTo={serverFilters(me.defaults?.layers)}
+              onChange={changeFilters}
+            />,
+          )}
         <section className="mapcell">
           <Globe
             ref={globe}
@@ -2285,7 +2321,11 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
             weatherOpacity={weatherOpacity}
             drawings={drawings}
             route={
-              showRoute && selectedHex && tracked && trackedRoute?.origin?.lat != null && trackedRoute.destination?.lat != null
+              showRoute &&
+              selectedHex &&
+              tracked &&
+              trackedRoute?.origin?.lat != null &&
+              trackedRoute.destination?.lat != null
                 ? {
                     origin: [trackedRoute.origin.lon ?? 0, trackedRoute.origin.lat],
                     destination: [trackedRoute.destination.lon ?? 0, trackedRoute.destination.lat],
@@ -2339,7 +2379,9 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               title="Live news channels"
               aria-label="Live news"
               aria-pressed={newsPlayers.length > 0}
-              onClick={() => saveNews(newsPlayers.length ? [] : [savedNews.channel ?? newsTabs[0] ?? DEFAULT_TABS[0]], newsTabs)}
+              onClick={() =>
+                saveNews(newsPlayers.length ? [] : [savedNews.channel ?? newsTabs[0] ?? DEFAULT_TABS[0]], newsTabs)
+              }
             >
               ▶ News
             </button>
@@ -2388,17 +2430,46 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               ↶
             </button>
             <span className="mc-gap" />
-            <button className="iconbtn small" title="Look straight down ( T )" aria-label="Top-down view" onClick={() => camPreset('top')}>
+            <button
+              className="iconbtn small"
+              title="Look straight down ( T )"
+              aria-label="Top-down view"
+              onClick={() => camPreset('top')}
+            >
               TOP
             </button>
-            <button className="iconbtn small" title="Tilt to 35° ( O )" aria-label="Oblique view" onClick={() => camPreset('oblique')}>
+            <button
+              className="iconbtn small"
+              title="Tilt to 35° ( O )"
+              aria-label="Oblique view"
+              onClick={() => camPreset('oblique')}
+            >
               35°
             </button>
-            <button className="iconbtn small" title="North up ( N )" aria-label="North up" onClick={() => camPreset('north')}>
+            <button
+              className="iconbtn small"
+              title="North up ( N )"
+              aria-label="North up"
+              onClick={() => camPreset('north')}
+            >
               N↑
             </button>
-            <button className="iconbtn" title="Copy a link to this view" aria-label="Copy link" onClick={() => void copyLink()}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <button
+              className="iconbtn"
+              title="Copy a link to this view"
+              aria-label="Copy link"
+              onClick={() => void copyLink()}
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
                 <path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
                 <path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
               </svg>
@@ -2427,9 +2498,19 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               index={i}
               channel={channel}
               tabs={newsTabs}
-              onChannel={(id) => saveNews(newsPlayers.map((c, j) => (j === i ? id : c)), newsTabs)}
+              onChannel={(id) =>
+                saveNews(
+                  newsPlayers.map((c, j) => (j === i ? id : c)),
+                  newsTabs,
+                )
+              }
               onTabs={(ids) => saveNews(newsPlayers, ids)}
-              onClose={() => saveNews(newsPlayers.filter((_, j) => j !== i), newsTabs)}
+              onClose={() =>
+                saveNews(
+                  newsPlayers.filter((_, j) => j !== i),
+                  newsTabs,
+                )
+              }
               onAdd={
                 newsPlayers.length < MAX_NEWS_PLAYERS
                   ? () => {
@@ -2489,7 +2570,8 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               onTool={chooseTool}
               onCapture={() => void capture()}
               onClear={() => {
-                if (window.confirm('Delete all ' + drawings.length + ' drawings? This cannot be undone.')) saveDrawings([]);
+                if (window.confirm('Delete all ' + drawings.length + ' drawings? This cannot be undone.'))
+                  saveDrawings([]);
               }}
               drawingCount={drawings.length}
               toursOpen={toursOpen}
@@ -2561,308 +2643,338 @@ export default function MapPage({ me, onSignedOut }: { me: Me; onSignedOut: () =
               Layers
             </button>
             <button aria-pressed={sheet === 'R'} onClick={() => setSheet(sheet === 'R' ? null : 'R')}>
-              {selected || selectedHex || selectedMmsi || selectedNorad || selectedInfo || weatherAt || photosAt || selectedRadio ? 'Details' : 'Situation'}
+              {selected ||
+              selectedHex ||
+              selectedMmsi ||
+              selectedNorad ||
+              selectedInfo ||
+              weatherAt ||
+              photosAt ||
+              selectedRadio
+                ? 'Details'
+                : 'Situation'}
             </button>
           </nav>
         )}
         {showRight &&
           sheetWrap(
-          <aside className="side right" aria-label="Inspector">
-            {photosAt ? (
-              <StreetPhotos
-                lat={photosAt.lat}
-                lon={photosAt.lon}
-                onBack={() => setPhotosAt(null)}
-                onShow={(p) =>
-                  globe.current?.showPin(
-                    p ? { lat: p.lat, lon: p.lon, label: 'Photo' + (p.heading !== null ? ' · ' + p.heading + '°' : '') } : null,
-                  )
-                }
-              />
-            ) : weatherAt ? (
-              <WeatherHere lat={weatherAt.lat} lon={weatherAt.lon} onBack={() => setWeatherAt(null)} />
-            ) : selectedWebcam ? (
-              <WebcamInspector cam={selectedWebcam} onBack={() => setSelectedWebcam(null)} />
-            ) : selectedRadio && radioStations.some((s) => s.id === selectedRadio) ? (
-              <RadioInspector
-                station={radioStations.find((s) => s.id === selectedRadio) as RadioStation}
-                onBack={() => setSelectedRadio(null)}
-              />
-            ) : selectedAlpr && alprCameras.some((c) => c.id === selectedAlpr) ? (
-              <AlprInspector
-                cam={alprCameras.find((c) => c.id === selectedAlpr) as AlprCamera}
-                inView={alprCameras}
-                onBack={() => setSelectedAlpr(null)}
-              />
-            ) : selectedCam ? (
-              <CamInspector
-                cam={selectedCam}
-                onBack={() => setSelectedCam(null)}
-                onLookAlong={() =>
-                  selectedCam.direction !== null &&
-                  globe.current?.lookAlong(selectedCam.lat, selectedCam.lon, selectedCam.direction)
-                }
-              />
-            ) : selectedInfo ? (
-              <InfoInspector
-                info={hoverInfo(selectedInfo)}
-                note={
-                  selectedInfo.startsWith('gps:')
-                    ? 'GPS interference: the share of aircraft in this hexagon reporting a degraded position (NACp below 8) over the last hour, from the aircraft Argus sees. Not for navigation.'
-                    : selectedInfo.startsWith('wx:')
-                      ? ([...wxAlerts, ...wxZoned].find((x) => 'wx:' + x.key === selectedInfo)?.description ?? '') +
-                        ' (National Weather Service; open the alert for its full text and instructions.)'
-                      : selectedInfo.startsWith('gfw:')
-                        ? fishingNote(fishingEvents.find((x) => 'gfw:' + x.id === selectedInfo))
+            <aside className="side right" aria-label="Inspector">
+              {photosAt ? (
+                <StreetPhotos
+                  lat={photosAt.lat}
+                  lon={photosAt.lon}
+                  onBack={() => setPhotosAt(null)}
+                  onShow={(p) =>
+                    globe.current?.showPin(
+                      p
+                        ? {
+                            lat: p.lat,
+                            lon: p.lon,
+                            label: 'Photo' + (p.heading !== null ? ' · ' + p.heading + '°' : ''),
+                          }
+                        : null,
+                    )
+                  }
+                />
+              ) : weatherAt ? (
+                <WeatherHere lat={weatherAt.lat} lon={weatherAt.lon} onBack={() => setWeatherAt(null)} />
+              ) : selectedWebcam ? (
+                <WebcamInspector cam={selectedWebcam} onBack={() => setSelectedWebcam(null)} />
+              ) : selectedRadio && radioStations.some((s) => s.id === selectedRadio) ? (
+                <RadioInspector
+                  station={radioStations.find((s) => s.id === selectedRadio) as RadioStation}
+                  onBack={() => setSelectedRadio(null)}
+                />
+              ) : selectedAlpr && alprCameras.some((c) => c.id === selectedAlpr) ? (
+                <AlprInspector
+                  cam={alprCameras.find((c) => c.id === selectedAlpr) as AlprCamera}
+                  inView={alprCameras}
+                  onBack={() => setSelectedAlpr(null)}
+                />
+              ) : selectedCam ? (
+                <CamInspector
+                  cam={selectedCam}
+                  onBack={() => setSelectedCam(null)}
+                  onLookAlong={() =>
+                    selectedCam.direction !== null &&
+                    globe.current?.lookAlong(selectedCam.lat, selectedCam.lon, selectedCam.direction)
+                  }
+                />
+              ) : selectedInfo ? (
+                <InfoInspector
+                  info={hoverInfo(selectedInfo)}
+                  note={
+                    selectedInfo.startsWith('gps:')
+                      ? 'GPS interference: the share of aircraft in this hexagon reporting a degraded position (NACp below 8) over the last hour, from the aircraft Argus sees. Not for navigation.'
+                      : selectedInfo.startsWith('wx:')
+                        ? ([...wxAlerts, ...wxZoned].find((x) => 'wx:' + x.key === selectedInfo)?.description ?? '') +
+                          ' (National Weather Service; open the alert for its full text and instructions.)'
+                        : selectedInfo.startsWith('gfw:')
+                          ? fishingNote(fishingEvents.find((x) => 'gfw:' + x.id === selectedInfo))
+                          : selectedInfo.startsWith('fire:')
+                            ? 'Wildfire outline from NIFC (US National Interagency Fire Center): the area mapped as burned or burning on the date shown, which can lag behind a fast-moving fire. For evacuations follow local officials.'
+                            : selectedInfo.startsWith('storm:')
+                              ? 'Tropical cyclone from GDACS (UN and EU JRC), from the warning centres\u2019 advisories: the solid line is its track so far, the dashed line the forecast track (coloured by strength), the pale area the forecast cone (where the centre may go) and the tinted areas the winds it has brought so far (60, 90 and 120 km/h). Updated every few hours; for decisions use your national weather service.'
+                              : selectedInfo.startsWith('spc:')
+                                ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'
+                                : selectedInfo.startsWith('raid:')
+                                  ? 'Air-raid alerts as the authorities issue them: Ukraine from the official air-raid map, by oblast; Israel from the Home Front Command, by locality, for the last 24 hours. Argus refreshes them every 30 seconds; for your own safety use the official apps.'
+                                  : selectedInfo.startsWith('outage:')
+                                    ? 'Internet outage detected by IODA (Georgia Tech) from BGP routing, active probing, Google traffic or network telescope data. A high score means a large drop against normal; it can be a shutdown, a power cut, a cable cut or a fault. See the IODA dashboard for the signals.'
+                                    : selectedInfo.startsWith('rw:')
+                                      ? 'Organisations in this country that ransomware groups claimed on their leak sites, among the latest 100 claims worldwide collected by ransomware.live (usually a day or two). These are criminals’ claims, not confirmed breaches; Argus keeps counts, sectors and groups, not victim names.'
+                                      : selectedInfo.startsWith('launch:')
+                                        ? launchNote(launchItems, selectedInfo.slice(7))
+                                        : selectedInfo.startsWith('wiki:')
+                                          ? wikiNote(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
+                                          : selectedInfo.startsWith('adv:')
+                                            ? (advisories.find((x) => 'adv:' + x.country === selectedInfo)?.us
+                                                ?.summary ?? '') +
+                                              ' (US Department of State and UK FCDO; open the advice for the full text.)'
+                                            : selectedInfo.startsWith('tension:')
+                                              ? tensionNote(
+                                                  tension?.countries.find((x) => 'tension:' + x.name === selectedInfo),
+                                                )
+                                              : 'A shape you drew. Delete it with the Delete tool.'
+                  }
+                  links={
+                    selectedInfo.startsWith('gfw:')
+                      ? fishingLinks(fishingEvents.find((x) => 'gfw:' + x.id === selectedInfo))
                       : selectedInfo.startsWith('fire:')
-                        ? 'Wildfire outline from NIFC (US National Interagency Fire Center): the area mapped as burned or burning on the date shown, which can lag behind a fast-moving fire. For evacuations follow local officials.'
-                      : selectedInfo.startsWith('storm:')
-                        ? 'Tropical cyclone from GDACS (UN and EU JRC), from the warning centres\u2019 advisories: the solid line is its track so far, the dashed line the forecast track (coloured by strength), the pale area the forecast cone (where the centre may go) and the tinted areas the winds it has brought so far (60, 90 and 120 km/h). Updated every few hours; for decisions use your national weather service.'
-                      : selectedInfo.startsWith('spc:')
-                        ? 'Storm Prediction Center convective outlook: the chance of severe thunderstorms (tornadoes, damaging wind, large hail) on a 1–5 scale, Marginal to High.'
-                        : selectedInfo.startsWith('raid:')
-                          ? 'Air-raid alerts as the authorities issue them: Ukraine from the official air-raid map, by oblast; Israel from the Home Front Command, by locality, for the last 24 hours. Argus refreshes them every 30 seconds; for your own safety use the official apps.'
-                        : selectedInfo.startsWith('outage:')
-                          ? 'Internet outage detected by IODA (Georgia Tech) from BGP routing, active probing, Google traffic or network telescope data. A high score means a large drop against normal; it can be a shutdown, a power cut, a cable cut or a fault. See the IODA dashboard for the signals.'
-                        : selectedInfo.startsWith('rw:')
-                          ? 'Organisations in this country that ransomware groups claimed on their leak sites, among the latest 100 claims worldwide collected by ransomware.live (usually a day or two). These are criminals’ claims, not confirmed breaches; Argus keeps counts, sectors and groups, not victim names.'
-                        : selectedInfo.startsWith('launch:')
-                          ? launchNote(launchItems, selectedInfo.slice(7))
-                        : selectedInfo.startsWith('wiki:')
-                          ? wikiNote(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
-                          : selectedInfo.startsWith('adv:')
-                          ? (advisories.find((x) => 'adv:' + x.country === selectedInfo)?.us?.summary ?? '') +
-                            ' (US Department of State and UK FCDO; open the advice for the full text.)'
-                          : selectedInfo.startsWith('tension:')
-                      ? tensionNote(tension?.countries.find((x) => 'tension:' + x.name === selectedInfo))
-                      : 'A shape you drew. Delete it with the Delete tool.'
-                }
-                links={
-                  selectedInfo.startsWith('gfw:')
-                    ? fishingLinks(fishingEvents.find((x) => 'gfw:' + x.id === selectedInfo))
-                    : selectedInfo.startsWith('fire:')
-                    ? [{ label: 'InciWeb', url: 'https://inciweb.wildfire.gov/' }]
-                    : selectedInfo.startsWith('storm:')
-                    ? [{ label: 'GDACS report', url: storms.find((x) => 'storm:' + x.id === selectedInfo)?.report ?? 'https://www.gdacs.org/' }]
-                    : selectedInfo.startsWith('raid:ua')
-                    ? [{ label: 'Ukraine air-raid map (alerts.in.ua)', url: 'https://alerts.in.ua/en' }]
-                    : selectedInfo.startsWith('raid:il')
-                    ? [{ label: 'Tzeva Adom', url: 'https://www.tzevaadom.co.il/en/' }]
-                    : selectedInfo.startsWith('outage:')
-                    ? [{ label: 'IODA dashboard', url: 'https://ioda.inetintel.cc.gatech.edu/country/' + selectedInfo.slice(7) }]
-                    : selectedInfo.startsWith('rw:')
-                    ? [{ label: 'ransomware.live', url: 'https://www.ransomware.live/' }]
-                    : selectedInfo.startsWith('launch:')
-                    ? launchLinks(launchItems.find((x) => 'launch:' + x.id === selectedInfo))
-                    : selectedInfo.startsWith('wiki:')
-                    ? wikiLinks(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
-                    : advisoryLinks(advisories.find((x) => 'adv:' + x.country === selectedInfo))
-                }
-                onBack={() => setSelectedInfo(null)}
-              />
-            ) : areaSel ? (
-              <SelectionPanel
-                sel={areaSel}
-                onBack={() => setAreaSel(null)}
-                onEvent={(id) => {
-                  setAreaSel(null);
-                  selectAndFly(id);
-                }}
-                onAircraft={(hex) => {
-                  setAreaSel(null);
-                  selectAircraft(hex, 'follow');
-                }}
-                onVessel={(mmsi) => {
-                  setAreaSel(null);
-                  selectVessel(mmsi, 'follow');
-                }}
-                onZoom={() => {
-                  const lons = areaSel.ring.map((p) => p[0]);
-                  const lats = areaSel.ring.map((p) => p[1]);
-                  const span = Math.max(Math.max(...lons) - Math.min(...lons), Math.max(...lats) - Math.min(...lats));
-                  globe.current?.flyTo(
-                    (Math.max(...lats) + Math.min(...lats)) / 2,
-                    (Math.max(...lons) + Math.min(...lons)) / 2,
-                    Math.max(20_000, span * 160_000),
-                  );
-                }}
-              />
-            ) : selectedAirport ? (
-              <PlaceInspector
-                place={{
-                  kind: 'airport',
-                  code: selectedAirport[0],
-                  name: selectedAirport[1],
-                  lon: selectedAirport[2],
-                  lat: selectedAirport[3],
-                }}
-                faa={faa}
-                onBack={clearSelection}
-                onFly={() => globe.current?.flyTo(selectedAirport[3], selectedAirport[2], 20_000)}
-              />
-            ) : selectedPort ? (
-              <PlaceInspector
-                place={{
-                  kind: selectedPort[5] ? 'seaport' : 'port',
-                  code: selectedPort[0],
-                  name: selectedPort[1],
-                  country: selectedPort[2],
-                  lon: selectedPort[3],
-                  lat: selectedPort[4],
-                }}
-                onBack={clearSelection}
-                onFly={() => globe.current?.flyTo(selectedPort[4], selectedPort[3], 20_000)}
-              />
-            ) : selectedBase ? (
-              <BaseInspector
-                base={selectedBase}
-                onBack={clearSelection}
-                onFly={() => globe.current?.flyTo(selectedBase[3], selectedBase[2], 30_000)}
-              />
-            ) : selectedPlant ? (
-              <PlantInspector
-                plant={selectedPlant}
-                onBack={clearSelection}
-                onFly={() => globe.current?.flyTo(selectedPlant[5], selectedPlant[4], 25_000)}
-              />
-            ) : selectedCable ? (
-              <CableInspector cable={selectedCable} onBack={clearSelection} />
-            ) : selectedAirspaceItem ? (
-              <AirspaceInspector
-                item={selectedAirspaceItem}
-                onBack={clearSelection}
-                onFly={() => {
-                  const it = selectedAirspaceItem;
-                  if (it.lat !== null && it.lon !== null) globe.current?.flyTo(it.lat, it.lon, 900_000);
-                }}
-              />
-            ) : selectedMmsi !== null ? (
-              <VesselInspector
-                mmsi={selectedMmsi}
-                pattern={patterns?.sea.find((p) => p.mmsi === selectedMmsi) ?? null}
-                camera={camera}
-                onBack={clearSelection}
-                onCamera={setCamera}
-                onFly={(lat, lon) => {
-                  setCamera('free');
-                  globe.current?.flyTo(lat, lon, 40_000);
-                }}
-                onUpdate={setTrackedVessel}
-              />
-            ) : selectedNorad !== null ? (
-              <SatelliteInspector
-                norad={selectedNorad}
-                home={home}
-                mapCentre={() => {
-                  const b = globe.current?.view()?.bbox;
-                  if (!b) return null;
-                  const [w, s, e, n] = b;
-                  return { lat: (s + n) / 2, lon: e >= w ? (w + e) / 2 : (((w + e + 360) / 2 + 180) % 360) - 180 };
-                }}
-                following={followSat}
-                onBack={clearSelection}
-                onFollow={setFollowSat}
-                onFly={() => {
-                  setFollowSat(false);
-                  globe.current?.flyToSatellite(selectedNorad);
-                }}
-                orbit={(n) => globe.current?.satOrbit(n) ?? Promise.resolve(null)}
-                passes={(n, lat, lon) => globe.current?.satPasses(n, lat, lon) ?? Promise.resolve([])}
-              />
-            ) : selectedHex ? (
-              <AircraftInspector
-                hex={selectedHex}
-                pattern={patterns?.air.find((p) => p.hex === selectedHex) ?? null}
-                camera={camera}
-                onBack={clearSelection}
-                onCamera={setCamera}
-                onFly={(lat, lon) => {
-                  setCamera('free');
-                  globe.current?.flyTo(lat, lon, 150_000);
-                }}
-                onUpdate={onAircraftUpdate}
-                showRoute={showRoute}
-                onShowRoute={(on) => {
-                  setShowRoute(on);
-                  void savePreferences({ show_route: on }).catch(() => undefined);
-                }}
-              />
-            ) : selected ? (
-              <EventInspector
-                id={selected}
-                onBack={() => setSelected(null)}
-                onFly={(lat, lon) => globe.current?.flyTo(lat, lon)}
-              />
-            ) : askOpen ? (
-              <AskPanel
-                items={askLog}
-                busy={askBusy}
-                onAsk={(q) => void ask(q)}
-                onEvent={(id) => {
-                  clearSelection();
-                  setSelected(id);
-                }}
-                onView={(v) => globe.current?.flyTo(v.lat, v.lon, v.height_m)}
-                onClose={() => setAskOpen(false)}
-              />
-            ) : toursOpen ? (
-              <TourPanel
-                tours={tours}
-                shared={sharedTour}
-                activeId={activeTour}
-                playing={playing}
-                onActive={setActiveTour}
-                onTours={saveTours}
-                onSaveShared={() => {
-                  if (!sharedTour) return;
-                  saveTours([...tours, sharedTour]);
-                  setSharedTour(null);
-                }}
-                currentCamera={() => globe.current?.cameraString() ?? null}
-                onGo={(s) => {
-                  stopTour();
-                  void globe.current?.flyCamera(s.camera, Math.min(s.fly_s, 3));
-                }}
-                onPlay={(t, from) => void playTour(t, from)}
-                onStop={stopTour}
-                onClose={() => setToursOpen(false)}
-              />
-            ) : sentinel ? (
-              <ImageryPanel
-                state={sentinel}
-                onChange={(next) => setSentinel((s) => (s ? next(s) : s))}
-                onClose={() => setSentinel(null)}
-                onFly={() => {
-                  const [w, s, e, n] = sentinel.box;
-                  globe.current?.flyTo((s + n) / 2, (w + e) / 2, Math.max(15_000, (n - s) * 111_000 * 1.6));
-                }}
-              />
-            ) : (
-              <SituationPanel
-                summary={summary}
-                events={shown}
-                home={home}
-                onSelect={selectAndFly}
-                aircraft={aircraft}
-                onSelectAircraft={(hex) => selectAircraft(hex, 'follow')}
-                patterns={patterns}
-                raids={raidsOn ? raids : null}
-                onFlyTo={(lat, lon) => globe.current?.flyTo(lat, lon, 600_000)}
-                onSelectVessel={(mmsi) => selectVessel(mmsi, 'follow')}
-                tension={tension}
-                view={viewBox}
-                kpis={{
-                  military: military.length,
-                  tankers: military.filter((a) => a.role === 'Tanker').length,
-                  vessels: seaOn ? vessels.length : null,
-                  gps: gpsCells.filter((c) => c.level !== 'low').length,
-                }}
-                weatherNow={weatherNow}
-                homeAlerts={homeAlerts}
-              />
-            )}
-          </aside>
-        )}
+                        ? [{ label: 'InciWeb', url: 'https://inciweb.wildfire.gov/' }]
+                        : selectedInfo.startsWith('storm:')
+                          ? [
+                              {
+                                label: 'GDACS report',
+                                url:
+                                  storms.find((x) => 'storm:' + x.id === selectedInfo)?.report ??
+                                  'https://www.gdacs.org/',
+                              },
+                            ]
+                          : selectedInfo.startsWith('raid:ua')
+                            ? [{ label: 'Ukraine air-raid map (alerts.in.ua)', url: 'https://alerts.in.ua/en' }]
+                            : selectedInfo.startsWith('raid:il')
+                              ? [{ label: 'Tzeva Adom', url: 'https://www.tzevaadom.co.il/en/' }]
+                              : selectedInfo.startsWith('outage:')
+                                ? [
+                                    {
+                                      label: 'IODA dashboard',
+                                      url: 'https://ioda.inetintel.cc.gatech.edu/country/' + selectedInfo.slice(7),
+                                    },
+                                  ]
+                                : selectedInfo.startsWith('rw:')
+                                  ? [{ label: 'ransomware.live', url: 'https://www.ransomware.live/' }]
+                                  : selectedInfo.startsWith('launch:')
+                                    ? launchLinks(launchItems.find((x) => 'launch:' + x.id === selectedInfo))
+                                    : selectedInfo.startsWith('wiki:')
+                                      ? wikiLinks(wikiItems.find((x) => 'wiki:' + x.id === selectedInfo))
+                                      : advisoryLinks(advisories.find((x) => 'adv:' + x.country === selectedInfo))
+                  }
+                  onBack={() => setSelectedInfo(null)}
+                />
+              ) : areaSel ? (
+                <SelectionPanel
+                  sel={areaSel}
+                  onBack={() => setAreaSel(null)}
+                  onEvent={(id) => {
+                    setAreaSel(null);
+                    selectAndFly(id);
+                  }}
+                  onAircraft={(hex) => {
+                    setAreaSel(null);
+                    selectAircraft(hex, 'follow');
+                  }}
+                  onVessel={(mmsi) => {
+                    setAreaSel(null);
+                    selectVessel(mmsi, 'follow');
+                  }}
+                  onZoom={() => {
+                    const lons = areaSel.ring.map((p) => p[0]);
+                    const lats = areaSel.ring.map((p) => p[1]);
+                    const span = Math.max(Math.max(...lons) - Math.min(...lons), Math.max(...lats) - Math.min(...lats));
+                    globe.current?.flyTo(
+                      (Math.max(...lats) + Math.min(...lats)) / 2,
+                      (Math.max(...lons) + Math.min(...lons)) / 2,
+                      Math.max(20_000, span * 160_000),
+                    );
+                  }}
+                />
+              ) : selectedAirport ? (
+                <PlaceInspector
+                  place={{
+                    kind: 'airport',
+                    code: selectedAirport[0],
+                    name: selectedAirport[1],
+                    lon: selectedAirport[2],
+                    lat: selectedAirport[3],
+                  }}
+                  faa={faa}
+                  onBack={clearSelection}
+                  onFly={() => globe.current?.flyTo(selectedAirport[3], selectedAirport[2], 20_000)}
+                />
+              ) : selectedPort ? (
+                <PlaceInspector
+                  place={{
+                    kind: selectedPort[5] ? 'seaport' : 'port',
+                    code: selectedPort[0],
+                    name: selectedPort[1],
+                    country: selectedPort[2],
+                    lon: selectedPort[3],
+                    lat: selectedPort[4],
+                  }}
+                  onBack={clearSelection}
+                  onFly={() => globe.current?.flyTo(selectedPort[4], selectedPort[3], 20_000)}
+                />
+              ) : selectedBase ? (
+                <BaseInspector
+                  base={selectedBase}
+                  onBack={clearSelection}
+                  onFly={() => globe.current?.flyTo(selectedBase[3], selectedBase[2], 30_000)}
+                />
+              ) : selectedPlant ? (
+                <PlantInspector
+                  plant={selectedPlant}
+                  onBack={clearSelection}
+                  onFly={() => globe.current?.flyTo(selectedPlant[5], selectedPlant[4], 25_000)}
+                />
+              ) : selectedCable ? (
+                <CableInspector cable={selectedCable} onBack={clearSelection} />
+              ) : selectedAirspaceItem ? (
+                <AirspaceInspector
+                  item={selectedAirspaceItem}
+                  onBack={clearSelection}
+                  onFly={() => {
+                    const it = selectedAirspaceItem;
+                    if (it.lat !== null && it.lon !== null) globe.current?.flyTo(it.lat, it.lon, 900_000);
+                  }}
+                />
+              ) : selectedMmsi !== null ? (
+                <VesselInspector
+                  mmsi={selectedMmsi}
+                  pattern={patterns?.sea.find((p) => p.mmsi === selectedMmsi) ?? null}
+                  camera={camera}
+                  onBack={clearSelection}
+                  onCamera={setCamera}
+                  onFly={(lat, lon) => {
+                    setCamera('free');
+                    globe.current?.flyTo(lat, lon, 40_000);
+                  }}
+                  onUpdate={setTrackedVessel}
+                />
+              ) : selectedNorad !== null ? (
+                <SatelliteInspector
+                  norad={selectedNorad}
+                  home={home}
+                  mapCentre={() => {
+                    const b = globe.current?.view()?.bbox;
+                    if (!b) return null;
+                    const [w, s, e, n] = b;
+                    return { lat: (s + n) / 2, lon: e >= w ? (w + e) / 2 : (((w + e + 360) / 2 + 180) % 360) - 180 };
+                  }}
+                  following={followSat}
+                  onBack={clearSelection}
+                  onFollow={setFollowSat}
+                  onFly={() => {
+                    setFollowSat(false);
+                    globe.current?.flyToSatellite(selectedNorad);
+                  }}
+                  orbit={(n) => globe.current?.satOrbit(n) ?? Promise.resolve(null)}
+                  passes={(n, lat, lon) => globe.current?.satPasses(n, lat, lon) ?? Promise.resolve([])}
+                />
+              ) : selectedHex ? (
+                <AircraftInspector
+                  hex={selectedHex}
+                  pattern={patterns?.air.find((p) => p.hex === selectedHex) ?? null}
+                  camera={camera}
+                  onBack={clearSelection}
+                  onCamera={setCamera}
+                  onFly={(lat, lon) => {
+                    setCamera('free');
+                    globe.current?.flyTo(lat, lon, 150_000);
+                  }}
+                  onUpdate={onAircraftUpdate}
+                  showRoute={showRoute}
+                  onShowRoute={(on) => {
+                    setShowRoute(on);
+                    void savePreferences({ show_route: on }).catch(() => undefined);
+                  }}
+                />
+              ) : selected ? (
+                <EventInspector
+                  id={selected}
+                  onBack={() => setSelected(null)}
+                  onFly={(lat, lon) => globe.current?.flyTo(lat, lon)}
+                />
+              ) : askOpen ? (
+                <AskPanel
+                  items={askLog}
+                  busy={askBusy}
+                  onAsk={(q) => void ask(q)}
+                  onEvent={(id) => {
+                    clearSelection();
+                    setSelected(id);
+                  }}
+                  onView={(v) => globe.current?.flyTo(v.lat, v.lon, v.height_m)}
+                  onClose={() => setAskOpen(false)}
+                />
+              ) : toursOpen ? (
+                <TourPanel
+                  tours={tours}
+                  shared={sharedTour}
+                  activeId={activeTour}
+                  playing={playing}
+                  onActive={setActiveTour}
+                  onTours={saveTours}
+                  onSaveShared={() => {
+                    if (!sharedTour) return;
+                    saveTours([...tours, sharedTour]);
+                    setSharedTour(null);
+                  }}
+                  currentCamera={() => globe.current?.cameraString() ?? null}
+                  onGo={(s) => {
+                    stopTour();
+                    void globe.current?.flyCamera(s.camera, Math.min(s.fly_s, 3));
+                  }}
+                  onPlay={(t, from) => void playTour(t, from)}
+                  onStop={stopTour}
+                  onClose={() => setToursOpen(false)}
+                />
+              ) : sentinel ? (
+                <ImageryPanel
+                  state={sentinel}
+                  onChange={(next) => setSentinel((s) => (s ? next(s) : s))}
+                  onClose={() => setSentinel(null)}
+                  onFly={() => {
+                    const [w, s, e, n] = sentinel.box;
+                    globe.current?.flyTo((s + n) / 2, (w + e) / 2, Math.max(15_000, (n - s) * 111_000 * 1.6));
+                  }}
+                />
+              ) : (
+                <SituationPanel
+                  summary={summary}
+                  events={shown}
+                  home={home}
+                  onSelect={selectAndFly}
+                  aircraft={aircraft}
+                  onSelectAircraft={(hex) => selectAircraft(hex, 'follow')}
+                  patterns={patterns}
+                  raids={raidsOn ? raids : null}
+                  onFlyTo={(lat, lon) => globe.current?.flyTo(lat, lon, 600_000)}
+                  onSelectVessel={(mmsi) => selectVessel(mmsi, 'follow')}
+                  tension={tension}
+                  view={viewBox}
+                  kpis={{
+                    military: military.length,
+                    tankers: military.filter((a) => a.role === 'Tanker').length,
+                    vessels: seaOn ? vessels.length : null,
+                    gps: gpsCells.filter((c) => c.level !== 'low').length,
+                  }}
+                  weatherNow={weatherNow}
+                  homeAlerts={homeAlerts}
+                />
+              )}
+            </aside>,
+          )}
       </main>
     </div>
   );

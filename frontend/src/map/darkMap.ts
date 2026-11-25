@@ -3,21 +3,8 @@
 // a near-black ocean, with borders, coastlines and a faint graticule. It
 // needs no tile service; street detail fades in from tiles as you zoom.
 
-import {
-  ArcType,
-  Cartesian3,
-  Color,
-  GeometryInstance,
-  PolygonGeometry,
-  PolygonHierarchy,
-} from '@cesium/core';
-import {
-  Material,
-  MaterialAppearance,
-  PolylineCollection,
-  Primitive,
-  type Scene,
-} from '@cesium/engine';
+import { ArcType, Cartesian3, Color, GeometryInstance, PolygonGeometry, PolygonHierarchy } from '@cesium/core';
+import { Material, MaterialAppearance, PolylineCollection, Primitive, type Scene } from '@cesium/engine';
 import { feature, mesh } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 
@@ -68,8 +55,7 @@ export async function addDarkMap(scene: Scene): Promise<DarkMap> {
     // triangulate; its coastline is still drawn below.
     if ((f.properties as { name?: string })?.name === 'Antarctica') continue;
     const g = f.geometry;
-    const polys =
-      g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
     for (const rings of polys) {
       if (!rings.length || rings[0].length < 4) continue;
       instances.push(

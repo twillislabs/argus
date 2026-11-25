@@ -6,7 +6,6 @@ import { TYPE_INFO } from '../lib/format';
 import { toMgrs } from '../lib/mgrs';
 import { altitude, roundDistance } from '../lib/units';
 
-
 // Bottom left of the map: MGRS and lat/lon under the cursor, and the
 // camera's eye altitude (as in the mock-up).
 export function CursorReadout() {
@@ -14,7 +13,13 @@ export function CursorReadout() {
   const ll =
     c.lat === null || c.lon === null
       ? '—'
-      : Math.abs(c.lat).toFixed(4) + '°' + (c.lat >= 0 ? 'N' : 'S') + ' ' + Math.abs(c.lon).toFixed(4) + '°' + (c.lon >= 0 ? 'E' : 'W');
+      : Math.abs(c.lat).toFixed(4) +
+        '°' +
+        (c.lat >= 0 ? 'N' : 'S') +
+        ' ' +
+        Math.abs(c.lon).toFixed(4) +
+        '°' +
+        (c.lon >= 0 ? 'E' : 'W');
   return (
     <div className="readout" aria-label="Cursor position">
       <span>MGRS</span>
@@ -44,7 +49,15 @@ export function ScaleBar() {
 function dtg(d: Date): string {
   const mon = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
   const p = (n: number) => String(n).padStart(2, '0');
-  return p(d.getUTCDate()) + p(d.getUTCHours()) + p(d.getUTCMinutes()) + 'Z ' + mon + ' ' + String(d.getUTCFullYear()).slice(2);
+  return (
+    p(d.getUTCDate()) +
+    p(d.getUTCHours()) +
+    p(d.getUTCMinutes()) +
+    'Z ' +
+    mon +
+    ' ' +
+    String(d.getUTCFullYear()).slice(2)
+  );
 }
 
 // Replay state: t is the cursor (null = live), from/to an optional time
@@ -169,7 +182,12 @@ export function Timeline({
               const lo = Math.min(d.start, end);
               const hi = Math.max(d.start, end);
               if (hi - lo > binMs / 4) {
-                onReplay({ ...replay, from: lo, to: hi, t: replay.t !== null ? Math.min(Math.max(replay.t, lo), hi) : null });
+                onReplay({
+                  ...replay,
+                  from: lo,
+                  to: hi,
+                  t: replay.t !== null ? Math.min(Math.max(replay.t, lo), hi) : null,
+                });
               }
             }
             drag.current = null;
@@ -178,7 +196,9 @@ export function Timeline({
           onDoubleClick={() => onReplay({ ...replay, from: null, to: null })}
         >
           <svg viewBox="0 0 100 34" preserveAspectRatio="none" aria-hidden="true">
-            {range && <rect x={pct(range[0])} y={0} width={pct(range[1]) - pct(range[0])} height={34} className="tlband" />}
+            {range && (
+              <rect x={pct(range[0])} y={0} width={pct(range[1]) - pct(range[0])} height={34} className="tlband" />
+            )}
             {bins.map((b, i) => {
               let y = 34;
               const t = start + (i + 0.5) * binMs;

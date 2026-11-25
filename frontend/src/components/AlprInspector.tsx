@@ -42,9 +42,7 @@ export default function AlprInspector({
     ['Model', cam.model],
     [
       'Faces',
-      cam.directions?.length
-        ? cam.directions.map((d) => compass(d) + ' (' + Math.round(d) + '°)').join(', ')
-        : null,
+      cam.directions?.length ? cam.directions.map((d) => compass(d) + ' (' + Math.round(d) + '°)').join(', ') : null,
     ],
     ['Mount', cam.mount],
     ['Zone', cam.zone],
@@ -58,8 +56,7 @@ export default function AlprInspector({
   const flock = /flock/i.test(cam.vendor);
   const portal =
     flock && cam.operator
-      ? 'https://duckduckgo.com/?q=' +
-        encodeURIComponent('site:transparency.flocksafety.com "' + cam.operator + '"')
+      ? 'https://duckduckgo.com/?q=' + encodeURIComponent('site:transparency.flocksafety.com "' + cam.operator + '"')
       : null;
 
   return (

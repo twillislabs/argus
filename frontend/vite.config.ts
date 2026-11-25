@@ -74,8 +74,7 @@ export default defineConfig({
       output: {
         entryFileNames: 'assets/js/[name]-[hash].js',
         chunkFileNames: 'assets/js/[name]-[hash].js',
-        assetFileNames: (info) =>
-          assetDir(info.names?.[0] ?? info.name ?? '') + '/[name]-[hash][extname]',
+        assetFileNames: (info) => assetDir(info.names?.[0] ?? info.name ?? '') + '/[name]-[hash][extname]',
         manualChunks: vendorChunk,
       },
     },

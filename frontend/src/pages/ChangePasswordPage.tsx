@@ -36,8 +36,8 @@ export default function ChangePasswordPage({ me, onDone }: { me: Me; onDone: () 
         <span className="eyebrow">Welcome, {me.user.display_name}</span>
         <h1>Choose your password</h1>
         <p className="quiet">
-          You signed in with a temporary password from an administrator. Choose your own to
-          continue: at least 12 characters; a passphrase works well.
+          You signed in with a temporary password from an administrator. Choose your own to continue: at least 12
+          characters; a passphrase works well.
         </p>
       </div>
       <form className="stack" onSubmit={submit} noValidate>
@@ -79,11 +79,7 @@ export default function ChangePasswordPage({ me, onDone }: { me: Me; onDone: () 
         <button type="submit" className="btn primary wide" disabled={busy}>
           {busy ? 'Saving…' : 'Set password and continue'}
         </button>
-        <button
-          type="button"
-          className="backlink"
-          onClick={() => void logout().finally(() => void onDone())}
-        >
+        <button type="button" className="backlink" onClick={() => void logout().finally(() => void onDone())}>
           Sign out
         </button>
       </form>

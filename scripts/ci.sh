@@ -53,9 +53,10 @@ install() {
   npm ci --no-audit --no-fund --loglevel=error
 }
 
-step "frontend: typecheck and build"
+step "frontend: format, typecheck and build"
 cd "$ROOT/frontend"
 install
+npm run format:check --silent
 npm run build --silent
 
 step "docs: build"

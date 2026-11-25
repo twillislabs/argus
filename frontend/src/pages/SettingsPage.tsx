@@ -114,7 +114,8 @@ const SECTIONS: Section[] = [
     title: 'Display',
     description: 'How Argus looks on this account.',
     group: 'You',
-    keywords: 'units banner video volume muted wall clocks theme frame rate performance power battery heat fps camera picture 3d',
+    keywords:
+      'units banner video volume muted wall clocks theme frame rate performance power battery heat fps camera picture 3d',
   },
   {
     id: 'users',
@@ -122,14 +123,16 @@ const SECTIONS: Section[] = [
     title: 'Users and roles',
     description: 'Who can sign in, sign-ups and approvals, groups, and what each person can do.',
     group: 'People and screens',
-    keywords: 'roles admin analyst viewer accounts lockout sign up signups register approve approval groups access limit restrict ai feature',
+    keywords:
+      'roles admin analyst viewer accounts lockout sign up signups register approve approval groups access limit restrict ai feature',
     capability: 'users.manage',
   },
   {
     id: 'displays',
     label: 'Displays',
     title: 'Wall displays',
-    description: 'Pair a TV or kiosk with a code shown on its screen; it then shows the wall. No password is stored on the device.',
+    description:
+      'Pair a TV or kiosk with a code shown on its screen; it then shows the wall. No password is stored on the device.',
     group: 'People and screens',
     keywords: 'wall tv kiosk pair code profiles',
     capability: 'users.manage',
@@ -138,7 +141,8 @@ const SECTIONS: Section[] = [
     id: 'themes',
     label: 'Themes',
     title: 'Themes',
-    description: 'Custom themes for everyone to pick: colours, fonts, corners, glow and effects, from a built-in theme.',
+    description:
+      'Custom themes for everyone to pick: colours, fonts, corners, glow and effects, from a built-in theme.',
     group: 'Map and data',
     keywords: 'theme colours colors fonts custom look style cyberpunk cassette',
     capability: 'settings.manage',
@@ -148,7 +152,7 @@ const SECTIONS: Section[] = [
     label: 'Defaults',
     title: 'Defaults for everyone',
     description:
-      'What everyone starts with: the theme, map layers and filters, news tabs and their order, how video starts, and the Brief\'s sections. Each user can still change their own.',
+      "What everyone starts with: the theme, map layers and filters, news tabs and their order, how video starts, and the Brief's sections. Each user can still change their own.",
     group: 'Map and data',
     keywords: 'layers news tabs brief sections video everyone',
     capability: 'settings.manage',
@@ -158,7 +162,7 @@ const SECTIONS: Section[] = [
     label: 'News feeds',
     title: 'News feeds',
     description:
-      'The RSS and Atom feeds Argus reads every ten minutes. Their headlines back events, title confirmed ones, make headline-led incidents and fill the Brief\'s top stories.',
+      "The RSS and Atom feeds Argus reads every ten minutes. Their headlines back events, title confirmed ones, make headline-led incidents and fill the Brief's top stories.",
     group: 'News and video',
     keywords: 'rss atom outlets headlines sources coverage',
     capability: 'settings.manage',
@@ -315,11 +319,7 @@ export default function SettingsPage({ me, onSaved, onSignedOut }: Props) {
               <div key={g} className="sgroup">
                 <div className="sgtitle">{g}</div>
                 {items.map((s) => (
-                  <Link
-                    key={s.id}
-                    to={'/settings/' + s.id}
-                    aria-current={s.id === current.id ? 'page' : undefined}
-                  >
+                  <Link key={s.id} to={'/settings/' + s.id} aria-current={s.id === current.id ? 'page' : undefined}>
                     {s.label}
                     {s.id === 'users' && (me.pending_signups ?? 0) > 0 && (
                       <span className="badge warn" title="Sign-ups waiting for approval">
@@ -559,8 +559,8 @@ function DisplaysSection() {
         </div>
         <form className="cbody" onSubmit={(e) => void pair(e)}>
           <p className="quiet small">
-            On the TV or kiosk, open <span className="mono">{window.location.origin}/pair</span>. Enter the code it shows
-            and a name for it.
+            On the TV or kiosk, open <span className="mono">{window.location.origin}/pair</span>. Enter the code it
+            shows and a name for it.
           </p>
           <div className="pairform">
             <div className="field">
@@ -580,7 +580,13 @@ function DisplaysSection() {
             </div>
             <div className="field">
               <label htmlFor="pair-name">Name</label>
-              <input id="pair-name" value={name} maxLength={80} placeholder="Ops room TV" onChange={(e) => setName(e.target.value)} />
+              <input
+                id="pair-name"
+                value={name}
+                maxLength={80}
+                placeholder="Ops room TV"
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
             <button className="btn primary" disabled={busy || code.replace(/\s/g, '').length < 6 || !name.trim()}>
               Pair
@@ -718,7 +724,11 @@ function VideoControls({
           <small>Browsers may still start a stream muted until you click on the page</small>
         </span>
         <span className="lrow flat">
-          <input type="checkbox" checked={value.muted} onChange={(e) => onChange({ ...value, muted: e.target.checked })} />
+          <input
+            type="checkbox"
+            checked={value.muted}
+            onChange={(e) => onChange({ ...value, muted: e.target.checked })}
+          />
           <span className="tog" />
         </span>
       </label>
@@ -816,7 +826,8 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
     setTabs(next);
   };
   const mine: Record<string, unknown> = {};
-  for (const k of LAYER_KEYS) if (me.preferences[k] !== undefined) mine[k === 'layers' ? 'types' : k] = me.preferences[k];
+  for (const k of LAYER_KEYS)
+    if (me.preferences[k] !== undefined) mine[k === 'layers' ? 'types' : k] = me.preferences[k];
   const layerCount = defaults.layers ? Object.keys(defaults.layers).length : 0;
 
   return (
@@ -833,7 +844,7 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
           <ThemePicker
             custom={me.themes ?? []}
             value={defaults.theme ?? 'dark'}
-            onPick={(id) => void save({ ...defaults, theme: id ?? 'dark' }, 'Theme saved as everyone\'s default.')}
+            onPick={(id) => void save({ ...defaults, theme: id ?? 'dark' }, "Theme saved as everyone's default.")}
           />
         </div>
       </section>
@@ -847,7 +858,7 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
               <b>Default layers</b>
               <small>
                 {layerCount
-                  ? 'Set from an admin\'s map. New users start with these, and Reset filters returns to them.'
+                  ? "Set from an admin's map. New users start with these, and Reset filters returns to them."
                   : 'Built-in defaults. Set the layers on your map the way you want them, then copy them here.'}
               </small>
             </span>
@@ -914,7 +925,12 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
                 </span>
                 {on && (
                   <span className="actions">
-                    <button className="btn small" aria-label={'Move ' + c.name + ' up'} disabled={tabs[0] === c.id} onClick={() => move(c.id, -1)}>
+                    <button
+                      className="btn small"
+                      aria-label={'Move ' + c.name + ' up'}
+                      disabled={tabs[0] === c.id}
+                      onClick={() => move(c.id, -1)}
+                    >
                       ↑
                     </button>
                     <button
@@ -967,8 +983,8 @@ function DefaultsSection({ me, onSaved }: { me: Me; onSaved: () => Promise<void>
           </span>
         </div>
         <p className="quiet small pad">
-          The order and sections the Brief starts with, for users who haven&apos;t customized
-          their own. {defaults.brief ? 'Set by an admin.' : 'Built-in: US first, then the world.'}
+          The order and sections the Brief starts with, for users who haven&apos;t customized their own.{' '}
+          {defaults.brief ? 'Set by an admin.' : 'Built-in: US first, then the world.'}
         </p>
         <BriefSectionsEditor
           layout={briefLayout(defaults.brief)}
@@ -1211,10 +1227,14 @@ function StreetMapSection() {
         </div>
         <div className="cbody">
           <p>Run on the server, next to docker-compose.yml. Every user sees the installed region.</p>
-          <pre className="raw">{'make streetmap BBOX=W,S,E,N              # any box, e.g. your state\nmake streetmap REGION=southeast   # southeast, conus, planet\nscripts/streetmap.sh conus --dry-run   # size only'}</pre>
+          <pre className="raw">
+            {
+              'make streetmap BBOX=W,S,E,N              # any box, e.g. your state\nmake streetmap REGION=southeast   # southeast, conus, planet\nscripts/streetmap.sh conus --dry-run   # size only'
+            }
+          </pre>
           <p className="quiet small">
-            Data © OpenStreetMap contributors (ODbL), from the daily Protomaps build. See Documentation →
-            Configuration → Street map.
+            Data © OpenStreetMap contributors (ODbL), from the daily Protomaps build. See Documentation → Configuration
+            → Street map.
           </p>
         </div>
       </section>
@@ -1360,7 +1380,9 @@ function KeyCard({
             onChange={(e) => setValue(e.target.value)}
           />
         </div>
-        {state?.unreadable && <p className="err">The saved key can&apos;t be read (ARGUS_SECRET_KEY changed). Enter it again.</p>}
+        {state?.unreadable && (
+          <p className="err">The saved key can&apos;t be read (ARGUS_SECRET_KEY changed). Enter it again.</p>
+        )}
         <div className="actions">
           <button className="btn primary" disabled={busy || !value.trim()} onClick={() => void save(value.trim())}>
             Save key
@@ -1417,8 +1439,8 @@ function SourcesSection() {
       </KeyCard>
       <KeyCard name="mapillary" title="Mapillary (street photos)" state={keys?.mapillary} onSaved={setKeys}>
         <p>
-          <b>Street view here</b> (right-click the map) always offers Google Street View. With a Mapillary token it
-          also shows the nearest <b>Mapillary</b> street-level photos inside Argus. Sign in at mapillary.com, open{' '}
+          <b>Street view here</b> (right-click the map) always offers Google Street View. With a Mapillary token it also
+          shows the nearest <b>Mapillary</b> street-level photos inside Argus. Sign in at mapillary.com, open{' '}
           <b>Developers</b> in your dashboard, register an application, and paste its <b>client token</b> (it starts
           MLY|) here. Free.
         </p>
@@ -1430,12 +1452,17 @@ function SourcesSection() {
           here. Argus keeps the token on the server; the data runs a few days behind.
         </p>
       </KeyCard>
- <KeyCard name="youtube" title="YouTube Data API (live streams and event video)" state={keys?.youtube} onSaved={setKeys}>
+      <KeyCard
+        name="youtube"
+        title="YouTube Data API (live streams and event video)"
+        state={keys?.youtube}
+        onSaved={setKeys}
+      >
         <p>
           <b>Live near the view</b> (Situation panel) and <b>Video</b> (event panel) search YouTube. Create a project in
           the Google Cloud console, enable the <b>YouTube Data API v3</b>, create an API key (restrict it to that API),
-          and paste it here. Its free daily quota allows about a hundred searches; Argus searches only when someone
-          asks and shares the answers.
+          and paste it here. Its free daily quota allows about a hundred searches; Argus searches only when someone asks
+          and shares the answers.
         </p>
       </KeyCard>
       <KeyCard name="windy" title="Windy (webcams)" state={keys?.windy} onSaved={setKeys}>

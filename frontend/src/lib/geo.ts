@@ -104,7 +104,7 @@ export function hatchLines(ring: LonLat[], spacing: number): LonLat[][] {
       const [x2, y2] = ring[i + 1];
       const d1 = x1 - y1 - c;
       const d2 = x2 - y2 - c;
-      if ((d1 > 0) === (d2 > 0) || d1 === d2) continue;
+      if (d1 > 0 === d2 > 0 || d1 === d2) continue;
       const t = d1 / (d1 - d2);
       hits.push(y1 + t * (y2 - y1));
     }

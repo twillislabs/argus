@@ -120,8 +120,8 @@ export default function UsersCard({ me, onSaved }: { me: Me; onSaved?: () => Pro
         {issued && (
           <div className="issued" role="status">
             <div>
-              <b>{issued.reason}</b> Give <span className="mono">{issued.username}</span> this temporary
-              password. It&apos;s shown only once; they choose their own when they first sign in.
+              <b>{issued.reason}</b> Give <span className="mono">{issued.username}</span> this temporary password.
+              It&apos;s shown only once; they choose their own when they first sign in.
             </div>
             <div className="issued-pw">
               <code>{issued.password}</code>
@@ -354,7 +354,11 @@ export function SignupCard() {
             </small>
           </span>
           <span className="lrow flat">
-            <input type="checkbox" checked={conf.open} onChange={(e) => void save({ ...conf, open: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={conf.open}
+              onChange={(e) => void save({ ...conf, open: e.target.checked })}
+            />
             <span className="tog" />
           </span>
         </label>

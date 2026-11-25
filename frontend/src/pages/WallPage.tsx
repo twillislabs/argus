@@ -239,7 +239,9 @@ export default function WallPage({ me }: { me: Me }) {
   const show = (id: WallSection) => wallSectionOn(wall, id);
   // Which optional layers to load (a string, so the loader reruns only
   // when the set changes).
-  const extras = (['ships', 'wx_alerts', 'wx_zones', 'wx_outlook', 'wx_storms', 'wind', 'advisories', 'wiki', 'stations'] as const)
+  const extras = (
+    ['ships', 'wx_alerts', 'wx_zones', 'wx_outlook', 'wx_storms', 'wind', 'advisories', 'wiki', 'stations'] as const
+  )
     .filter((k) => on(k))
     .join(',');
   const wantWeather = show('weather');
@@ -270,8 +272,7 @@ export default function WallPage({ me }: { me: Me }) {
     if (e.status === 'fulfilled') {
       setEvents(e.value.events);
       setLastOk(Date.now());
-    }
-    else setEvents((x) => x ?? []);
+    } else setEvents((x) => x ?? []);
     if (a.status === 'fulfilled') setAircraft(a.value.aircraft.filter((x) => x.mil));
     if (g.status === 'fulfilled') setGpsCells(g.value.cells);
     if (s.status === 'fulfilled') setAirspace(s.value.items);

@@ -110,7 +110,11 @@ export default function NewsPlayer({ index, channel, tabs, onChannel, onTabs, on
           title="Open in its own window"
           aria-label="Pop out"
           onClick={() =>
-            window.open('/news?c=' + encodeURIComponent(current.id), 'argus-news-' + current.id, 'popup,width=960,height=600')
+            window.open(
+              '/news?c=' + encodeURIComponent(current.id),
+              'argus-news-' + current.id,
+              'popup,width=960,height=600',
+            )
           }
         >
           ⧉
@@ -142,7 +146,9 @@ export default function NewsPlayer({ index, channel, tabs, onChannel, onTabs, on
                       type="checkbox"
                       checked={on}
                       onChange={() =>
-                        onTabs(on ? shown.filter((s) => s.id !== c.id).map((s) => s.id) : [...shown.map((s) => s.id), c.id])
+                        onTabs(
+                          on ? shown.filter((s) => s.id !== c.id).map((s) => s.id) : [...shown.map((s) => s.id), c.id],
+                        )
                       }
                     />
                     {c.name}
@@ -155,7 +161,9 @@ export default function NewsPlayer({ index, channel, tabs, onChannel, onTabs, on
       ) : (
         <LiveFrame channel={current} />
       )}
-      <div className="np-foot">Streams are the channels&apos; own, played through {PLATFORM_NAME[current.platform ?? 'youtube']}.</div>
+      <div className="np-foot">
+        Streams are the channels&apos; own, played through {PLATFORM_NAME[current.platform ?? 'youtube']}.
+      </div>
     </div>
   );
 }

@@ -360,7 +360,9 @@ export default function WallEditor({
                         change({ tv_channels: next.length ? next : undefined });
                       }}
                     >
-                      <option value="">{i === 0 ? 'The channel below' : i === list.length ? '+ Add a channel' : 'Remove'}</option>
+                      <option value="">
+                        {i === 0 ? 'The channel below' : i === list.length ? '+ Add a channel' : 'Remove'}
+                      </option>
                       {CHANNELS.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name}

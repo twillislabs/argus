@@ -10,13 +10,7 @@
 // target is kept in the aircraft's local east-north-up frame, which is what
 // lets the mouse keep zooming and tilting in follow and orbit.
 
-import {
-  Cartesian3,
-  FixedFrameTransforms,
-  HeadingPitchRange,
-  Math as CesiumMath,
-  Matrix4,
-} from '@cesium/core';
+import { Cartesian3, FixedFrameTransforms, HeadingPitchRange, Math as CesiumMath, Matrix4 } from '@cesium/core';
 import { type CesiumWidget, SceneMode } from '@cesium/engine';
 
 import type { Aircraft } from '../lib/api';

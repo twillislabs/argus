@@ -109,8 +109,7 @@ export default function HomePicker({ value, onChange }: Props) {
             ))}
             {results.length === 0 && (
               <li className="hint pad">
-                No match. Places with 15,000+ people are listed; for anywhere else enter
-                coordinates below.
+                No match. Places with 15,000+ people are listed; for anywhere else enter coordinates below.
               </li>
             )}
           </ul>

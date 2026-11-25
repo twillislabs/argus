@@ -2,13 +2,7 @@
 // with callsign labels for military and selected aircraft and a trail for
 // the selected one. Billboards are keyed by hex and updated in place.
 
-import {
-  Cartesian2,
-  Cartesian3,
-  Color,
-  DistanceDisplayCondition,
-  NearFarScalar,
-} from '@cesium/core';
+import { Cartesian2, Cartesian3, Color, DistanceDisplayCondition, NearFarScalar } from '@cesium/core';
 import {
   type Billboard,
   BillboardCollection,
@@ -99,15 +93,10 @@ export function extrapolate(a: Aircraft, dt: number): { lon: number; lat: number
   const theta = a.track * DEG;
   const phi1 = a.lat * DEG;
   const lambda1 = a.lon * DEG;
-  const phi2 = Math.asin(
-    Math.sin(phi1) * Math.cos(delta) + Math.cos(phi1) * Math.sin(delta) * Math.cos(theta),
-  );
+  const phi2 = Math.asin(Math.sin(phi1) * Math.cos(delta) + Math.cos(phi1) * Math.sin(delta) * Math.cos(theta));
   const lambda2 =
     lambda1 +
-    Math.atan2(
-      Math.sin(theta) * Math.sin(delta) * Math.cos(phi1),
-      Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2),
-    );
+    Math.atan2(Math.sin(theta) * Math.sin(delta) * Math.cos(phi1), Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2));
   const lon = ((((lambda2 / DEG + 540) % 360) + 360) % 360) - 180;
   return { lon, lat: phi2 / DEG, altM };
 }

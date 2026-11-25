@@ -69,8 +69,8 @@ export default function SignupPage({ onDone }: { onDone: () => Promise<void> }) 
       ) : waiting ? (
         <>
           <p>
-            Your account <b>{username.trim().toLowerCase()}</b> is made and waiting for an administrator to approve
-            it. Once they have, sign in with the password you chose.
+            Your account <b>{username.trim().toLowerCase()}</b> is made and waiting for an administrator to approve it.
+            Once they have, sign in with the password you chose.
           </p>
           <a className="btn primary" href="/login">
             Go to sign in
