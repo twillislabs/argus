@@ -6,6 +6,11 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+## [1.9.4] - 2026-11-25
+
+New rounded icons and a hint for the weather loop. Nothing to change
+when you upgrade; for the new iPhone Home Screen icon, see Icons below.
+
 ### Weather
 
 - **Loop the last hour** says *Turn on Radar (US) or Clouds to loop them*
