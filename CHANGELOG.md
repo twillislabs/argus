@@ -6,6 +6,11 @@ features, and patch versions fix things. Upgrade with `./argus update`.
 
 ## [Unreleased]
 
+### Weather
+
+- **Loop the last hour** says *Turn on Radar (US) or Clouds to loop them*
+  when it's on with neither, instead of quietly doing nothing.
+
 ### Icons
 
 - New icons with rounded corners, generated as a complete set
